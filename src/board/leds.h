@@ -15,28 +15,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#ifndef SWIFTNAV_LEDS_H
+#define SWIFTNAV_LEDS_H
 
-#include "board/leds.h"
+#define LED_RED   LED_1
+#define LED_GREEN LED_2
+#define LED_1 1
+#define LED_2 2
 
-int main(void)
-{
-	int i;
+void led_setup(void);
+void led_on(u8 led);
+void led_off(u8 led);
+void led_toggle(u8 led);
 
-	led_setup();
-
-  led_on(LED_GREEN);
-  led_off(LED_RED);
-
-	/* Blink the LEDs on the board. */
-	while (1) {
-		/* Using API function gpio_toggle(): */
-		led_toggle(LED_GREEN);
-		led_toggle(LED_RED);
-		for (i = 0; i < 600000; i++)	/* Wait a bit. */
-			__asm__("nop");
-	}
-
-	return 0;
-}
+#endif

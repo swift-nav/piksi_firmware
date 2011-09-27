@@ -18,25 +18,49 @@
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/gpio.h>
 
-#include "board/leds.h"
+#include "leds.h"
 
-int main(void)
+void led_setup(void)
 {
-	int i;
+  RCC_AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO3|GPIO4);
+}
 
-	led_setup();
+void led_off(u8 led) {
+  switch (led) {
+    case LED_1:
+      gpio_set(GPIOC, GPIO3);
+      break;
+    case LED_2:
+      gpio_set(GPIOC, GPIO4);
+      break;
+    default:
+      break;
+  }
+}
 
-  led_on(LED_GREEN);
-  led_off(LED_RED);
+void led_on(u8 led) {
+  switch (led) {
+    case LED_1:
+      gpio_clear(GPIOC, GPIO3);
+      break;
+    case LED_2:
+      gpio_clear(GPIOC, GPIO4);
+      break;
+    default:
+      break;
+  }
+}
 
-	/* Blink the LEDs on the board. */
-	while (1) {
-		/* Using API function gpio_toggle(): */
-		led_toggle(LED_GREEN);
-		led_toggle(LED_RED);
-		for (i = 0; i < 600000; i++)	/* Wait a bit. */
-			__asm__("nop");
-	}
-
-	return 0;
+void led_toggle(u8 led) {
+  switch (led) {
+    case LED_1:
+      gpio_toggle(GPIOC, GPIO3);
+      break;
+    case LED_2:
+      gpio_toggle(GPIOC, GPIO4);
+      break;
+    default:
+      break;
+  }
 }
