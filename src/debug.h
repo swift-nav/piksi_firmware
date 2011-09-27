@@ -15,37 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/gpio.h>
-#include <stdio.h>
+#ifndef SWIFTNAV_DEBUG_H
+#define SWIFTNAV_DEBUG_H
 
-#include "debug.h"
-#include "board/leds.h"
+#include "debug_messages.h"
 
-int main(void)
-{
-  point pt;
-  pt.x = 5;
-  pt.y = 22;
-  pt.foo = 0.223344;
+#define DEBUG_MAGIC_1 0xBE
+#define DEBUG_MAGIC_2 0xEF
 
-	led_setup();
-  debug_setup();
+#define DEBUG_MSG(msg_type, item) \
+  send_debug_msg(msg_type, sizeof(item), (u8*)&(item))
+void debug_setup();
+void send_debug_msg(u8 msg_type, u8 len, u8 buff[]);
+//u8 get_debug_msg(u8 *type, u8 *len, u8 *buff[]);
 
-  led_on(LED_GREEN);
-  led_off(LED_RED);
 
-	/* Blink the LEDs on the board. */
-	while (1) {
-		/* Using API function gpio_toggle(): */
-		led_toggle(LED_GREEN);
-		led_toggle(LED_RED);
-    printf("Hello world\n");
-    DEBUG_MSG(MSG_POINT, pt);
-    //DEBUG_MSG(MSG_POINT, "Hi");
-		//for (i = 0; i < 600000; i++)	/* Wait a bit. */
-	//		__asm__("nop");
-	}
-
-	return 0;
-}
+#endif

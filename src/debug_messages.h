@@ -15,37 +15,30 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/gpio.h>
-#include <stdio.h>
+#ifndef SWIFTNAV_DEBUG_MESSAGES_H
+#define SWIFTNAV_DEBUG_MESSAGES_H
 
-#include "debug.h"
-#include "board/leds.h"
+#include <libopencm3/cm3/common.h>
 
-int main(void)
-{
-  point pt;
-  pt.x = 5;
-  pt.y = 22;
-  pt.foo = 0.223344;
+/* NOTE: This file is automatically parsed by a pyton script
+ * to extract message definitions. Its therefore important to
+ * stick to a certain format when declaring messages. You must
+ * define the message with a line of the form:
+ *
+ * #define MSG_MSGNAME 0x?? // type
+ *
+ * Type may be either string or struct. Struct types must be
+ * followed by a python struct format string in single-quotes.
+ * (see: http://docs.python.org/library/struct.html)
+ */
 
-	led_setup();
-  debug_setup();
+#define MSG_PRINT 0x01 // string
 
-  led_on(LED_GREEN);
-  led_off(LED_RED);
+#define MSG_POINT 0x02 // struct 'HHxxxxd'
+typedef struct {
+  u16 x;
+  u16 y;
+  double foo;
+} point;
 
-	/* Blink the LEDs on the board. */
-	while (1) {
-		/* Using API function gpio_toggle(): */
-		led_toggle(LED_GREEN);
-		led_toggle(LED_RED);
-    printf("Hello world\n");
-    DEBUG_MSG(MSG_POINT, pt);
-    //DEBUG_MSG(MSG_POINT, "Hi");
-		//for (i = 0; i < 600000; i++)	/* Wait a bit. */
-	//		__asm__("nop");
-	}
-
-	return 0;
-}
+#endif
