@@ -19,6 +19,7 @@
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
+SWIFTNAV_ROOT = ..
 PREFIX	?= arm-none-eabi
 # PREFIX		?= arm-elf
 CC		= $(PREFIX)-gcc
@@ -27,19 +28,18 @@ OBJCOPY		= $(PREFIX)-objcopy
 OBJDUMP		= $(PREFIX)-objdump
 # Uncomment this line if you want to use the installed (not local) library.
 #TOOLCHAIN_DIR := $(shell dirname `which $(CC)`)/../$(PREFIX)
-TOOLCHAIN_DIR   = ../../libopenstm32/
+TOOLCHAIN_DIR   = $(SWIFTNAV_ROOT)/../libopenstm32/
 CFLAGS		+= -Os -g -Wall -Wextra -I$(TOOLCHAIN_DIR)/include \
 		   -fno-common -mcpu=cortex-m3 -mthumb -msoft-float -MD -DSTM32F2
-LDSCRIPT	= $(BINARY).ld
+LDSCRIPT	= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
 LDFLAGS		+= -lc -lnosys -L$(TOOLCHAIN_DIR)/lib \
 			 -L$(TOOLCHAIN_DIR)/lib/stm32f2 \
 		   -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections \
 		   -mthumb -march=armv7 -mfix-cortex-m3-ldrd -msoft-float -lm
-OBJS		+= $(BINARY).o
 
 OOCD		?= openocd
 OOCD_INTERFACE	?= flossjtag
-OOCD_CONFIG	?= swiftnav.cfg
+OOCD_CONFIG	?= $(SWIFTNAV_ROOT)/stm32/swiftnav.cfg
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
 ifneq ($(V),1)
