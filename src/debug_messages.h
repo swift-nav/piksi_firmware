@@ -33,6 +33,7 @@
  */
 
 #define MSG_PRINT 0x01 // string
+#define MSG_U32 0x03 // struct 'I'
 
 #define MSG_POINT 0x02 // struct 'HHxxxxd'
 typedef struct {

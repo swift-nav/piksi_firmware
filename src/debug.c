@@ -25,8 +25,9 @@
 
 void debug_setup() {
   RCC_APB2ENR |= RCC_APB2ENR_USART1EN;
+	RCC_AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
 
-  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9);
+  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9|GPIO10);
 	gpio_set_af(GPIOA, GPIO_AF7, GPIO9|GPIO10);
 
 	/* Setup UART parameters. */
