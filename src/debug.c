@@ -40,6 +40,10 @@ void debug_setup() {
 
 	/* Finally enable the USART. */
 	usart_enable(USART1);
+
+  /* Disable input and output bufferings */
+  setvbuf(stdin, NULL, _IONBF, 0);
+  setvbuf(stdout, NULL, _IONBF, 0);
 }
 
 void send_debug_msg(u8 msg_type, u8 len, u8 buff[]) {
