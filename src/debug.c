@@ -31,7 +31,7 @@ void debug_setup() {
 	gpio_set_af(GPIOA, GPIO_AF7, GPIO9|GPIO10);
 
 	/* Setup UART parameters. */
-	usart_set_baudrate(USART1, 9600, 16000000);
+	usart_set_baudrate(USART1, 115200, 16000000);
 	usart_set_databits(USART1, 8);
 	usart_set_stopbits(USART1, USART_STOPBITS_1);
 	usart_set_parity(USART1, USART_PARITY_NONE);
