@@ -106,7 +106,8 @@ clean:
 	$(Q)$(OOCD) -f interface/$(OOCD_INTERFACE).cfg \
 		    -f $(OOCD_CONFIG) \
 		    -c "init" -c "reset halt" \
-		    -c "flash write_image erase $(*).hex" \
+		    -c "flash write_image erase unlock $(*).hex" \
+				-c "verify_image $(*).hex" \
 		    -c "reset" \
 		    -c "shutdown" $(NULL)
 
