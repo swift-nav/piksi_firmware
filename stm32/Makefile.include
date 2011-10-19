@@ -21,6 +21,7 @@
 
 SWIFTNAV_ROOT = ..
 PREFIX	?= arm-none-eabi
+GIT_VERSION := $(shell ../scripts/git-check.sh)
 # PREFIX		?= arm-elf
 CC		= $(PREFIX)-gcc
 LD		= $(PREFIX)-gcc
@@ -29,8 +30,9 @@ OBJDUMP		= $(PREFIX)-objdump
 # Uncomment this line if you want to use the installed (not local) library.
 #TOOLCHAIN_DIR := $(shell dirname `which $(CC)`)/../$(PREFIX)
 TOOLCHAIN_DIR   = $(SWIFTNAV_ROOT)/../libopenstm32/
-CFLAGS		+= -Os -g -Wall -Wextra -I$(TOOLCHAIN_DIR)/include \
-		   -fno-common -mcpu=cortex-m3 -mthumb -msoft-float -MD -DSTM32F2
+CFLAGS		+= -O0 -g -Wall -Wextra -Werror -I$(TOOLCHAIN_DIR)/include \
+		   -fno-common -mcpu=cortex-m3 -mthumb -msoft-float -MD -DSTM32F2 \
+			 -DGIT_VERSION="\"$(GIT_VERSION)\""
 LDSCRIPT	= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
 LDFLAGS		+= -lc -lnosys -L$(TOOLCHAIN_DIR)/lib \
 			 -L$(TOOLCHAIN_DIR)/lib/stm32f2 \
