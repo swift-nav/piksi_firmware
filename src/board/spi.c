@@ -39,10 +39,11 @@ void spi_setup(void)
 
   /* Setup SPI alternate function */
 	gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO13 | GPIO14 | GPIO15);
+  /*gpio_set_output_options(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO13 | GPIO15);*/
 	gpio_set_af(GPIOB, GPIO_AF5, GPIO13 | GPIO14 | GPIO15);
 
 	/* Setup SPI parameters. */
-  spi_init_master(SPI2, SPI_CR1_BAUDRATE_FPCLK_DIV_256, SPI_CR1_CPOL, \
+  spi_init_master(SPI2, SPI_CR1_BAUDRATE_FPCLK_DIV_256, 0, \
       SPI_CR1_CPHA, SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
   spi_enable_ss_output(SPI2); /* Required, see 25.3.1 section about NSS */
 
