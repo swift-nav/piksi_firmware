@@ -42,7 +42,6 @@
 
 void m25_write_enable(void);
 void m25_write_disable(void);
-void m25_setup(void);
 u32 m25_read_id(void);
 u8 m25_read_status(void);
 void m25_write_status(u8 sr);
@@ -53,3 +52,4 @@ void m25_sector_erase(u32 addr);
 void m25_bulk_erase(void);
 
 #endif
+

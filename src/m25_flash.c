@@ -20,11 +20,6 @@
 #include "board/spi.h"
 #include "m25_flash.h"
 
-void m25_setup(void)
-{
-  spi_setup();
-}
-
 void m25_write_enable(void)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
