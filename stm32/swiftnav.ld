@@ -1,5 +1,4 @@
 /*
- * Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
  * Copyright (C) 2011 Fergus Noble <fergusnoble@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -16,15 +15,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* Linker script for STM32F205RB, 256K flash, 64K RAM. */
-
 /* Define memory regions. */
 MEMORY
 {
-	rom (rx) : ORIGIN = 0x08000000, LENGTH = 256K
+	rom (rx) : ORIGIN = 0x08000000, LENGTH = 128K
 	ram (rwx) : ORIGIN = 0x20000000, LENGTH = 64K
 }
 
 /* Include the common ld script. */
 INCLUDE libopencm3_stm32f2.ld
+
+SECTIONS {
+  _stack_size = 1024;
+  _stack = ORIGIN(ram)+LENGTH(ram);
+  _stack_begin = _stack - _stack_size;
+}
 
