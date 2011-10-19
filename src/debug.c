@@ -46,11 +46,11 @@ void debug_setup() {
   setvbuf(stdout, NULL, _IONBF, 0);
 }
 
-void send_debug_msg(u8 msg_type, u8 len, u8 buff[]) {
-  usart_send_blocking(USART1, DEBUG_MAGIC_1);
-  usart_send_blocking(USART1, DEBUG_MAGIC_2);
-  usart_send_blocking(USART1, msg_type);
-  usart_send_blocking(USART1, len);
+void send_debug_msg(u8 msg_type __attribute__((unused)), u8 len, u8 buff[]) {
+  /*usart_send_blocking(USART1, DEBUG_MAGIC_1);*/
+  /*usart_send_blocking(USART1, DEBUG_MAGIC_2);*/
+  /*usart_send_blocking(USART1, msg_type);*/
+  /*usart_send_blocking(USART1, len);*/
   while(len--)
     usart_send_blocking(USART1, *buff++);
 }
