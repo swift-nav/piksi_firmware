@@ -52,6 +52,7 @@ void spi_setup(void)
 
 void spi_slave_select(u8 slave)
 {
+  spi_slave_deselect();
   switch (slave) {
     case SPI_SLAVE_FPGA:
       gpio_clear(GPIOC, GPIO8);
