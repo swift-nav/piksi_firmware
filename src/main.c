@@ -85,10 +85,18 @@ int main(void)
   {
     foo++;
 
+    //process_packet();
+
     swift_nap_write(1,0x69,foo);
     if ((bar = swift_nap_read(0,0x69)) != foo)
-      printf("Expected %08X, got %08X\n", (unsigned int)foo, (unsigned int)bar);
-/*
+      printf("WRITE-READBACK fail: Expected %08X, got %08X\n", (unsigned int)foo, (unsigned int)bar);
+
+    
+
+    if ((bar = swift_nap_read(1,0x69)) != 0xDEADBEEF)
+      printf("READ (constant) fail: Expected DEADBEEF, got %08X\n",(unsigned int)bar);
+    
+    /*
     foo = swift_nap_read(0x00, 0x22);
     if (foo == 0x01234567)
       ;//printf("");
