@@ -32,7 +32,7 @@ OBJDUMP		= $(PREFIX)-objdump
 TOOLCHAIN_DIR   = $(SWIFTNAV_ROOT)/../libopenstm32/
 CFLAGS		+= -O0 -g -Wall -Wextra -Werror -I$(TOOLCHAIN_DIR)/include \
 		   -fno-common -mcpu=cortex-m3 -mthumb -msoft-float -MD -DSTM32F2 \
-			 -DGIT_VERSION="\"$(GIT_VERSION)\""
+			 -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99
 LDSCRIPT	= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
 LDFLAGS		+= -lc -lnosys -L$(TOOLCHAIN_DIR)/lib \
 			 -L$(TOOLCHAIN_DIR)/lib/stm32f2 \
