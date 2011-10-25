@@ -27,6 +27,8 @@
   send_debug_msg(msg_type, sizeof(item), (u8*)&(item))
 void debug_setup();
 void send_debug_msg(u8 msg_type, u8 len, u8 buff[]);
+u8* get_in_packet();
+void process_packet();
 //u8 get_debug_msg(u8 *type, u8 *len, u8 *buff[]);
 
 

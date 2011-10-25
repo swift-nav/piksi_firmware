@@ -42,4 +42,24 @@ typedef struct {
   double foo;
 } point;
 
+
+/* ----- Input Messages ----- */
+
+#define MSG_FLASH_READ 0x80 // struct 'IB'
+typedef struct {
+  u32 address;
+  u8 length;
+} msg_flash_read_t;
+
+#define MSG_FLASH_WRITE 0x81 // struct 'IB250B'
+typedef struct {
+  u32 address;
+  u8 length;
+  u8 data[250];
+} msg_flash_write_t;
+
+#define MSG_FLASH_ERASE_PAGE 0x82 // struct 'I'
+
+#define MSG_FLASH_ERASE_ALL 0x83 // none
+
 #endif

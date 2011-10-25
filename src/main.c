@@ -16,6 +16,8 @@
  */
 
 #include <stdio.h>
+#include <libopencm3/stm32/usart.h>
+#include <libopencm3/stm32/f2/rcc.h>
 
 #include "debug.h"
 #include "m25_flash.h"
@@ -27,15 +29,53 @@
 int main(void)
 {
   u32 i, foo, bar = 0;
-  //u8 buff[100];
-
 	led_setup();
+  led_off(LED_GREEN);
+  led_off(LED_RED);
+
+  RCC_CR = (RCC_CR & 0x0000FFFF) | RCC_CR_HSEBYP;
+  RCC_CR |= RCC_CR_HSEON;
+
+  while (!(RCC_CR & RCC_CR_HSERDY));
+
+//  led_on(LED_GREEN);
+
+  // Clock setup
+  RCC_PLLCFGR = (6 << RCC_PLLCFGR_PLLQ_SHIFT) | \
+                (1 << RCC_PLLCFGR_PLLP_SHIFT) |  /* PLLP = 4 */ \
+                (256 << RCC_PLLCFGR_PLLN_SHIFT) | \
+                (16 << RCC_PLLCFGR_PLLM_SHIFT) |
+                RCC_PLLCFGR_PLLSRC;
+
+  RCC_CR |= RCC_CR_PLLON;
+
+  while (!(RCC_CR & RCC_CR_PLLRDY));
+
+ // led_on(LED_RED);
+
+
+  RCC_CFGR = (RCC_CFGR_PPRE_DIV_2 << RCC_CFGR_PPRE1_SHIFT) | \
+             (RCC_CFGR_PPRE_DIV_2 << RCC_CFGR_PPRE2_SHIFT) | \
+             (RCC_CFGR_HPRE_DIV_2 << RCC_CFGR_HPRE_SHIFT);
+
+
+  RCC_CFGR = (RCC_CFGR & 0xFFFFFFFC) | (RCC_CFGR_SW_PLL << RCC_CFGR_SW_SHIFT);
+
+/*  
+  while(1) {
+    led_on(LED_RED);
+    for (i = 0; i < 60000; i++)
+      __asm__("nop");
+    
+    led_off(LED_RED);
+    for (i = 0; i < 600000; i++)
+      __asm__("nop");
+  }
+*/
   debug_setup();
   //exti_setup();
   spi_setup();
 
-  led_off(LED_GREEN);
-  led_off(LED_RED);
 
   foo=bar;
 
