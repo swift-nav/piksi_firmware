@@ -16,9 +16,27 @@
  */
 
 #include <libopencm3/stm32/spi.h>
+#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f2/rcc.h>
 
 #include "swift_nap.h"
 #include "board/spi.h"
+
+void swift_nap_setup()
+{
+  // Setup the reset line GPIO
+  RCC_AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO6);
+  gpio_clear(GPIOB, GPIO6);
+}
+
+void swift_nap_reset()
+{
+  gpio_set(GPIOB, GPIO6);
+  for (int i = 0; i < 50; i++)
+    __asm__("nop");
+  gpio_clear(GPIOB, GPIO6);
+}
 
 u32 swift_nap_xfer(u8 spi_id, u8 addr, u32 data)
 {

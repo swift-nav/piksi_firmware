@@ -20,6 +20,10 @@
 
 #include <libopencm3/cm3/common.h>
 
+void swift_nap_setup();
+
+void swift_nap_reset();
+
 u32 swift_nap_xfer(u8 spi_id, u8 addr, u32 data);
 
 u32 swift_nap_read(u8 spi_id, u8 addr);
