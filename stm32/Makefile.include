@@ -111,6 +111,14 @@ clean:
 		    -c "reset" \
 		    -c "shutdown" $(NULL)
 
+reset:
+	@echo "  RESET "
+	$(Q)$(OOCD) -f interface/$(OOCD_INTERFACE).cfg \
+		    -f $(OOCD_CONFIG) \
+		    -c "init" \
+		    -c "reset" \
+		    -c "shutdown" $(NULL)
+
 ftdi_kextunload:
 	sudo kextunload /System/Library/Extensions/FTDIUSBSerialDriver.kext
 ftdi_kextload:
