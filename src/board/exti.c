@@ -20,7 +20,12 @@
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/nvic.h>
 
+#include "../swift_nap.h"
 #include "exti.h"
+#include "leds.h"
+
+u32 CIE[16], CQE[16], CIP[16], CQP[16], CIL[16], CQL[16];
+u8 exti_count = 0;
 
 void exti_setup()
 {
@@ -37,18 +42,48 @@ void exti_setup()
 	exti_enable_request(EXTI0);
 }
 
-/*
+
+/*void exti0_isr()*/
+/*{*/
+  /*uint32_t code_phase[2], carrier_phase[2];*/
+  
+  /*carrier_phase[1] = swift_nap_read(0, 0); // 8 MSB*/
+  /*carrier_phase[1] = swift_nap_read(0, 1); // 32 LSB*/
+  /*code_phase[1] = swift_nap_read(0, 10);   // 10 MSB*/
+  /*code_phase[0] = swift_nap_read(0, 11);   // 32 LSB*/
+
+  /*[> Do tracking loops <]*/
+
+  /*swift_nap_write(*/
+/*}*/
+
+s32 sign_extend(u32 n, u8 bits)
+{
+  if (n & (1 << (bits-1)))
+    return ((s32)(n << (32-bits)) >> (32-bits));
+  
+  return (s32)n;
+}
+
 void exti0_isr()
 {
 
-  if (EXTI_PR & EXTI0)
-    led_on(LED_RED);
-  else
-    led_off(LED_RED);
+  if (exti_count < 16) {
+    /*CIE[exti_count] = swift_nap_read(0, 17);*/
+    /*CQE[exti_count] = swift_nap_read(0, 18);*/
+    /*CIP[exti_count] = swift_nap_read(0, 19);*/
+    /*CQP[exti_count] = swift_nap_read(0, 20);*/
+    /*CIL[exti_count] = swift_nap_read(0, 21);*/
+    /*CQL[exti_count] = swift_nap_read(0, 22);*/
+    CIP[exti_count] = sign_extend(swift_nap_read(0, 19), 22);
+    /*CQP[exti_count] = sign_extend(swift_nap_read(0, 20), 22);*/
+    /*CIE[exti_count] = sign_extend(swift_nap_read(0, 17), 22);*/
+    /*CQE[exti_count] = sign_extend(swift_nap_read(0, 18), 22);*/
+    /*CIL[exti_count] = sign_extend(swift_nap_read(0, 21), 22);*/
+    /*CQL[exti_count] = sign_extend(swift_nap_read(0, 22), 22);*/
+    exti_count++;
+  }
+
+  led_toggle(LED_GREEN);
   exti_reset_request(EXTI0);
-
-  //led_toggle(LED_GREEN);
-
 }
-*/
-
