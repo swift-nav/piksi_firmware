@@ -18,6 +18,8 @@
 #include <stdio.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f2/rcc.h>
+#include <libopencm3/stm32/exti.h>
+#include <libopencm3/stm32/f2/gpio.h>
 
 #include "debug.h"
 #include "m25_flash.h"
@@ -26,14 +28,19 @@
 #include "board/exti.h"
 #include "board/spi.h"
 
-extern u32 CIE[16], CQE[16], CIP[16], CQP[16], CIL[16], CQL[16];
-extern u8 exti_count;
+extern u32 exti_count;
+extern u32 data[10][100];
 
 int main(void)
 {
 	led_setup();
   led_off(LED_GREEN);
   led_off(LED_RED);
+
+  // Debug pins:
+  RCC_AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO10|GPIO11);
+  gpio_clear(GPIOC, GPIO10|GPIO11);
 
   RCC_CR = (RCC_CR & 0x0000FFFF) | RCC_CR_HSEBYP;
   RCC_CR |= RCC_CR_HSEON;
@@ -106,46 +113,27 @@ int main(void)
   swift_nap_write(0,12,0x10000000);// code_pr_s32);
   /*printf("Setting code phase rate: %f (0x%08X)\n", code_pr_init, (unsigned int)code_pr_s32);*/
 
-  swift_nap_write(0,30,1);
-  printf("Channel active <= 1\n");
+  gpio_set(GPIOC, GPIO10);
   exti_setup();
+
+
+  for (u32 i = 0; i < 6000; i++)
+    __asm__("nop");
+  /*printf("Channel active <= 1\n");*/
+  swift_nap_write(0,30,1);
 
   while (1)
   {
-/*
-    uint32_t code_phase[2], carrier_phase[2];
- 
-    carrier_phase[1] = swift_nap_read(0, 0); // 8 MSB
-    carrier_phase[1] = swift_nap_read(0, 1); // 32 LSB
-    code_phase[1] = swift_nap_read(0, 10);   // 10 MSB
-    code_phase[0] = swift_nap_read(0, 11);   // 32 LSB
-
-    printf("Carrier phase: %X.%08X\n",(unsigned int)carrier_phase[1],(unsigned int)carrier_phase[0]);
-    printf("Code phase: %X.%08X\n",(unsigned int)code_phase[1],(unsigned int)code_phase[0]);
-*/
-    if (exti_count >= 16) {
+    if (exti_count >= 100) {
       printf("----------------------------------------------\n");
-      /*for (u8 i=0; i<exti_count; i++) {*/
-        /*printf("%08X %08X %08X %08X %08X %08X\n",*/
-            /*(unsigned int)CIE[i],*/
-            /*(unsigned int)CQE[i],*/
-            /*(unsigned int)CIP[i],*/
-            /*(unsigned int)CQP[i],*/
-            /*(unsigned int)CIL[i],*/
-            /*(unsigned int)CQL[i]*/
-            /*);*/
-      /*}*/
-      for (u8 i=0; i<exti_count; i++) {
-        printf("% 6i\t% 6i\t% 6i\t% 6i\t% 6i\t% 6i\n",
-            (int)CIE[i],
-            (int)CQE[i],
-            (int)CIP[i],
-            (int)CQP[i],
-            (int)CIL[i],
-            (int)CQL[i]
-            );
+      for (u32 i=0; i<exti_count; i++) {
+        for (u8 j=0; j<10; j++)
+          printf("% 6i\t", (int)data[j][i]);
+        printf("\n");
       }
       printf("----------------------------------------------\n");
+      /*swift_nap_write(0,30,0);*/
+      /*exti_reset_request(EXTI0);*/
       break;
       /*exti_count = 0;*/
     }
@@ -156,6 +144,7 @@ int main(void)
     /*for (u32 i = 0; i < 60000; i++)*/
       /*__asm__("nop");*/
 	}
+  gpio_clear(GPIOC, GPIO10);
   while(1) {
     led_toggle(LED_RED);
 
