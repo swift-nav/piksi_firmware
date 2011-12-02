@@ -15,23 +15,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SWIFTNAV_SPI_H
-#define SWIFTNAV_SPI_H
+#ifndef SWIFTNAV_MAX2769_H
+#define SWIFTNAV_MAX2769_H
 
 #include <libopencm3/cm3/common.h>
-#include <libopencm3/stm32/spi.h>
 
-#define SPI_SLAVE_FPGA     0x01
-#define SPI_SLAVE_FLASH    0x02
-#define SPI_SLAVE_FRONTEND 0x03
+#define MAX2769_CONF1   0x00
+#define MAX2769_CONF2   0x01
+#define MAX2769_CONF3   0x02
+#define MAX2769_PLLCONF 0x03
+#define MAX2769_DIV     0x04
+#define MAX2769_FDIV    0x05
+#define MAX2769_STRM    0x06
+#define MAX2769_CLK     0x07
+#define MAX2769_TEST1   0x08
+#define MAX2769_TEST2   0x09
 
-#define SPI_BUS_FLASH    SPI2
-#define SPI_BUS_FPGA     SPI2
-#define SPI_BUS_FRONTEND SPI2
-
-void spi_setup(void);
-void spi_slave_select(u8 slave);
-void spi_slave_deselect(void);
+void max2769_write(u8 addr, u32 data);
+void max2769_setup();
 
 #endif
-

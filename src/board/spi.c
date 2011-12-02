@@ -44,7 +44,7 @@ void spi_setup(void)
 
 	/* Setup SPI parameters. */
   spi_init_master(SPI2, SPI_CR1_BAUDRATE_FPCLK_DIV_16, 0, \
-      SPI_CR1_CPHA, SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
+      0, SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
   spi_enable_ss_output(SPI2); /* Required, see 25.3.1 section about NSS */
 
 	/* Finally enable the SPI. */

@@ -22,6 +22,7 @@
 #include <libopencm3/stm32/f2/gpio.h>
 
 #include "debug.h"
+#include "max2769.h"
 #include "m25_flash.h"
 #include "swift_nap.h"
 #include "board/leds.h"
@@ -37,8 +38,26 @@ int main(void)
   led_off(LED_GREEN);
   led_off(LED_RED);
 
+  debug_setup();
+  spi_setup();
+
+  max2769_setup();
+
+  led_on(LED_GREEN);
+
+  while(1);
+  return 0;
+}
+
+
+int main2(void)
+{
+	led_setup();
+  led_off(LED_GREEN);
+  led_off(LED_RED);
+
   // Debug pins:
-  RCC_AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
 	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO10|GPIO11);
   gpio_clear(GPIOC, GPIO10|GPIO11);
 
@@ -90,12 +109,29 @@ int main(void)
   swift_nap_reset();
 
   swift_nap_write(0,30,0);
-  /*printf("Channel active <= 0\n");*/
+  printf("Channel active <= 0\n");
 
-	/*printf("Attempting to bring up channel 0...\n");*/
   swift_nap_write(0,9,20); 
-  /*printf("Code SVID <= 20\n");*/
-  swift_nap_write(0,31,1);
+  printf("Code SVID <= 20\n");
+
+  swift_nap_write(0,3,(u32)-1050); // Acq initial carrier freq
+  swift_nap_write(0,4,500); // Acq carrier freq increment
+  swift_nap_write(0,5,3); // Acq carrier freq loops
+
+  swift_nap_write(0,29,0); // Disable granular acq
+  swift_nap_write(0,31,0); // Starting state = acq
+
+  swift_nap_write(0,13,0); // Acq starting code phase (10 MSBs)
+  swift_nap_write(0,14,0); // Acq starting code phase (32 LSBs)
+  swift_nap_write(0,15,819); // Num code phase loops (819 ~ whole search space)
+
+  swift_nap_write(0,16,65472); // Acq integration window size (samples) - 65472 = 4ms
+
+
+  swift_nap_write(0,30,1);
+  printf("Channel active <= 1\n");
+
+  /*swift_nap_write(0,31,1);*/
   /*printf("Starting state <= 1 (tracking)\n");*/
 
   // Set carrier phase rate (carr_pr)
@@ -103,14 +139,14 @@ int main(void)
   /*double SAMP_FREQ = 16.368e6;*/
   /*u32 CARR_PHASE_FRAC = 24;*/
   /*s32 carr_pr_s32 = (s32)(carr_pr_init*((u32)1 << CARR_PHASE_FRAC)/SAMP_FREQ);*/
-  swift_nap_write(0,2,0x0000FDCC);//carr_pr_s32);
+  /*swift_nap_write(0,2,0x0000FDCC);//carr_pr_s32);*/
   /*printf("Setting carrier phase rate: %f (0x%08X)\n", carr_pr_init, (unsigned int)carr_pr_s32);*/
   
   // Set code phase rate
   /*double code_pr_init = 1.023e6;*/
   /*u32 CODE_PHASE_FRAC = 32;*/
   /*s32 code_pr_s32 = (s32)(code_pr_init*0xFFFFFFFF/SAMP_FREQ);*/
-  swift_nap_write(0,12,0x10000000);// code_pr_s32);
+  /*swift_nap_write(0,12,0x10000000);// code_pr_s32);*/
   /*printf("Setting code phase rate: %f (0x%08X)\n", code_pr_init, (unsigned int)code_pr_s32);*/
 
   gpio_set(GPIOC, GPIO10);
