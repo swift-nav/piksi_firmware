@@ -25,7 +25,7 @@
 void swift_nap_setup()
 {
   // Setup the reset line GPIO
-  RCC_AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPBEN;
 	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO6);
   gpio_clear(GPIOB, GPIO6);
 }
