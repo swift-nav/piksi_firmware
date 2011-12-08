@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f2/rcc.h>
+#include <libopencm3/stm32/f2/flash.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/f2/gpio.h>
 
@@ -32,25 +33,49 @@
 extern u32 exti_count;
 extern u32 data[10][100];
 
+const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
+{ /* 65.472 MHz */
+  .pllm = 16,
+  .plln = 256,
+  .pllp = 4,
+  .pllq = 6,
+  .hpre = RCC_CFGR_HPRE_DIV_NONE,
+  .ppre1 = RCC_CFGR_PPRE_DIV_4,
+  .ppre2 = RCC_CFGR_PPRE_DIV_4,
+  .flash_config = FLASH_ICE | FLASH_DCE | FLASH_LATENCY_2WS,
+  .apb1_frequency = 16368000,
+  .apb2_frequency = 16368000,
+};
+
+const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
+{ /* 130.944 MHz (Overclocked!!) */
+  .pllm = 16,
+  .plln = 256,
+  .pllp = 2,
+  .pllq = 6,
+  .hpre = RCC_CFGR_HPRE_DIV_2,
+  .ppre1 = RCC_CFGR_PPRE_DIV_4,
+  .ppre2 = RCC_CFGR_PPRE_DIV_4,
+  .flash_config = FLASH_ICE | FLASH_DCE | FLASH_LATENCY_3WS,
+  .apb1_frequency = 16368000,
+  .apb2_frequency = 16368000,
+};
+
+const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3 =
+{ /* 120.203 MHz (USB OK but APB freq */
+  .pllm = 16,
+  .plln = 235,
+  .pllp = 2,
+  .pllq = 5,
+  .hpre = RCC_CFGR_HPRE_DIV_2,
+  .ppre1 = RCC_CFGR_PPRE_DIV_2,
+  .ppre2 = RCC_CFGR_PPRE_DIV_2,
+  .flash_config = FLASH_ICE | FLASH_DCE | FLASH_LATENCY_3WS,
+  .apb1_frequency = 30050625,
+  .apb2_frequency = 30050625,
+};
+
 int main(void)
-{
-	led_setup();
-  led_off(LED_GREEN);
-  led_off(LED_RED);
-
-  debug_setup();
-  spi_setup();
-
-  max2769_setup();
-
-  led_on(LED_GREEN);
-
-  while(1);
-  return 0;
-}
-
-
-int main2(void)
 {
 	led_setup();
   led_off(LED_GREEN);
@@ -61,48 +86,21 @@ int main2(void)
 	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO10|GPIO11);
   gpio_clear(GPIOC, GPIO10|GPIO11);
 
-  RCC_CR = (RCC_CR & 0x0000FFFF) | RCC_CR_HSEBYP;
-  RCC_CR |= RCC_CR_HSEON;
-
-  while (!(RCC_CR & RCC_CR_HSERDY));
-
-//  led_on(LED_GREEN);
-
-  // Clock setup
-  RCC_PLLCFGR = (6 << RCC_PLLCFGR_PLLQ_SHIFT) | \
-                (1 << RCC_PLLCFGR_PLLP_SHIFT) |  \
-                (256 << RCC_PLLCFGR_PLLN_SHIFT) | \
-                (16 << RCC_PLLCFGR_PLLM_SHIFT) |
-                RCC_PLLCFGR_PLLSRC;
-
-  RCC_CR |= RCC_CR_PLLON;
-
-  while (!(RCC_CR & RCC_CR_PLLRDY));
-
- // led_on(LED_RED);
-
-
-  RCC_CFGR = (RCC_CFGR_PPRE_DIV_2 << RCC_CFGR_PPRE1_SHIFT) | \
-             (RCC_CFGR_PPRE_DIV_2 << RCC_CFGR_PPRE2_SHIFT) | \
-             (RCC_CFGR_HPRE_DIV_2 << RCC_CFGR_HPRE_SHIFT);
-
-
-  RCC_CFGR = (RCC_CFGR & 0xFFFFFFFC) | (RCC_CFGR_SW_PLL << RCC_CFGR_SW_SHIFT);
-
-  /*while(1) {*/
-    /*led_on(LED_RED);*/
-    /*for (i = 0; i < 60000; i++)*/
-      /*__asm__("nop");*/
-    
-    /*led_off(LED_RED);*/
-    /*for (i = 0; i < 600000; i++)*/
-      /*__asm__("nop");*/
-  /*}*/
+  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
+  /*rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);*/
 
   debug_setup();
   spi_setup();
+  timer_setup();
 
   printf("Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
+
+  while(1) {
+    led_toggle(LED_RED);
+
+    for (u32 i = 0; i < 600000; i++)
+      __asm__("nop");
+  }
 
   swift_nap_setup();
 
@@ -126,7 +124,6 @@ int main2(void)
   swift_nap_write(0,15,819); // Num code phase loops (819 ~ whole search space)
 
   swift_nap_write(0,16,65472); // Acq integration window size (samples) - 65472 = 4ms
-
 
   swift_nap_write(0,30,1);
   printf("Channel active <= 1\n");
