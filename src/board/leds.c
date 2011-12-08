@@ -22,7 +22,7 @@
 
 void led_setup(void)
 {
-  RCC_AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
 	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO3|GPIO4);
 }
 

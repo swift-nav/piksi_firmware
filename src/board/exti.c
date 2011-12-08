@@ -40,7 +40,7 @@ void exti_setup()
 {
   // Signal from the FPGA is on PA0.
   
-  RCC_AHB1ENR |= RCC_AHB1ENR_GPIOAEN;   // Enable clock to GPIOA
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;   // Enable clock to GPIOA
   RCC_APB2ENR |= RCC_APB2ENR_SYSCFGEN;  // Enable clock to SYSCFG "peripheral", which we think contains the EXTI functionality.
 
   exti_select_source(EXTI0, GPIOA);

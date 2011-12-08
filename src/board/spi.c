@@ -26,7 +26,7 @@ void spi_setup(void)
   /* Enable SPI periperal clock */
   RCC_APB1ENR |= RCC_APB1ENR_SPI2EN;
   /* Enable GPIO clocks for CS lines */
-	RCC_AHB1ENR |= RCC_AHB1ENR_GPIOBEN | RCC_AHB1ENR_GPIOCEN;
+	RCC_AHB1ENR |= RCC_AHB1ENR_IOPBEN | RCC_AHB1ENR_IOPCEN;
 
   /* Setup CS line GPIOs */
   spi_slave_deselect();
