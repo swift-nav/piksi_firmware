@@ -15,8 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopencm3/stm32/spi.h>
-
 #include "board/spi.h"
 #include "m25_flash.h"
 
