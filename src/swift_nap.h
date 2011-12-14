@@ -21,13 +21,11 @@
 #include <libopencm3/cm3/common.h>
 
 void swift_nap_setup();
-
 void swift_nap_reset();
-
 u32 swift_nap_xfer(u8 spi_id, u8 addr, u32 data);
-
 u32 swift_nap_read(u8 spi_id, u8 addr);
-
 void swift_nap_write(u8 spi_id, u8 addr, u32 data);
+void timing_strobe_setup();
+void timing_strobe(u32 falling_edge_count);
 
 #endif
