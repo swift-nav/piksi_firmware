@@ -77,11 +77,14 @@ const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3 =
 
 int main(void)
 {
+  for (u32 i = 0; i < 600000; i++)
+    __asm__("nop");
+
 	led_setup();
   led_off(LED_GREEN);
   led_off(LED_RED);
 
-  // Debug pins:
+  // Debug pins (CC1111 TX/RX)
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
 	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO10|GPIO11);
   gpio_clear(GPIOC, GPIO10|GPIO11);
@@ -91,9 +94,8 @@ int main(void)
 
   debug_setup();
   spi_setup();
-  timer_setup();
 
-  printf("Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
+  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
 
   while(1) {
     led_toggle(LED_RED);
