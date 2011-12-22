@@ -19,6 +19,7 @@
 #define SWIFTNAV_EXTI_H
 
 void exti_setup();
+u32 last_exti_count();
 
 #endif
 
