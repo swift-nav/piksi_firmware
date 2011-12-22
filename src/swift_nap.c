@@ -42,42 +42,36 @@ void swift_nap_reset()
   gpio_clear(GPIOB, GPIO6);
 }
 
-u32 swift_nap_xfer(u8 spi_id, u8 addr, u32 data)
+void swift_nap_xfer(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[])
 {
-  u32 data_in = 0;
-
   spi_slave_select(SPI_SLAVE_FPGA);
 
   spi_xfer(SPI_BUS_FPGA, spi_id);
-  spi_xfer(SPI_BUS_FPGA, addr);
 
-  data_in |= (u32)spi_xfer(SPI_BUS_FPGA, (data >>  0) & 0xFF) <<  0;
-  data_in |= (u32)spi_xfer(SPI_BUS_FPGA, (data >>  8) & 0xFF) <<  8;
-  data_in |= (u32)spi_xfer(SPI_BUS_FPGA, (data >> 16) & 0xFF) << 16;
-  data_in |= (u32)spi_xfer(SPI_BUS_FPGA, (data >> 24) & 0xFF) << 24;
+  /* If data_in is NULL then discard read data. */
+  if (data_in)
+    for (u8 i=0; i<n_bytes; i++)
+      data_in[i] = spi_xfer(SPI_BUS_FPGA, data_out[i]);
+  else
+    for (u8 i=0; i<n_bytes; i++)
+      spi_xfer(SPI_BUS_FPGA, data_out[i]);
 
   spi_slave_deselect();
-
-  return data_in;
 }
 
-u32 swift_nap_read(u8 spi_id, u8 addr)
+void timing_strobe(u32 falling_edge_count)
 {
-  return swift_nap_xfer(spi_id, addr & 0x7F, 0);
-}
-
-void swift_nap_write(u8 spi_id, u8 addr, u32 data)
-{
-  swift_nap_xfer(spi_id, addr | 0x80, data);
-}
-
-void timing_strobe(u32 falling_edge_count) {
   timer_set_oc_mode(TIM2, TIM_OC1, TIM_OCM_FORCE_HIGH);
   timer_set_oc_value(TIM2, TIM_OC1, falling_edge_count);
   timer_set_oc_mode(TIM2, TIM_OC1, TIM_OCM_INACTIVE);
 }
 
-void timing_strobe_setup() {
+u32 timing_count() {
+  return TIM2_CNT;
+}
+
+void timing_strobe_setup()
+{
   /* Setup Timer 2 as out global sample counter. */
   RCC_APB1ENR |= RCC_APB1ENR_TIM2EN;
 
@@ -104,4 +98,32 @@ void timing_strobe_setup() {
   TIM2_CNT = 0;
   timer_generate_event(TIM2, TIM_EGR_UG);
   timer_enable_counter(TIM2);
+}
+
+void acq_set_load_enable() {
+  u8 temp[1] = {0xFF};
+  swift_nap_xfer(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
+}
+
+void acq_clear_load_enable() {
+  u8 temp[1] = {0x00};
+  swift_nap_xfer(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
+}
+
+u32 acq_init(u8 svid, u16 code_phase, s16 carrier_freq) {
+  u32 temp = 0;
+
+  temp |= svid & 0x1F;
+  temp |= ((u32)code_phase << 5) & 0x1FFE0;
+  temp |= ((u32)carrier_freq << 17) & 0x1FFE0000;
+  temp |= (1 << 29); /* Acq enabled */
+
+  swift_nap_xfer(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
+
+  return temp;
+}
+
+void acq_disable() {
+  u32 temp = 0;
+  swift_nap_xfer(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
 }

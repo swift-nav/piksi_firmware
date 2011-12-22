@@ -20,12 +20,18 @@
 
 #include <libopencm3/cm3/common.h>
 
+#define SPI_ID_ACQ_INIT 0x00
+#define SPI_ID_ACQ_LOAD_ENABLE 0x01
+
 void swift_nap_setup();
 void swift_nap_reset();
-u32 swift_nap_xfer(u8 spi_id, u8 addr, u32 data);
-u32 swift_nap_read(u8 spi_id, u8 addr);
-void swift_nap_write(u8 spi_id, u8 addr, u32 data);
+void swift_nap_xfer(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[]);
 void timing_strobe_setup();
+u32 timing_count();
 void timing_strobe(u32 falling_edge_count);
+void acq_set_load_enable();
+void acq_clear_load_enable();
+u32 acq_init(u8 svid, u16 code_phase, s16 carrier_freq);
+void acq_disable();
 
 #endif
