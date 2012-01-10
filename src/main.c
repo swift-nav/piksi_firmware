@@ -100,57 +100,34 @@ int main(void)
   swift_nap_setup();
   exti_setup();
 
-
-  /*u8 foo[4] = {0xDE, 0xAD, 0xBE, 0x00};*/
-  /*u8 bar[4] = {0x22, 0x22, 0x22, 0x22};*/
-  /*swift_nap_xfer(0x00, 4, bar, foo); */
-  /*printf("First:\n");*/
-  /*for (int i=0; i<4; i++)*/
-    /*printf("0x%02X\n", bar[i]);*/
-  /*u8 n = 0;*/
-  /*while(1) ;*/
-  /*{*/
-    /*if (foo[0] != bar[0] || foo[1] != bar[1] || foo[2] != bar[2] || foo[3] != bar[3])*/
-    /*{*/
-      /*printf("oops:\n");*/
-      /*for (int i=0; i<4; i++)*/
-        /*printf("0x%02X, 0x%02X\n", bar[i], foo[i]);*/
-    /*}*/
-    /*n++;*/
-    /*foo[3] = n;*/
-    /*swift_nap_xfer(0x00, 4, bar, foo); */
-    /*[>for (u32 i = 0; i < 6000000; i++)<]*/
-      /*[>__asm__("nop");<]*/
-  /*}*/
-
-
   led_toggle(LED_RED);
-  
-  printf(" Set 'save data' mode\n");
-  acq_set_load_enable();
 
-  printf(" Timing stroble\n");
+  acq_set_load_enable();
   u32 cnt = timing_count();
   timing_strobe(cnt + 1000);
-  printf(" Current count %d, Strobe on %d\n", (unsigned int)cnt, (unsigned int)cnt+1000);
-
-  printf(" Wait for data capture interrupt from FPGA\n");
   while(last_exti_count() <= cnt);
-  printf(" Got exti at count %d\n", (unsigned int)last_exti_count());
-
-  printf(" Unsetting 'save data' mode (clears IRQ)\n");
   acq_clear_load_enable();
 
-  printf(" Writing acq parameters\n");
+  corr_t cs[15];
+
   u32 temp = 0;
   u32 last_last_exti = last_exti_count();
   temp = acq_init(20, 10628, -35); 
+  acq_disable();
   printf("  acq reg: 0x%08X\n", (unsigned int)temp);
 
   printf("Wait for IRQ\n");
   while(last_exti_count() <= last_last_exti);
   printf(" Got exti at count %d\n", (unsigned int)last_exti_count());
 
+  acq_read_corr(cs);
+
+  printf("     I          Q\n");
+  printf("---------------------\n");
+  for (int i=0; i<15; i++) {
+    printf("%2d:  %08X   %08X\n", i, (unsigned int)cs[i].I, (unsigned int)cs[i].Q);
+    printf("    (%8d) (%8d)\n", (int)cs[i].I, (int)cs[i].Q);
+  }
 
   printf("Done!\n");
 

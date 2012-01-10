@@ -50,11 +50,12 @@ void swift_nap_xfer(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[])
 
   /* If data_in is NULL then discard read data. */
   if (data_in)
-    for (u8 i=0; i<n_bytes; i++)
-      data_in[i] = spi_xfer(SPI_BUS_FPGA, data_out[i]);
+    for (u8 i=n_bytes; i>0; i--)
+      data_in[n_bytes-i] = spi_xfer(SPI_BUS_FPGA, data_out[i-1]);
   else
-    for (u8 i=0; i<n_bytes; i++)
-      spi_xfer(SPI_BUS_FPGA, data_out[i]);
+    for (u8 i=n_bytes; i>0; i--)
+    //for (u8 i=0; i<n_bytes; i++)
+      spi_xfer(SPI_BUS_FPGA, data_out[i-1]);
 
   spi_slave_deselect();
 }
@@ -112,6 +113,7 @@ void acq_clear_load_enable() {
 
 u32 acq_init(u8 svid, u16 code_phase, s16 carrier_freq) {
   u32 temp = 0;
+  u32 temp2 = 0;
 
   temp |= svid & 0x1F;
   temp |= ((u32)code_phase << 5) & 0x1FFE0;
@@ -119,11 +121,45 @@ u32 acq_init(u8 svid, u16 code_phase, s16 carrier_freq) {
   temp |= (1 << 29); /* Acq enabled */
 
   swift_nap_xfer(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
+  swift_nap_xfer(SPI_ID_ACQ_INIT, 4, (u8*)&temp2, (u8*)&temp);
 
-  return temp;
+  return temp2;
 }
 
 void acq_disable() {
   u32 temp = 0;
   swift_nap_xfer(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
+}
+/*
+u32 unpack_22bits(u32 n, u8 A[]) {
+  u8 s = 2;//4*(n+1) - 2; //((22*(n+1)) % 8) - 4;
+  u32 i = 3*n;
+  u32 r = 0;
+
+  r |= (u32)A[i+2] >> s;
+  r |= (u32)A[i+1] << (8 - s);
+  r |= (u32)A[i+0] << (16 - s);
+  r |= (u32)A[i-1] << (24 - s);
+  r &= 0x3FFFFF; // 2^22 - 1
+  return r;
+}
+*/
+
+void acq_read_corr(corr_t corrs[]) {
+  u8 temp[2*ACQ_N_TAPS * 3];
+  
+  swift_nap_xfer(SPI_ID_ACQ_CORR, 2*ACQ_N_TAPS*3, temp, temp);
+
+  struct {s32 x:24;} s;
+  for (u8 i=0; i<ACQ_N_TAPS; i++) {
+    corrs[i].Q  = (u32)temp[6*i+2];
+    corrs[i].Q |= (u32)temp[6*i+1] << 8;
+    corrs[i].Q |= (u32)temp[6*i]   << 16;
+    corrs[i].Q = s.x = corrs[i].Q; // Sign extend!
+
+    corrs[i].I  = (u32)temp[6*i+5];
+    corrs[i].I |= (u32)temp[6*i+4] << 8;
+    corrs[i].I |= (u32)temp[6*i+3] << 16;
+    corrs[i].I = s.x = corrs[i].I; // Sign extend!
+  }
 }

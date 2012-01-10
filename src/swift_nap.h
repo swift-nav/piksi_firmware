@@ -22,6 +22,13 @@
 
 #define SPI_ID_ACQ_INIT 0x00
 #define SPI_ID_ACQ_LOAD_ENABLE 0x01
+#define SPI_ID_ACQ_CORR 0x02
+
+#define ACQ_N_TAPS 15
+
+typedef struct {
+  s32 I; s32 Q;
+} corr_t;
 
 void swift_nap_setup();
 void swift_nap_reset();
@@ -33,5 +40,7 @@ void acq_set_load_enable();
 void acq_clear_load_enable();
 u32 acq_init(u8 svid, u16 code_phase, s16 carrier_freq);
 void acq_disable();
+//u32 unpack_22bits(u32 n, u8 A[]);
+void acq_read_corr(corr_t corrs[]);
 
 #endif
