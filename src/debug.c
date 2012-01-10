@@ -52,7 +52,7 @@ void debug_setup() {
 	usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
 	usart_set_mode(USART1, USART_MODE_TX_RX);
 
-  /* Enable USART1 inerrupts wit the NVIC. */
+  /* Enable USART1 inerrupts with the NVIC. */
   nvic_enable_irq(NVIC_USART1_IRQ);
 
   /* Enable USART1 Receive interrupt. */
