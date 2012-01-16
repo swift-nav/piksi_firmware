@@ -49,9 +49,18 @@ void exti9_5_isr()
 {
   exti_reset_request(EXTI6);
   led_on(LED_GREEN);
-  exti_count = timing_count();
+  gpio_set(GPIOC, GPIO11|GPIO10);
+  gpio_clear(GPIOC, GPIO11|GPIO10);
+  /*exti_count = timing_count();*/
+  exti_count++;
 }
 
 u32 last_exti_count() {
   return exti_count;
 }
+
+void wait_for_exti() {
+  u32 last_last_exti = last_exti_count();
+  while(last_exti_count() <= last_last_exti);
+}
+

@@ -20,6 +20,7 @@
 
 void exti_setup();
 u32 last_exti_count();
+void wait_for_exti();
 
 #endif
 
