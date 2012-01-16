@@ -15,6 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
+
 #include <libopencm3/stm32/spi.h>
 #include <libopencm3/stm32/f2/gpio.h>
 #include <libopencm3/stm32/f2/rcc.h>
@@ -22,6 +24,7 @@
 
 #include "swift_nap.h"
 #include "board/spi.h"
+#include "board/exti.h"
 
 void swift_nap_setup()
 {
@@ -111,14 +114,15 @@ void acq_clear_load_enable() {
   swift_nap_xfer(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
 }
 
-u32 acq_init(u8 svid, u16 code_phase, s16 carrier_freq) {
+u32 acq_init(u8 enabled, u8 svid, u16 code_phase, s16 carrier_freq) {
   u32 temp = 0;
   u32 temp2 = 0;
 
   temp |= svid & 0x1F;
   temp |= ((u32)code_phase << 5) & 0x1FFE0;
   temp |= ((u32)carrier_freq << 17) & 0x1FFE0000;
-  temp |= (1 << 29); /* Acq enabled */
+  if (enabled)
+    temp |= (1 << 29); /* Acq enabled */
 
   swift_nap_xfer(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
   swift_nap_xfer(SPI_ID_ACQ_INIT, 4, (u8*)&temp2, (u8*)&temp);
@@ -162,4 +166,55 @@ void acq_read_corr(corr_t corrs[]) {
     corrs[i].I |= (u32)temp[6*i+3] << 16;
     corrs[i].I = s.x = corrs[i].I; // Sign extend!
   }
+}
+
+void do_one_acq(u8 svid, u16 code_phase, s16 carrier_freq, corr_t corrs[]) {
+  acq_init(1, svid, code_phase, carrier_freq); 
+
+  /*acq_init(0, svid, code_phase, carrier_freq); */
+  acq_disable(); // Disable acq on next cycle, after this one has finished.
+
+  // Wait for acq done IRQ.
+  wait_for_exti();
+
+  /*acq_init(0, svid, code_phase, carrier_freq); */
+  acq_disable(); // Write to clear IRQ.
+  acq_read_corr(corrs);
+}
+
+void do_acq(u8 svid, u16 cp_min, u16 cp_max, s16 cf_min, s16 cf_max, u16* cp, s16* cf, float* snr) {
+
+  corr_t cs[ACQ_N_TAPS];
+
+  float mag, mag_sq, best_mag = 0;
+  float sd, mean = 0, sq_mean = 0;
+  u32 count = 0;
+  u16 best_cp;
+  s16 best_cf;
+
+  for (s16 carrier_freq = cf_min; carrier_freq <= cf_max; carrier_freq += 20) {
+    for (u16 code_phase = cp_min; code_phase <= cp_max; code_phase += ACQ_N_TAPS) {
+      do_one_acq(svid, code_phase, carrier_freq, cs); 
+      for (u8 i=0; i<ACQ_N_TAPS; i++) {
+        mag_sq = (float)cs[i].I*(float)cs[i].I + (float)cs[i].Q*(float)cs[i].Q;
+        mag = sqrt(mag_sq);
+        mean += mag;
+        sq_mean += mag_sq;
+        if (mag > best_mag) {
+          best_mag = mag;
+          best_cf = carrier_freq;
+          best_cp = code_phase + i;
+        }
+      }
+      count += ACQ_N_TAPS;
+    }
+  }
+
+  sd = sqrt(count*sq_mean - mean*mean) / count;
+  mean = mean / count;
+
+  *cp = best_cp;
+  *cf = best_cf;
+  *snr = (best_mag - mean) / sd;
+
 }
