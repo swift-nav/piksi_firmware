@@ -16,6 +16,8 @@
  */
 
 #include <stdio.h>
+#include <math.h>
+#include <string.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/flash.h>
@@ -75,6 +77,11 @@ const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3 =
   .apb2_frequency = 30050625,
 };
 
+
+s16 carrier_freq_units(double freq) {
+  return (s16)((1<<ACQ_CARRIER_PHASE_WIDTH) * (freq / 16.368e6));
+}
+
 int main(void)
 {
   for (u32 i = 0; i < 600000; i++)
@@ -93,11 +100,13 @@ int main(void)
   /*rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);*/
 
   debug_setup();
+
+  printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
+  
   spi_setup();
-
-  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
-
+  max2769_setup();
   swift_nap_setup();
+  swift_nap_reset();
   exti_setup();
 
   led_toggle(LED_RED);
@@ -105,31 +114,69 @@ int main(void)
   acq_set_load_enable();
   u32 cnt = timing_count();
   timing_strobe(cnt + 1000);
-  while(last_exti_count() <= cnt);
+  wait_for_exti();
   acq_clear_load_enable();
 
-  corr_t cs[15];
+  /*corr_t cs[ACQ_N_TAPS];*/
+  /*corr_t cs2[ACQ_N_TAPS];*/
 
-  u32 temp = 0;
-  u32 last_last_exti = last_exti_count();
-  temp = acq_init(20, 10628, -35); 
-  acq_disable();
-  printf("  acq reg: 0x%08X\n", (unsigned int)temp);
+  /*s16 carrier_freq = carrier_freq_units(-550);*/
+  /*u16 code_phase = 2656; // 664 * 4*/
 
-  printf("Wait for IRQ\n");
-  while(last_exti_count() <= last_last_exti);
-  printf(" Got exti at count %d\n", (unsigned int)last_exti_count());
+  /*do_acq(20, code_phase, carrier_freq, cs); */
+  /*for (int i=0; i<ACQ_N_TAPS; i++) {*/
+    /*printf("%8d, %8d\n", (int)cs[i].I, (int)cs[i].Q);*/
+  /*}*/
+  /*printf("\n");*/
 
-  acq_read_corr(cs);
+  /*u32 i=0;*/
+  /*while(1)*/
+  /*{*/
+    /*do_acq(20, code_phase, carrier_freq, cs2); */
+    /*if (memcmp(cs, cs2, sizeof(cs))) {*/
+      /*printf("Mismatch on trial %d:\n", (unsigned int)i);*/
+    
+      /*for (int i=0; i<ACQ_N_TAPS; i++) {*/
+        /*printf("%8d, %8d\n", (int)cs2[i].I, (int)cs2[i].Q);*/
+      /*}*/
+      /*printf("\n");*/
+    /*}*/
+    /*i++;*/
+  /*}*/
+  
 
-  printf("     I          Q\n");
-  printf("---------------------\n");
-  for (int i=0; i<15; i++) {
-    printf("%2d:  %08X   %08X\n", i, (unsigned int)cs[i].I, (unsigned int)cs[i].Q);
-    printf("    (%8d) (%8d)\n", (int)cs[i].I, (int)cs[i].Q);
+  /*printf("Done!\n");*/
+
+  /*while (1);*/
+
+  /*corr_t cs[ACQ_N_TAPS];*/
+  /*printf("zs = [\n");*/
+  /*[>[>s16 carrier_freq = -35; // carrier_freq_units(-550);<]<]*/
+  /*for (s16 carrier_freq = carrier_freq_units(-5000); carrier_freq <= carrier_freq_units(5000); carrier_freq += 1)*/
+  /*{*/
+    /*printf(" [");*/
+    /*for (u16 code_phase = 0; code_phase <= 4096; code_phase += ACQ_N_TAPS) */
+    /*{*/
+      /*do_one_acq(31, code_phase, carrier_freq, cs); */
+      /*for (int i=0; i<ACQ_N_TAPS; i++) {*/
+        /*double mag = sqrt((double)cs[i].I*(double)cs[i].I + (double)cs[i].Q*(double)cs[i].Q);*/
+        /*printf("%g,", mag);*/
+      /*}*/
+    /*}*/
+    /*printf("],\n");*/
+  /*}*/
+  /*printf("]\n");*/
+
+  /*while (1);*/
+
+  float sig;
+  u16 cp;
+  s16 cf;
+
+  for(u8 i=0; i<32; i++) {
+    do_acq(i, 0, 4092, carrier_freq_units(-10000), carrier_freq_units(10000), &cp, &cf, &sig);
+    printf("SVID %d: %d, %d, %g\n", i, cp, cf, sig);
   }
-
-  printf("Done!\n");
 
   while (1);
   
