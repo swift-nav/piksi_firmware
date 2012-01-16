@@ -75,7 +75,7 @@ def send_message(serial, msg_type, msg):
   serial.write(chr(len(msg)))
   serial.write(msg)
 
-ser = serial.Serial('/dev/ttyUSB1', 115200, timeout=1)
+ser = serial.Serial('/dev/ttyUSB1', 921600, timeout=1)
 messages =  parse_messages('../src/debug_messages.h')
 
 class ListenerThread (threading.Thread):
@@ -88,7 +88,8 @@ class ListenerThread (threading.Thread):
     while(not self.wants_to_stop):
       mt, ml, md = get_message(ser)
       if mt == MSG_PRINT:
-        sys.stdout.write("\x1b[34m" + md + "\x1b[0m")
+        #sys.stdout.write("\x1b[34m" + md + "\x1b[0m")
+        sys.stdout.write(md)
       else:
         print "%s: %s" % (messages[mt][0], str(extract_message(mt, ml, md, messages)))
 
