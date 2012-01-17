@@ -24,6 +24,14 @@
 #define SPI_ID_ACQ_LOAD_ENABLE 0x01
 #define SPI_ID_ACQ_CORR 0x02
 
+#define SPI_ID_TRACK_BASE 0x00
+#define TRACK_SIZE 4
+
+#define TRACK_INIT_OFFSET   0x00
+#define TRACK_UPDATE_OFFSET 0x01
+#define TRACK_CORR_OFFSET   0x02
+#define TRACK_PHASE_OFFSET  0x03
+
 #define ACQ_N_TAPS 15
 #define ACQ_CARRIER_PHASE_WIDTH 20
 
@@ -46,5 +54,9 @@ void acq_read_corr(corr_t corrs[]);
 
 void do_one_acq(u8 svid, u16 code_phase, s16 carrier_freq, corr_t corrs[]);
 void do_acq(u8 svid, u16 cp_min, u16 cp_max, s16 cf_min, s16 cf_max, u16* cp, s16* cf, float* sig);
+
+void track_init(u8 channel, u8 svid, s32 starting_carrier_phase, u16 starting_code_phase);
+void track_update(u8 channel, s32 carrier_freq, u32 code_phase_rate);
+void track_read_corr(u8 channel, corr_t corrs[]);
 
 #endif

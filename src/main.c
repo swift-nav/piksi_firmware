@@ -108,77 +108,33 @@ int main(void)
   swift_nap_setup();
   swift_nap_reset();
   exti_setup();
-
+  
   led_toggle(LED_RED);
+    
+  track_init(0, 20, 0, 10633);
+  track_update(0, -564, 268435456);
 
-  acq_set_load_enable();
   u32 cnt = timing_count();
   timing_strobe(cnt + 1000);
-  wait_for_exti();
-  acq_clear_load_enable();
 
-  /*corr_t cs[ACQ_N_TAPS];*/
-  /*corr_t cs2[ACQ_N_TAPS];*/
+  corr_t cs[3];
 
-  /*s16 carrier_freq = carrier_freq_units(-550);*/
-  /*u16 code_phase = 2656; // 664 * 4*/
+  for (u8 n=0; n<10; n++) {
+    wait_for_exti();
+    track_read_corr(0, cs[n]);
+    track_update(0, -564, 268435456);
+  }
 
-  /*do_acq(20, code_phase, carrier_freq, cs); */
-  /*for (int i=0; i<ACQ_N_TAPS; i++) {*/
-    /*printf("%8d, %8d\n", (int)cs[i].I, (int)cs[i].Q);*/
-  /*}*/
-  /*printf("\n");*/
-
-  /*u32 i=0;*/
-  /*while(1)*/
-  /*{*/
-    /*do_acq(20, code_phase, carrier_freq, cs2); */
-    /*if (memcmp(cs, cs2, sizeof(cs))) {*/
-      /*printf("Mismatch on trial %d:\n", (unsigned int)i);*/
-    
-      /*for (int i=0; i<ACQ_N_TAPS; i++) {*/
-        /*printf("%8d, %8d\n", (int)cs2[i].I, (int)cs2[i].Q);*/
-      /*}*/
-      /*printf("\n");*/
-    /*}*/
-    /*i++;*/
-  /*}*/
-  
-
-  /*printf("Done!\n");*/
-
-  /*while (1);*/
-
-  /*corr_t cs[ACQ_N_TAPS];*/
-  /*printf("zs = [\n");*/
-  /*[>[>s16 carrier_freq = -35; // carrier_freq_units(-550);<]<]*/
-  /*for (s16 carrier_freq = carrier_freq_units(-5000); carrier_freq <= carrier_freq_units(5000); carrier_freq += 1)*/
-  /*{*/
-    /*printf(" [");*/
-    /*for (u16 code_phase = 0; code_phase <= 4096; code_phase += ACQ_N_TAPS) */
-    /*{*/
-      /*do_one_acq(31, code_phase, carrier_freq, cs); */
-      /*for (int i=0; i<ACQ_N_TAPS; i++) {*/
-        /*double mag = sqrt((double)cs[i].I*(double)cs[i].I + (double)cs[i].Q*(double)cs[i].Q);*/
-        /*printf("%g,", mag);*/
-      /*}*/
-    /*}*/
-    /*printf("],\n");*/
-  /*}*/
-  /*printf("]\n");*/
-
-  /*while (1);*/
-
-  float sig;
-  u16 cp;
-  s16 cf;
-
-  for(u8 i=0; i<32; i++) {
-    do_acq(i, 0, 4092, carrier_freq_units(-10000), carrier_freq_units(10000), &cp, &cf, &sig);
-    printf("SVID %d: %d, %d, %g\n", i, cp, cf, sig);
+  for (u8 n=0; n<10; n++) {
+    for (u8 i=0; i<3; i++) {
+      printf("%6d,%6d\t\t", (int)cs[n][i].I, (int)cs[n][i].Q);
+    }
+    printf("\n");
   }
 
   while (1);
   
 	return 0;
 }
+
+

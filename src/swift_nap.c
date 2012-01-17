@@ -218,3 +218,51 @@ void do_acq(u8 svid, u16 cp_min, u16 cp_max, s16 cf_min, s16 cf_max, u16* cp, s1
   *snr = (best_mag - mean) / sd;
 
 }
+
+void track_init(u8 channel, u8 svid, s32 starting_carrier_phase, u16 starting_code_phase) {
+  //for length(svid)=5,length(starting_carrier_phase)=24,
+  //  length(starting_code_phase) = 14
+  u8 temp[6] = {0, 0, 0, 0, 0, 0};
+
+  temp[0] = (svid & 0x1F) | (starting_carrier_phase << 5 & 0xE0);
+  temp[1] = (starting_carrier_phase << 5) >> 8;
+  temp[2] = (starting_carrier_phase << 5) >> 16;
+  temp[3] = (((starting_carrier_phase << 5) >> 24) & 0x1F) | (starting_code_phase << 5);
+  temp[4] = (starting_code_phase << 5) >> 8;
+  temp[5] = ((starting_code_phase << 5) >> 16) & 0x07;
+
+  swift_nap_xfer(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_INIT_OFFSET, 6, 0, temp);
+}
+
+void track_update(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
+  u8 temp[6] = {0, 0, 0, 0, 0, 0};
+
+  temp[0] = carrier_freq;
+  temp[1] = (carrier_freq >> 8);
+  temp[2] = code_phase_rate;
+  temp[3] = (code_phase_rate >> 8);
+  temp[4] = (code_phase_rate >> 16);
+  temp[5] = (code_phase_rate >> 24) & 0x1F;
+
+  swift_nap_xfer(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_UPDATE_OFFSET, 6, 0, temp);
+}
+
+void track_read_corr(u8 channel, corr_t corrs[]) {
+  u8 temp[2*3 * 3]; // 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8)
+  
+  swift_nap_xfer(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
+
+  struct {s32 x:24;} s;
+  for (u8 i=0; i<3; i++) {
+    corrs[i].Q  = (u32)temp[6*i+2];
+    corrs[i].Q |= (u32)temp[6*i+1] << 8;
+    corrs[i].Q |= (u32)temp[6*i]   << 16;
+    corrs[i].Q = s.x = corrs[i].Q; // Sign extend!
+
+    corrs[i].I  = (u32)temp[6*i+5];
+    corrs[i].I |= (u32)temp[6*i+4] << 8;
+    corrs[i].I |= (u32)temp[6*i+3] << 16;
+    corrs[i].I = s.x = corrs[i].I; // Sign extend!
+  }
+}
+
