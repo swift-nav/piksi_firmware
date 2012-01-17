@@ -32,8 +32,12 @@
 #include "board/exti.h"
 #include "board/spi.h"
 
-extern u32 exti_count;
-extern u32 data[10][100];
+#define DLL_IGAIN 1.431702e-2
+#define DLL_PGAIN 5.297297
+#define PLL_IGAIN 1.779535e+1
+#define PLL_PGAIN 3.025210e+2
+
+#define SAMP_FREQ 16.368e6
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
@@ -110,31 +114,66 @@ int main(void)
   exti_setup();
   
   led_toggle(LED_RED);
+
     
   track_init(0, 20, 0, 10633);
   track_update(0, -564, 268435456);
 
+  corr_t cs[100][3];
+
   u32 cnt = timing_count();
   timing_strobe(cnt + 1000);
+  // Do one open loop update as first set of correlations
+  // are junk.
+  wait_for_exti();
+  track_read_corr(0, cs[0]);
+  track_update(0, -564, 268435456);
 
-  corr_t cs[3];
+  static double dll_disc = 0;
+  static double pll_disc = 0;
+  static double dll_disc_old;
+  static double pll_disc_old;
 
-  for (u8 n=0; n<10; n++) {
+  static double dll_freq = 1.023e6;
+  static double pll_freq = -550.0;
+
+  u32 dll_freq_fp;
+  s16 pll_freq_fp;
+
+  for (u8 n=0; n<100; n++) {
     wait_for_exti();
     track_read_corr(0, cs[n]);
-    track_update(0, -564, 268435456);
+
+    dll_disc_old = dll_disc;
+    pll_disc_old = pll_disc;
+
+    // TODO: check for divide by zero
+    pll_disc = atan((double)cs[n][1].Q/(double)cs[n][1].I)/(2*3.14159);
+
+    pll_freq = pll_freq + PLL_PGAIN*(pll_disc-pll_disc_old) \
+               + PLL_IGAIN*pll_disc;
+
+    dll_disc = (sqrt((double)cs[n][0].I*(double)cs[n][0].I + (double)cs[n][0].Q*(double)cs[n][0].Q) - sqrt((double)cs[n][2].I*(double)cs[n][2].I + (double)cs[n][2].Q*(double)cs[n][2].Q)) \
+               / (sqrt((double)cs[n][0].I*(double)cs[n][0].I + (double)cs[n][0].Q*(double)cs[n][0].Q) + sqrt((double)cs[n][2].I*(double)cs[n][2].I + (double)cs[n][2].Q*(double)cs[n][2].Q));
+
+    dll_freq = dll_freq + DLL_PGAIN*(dll_disc-dll_disc_old) \
+               + DLL_IGAIN*dll_disc;
+
+    pll_freq_fp = (s16)(round(pll_freq)*pow(2,24)/SAMP_FREQ);
+    dll_freq_fp = (u32)(round(dll_freq)*pow(2,32)/SAMP_FREQ);
+
+    /*printf("%u, %d\n", (unsigned int)dll_freq_fp, (int)pll_freq_fp);*/
+
+    track_update(0, pll_freq_fp, dll_freq_fp);
   }
 
-  for (u8 n=0; n<10; n++) {
-    for (u8 i=0; i<3; i++) {
-      printf("%6d,%6d\t\t", (int)cs[n][i].I, (int)cs[n][i].Q);
-    }
-    printf("\n");
-  }
+  printf("foo = [\n");
+  for (u8 n=0; n<100; n++)
+    printf("(%6d,%6d),\n", (int)cs[n][1].I, (int)cs[n][1].Q);
+  printf("]\n");
 
   while (1);
   
 	return 0;
 }
-
 
