@@ -254,15 +254,15 @@ void track_read_corr(u8 channel, corr_t corrs[]) {
 
   struct {s32 x:24;} s;
   for (u8 i=0; i<3; i++) {
-    corrs[i].Q  = (u32)temp[6*i+2];
-    corrs[i].Q |= (u32)temp[6*i+1] << 8;
-    corrs[i].Q |= (u32)temp[6*i]   << 16;
-    corrs[i].Q = s.x = corrs[i].Q; // Sign extend!
+    corrs[2-i].Q  = (u32)temp[6*i+2];
+    corrs[2-i].Q |= (u32)temp[6*i+1] << 8;
+    corrs[2-i].Q |= (u32)temp[6*i]   << 16;
+    corrs[2-i].Q = s.x = corrs[2-i].Q; // Sign extend!
 
-    corrs[i].I  = (u32)temp[6*i+5];
-    corrs[i].I |= (u32)temp[6*i+4] << 8;
-    corrs[i].I |= (u32)temp[6*i+3] << 16;
-    corrs[i].I = s.x = corrs[i].I; // Sign extend!
+    corrs[2-i].I  = (u32)temp[6*i+5];
+    corrs[2-i].I |= (u32)temp[6*i+4] << 8;
+    corrs[2-i].I |= (u32)temp[6*i+3] << 16;
+    corrs[2-i].I = s.x = corrs[2-i].I; // Sign extend!
   }
 }
 
