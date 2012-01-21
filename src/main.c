@@ -24,6 +24,7 @@
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/f2/gpio.h>
 
+#include "main.h"
 #include "debug.h"
 #include "max2769.h"
 #include "m25_flash.h"
@@ -37,7 +38,6 @@
 #define PLL_IGAIN 1.779535e+1
 #define PLL_PGAIN 3.025210e+2
 
-#define SAMP_FREQ 16.368e6
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
@@ -82,10 +82,6 @@ const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3 =
 };
 
 
-s16 carrier_freq_units(double freq) {
-  return (s16)((1<<ACQ_CARRIER_PHASE_WIDTH) * (freq / 16.368e6));
-}
-
 int main(void)
 {
   for (u32 i = 0; i < 600000; i++)
@@ -106,7 +102,7 @@ int main(void)
   debug_setup();
 
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
-  
+
   spi_setup();
   max2769_setup();
   swift_nap_setup();
@@ -115,27 +111,48 @@ int main(void)
   
   led_toggle(LED_RED);
 
-    
-  track_init(0, 20, 0, 10633);
-  track_update(0, -564, 268435456);
+  acq_set_load_enable();
+  u32 acq_cnt = timing_count() + 1000;
+  timing_strobe(acq_cnt);
+  wait_for_exti();
+  acq_clear_load_enable();
+
+  float acq_code_phase;
+  float acq_carrier_freq;
+  float snr;
+
+  for (u8 prn=18; prn<21; prn++) {
+    do_acq(prn, 0, 1023, -10000, 10000, &acq_code_phase, &acq_carrier_freq, &snr);
+    printf("#PRN %u: %f, %f, %f\n", prn+1, acq_code_phase, acq_carrier_freq, snr);
+  }
+  while(1);
+
+  u32 code_phase_rate = (1.0 + acq_carrier_freq/L1_HZ) * TRACK_NOMINAL_CODE_PHASE_RATE;
+  printf("#CPR: %u\n", (unsigned int)code_phase_rate);
+
+  /*while(1);*/
+
+  u32 track_cnt = timing_count() + 2000;
+
+  float track_cp = propagate_code_phase(acq_code_phase, acq_carrier_freq, track_cnt - acq_cnt);
+
+  tracking_channel_init(21, 0, track_cp, acq_carrier_freq, track_cnt);
 
   corr_t cs[100][3];
 
-  u32 cnt = timing_count();
-  timing_strobe(cnt + 1000);
   // Do one open loop update as first set of correlations
   // are junk.
   wait_for_exti();
   track_read_corr(0, cs[0]);
-  track_update(0, -564, 268435456);
+  track_write_update(0, acq_carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, code_phase_rate);
 
-  static double dll_disc = 0;
-  static double pll_disc = 0;
-  static double dll_disc_old;
-  static double pll_disc_old;
+  double dll_disc = 0;
+  double pll_disc = 0;
+  double dll_disc_old;
+  double pll_disc_old;
 
-  static double dll_freq = 1.023e6;
-  static double pll_freq = -550.0;
+  double dll_freq = code_phase_rate / TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  double pll_freq = acq_carrier_freq;
 
   u32 dll_freq_fp;
   s16 pll_freq_fp;
@@ -159,18 +176,21 @@ int main(void)
     dll_freq = dll_freq + DLL_PGAIN*(dll_disc-dll_disc_old) \
                + DLL_IGAIN*dll_disc;
 
-    pll_freq_fp = (s16)(round(pll_freq)*pow(2,24)/SAMP_FREQ);
-    dll_freq_fp = (u32)(round(dll_freq)*pow(2,32)/SAMP_FREQ);
+    pll_freq_fp = (s16)(round(pll_freq)*pow(2,24)/SAMPLE_FREQ);
+    dll_freq_fp = (u32)(round(dll_freq)*pow(2,32)/SAMPLE_FREQ);
 
     /*printf("%u, %d\n", (unsigned int)dll_freq_fp, (int)pll_freq_fp);*/
 
-    track_update(0, pll_freq_fp, dll_freq_fp);
+    track_write_update(0, pll_freq_fp, dll_freq_fp);
   }
 
+  printf("# prop phase: %f\n", track_cp);
   printf("foo = [\n");
   for (u8 n=0; n<100; n++)
     printf("(%6d,%6d),\n", (int)cs[n][1].I, (int)cs[n][1].Q);
   printf("]\n");
+
+  track_read_corr(0, cs[0]);
 
   while (1);
   
