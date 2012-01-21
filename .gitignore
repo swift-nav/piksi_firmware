@@ -1,3 +1,4 @@
+docs/html
 *.o
 *.d
 *.hex
