@@ -113,40 +113,62 @@ void acq_clear_load_enable() {
   swift_nap_xfer(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
 }
 
-u32 acq_init(u8 enabled, u8 svid, u16 code_phase, s16 carrier_freq) {
+/** Write initialisation parameters to the Swift NAP acquisition channel.
+ * Writes acquisition initialisation parameters into the ACQ_INIT
+ * register on the Swift NAP.
+ *
+ * NOTE: Swift NAP returns corrs corresponding to code phases from
+ * code_phase_reg_value-ACQ_N_TAPS-1 to code_phase_reg_value where
+ * code_phase_reg_value is the raw value written into the code phase
+ * portion of the init register.
+ *
+ * <ul>
+ *   <li> corrs[0] -> code_phase_reg_value-ACQ_N_TAPS+1
+ *   <li> corrs[AQC_N_TAPS-1] -> code_phase_reg_value
+ * </ul>
+ *
+ * Lets take account of this here by writing code_phase+ACQ_N_TAPS-1
+ * to the code phase register on the Swift NAP. This means the
+ * correlations returned will be:
+ *
+ * <ul>
+ *   <li> corrs[0] -> code_phase
+ *   <li> corrs[ACQ_N_TAPS] -> code_phase-ACQ_N_TAPS+1
+ * </ul>
+ *
+ * \param prn          PRN number - 1 (0..31)
+ * \param code_phase   Code phase of the first correlation returned
+ *                     (see note above), in acquisition units.
+ * \param carrier_freq Carrier frequency i.e. Doppler in acquisition
+ *                     units.
+ */
+void acq_write_init(u8 prn, u16 code_phase, s16 carrier_freq)
+{
   u32 temp = 0;
-  u32 temp2 = 0;
 
-  temp |= svid & 0x1F;
-  temp |= ((u32)code_phase << 5) & 0x1FFE0;
+  /* Modulo 1023*4 in case adding ACQ_N_TAPS-1 rolls us over a
+   * code phase boundary.
+   */
+  u16 code_phase_reg_value = (code_phase+ACQ_N_TAPS-1) % (1023*4);
+
+  temp |= prn & 0x1F;
+  /* Write corrected code phase, see note above. */
+  temp |= ((u32)code_phase_reg_value << 5) & 0x1FFE0;
   temp |= ((u32)carrier_freq << 17) & 0x1FFE0000;
-  if (enabled)
-    temp |= (1 << 29); /* Acq enabled */
+  temp |= (1 << 29); /* Acq enabled */
 
   swift_nap_xfer(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
-  swift_nap_xfer(SPI_ID_ACQ_INIT, 4, (u8*)&temp2, (u8*)&temp);
-
-  return temp2;
 }
 
-void acq_disable() {
+/** Disable the acquisition channel.
+ * Writes to the ACQ_INIT register in the Swift NAP to
+ * disable the acquisition channel.
+ */
+void acq_disable()
+{
   u32 temp = 0;
   swift_nap_xfer(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
 }
-/*
-u32 unpack_22bits(u32 n, u8 A[]) {
-  u8 s = 2;//4*(n+1) - 2; //((22*(n+1)) % 8) - 4;
-  u32 i = 3*n;
-  u32 r = 0;
-
-  r |= (u32)A[i+2] >> s;
-  r |= (u32)A[i+1] << (8 - s);
-  r |= (u32)A[i+0] << (16 - s);
-  r |= (u32)A[i-1] << (24 - s);
-  r &= 0x3FFFFF; // 2^22 - 1
-  return r;
-}
-*/
 
 void acq_read_corr(corr_t corrs[]) {
   u8 temp[2*ACQ_N_TAPS * 3];
@@ -158,31 +180,47 @@ void acq_read_corr(corr_t corrs[]) {
     corrs[i].Q  = (u32)temp[6*i+2];
     corrs[i].Q |= (u32)temp[6*i+1] << 8;
     corrs[i].Q |= (u32)temp[6*i]   << 16;
-    corrs[i].Q = s.x = corrs[i].Q; // Sign extend!
+    corrs[i].Q = s.x = corrs[i].Q; /* Sign extend! */
 
     corrs[i].I  = (u32)temp[6*i+5];
     corrs[i].I |= (u32)temp[6*i+4] << 8;
     corrs[i].I |= (u32)temp[6*i+3] << 16;
-    corrs[i].I = s.x = corrs[i].I; // Sign extend!
+    corrs[i].I = s.x = corrs[i].I; /* Sign extend! */
   }
 }
 
-void do_one_acq(u8 svid, u16 code_phase, s16 carrier_freq, corr_t corrs[]) {
-  acq_init(1, svid, code_phase, carrier_freq); 
+void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[]) {
+  acq_write_init(prn, code_phase, carrier_freq); 
 
-  /*acq_init(0, svid, code_phase, carrier_freq); */
-  acq_disable(); // Disable acq on next cycle, after this one has finished.
+  /* Disable acq on next cycle, after this one has finished. */
+  acq_disable();
 
-  // Wait for acq done IRQ.
+  /* Wait for acq done IRQ. */
   wait_for_exti();
 
-  /*acq_init(0, svid, code_phase, carrier_freq); */
-  acq_disable(); // Write to clear IRQ.
+  /* Write to clear IRQ. */
+  acq_disable();
+
+  /* Read in correlations. */
   acq_read_corr(corrs);
 }
 
-void do_acq(u8 svid, u16 cp_min, u16 cp_max, s16 cf_min, s16 cf_max, u16* cp, s16* cf, float* snr) {
-
+/** Perform an aqcuisition.
+ * Perform an acquisition for one PRN over a defined code and doppler range. Returns
+ * the code phase and carrier frequency of the largest peak in the search space together
+ * with the "SNR" value for that peak defined as (peak_magnitude - mean) / std_deviation.
+ *
+ * \param prn    PRN number - 1 (0..31) to attempt to aqcuire.
+ * \param cp_min Lower bound for code phase search range in chips.
+ * \param cp_max Upper bound for code phase search range in chips.
+ * \param cf_min Lower bound for carrier freq. search range in Hz.
+ * \param cf_max Upper bound for carrier freq. search range in Hz.
+ * \param cp     Pointer to a float where the peak's code phase value will be stored in chips.
+ * \param cf     Pointer to a float where the peak's carrier frequency will be stored in Hz.
+ * \param snr    Pointer to a float where the "SNR" of the peak will be stored.
+ */
+void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float* cp, float* cf, float* snr)
+{
   corr_t cs[ACQ_N_TAPS];
 
   float mag, mag_sq, best_mag = 0;
@@ -191,9 +229,41 @@ void do_acq(u8 svid, u16 cp_min, u16 cp_max, s16 cf_min, s16 cf_max, u16* cp, s1
   u16 best_cp;
   s16 best_cf;
 
-  for (s16 carrier_freq = cf_min; carrier_freq <= cf_max; carrier_freq += 20) {
-    for (u16 code_phase = cp_min; code_phase <= cp_max; code_phase += ACQ_N_TAPS) {
-      do_one_acq(svid, code_phase, carrier_freq, cs); 
+  /* Calculate the range parameters in acq units. */
+  s16 cf_min_acq = cf_min*ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+  s16 cf_max_acq = cf_max*ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+  s16 cf_step = ACQ_CARRIER_BIN_WIDTH*ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+  u16 cp_min_acq = cp_min*ACQ_CODE_PHASE_UNITS_PER_CHIP;
+  u16 cp_max_acq = cp_max*ACQ_CODE_PHASE_UNITS_PER_CHIP;
+  /* cp_step = ACQ_N_TAPS */
+
+  /* Write first and second sets of acq parameters (for pipelining). */
+  acq_write_init(prn, cp_min_acq, cf_min_acq); 
+  acq_write_init(prn, cp_min_acq+ACQ_N_TAPS, cf_min_acq+cf_step); 
+
+  /* Save the exti count so we can detect the next interrupt. */
+  u32 last_last_exti = last_exti_count();
+
+  for (s16 carrier_freq = cf_min_acq; carrier_freq <= cf_max_acq; carrier_freq += cf_step) {
+    for (u16 code_phase = cp_min_acq; code_phase <= cp_max_acq; code_phase += ACQ_N_TAPS) {
+
+      /* Wait for acq done IRQ and save the new exti count. */
+      while(last_exti_count() == last_last_exti);
+      last_last_exti = last_exti_count();
+
+      /* Read in correlations. */
+      acq_read_corr(cs);
+
+      /* On the last two cycles we want to write to diable the channel.
+       * The first time to disable and the second time really just
+       * clears the last interrupt.
+       */
+      if (carrier_freq > cf_max_acq && code_phase > cp_max_acq)
+        acq_disable();
+      else
+        /* Write parameters for cycle+2 (pipelining again). */
+        acq_write_init(prn, code_phase+2*ACQ_N_TAPS, carrier_freq+2*cf_step); 
+
       for (u8 i=0; i<ACQ_N_TAPS; i++) {
         mag_sq = (float)cs[i].I*(float)cs[i].I + (float)cs[i].Q*(float)cs[i].Q;
         mag = sqrt(mag_sq);
@@ -212,28 +282,29 @@ void do_acq(u8 svid, u16 cp_min, u16 cp_max, s16 cf_min, s16 cf_max, u16* cp, s1
   sd = sqrt(count*sq_mean - mean*mean) / count;
   mean = mean / count;
 
-  *cp = best_cp;
-  *cf = best_cf;
+  *cp = (float)best_cp / ACQ_CODE_PHASE_UNITS_PER_CHIP;
+  *cf = (float)best_cf / ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   *snr = (best_mag - mean) / sd;
-
 }
 
-void track_init(u8 channel, u8 svid, s32 starting_carrier_phase, u16 starting_code_phase) {
-  //for length(svid)=5,length(starting_carrier_phase)=24,
-  //  length(starting_code_phase) = 14
+void track_write_init(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
+  /* for length(prn) = 5,
+   *     length(carrier_phase) = 24,
+   *     length(code_phase) = 14
+   */
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
 
-  temp[0] = (svid & 0x1F) | (starting_carrier_phase << 5 & 0xE0);
-  temp[1] = (starting_carrier_phase << 5) >> 8;
-  temp[2] = (starting_carrier_phase << 5) >> 16;
-  temp[3] = (((starting_carrier_phase << 5) >> 24) & 0x1F) | (starting_code_phase << 5);
-  temp[4] = (starting_code_phase << 5) >> 8;
-  temp[5] = ((starting_code_phase << 5) >> 16) & 0x07;
+  temp[0] = (prn & 0x1F) | (carrier_phase << 5 & 0xE0);
+  temp[1] = (carrier_phase << 5) >> 8;
+  temp[2] = (carrier_phase << 5) >> 16;
+  temp[3] = (((carrier_phase << 5) >> 24) & 0x1F) | (code_phase << 5);
+  temp[4] = (code_phase << 5) >> 8;
+  temp[5] = ((code_phase << 5) >> 16) & 0x07;
 
   swift_nap_xfer(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_INIT_OFFSET, 6, 0, temp);
 }
 
-void track_update(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
+void track_write_update(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
 
   temp[0] = carrier_freq;
@@ -247,7 +318,8 @@ void track_update(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
 }
 
 void track_read_corr(u8 channel, corr_t corrs[]) {
-  u8 temp[2*3 * 3]; // 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8)
+  /* 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8) */
+  u8 temp[2*3 * 3];
   
   swift_nap_xfer(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
 
@@ -256,12 +328,75 @@ void track_read_corr(u8 channel, corr_t corrs[]) {
     corrs[2-i].Q  = (u32)temp[6*i+2];
     corrs[2-i].Q |= (u32)temp[6*i+1] << 8;
     corrs[2-i].Q |= (u32)temp[6*i]   << 16;
-    corrs[2-i].Q = s.x = corrs[2-i].Q; // Sign extend!
+    corrs[2-i].Q = s.x = corrs[2-i].Q; /* Sign extend! */
 
     corrs[2-i].I  = (u32)temp[6*i+5];
     corrs[2-i].I |= (u32)temp[6*i+4] << 8;
     corrs[2-i].I |= (u32)temp[6*i+3] << 16;
-    corrs[2-i].I = s.x = corrs[2-i].I; // Sign extend!
+    corrs[2-i].I = s.x = corrs[2-i].I; /* Sign extend! */
   }
+}
+
+/** Calculate the future code phase after N samples.
+ * Calculate the expected code phase in N samples time with carrier aiding.
+ *
+ * \param code_phase   Current code phase in chips.
+ * \param carrier_freq Current carrier frequency (i.e. Doppler) in Hz used for
+ *                     carrier aiding.
+ * \param n_samples    N, the number of samples to propagate for.
+ *
+ * \return The propagated code phase in chips.
+ */
+float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
+{
+  /* Calculate the code phase rate with carrier aiding. */
+  u32 code_phase_rate = (1.0 + carrier_freq/L1_HZ) * TRACK_NOMINAL_CODE_PHASE_RATE;
+
+  /* Internal Swift NAP code phase is in chips*2^32:
+   *
+   * |  Chip no.  | Sub-chip | Fractional sub-chip |
+   * | 0 ... 1022 | 0 ... 15 |  0 ... (2^28 - 1)   |
+   *
+   * Code phase rate is directly added in this representation,
+   * the nominal code phase rate corresponds to 1 sub-chip.
+   */
+
+  /* Calculate code phase in chips*2^32. */
+  u64 propagated_code_phase = (u64)(code_phase * ((u64)1<<32)) + n_samples * (u64)code_phase_rate;
+  propagated_code_phase = (u64)n_samples * (u64)code_phase_rate;
+
+  /* Convert code phase back to natural units with sub-chip precision.
+   * NOTE: the modulo is required to fix the fact rollover should 
+   * occur at 1023 not 1024.
+   */
+  /*printf("n: %u, %u, %llu\n", (unsigned int)n_samples, (unsigned int)code_phase_rate, (unsigned long long)propagated_code_phase);*/
+  /*return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;*/
+  return ((u32)(code_phase*16 + n_samples) % (1023*16)) / 16.0;
+}
+
+/** Initialises a tracking channel.
+ * Initialises a tracking channel on the Swift NAP.
+ *
+ * \param prn                PRN number - 1 (0-31).
+ * \param channel            Tracking channel number on the Swift NAP.
+ * \param code_phase         Code phase at start of tracking in chips [0-1023).
+ * \param carrier_freq       Carrier frequency (Doppler) at start of tracking in Hz.
+ * \param start_sample_count Sample count on which to start tracking.
+ */
+void tracking_channel_init(u8 prn, u8 channel, float code_phase, float carrier_freq, u32 start_sample_count)
+{
+  /* Calculate the code phase rate with carrier aiding. */
+  u32 code_phase_rate = (1 + carrier_freq/L1_HZ) * TRACK_NOMINAL_CODE_PHASE_RATE;
+
+  /* TODO: Write PRN into tracking channel when the FPGA code supports this. */
+
+  /* Starting carrier phase is set to zero as we don't 
+   * know the carrier freq well enough to calculate it.
+   */
+  track_write_init(channel, prn, 0, code_phase*TRACK_CODE_PHASE_UNITS_PER_CHIP);
+  track_write_update(channel, carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, code_phase_rate);
+
+  /* Schedule the timing strobe for start_sample_count. */
+  timing_strobe(start_sample_count);
 }
 
