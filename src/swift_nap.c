@@ -16,6 +16,7 @@
  */
 
 #include <math.h>
+#include <stdio.h>
 
 #include <libopencm3/stm32/spi.h>
 #include <libopencm3/stm32/f2/gpio.h>
