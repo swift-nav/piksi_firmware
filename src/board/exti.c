@@ -61,6 +61,6 @@ u32 last_exti_count() {
 
 void wait_for_exti() {
   u32 last_last_exti = last_exti_count();
-  while(last_exti_count() <= last_last_exti);
+  while(last_exti_count() == last_last_exti);
 }
 
