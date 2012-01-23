@@ -369,10 +369,12 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
    * Code phase rate is directly added in this representation,
    * the nominal code phase rate corresponds to 1 sub-chip.
    */
+  printf("CP: %f, CF: %f, CPR: %u\n", code_phase, carrier_freq, (unsigned int)code_phase_rate);
 
   /* Calculate code phase in chips*2^32. */
-  u64 propagated_code_phase = (u64)(code_phase * ((u64)1<<32)) + n_samples * (u64)code_phase_rate;
-  propagated_code_phase = (u64)n_samples * (u64)code_phase_rate;
+  u64 propagated_code_phase = (u64)(code_phase * (((u64)1)<<32)) + n_samples * (u64)code_phase_rate;
+  printf("PCP: %llu\n", (unsigned long long)propagated_code_phase);
+  //propagated_code_phase = (u64)n_samples * (u64)code_phase_rate;
 
   /* Convert code phase back to natural units with sub-chip precision.
    * NOTE: the modulo is required to fix the fact rollover should 
@@ -380,6 +382,8 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
    */
   /*printf("n: %u, %u, %llu\n", (unsigned int)n_samples, (unsigned int)code_phase_rate, (unsigned long long)propagated_code_phase);*/
   /*return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;*/
+  float final_cp = (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
+  printf("final CP: %f\n", final_cp);
   return ((u32)(code_phase*16 + n_samples) % (1023*16)) / 16.0;
 }
 
