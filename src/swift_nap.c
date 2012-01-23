@@ -254,15 +254,24 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
       /* Read in correlations. */
       acq_read_corr(cs);
 
-      /* On the last two cycles we want to write to diable the channel.
+      /* Write parameters for 2 cycles time for acq pipelining apart
+       * from the last two cycles where we want to write disable.
        * The first time to disable and the second time really just
-       * clears the last interrupt.
+       * to clear the interrupt from the last cycle.
+       *
+       * NOTE: we must take care to handle wrapping, when we get to
+       * the end of the code phase range the parameters for 2 cycles
+       * time will be with the next carrier freq value and a small
+       * code phase value.
        */
-      if (carrier_freq > cf_max_acq && code_phase > cp_max_acq)
-        acq_disable();
-      else
-        /* Write parameters for cycle+2 (pipelining again). */
-        acq_write_init(prn, code_phase+2*ACQ_N_TAPS, carrier_freq+2*cf_step); 
+      if (code_phase < cp_max_acq - ACQ_N_TAPS) {
+        acq_write_init(prn, code_phase+2*ACQ_N_TAPS, carrier_freq); 
+      } else {
+        if (carrier_freq >= cf_max_acq && code_phase >= cp_max_acq-ACQ_N_TAPS)
+          acq_disable();
+        else
+          acq_write_init(prn, cp_min_acq + code_phase - cp_max_acq, carrier_freq+cf_step); 
+      }
 
       for (u8 i=0; i<ACQ_N_TAPS; i++) {
         mag_sq = (float)cs[i].I*(float)cs[i].I + (float)cs[i].Q*(float)cs[i].Q;
