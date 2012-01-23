@@ -103,6 +103,9 @@ int main(void)
 
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
 
+  propagate_code_phase(664, -550, 16368000);
+  while(1);
+
   spi_setup();
   max2769_setup();
   swift_nap_setup();
