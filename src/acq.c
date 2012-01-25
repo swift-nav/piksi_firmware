@@ -55,8 +55,6 @@ void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[])
  */
 void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width, float* cp, float* cf, float* snr)
 {
-  gpio_set(GPIOC, GPIO11);
-
   corr_t cs[ACQ_N_TAPS];
 
   float mag, mag_sq, best_mag = 0;
@@ -114,10 +112,8 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
         acq_write_init(prn, code_phase+2*ACQ_N_TAPS, carrier_freq); 
       } else {
         if (carrier_freq >= cf_max_acq && code_phase >= (cp_max_acq-2*ACQ_N_TAPS)) {
-          gpio_set(GPIOC, GPIO10);
           /*printf("(%d, %d) => D\n", code_phase, carrier_freq);*/
           acq_disable();
-          gpio_clear(GPIOC, GPIO10);
         } else {
           /*printf("(%d, %d) => %d, %d\n", code_phase, carrier_freq, cp_min_acq+code_phase-cp_max_acq+2*ACQ_N_TAPS, carrier_freq+cf_step);*/
           acq_write_init(prn, cp_min_acq + code_phase - cp_max_acq + 2*ACQ_N_TAPS, carrier_freq+cf_step); 
@@ -146,7 +142,5 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
   *cp = (float)best_cp / ACQ_CODE_PHASE_UNITS_PER_CHIP;
   *cf = (float)best_cf / ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   *snr = (best_mag - mean) / sd;
-
-  gpio_clear(GPIOC, GPIO11);
 }
 
