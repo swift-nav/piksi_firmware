@@ -88,8 +88,8 @@ flash: $(BINARY).flash
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
-	$(Q)rm -f *.o
-	$(Q)rm -f *.d
+	$(Q)rm -f $(OBJS)
+	$(Q)rm -f $(OBJS:.o=.d)
 	$(Q)rm -f *.elf
 	$(Q)rm -f *.bin
 	$(Q)rm -f *.hex
