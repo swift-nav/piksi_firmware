@@ -74,7 +74,4 @@ void track_write_init(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase);
 void track_write_update(u8 channel, s32 carrier_freq, u32 code_phase_rate);
 void track_read_corr(u8 channel, corr_t corrs[]);
 
-float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
-void tracking_channel_init(u8 prn, u8 channel, float code_phase, float carrier_freq, u32 start_sample_count);
-
 #endif
