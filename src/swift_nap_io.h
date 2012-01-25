@@ -31,11 +31,14 @@
 
 #define SPI_ID_TRACK_BASE 0x04
 #define TRACK_SIZE 4
-
 #define TRACK_INIT_OFFSET   0x00
 #define TRACK_UPDATE_OFFSET 0x01
 #define TRACK_CORR_OFFSET   0x02
 #define TRACK_PHASE_OFFSET  0x03
+
+#define IRQ_LOAD_DONE (1<<7)
+#define IRQ_ACQ_DONE  (1<<6)
+#define IRQ_TRACK     (1<<5)
 
 #define ACQ_N_TAPS 15
 #define ACQ_CODE_PHASE_WIDTH 12
@@ -63,6 +66,8 @@ void swift_nap_xfer(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[]);
 void timing_strobe_setup();
 u32 timing_count();
 void timing_strobe(u32 falling_edge_count);
+
+u32 swift_nap_read_irq();
 
 void acq_set_load_enable();
 void acq_clear_load_enable();
