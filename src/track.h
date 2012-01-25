@@ -20,7 +20,32 @@
 
 #include <libopencm3/cm3/common.h>
 
+#define DLL_IGAIN 1.431702e-2
+#define DLL_PGAIN 5.297297
+#define PLL_IGAIN 1.779535e+1
+#define PLL_PGAIN 3.025210e+2
+
+typedef enum {
+  TRACKING_DISABLED,
+  TRACKING_FIRST_LOOP,
+  TRACKING_RUNNING
+} tracking_state_t;
+
+typedef struct {
+  tracking_state_t state; 
+  u8 prn;
+  double dll_disc;
+  double pll_disc;
+  double dll_freq;
+  double pll_freq;
+  corr_t cs[3];
+} tracking_channel_t;
+
+extern tracking_channel_t tracking_channel[TRACK_N_CHANNELS];
+
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
-void tracking_channel_init(u8 prn, u8 channel, float code_phase, float carrier_freq, u32 start_sample_count);
+void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_freq, u32 start_sample_count);
+
+void tracking_channel_update(u8 channel);
 
 #endif

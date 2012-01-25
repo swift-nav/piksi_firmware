@@ -20,6 +20,9 @@
 
 #include "main.h"
 #include "swift_nap_io.h"
+#include "track.h"
+
+tracking_channel_t tracking_channel[TRACK_N_CHANNELS];
 
 /** Calculate the future code phase after N samples.
  * Calculate the expected code phase in N samples time with carrier aiding.
@@ -64,10 +67,18 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
  * \param carrier_freq       Carrier frequency (Doppler) at start of tracking in Hz.
  * \param start_sample_count Sample count on which to start tracking.
  */
-void tracking_channel_init(u8 prn, u8 channel, float code_phase, float carrier_freq, u32 start_sample_count)
+void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_freq, u32 start_sample_count)
 {
   /* Calculate the code phase rate with carrier aiding. */
   u32 code_phase_rate = (1 + carrier_freq/L1_HZ) * TRACK_NOMINAL_CODE_PHASE_RATE;
+
+  /* Setup tracking_channel struct. */
+  tracking_channel[channel].state = TRACKING_FIRST_LOOP;
+  tracking_channel[channel].prn = prn;
+  tracking_channel[channel].dll_disc = 0;
+  tracking_channel[channel].pll_disc = 0;
+  tracking_channel[channel].dll_freq = code_phase_rate / TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  tracking_channel[channel].pll_freq = carrier_freq;
 
   /* TODO: Write PRN into tracking channel when the FPGA code supports this. */
 
@@ -80,4 +91,58 @@ void tracking_channel_init(u8 prn, u8 channel, float code_phase, float carrier_f
   /* Schedule the timing strobe for start_sample_count. */
   timing_strobe(start_sample_count);
 }
+
+void tracking_channel_update(u8 channel)
+{
+  switch(tracking_channel[channel].state)
+  {
+  case TRACKING_FIRST_LOOP:
+    /* First set of correlations are junk so do one open loop update. */
+    track_write_update(channel, \
+                       tracking_channel[channel].pll_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+                       tracking_channel[channel].dll_freq*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+
+    /* Next update start running loop filters. */
+    tracking_channel[channel].state = TRACKING_RUNNING;
+    break;
+
+  case TRACKING_RUNNING:
+  {
+    /*corr_t cs[3];*/
+    corr_t* cs = tracking_channel[channel].cs;
+
+    /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
+    track_read_corr(channel, cs);
+
+    double dll_disc_prev = tracking_channel[channel].dll_disc;
+    double pll_disc_prev = tracking_channel[channel].pll_disc;
+
+    /* TODO: check for divide by zero. */
+    tracking_channel[channel].pll_disc = atan((double)cs[1].Q/cs[1].I)/(2*PI);
+
+    tracking_channel[channel].pll_freq += PLL_PGAIN*(tracking_channel[channel].pll_disc-pll_disc_prev) \
+                                        + PLL_IGAIN*tracking_channel[channel].pll_disc;
+
+    double early_mag = sqrt((double)cs[0].I*cs[0].I + (double)cs[0].Q*cs[0].Q);
+    double late_mag = sqrt((double)cs[2].I*cs[2].I + (double)cs[2].Q*cs[2].Q);
+
+    tracking_channel[channel].dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
+
+    tracking_channel[channel].dll_freq += DLL_PGAIN*(tracking_channel[channel].dll_disc-dll_disc_prev) \
+                                        + DLL_IGAIN*tracking_channel[channel].dll_disc;
+
+    track_write_update(channel, \
+                       tracking_channel[channel].pll_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+                       tracking_channel[channel].dll_freq*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+    break;
+  }
+  case TRACKING_DISABLED:
+  default:
+    /* WTF? */
+    break;
+
+  }
+}
+
+
 

@@ -18,6 +18,7 @@
 #ifndef SWIFTNAV_MAIN_H
 #define SWIFTNAV_MAIN_H
 
+#define PI 3.14159
 #define SAMPLE_FREQ 16368000
 #define L1_HZ 1575.42e6
 

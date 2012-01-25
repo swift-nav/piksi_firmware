@@ -35,12 +35,6 @@
 #include "hw/exti.h"
 #include "hw/spi.h"
 
-#define DLL_IGAIN 1.431702e-2
-#define DLL_PGAIN 5.297297
-#define PLL_IGAIN 1.779535e+1
-#define PLL_PGAIN 3.025210e+2
-
-
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
   .pllm = 16,
@@ -113,7 +107,7 @@ int main(void)
   
   led_toggle(LED_RED);
 
-  u8 prn = 10;
+  u8 prn = 6;
 
   /* Initial coarse acq. */
   float coarse_acq_code_phase;
@@ -130,6 +124,7 @@ int main(void)
   printf("#Coarse - PRN %u: %f, %f, %f\n", prn+1, coarse_acq_code_phase, coarse_acq_carrier_freq, coarse_snr);
   /*}*/
   /*while(1);*/
+
   /* Fine acq. */
   float fine_acq_code_phase;
   float fine_acq_carrier_freq;
@@ -144,81 +139,22 @@ int main(void)
 
   do_acq(prn, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 30, &fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);
 
-
-  /*float fine2_acq_code_phase;*/
-  /*float fine2_acq_carrier_freq;*/
-  /*float fine2_snr;*/
-  /*acq_set_load_enable();*/
-  /*u32 fine2_acq_cnt = fine_acq_cnt + (SAMPLE_FREQ/1000)*250; // 100ms*/
-  /*timing_strobe(fine2_acq_cnt);*/
-  /*wait_for_exti();*/
-  /*acq_clear_load_enable();*/
-
-  /*float fine2_cp = propagate_code_phase(fine_acq_code_phase, fine_acq_carrier_freq, fine2_acq_cnt - fine_acq_cnt);*/
-
-  /*do_acq(prn, 0, 1023, coarse_acq_carrier_freq-2000, coarse_acq_carrier_freq+2000, &fine2_acq_code_phase, &fine2_acq_carrier_freq, &fine2_snr);*/
-
-
-  /*printf("# %u, %u, %u\n", (unsigned int)coarse_acq_cnt, (unsigned int)fine_acq_cnt, (unsigned int)fine2_acq_cnt);*/
   printf("#Fine - PRN %u: (%f) %f, %f, %f\n", prn+1, fine_cp, fine_acq_code_phase, fine_acq_carrier_freq, fine_snr);
-  /*printf("#Fine2 - PRN %u: (%f) %f, %f, %f\n", prn+1, fine2_cp, fine2_acq_code_phase, fine2_acq_carrier_freq, fine2_snr);*/
 
   /* Transition to tracking. */
-  u32 code_phase_rate = (1.0 + fine_acq_carrier_freq/L1_HZ) * TRACK_NOMINAL_CODE_PHASE_RATE;
-
   u32 track_cnt = timing_count() + 2000;
-
   float track_cp = propagate_code_phase(fine_acq_code_phase, fine_acq_carrier_freq, track_cnt - fine_acq_cnt);
 
-  tracking_channel_init(prn, 0, track_cp, fine_acq_carrier_freq, track_cnt);
+  tracking_channel_init(0, prn, track_cp, fine_acq_carrier_freq, track_cnt);
 
   corr_t cs[1000][3];
 
-  // Do one open loop update as first set of correlations
-  // are junk.
-  wait_for_exti();
-  track_read_corr(0, cs[0]);
-  track_write_update(0, fine_acq_carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, code_phase_rate);
-
-  double dll_disc = 0;
-  double pll_disc = 0;
-  double dll_disc_old;
-  double pll_disc_old;
-
-  double dll_freq = code_phase_rate / TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  double pll_freq = fine_acq_carrier_freq;
-
-  u32 dll_freq_fp;
-  s16 pll_freq_fp;
-
   for (u32 n=0; n<1000; n++) {
     wait_for_exti();
-    track_read_corr(0, cs[n]);
-
-    dll_disc_old = dll_disc;
-    pll_disc_old = pll_disc;
-
-    // TODO: check for divide by zero
-    pll_disc = atan((double)cs[n][1].Q/(double)cs[n][1].I)/(2*3.14159);
-
-    pll_freq = pll_freq + PLL_PGAIN*(pll_disc-pll_disc_old) \
-               + PLL_IGAIN*pll_disc;
-
-    dll_disc = (sqrt((double)cs[n][0].I*(double)cs[n][0].I + (double)cs[n][0].Q*(double)cs[n][0].Q) - sqrt((double)cs[n][2].I*(double)cs[n][2].I + (double)cs[n][2].Q*(double)cs[n][2].Q)) \
-               / (sqrt((double)cs[n][0].I*(double)cs[n][0].I + (double)cs[n][0].Q*(double)cs[n][0].Q) + sqrt((double)cs[n][2].I*(double)cs[n][2].I + (double)cs[n][2].Q*(double)cs[n][2].Q));
-
-    dll_freq = dll_freq + DLL_PGAIN*(dll_disc-dll_disc_old) \
-               + DLL_IGAIN*dll_disc;
-
-    pll_freq_fp = (s16)(round(pll_freq)*pow(2,24)/SAMPLE_FREQ);
-    dll_freq_fp = (u32)(round(dll_freq)*pow(2,32)/SAMPLE_FREQ);
-
-    /*printf("%u, %d\n", (unsigned int)dll_freq_fp, (int)pll_freq_fp);*/
-
-    track_write_update(0, pll_freq_fp, dll_freq_fp);
+    tracking_channel_update(0);
+    memcpy(cs[n], tracking_channel[0].cs, sizeof(cs[n]));
   }
 
-  printf("# prop phase: %f\n", track_cp);
   printf("foo = [\n");
   for (u32 n=0; n<1000; n++)
     printf("(%6d,%6d),\n", (int)cs[n][1].I, (int)cs[n][1].Q);
