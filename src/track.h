@@ -29,21 +29,21 @@
 #define Q_FILTER_COEFF 10
 
 typedef enum {
-  TRACKING_DISABLED,
+  TRACKING_DISABLED = 0,
   TRACKING_FIRST_LOOP,
   TRACKING_RUNNING
 } tracking_state_t;
 
 typedef struct {
   tracking_state_t state; 
-  u8 channel_num;
   u8 prn;
+
+  double code_phase_rate;
+  double carrier_freq;
 
   /* Loop filter state. */
   double dll_disc;
   double pll_disc;
-  double dll_freq;
-  double pll_freq;
 
   /* SNR filter state. */
   u32 I_filter, Q_filter;
@@ -57,6 +57,6 @@ extern tracking_channel_t tracking_channel[TRACK_N_CHANNELS];
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_freq, u32 start_sample_count);
 
-void tracking_channel_update(tracking_channel_t* chan);
+void tracking_channel_update(u8 channel);
 
 #endif

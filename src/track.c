@@ -23,6 +23,15 @@
 #include "swift_nap_io.h"
 #include "track.h"
 
+/* Initialiser using GNU extension, see
+ * http://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html 
+ * tracking_channel_t tracking_channel[TRACK_N_CHANNELS] = \
+ *   {[0 ... TRACK_N_CHANNELS-1] = {.state = TRACKING_DISABLED}};
+ */
+
+/* Initialiser actually not needed, static array inits to zero
+ * and TRACKING_DISABLED = 0.
+ */
 tracking_channel_t tracking_channel[TRACK_N_CHANNELS];
 
 /** Calculate the future code phase after N samples.
@@ -70,17 +79,16 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
  */
 void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_freq, u32 start_sample_count)
 {
-  /* Calculate the code phase rate with carrier aiding. */
-  u32 code_phase_rate = (1 + carrier_freq/L1_HZ) * TRACK_NOMINAL_CODE_PHASE_RATE;
+  /* Calculate code phase rate with carrier aiding. */
+  float code_phase_rate = (1 + carrier_freq/L1_HZ) * NOMINAL_CODE_PHASE_RATE_HZ;
 
   /* Setup tracking_channel struct. */
   tracking_channel[channel].state = TRACKING_FIRST_LOOP;
-  tracking_channel[channel].channel_num = channel;
   tracking_channel[channel].prn = prn;
   tracking_channel[channel].dll_disc = 0;
   tracking_channel[channel].pll_disc = 0;
-  tracking_channel[channel].dll_freq = code_phase_rate / TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  tracking_channel[channel].pll_freq = carrier_freq;
+  tracking_channel[channel].code_phase_rate = code_phase_rate;
+  tracking_channel[channel].carrier_freq = carrier_freq;
 
   /* TODO: Write PRN into tracking channel when the FPGA code supports this. */
 
@@ -88,21 +96,25 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
    * know the carrier freq well enough to calculate it.
    */
   track_write_init(channel, prn, 0, code_phase*TRACK_CODE_PHASE_UNITS_PER_CHIP);
-  track_write_update(channel, carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, code_phase_rate);
+  track_write_update(channel, \
+                     carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+                     code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
 
   /* Schedule the timing strobe for start_sample_count. */
   timing_strobe(start_sample_count);
 }
 
-void tracking_channel_update(tracking_channel_t* chan)
+void tracking_channel_update(u8 channel)
 {
+  tracking_channel_t* chan = &tracking_channel[channel];
+
   switch(chan->state)
   {
   case TRACKING_FIRST_LOOP:
     /* First set of correlations are junk so do one open loop update. */
-    track_write_update(chan->channel_num, \
-                       chan->pll_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                       chan->dll_freq*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+    track_write_update(channel, \
+                       chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+                       chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
 
     /* Next update start running loop filters. */
     chan->state = TRACKING_RUNNING;
@@ -114,7 +126,7 @@ void tracking_channel_update(tracking_channel_t* chan)
     corr_t* cs = chan->cs;
 
     /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
-    track_read_corr(chan->channel_num, cs);
+    track_read_corr(channel, cs);
 
     /* Update I and Q magnitude filters for SNR calculation.
      * filter = (1 - 2^-FILTER_COEFF)*filter + correlation_magnitude
@@ -131,18 +143,18 @@ void tracking_channel_update(tracking_channel_t* chan)
     /* TODO: check for divide by zero. */
     chan->pll_disc = atan((double)cs[1].Q/cs[1].I)/(2*PI);
 
-    chan->pll_freq += PLL_PGAIN*(chan->pll_disc-pll_disc_prev) + PLL_IGAIN*chan->pll_disc;
+    chan->carrier_freq += PLL_PGAIN*(chan->pll_disc-pll_disc_prev) + PLL_IGAIN*chan->pll_disc;
 
     double early_mag = sqrt((double)cs[0].I*cs[0].I + (double)cs[0].Q*cs[0].Q);
     double late_mag = sqrt((double)cs[2].I*cs[2].I + (double)cs[2].Q*cs[2].Q);
 
     chan->dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
 
-    chan->dll_freq += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
+    chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
 
-    track_write_update(chan->channel_num, \
-                       chan->pll_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                       chan->dll_freq*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+    track_write_update(channel, \
+                       chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+                       chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
     break;
   }
   case TRACKING_DISABLED:
