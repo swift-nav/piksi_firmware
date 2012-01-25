@@ -103,12 +103,21 @@ void timing_strobe_setup()
   timer_enable_counter(TIM2);
 }
 
-void acq_set_load_enable() {
+u32 swift_nap_read_irq()
+{
+  u8 temp = 0;
+  swift_nap_xfer(SPI_ID_IRQ, 1, &temp, &temp); 
+  return temp;
+}
+
+void acq_set_load_enable()
+{
   u8 temp[1] = {0xFF};
   swift_nap_xfer(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
 }
 
-void acq_clear_load_enable() {
+void acq_clear_load_enable()
+{
   u8 temp[1] = {0x00};
   swift_nap_xfer(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
 }

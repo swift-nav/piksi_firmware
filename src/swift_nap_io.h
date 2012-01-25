@@ -22,6 +22,8 @@
 
 #include "main.h"
 
+#define SPI_ID_IRQ 0x00
+
 #define SPI_ID_ACQ_BASE 0x01
 #define SPI_ID_ACQ_INIT        (SPI_ID_ACQ_BASE+0x00)
 #define SPI_ID_ACQ_LOAD_ENABLE (SPI_ID_ACQ_BASE+0x01)
