@@ -21,15 +21,19 @@
 #include <libopencm3/stm32/nvic.h>
 
 #include "exti.h"
+#include "../swift_nap_io.h"
+#include "../track.h"
 
 u32 exti_count = 0;
 
 void exti_setup()
 {
-  // Signal from the FPGA is on PC6.
-  
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;   // Enable clock to GPIOA
-  RCC_APB2ENR |= RCC_APB2ENR_SYSCFGEN;  // Enable clock to SYSCFG "peripheral", which we think contains the EXTI functionality.
+  /* Signal from the FPGA is on PC6. */
+
+  /* Enable clock to GPIOA. */
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
+  /* Enable clock to SYSCFG which contains the EXTI functionality. */
+  RCC_APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 
   exti_select_source(EXTI6, GPIOC);
 	exti_set_trigger(EXTI6, EXTI_TRIGGER_RISING);
@@ -38,12 +42,20 @@ void exti_setup()
 
 	/* Enable EXTI6 interrupt */
 	nvic_enable_irq(NVIC_EXTI9_5_IRQ);
-
 }
 
 void exti9_5_isr()
 {
   exti_reset_request(EXTI6);
+
+  u32 irq = swift_nap_read_irq();
+
+  if (irq & IRQ_TRACK) {
+    gpio_set(GPIOC, GPIO11);
+    tracking_channel_update(0);
+    gpio_clear(GPIOC, GPIO11);
+  }
+  
   exti_count++;
 }
 
