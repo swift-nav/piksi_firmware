@@ -152,7 +152,7 @@ int main(void)
     for (u32 i = 0; i < 600000; i++)
       __asm__("nop");
 
-    printf("%.2f\n", tracking_channel[0].snr);
+    printf("%.2f\n", tracking_channel_snr(0));
   }
 
   /*printf("foo = [\n");*/

@@ -18,6 +18,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <libopencm3/stm32/f2/gpio.h>
 
 #include "main.h"
 #include "swift_nap_io.h"
@@ -125,8 +126,12 @@ void tracking_channel_update(u8 channel)
     /*corr_t cs[3];*/
     corr_t* cs = chan->cs;
 
+    gpio_set(GPIOC, GPIO11);
+
     /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
     track_read_corr(channel, cs);
+
+    gpio_toggle(GPIOC, GPIO11);
 
     /* Update I and Q magnitude filters for SNR calculation.
      * filter = (1 - 2^-FILTER_COEFF)*filter + correlation_magnitude
@@ -135,13 +140,14 @@ void tracking_channel_update(u8 channel)
     chan->I_filter += abs(cs[1].I);
     chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
     chan->Q_filter += abs(cs[1].Q);
-    chan->snr = (float)(chan->I_filter >> I_FILTER_COEFF) / (chan->Q_filter >> Q_FILTER_COEFF);
+    gpio_toggle(GPIOC, GPIO11);
 
     double dll_disc_prev = chan->dll_disc;
     double pll_disc_prev = chan->pll_disc;
 
     /* TODO: check for divide by zero. */
     chan->pll_disc = atan((double)cs[1].Q/cs[1].I)/(2*PI);
+    gpio_toggle(GPIOC, GPIO11);
 
     chan->carrier_freq += PLL_PGAIN*(chan->pll_disc-pll_disc_prev) + PLL_IGAIN*chan->pll_disc;
 
@@ -152,9 +158,11 @@ void tracking_channel_update(u8 channel)
 
     chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
 
+    gpio_toggle(GPIOC, GPIO11);
     track_write_update(channel, \
                        chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
                        chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+    gpio_clear(GPIOC, GPIO11);
     break;
   }
   case TRACKING_DISABLED:
@@ -165,5 +173,11 @@ void tracking_channel_update(u8 channel)
   }
 }
 
+float tracking_channel_snr(u8 channel)
+{
+  /* Calculate SNR from I and Q filtered magnitudes. */ 
+  return (float)(tracking_channel[channel].I_filter >> I_FILTER_COEFF) / \
+                (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
+}
 
 
