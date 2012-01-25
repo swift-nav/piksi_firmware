@@ -28,6 +28,7 @@
 #include "debug.h"
 #include "swift_nap_io.h"
 #include "track.h"
+#include "acq.h"
 #include "hw/max2769.h"
 #include "hw/m25_flash.h"
 #include "hw/leds.h"

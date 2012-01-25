@@ -40,8 +40,6 @@
 #define ACQ_CODE_PHASE_UNITS_PER_CHIP (1<<(ACQ_CODE_PHASE_WIDTH-10))
 #define ACQ_CARRIER_FREQ_WIDTH 20
 #define ACQ_CARRIER_FREQ_UNITS_PER_HZ ((1<<ACQ_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ)
-/* NOTE: Minimum bin width 1/ACQ_CARRIER_FREQ_UNITS_PER_HZ (~16 Hz) */
-#define ACQ_CARRIER_BIN_WIDTH 300
 
 #define TRACK_CODE_PHASE_WIDTH 14
 #define TRACK_CODE_PHASE_UNITS_PER_CHIP (1<<(TRACK_CODE_PHASE_WIDTH-10))
@@ -58,17 +56,16 @@ typedef struct {
 void swift_nap_setup();
 void swift_nap_reset();
 void swift_nap_xfer(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[]);
+
 void timing_strobe_setup();
 u32 timing_count();
 void timing_strobe(u32 falling_edge_count);
+
 void acq_set_load_enable();
 void acq_clear_load_enable();
 void acq_write_init(u8 prn, u16 code_phase, s16 carrier_freq);
 void acq_disable();
 void acq_read_corr(corr_t corrs[]);
-
-void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[]);
-void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width, float* cp, float* cf, float* snr);
 
 void track_write_init(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase);
 void track_write_update(u8 channel, s32 carrier_freq, u32 code_phase_rate);
