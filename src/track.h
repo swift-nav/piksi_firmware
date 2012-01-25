@@ -25,6 +25,9 @@
 #define PLL_IGAIN 1.779535e+1
 #define PLL_PGAIN 3.025210e+2
 
+#define I_FILTER_COEFF 4
+#define Q_FILTER_COEFF 10
+
 typedef enum {
   TRACKING_DISABLED,
   TRACKING_FIRST_LOOP,
@@ -33,11 +36,19 @@ typedef enum {
 
 typedef struct {
   tracking_state_t state; 
+  u8 channel_num;
   u8 prn;
+
+  /* Loop filter state. */
   double dll_disc;
   double pll_disc;
   double dll_freq;
   double pll_freq;
+
+  /* SNR filter state. */
+  u32 I_filter, Q_filter;
+  float snr;
+
   corr_t cs[3];
 } tracking_channel_t;
 
@@ -46,6 +57,6 @@ extern tracking_channel_t tracking_channel[TRACK_N_CHANNELS];
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_freq, u32 start_sample_count);
 
-void tracking_channel_update(u8 channel);
+void tracking_channel_update(tracking_channel_t* chan);
 
 #endif

@@ -17,6 +17,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "main.h"
 #include "swift_nap_io.h"
@@ -74,6 +75,7 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
 
   /* Setup tracking_channel struct. */
   tracking_channel[channel].state = TRACKING_FIRST_LOOP;
+  tracking_channel[channel].channel_num = channel;
   tracking_channel[channel].prn = prn;
   tracking_channel[channel].dll_disc = 0;
   tracking_channel[channel].pll_disc = 0;
@@ -92,48 +94,55 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
   timing_strobe(start_sample_count);
 }
 
-void tracking_channel_update(u8 channel)
+void tracking_channel_update(tracking_channel_t* chan)
 {
-  switch(tracking_channel[channel].state)
+  switch(chan->state)
   {
   case TRACKING_FIRST_LOOP:
     /* First set of correlations are junk so do one open loop update. */
-    track_write_update(channel, \
-                       tracking_channel[channel].pll_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                       tracking_channel[channel].dll_freq*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+    track_write_update(chan->channel_num, \
+                       chan->pll_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+                       chan->dll_freq*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
 
     /* Next update start running loop filters. */
-    tracking_channel[channel].state = TRACKING_RUNNING;
+    chan->state = TRACKING_RUNNING;
     break;
 
   case TRACKING_RUNNING:
   {
     /*corr_t cs[3];*/
-    corr_t* cs = tracking_channel[channel].cs;
+    corr_t* cs = chan->cs;
 
     /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
-    track_read_corr(channel, cs);
+    track_read_corr(chan->channel_num, cs);
 
-    double dll_disc_prev = tracking_channel[channel].dll_disc;
-    double pll_disc_prev = tracking_channel[channel].pll_disc;
+    /* Update I and Q magnitude filters for SNR calculation.
+     * filter = (1 - 2^-FILTER_COEFF)*filter + correlation_magnitude
+     */
+    chan->I_filter -= chan->I_filter >> I_FILTER_COEFF;
+    chan->I_filter += abs(cs[1].I);
+    chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
+    chan->Q_filter += abs(cs[1].Q);
+    chan->snr = (float)(chan->I_filter >> I_FILTER_COEFF) / (chan->Q_filter >> Q_FILTER_COEFF);
+
+    double dll_disc_prev = chan->dll_disc;
+    double pll_disc_prev = chan->pll_disc;
 
     /* TODO: check for divide by zero. */
-    tracking_channel[channel].pll_disc = atan((double)cs[1].Q/cs[1].I)/(2*PI);
+    chan->pll_disc = atan((double)cs[1].Q/cs[1].I)/(2*PI);
 
-    tracking_channel[channel].pll_freq += PLL_PGAIN*(tracking_channel[channel].pll_disc-pll_disc_prev) \
-                                        + PLL_IGAIN*tracking_channel[channel].pll_disc;
+    chan->pll_freq += PLL_PGAIN*(chan->pll_disc-pll_disc_prev) + PLL_IGAIN*chan->pll_disc;
 
     double early_mag = sqrt((double)cs[0].I*cs[0].I + (double)cs[0].Q*cs[0].Q);
     double late_mag = sqrt((double)cs[2].I*cs[2].I + (double)cs[2].Q*cs[2].Q);
 
-    tracking_channel[channel].dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
+    chan->dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
 
-    tracking_channel[channel].dll_freq += DLL_PGAIN*(tracking_channel[channel].dll_disc-dll_disc_prev) \
-                                        + DLL_IGAIN*tracking_channel[channel].dll_disc;
+    chan->dll_freq += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
 
-    track_write_update(channel, \
-                       tracking_channel[channel].pll_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                       tracking_channel[channel].dll_freq*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+    track_write_update(chan->channel_num, \
+                       chan->pll_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+                       chan->dll_freq*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
     break;
   }
   case TRACKING_DISABLED:
