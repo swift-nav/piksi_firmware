@@ -15,16 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <math.h>
-
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/gpio.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/nvic.h>
 
-#include "../swift_nap.h"
 #include "exti.h"
-#include "leds.h"
 
 u32 exti_count = 0;
 
@@ -48,10 +44,6 @@ void exti_setup()
 void exti9_5_isr()
 {
   exti_reset_request(EXTI6);
-  led_on(LED_GREEN);
-  /*gpio_set(GPIOC, GPIO11|GPIO10);*/
-  /*gpio_clear(GPIOC, GPIO11|GPIO10);*/
-  /*exti_count = timing_count();*/
   exti_count++;
 }
 

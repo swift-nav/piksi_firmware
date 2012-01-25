@@ -23,7 +23,7 @@
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/timer.h>
 
-#include "swift_nap.h"
+#include "swift_nap_io.h"
 #include "hw/spi.h"
 #include "hw/exti.h"
 
