@@ -23,8 +23,8 @@
 #include <errno.h>
 
 #include "debug.h"
-#include "m25_flash.h"
-#include "board/leds.h"
+#include "hw/m25_flash.h"
+#include "hw/leds.h"
 
 u8 in_buff[2+255];
 u8 in_packet_valid = 0;

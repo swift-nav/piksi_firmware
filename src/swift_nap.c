@@ -24,8 +24,8 @@
 #include <libopencm3/stm32/f2/timer.h>
 
 #include "swift_nap.h"
-#include "board/spi.h"
-#include "board/exti.h"
+#include "hw/spi.h"
+#include "hw/exti.h"
 
 void swift_nap_setup()
 {

@@ -2,12 +2,12 @@ BINARY = swiftnav-firmware
 
 OBJS = main.o \
        debug.o \
-       m25_flash.o \
-       max2769.o \
        swift_nap.o \
-       board/leds.o \
-       board/exti.o \
-       board/spi.o \
+       hw/m25_flash.o \
+       hw/max2769.o \
+       hw/leds.o \
+       hw/exti.o \
+       hw/spi.o \
 
 include ../stm32/Makefile.include
 

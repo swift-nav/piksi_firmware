@@ -26,12 +26,12 @@
 
 #include "main.h"
 #include "debug.h"
-#include "max2769.h"
-#include "m25_flash.h"
 #include "swift_nap.h"
-#include "board/leds.h"
-#include "board/exti.h"
-#include "board/spi.h"
+#include "hw/max2769.h"
+#include "hw/m25_flash.h"
+#include "hw/leds.h"
+#include "hw/exti.h"
+#include "hw/spi.h"
 
 #define DLL_IGAIN 1.431702e-2
 #define DLL_PGAIN 5.297297

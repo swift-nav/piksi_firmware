@@ -15,8 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "board/spi.h"
-
+#include "spi.h"
 #include "max2769.h"
 
 void max2769_write(u8 addr, u32 data)

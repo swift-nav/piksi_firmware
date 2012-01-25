@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "board/spi.h"
+#include "spi.h"
 #include "m25_flash.h"
 
 void m25_write_enable(void)
