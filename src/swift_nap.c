@@ -205,6 +205,14 @@ void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[]) {
   acq_read_corr(corrs);
 }
 
+s32 round_up(s32 n, s32 multiple) 
+{ 
+ s32 remainder = n % multiple;
+ if (remainder == 0)
+  return n;
+ return n + multiple - remainder;
+} 
+
 /** Perform an aqcuisition.
  * Perform an acquisition for one PRN over a defined code and doppler range. Returns
  * the code phase and carrier frequency of the largest peak in the search space together
@@ -219,33 +227,44 @@ void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[]) {
  * \param cf     Pointer to a float where the peak's carrier frequency will be stored in Hz.
  * \param snr    Pointer to a float where the "SNR" of the peak will be stored.
  */
-void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float* cp, float* cf, float* snr)
+void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width, float* cp, float* cf, float* snr)
 {
+  gpio_set(GPIOC, GPIO11);
+
   corr_t cs[ACQ_N_TAPS];
 
   float mag, mag_sq, best_mag = 0;
   float sd, mean = 0, sq_mean = 0;
   u32 count = 0;
-  u16 best_cp;
-  s16 best_cf;
+  u16 best_cp = 0;
+  s16 best_cf = 0;
 
-  /* Calculate the range parameters in acq units. */
-  s16 cf_min_acq = cf_min*ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-  s16 cf_max_acq = cf_max*ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-  s16 cf_step = ACQ_CARRIER_BIN_WIDTH*ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-  u16 cp_min_acq = cp_min*ACQ_CODE_PHASE_UNITS_PER_CHIP;
-  u16 cp_max_acq = cp_max*ACQ_CODE_PHASE_UNITS_PER_CHIP;
+  /* Calculate the range parameters in acq units. Explicitly expand
+   * the range to the nearest multiple of the step size to make sure
+   * we cover at least the specified range.
+   */
+  s16 cf_step = cf_bin_width*ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+  s16 cf_min_acq = cf_step*floor(cf_min*ACQ_CARRIER_FREQ_UNITS_PER_HZ / (float)cf_step);
+  s16 cf_max_acq = cf_step*ceil(cf_max*ACQ_CARRIER_FREQ_UNITS_PER_HZ / (float)cf_step);
   /* cp_step = ACQ_N_TAPS */
+  u16 cp_min_acq = ACQ_N_TAPS*floor(cp_min*ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)ACQ_N_TAPS);
+  u16 cp_max_acq = ACQ_N_TAPS*ceil(cp_max*ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)ACQ_N_TAPS);
 
   /* Write first and second sets of acq parameters (for pipelining). */
   acq_write_init(prn, cp_min_acq, cf_min_acq); 
-  acq_write_init(prn, cp_min_acq+ACQ_N_TAPS, cf_min_acq+cf_step); 
+  /* If we are only doing a single acq then write disable here. */
+  /*printf("(%d, %d) => \n", cp_min_acq+ACQ_N_TAPS, cf_min_acq);*/
+  /*if (cp_min_acq+ACQ_N_TAPS >= cp_max_acq && cf_min_acq+cf_step >= cf_max_acq) {*/
+          /*printf(" D\n");*/
+    /*acq_disable();*/
+  /*}else*/
+    acq_write_init(prn, cp_min_acq+ACQ_N_TAPS, cf_min_acq); 
 
   /* Save the exti count so we can detect the next interrupt. */
   u32 last_last_exti = last_exti_count();
 
   for (s16 carrier_freq = cf_min_acq; carrier_freq <= cf_max_acq; carrier_freq += cf_step) {
-    for (u16 code_phase = cp_min_acq; code_phase <= cp_max_acq; code_phase += ACQ_N_TAPS) {
+    for (u16 code_phase = cp_min_acq; code_phase < cp_max_acq; code_phase += ACQ_N_TAPS) {
 
       /* Wait for acq done IRQ and save the new exti count. */
       while(last_exti_count() == last_last_exti);
@@ -264,13 +283,19 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
        * time will be with the next carrier freq value and a small
        * code phase value.
        */
-      if (code_phase < cp_max_acq - ACQ_N_TAPS) {
+      if (code_phase < cp_max_acq - 2*ACQ_N_TAPS) {
+        /*printf("(%d, %d) => %d, %d\n", code_phase, carrier_freq, code_phase+2*ACQ_N_TAPS, carrier_freq);*/
         acq_write_init(prn, code_phase+2*ACQ_N_TAPS, carrier_freq); 
       } else {
-        if (carrier_freq >= cf_max_acq && code_phase >= cp_max_acq-ACQ_N_TAPS)
+        if (carrier_freq >= cf_max_acq && code_phase >= (cp_max_acq-2*ACQ_N_TAPS)) {
+          gpio_set(GPIOC, GPIO10);
+          /*printf("(%d, %d) => D\n", code_phase, carrier_freq);*/
           acq_disable();
-        else
-          acq_write_init(prn, cp_min_acq + code_phase - cp_max_acq, carrier_freq+cf_step); 
+          gpio_clear(GPIOC, GPIO10);
+        } else {
+          /*printf("(%d, %d) => %d, %d\n", code_phase, carrier_freq, cp_min_acq+code_phase-cp_max_acq+2*ACQ_N_TAPS, carrier_freq+cf_step);*/
+          acq_write_init(prn, cp_min_acq + code_phase - cp_max_acq + 2*ACQ_N_TAPS, carrier_freq+cf_step); 
+        }
       }
 
       for (u8 i=0; i<ACQ_N_TAPS; i++) {
@@ -283,6 +308,7 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
           best_cf = carrier_freq;
           best_cp = code_phase + i;
         }
+        /*printf("%f, %f, %f, %f, %f, %d, %d\n", mag_sq, mag, mean, sq_mean, best_mag, best_cf, best_cp);*/
       }
       count += ACQ_N_TAPS;
     }
@@ -294,6 +320,8 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
   *cp = (float)best_cp / ACQ_CODE_PHASE_UNITS_PER_CHIP;
   *cf = (float)best_cf / ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   *snr = (best_mag - mean) / sd;
+
+  gpio_clear(GPIOC, GPIO11);
 }
 
 void track_write_init(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
@@ -369,22 +397,15 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
    * Code phase rate is directly added in this representation,
    * the nominal code phase rate corresponds to 1 sub-chip.
    */
-  printf("CP: %f, CF: %f, CPR: %u\n", code_phase, carrier_freq, (unsigned int)code_phase_rate);
 
   /* Calculate code phase in chips*2^32. */
   u64 propagated_code_phase = (u64)(code_phase * (((u64)1)<<32)) + n_samples * (u64)code_phase_rate;
-  printf("PCP: %llu\n", (unsigned long long)propagated_code_phase);
-  //propagated_code_phase = (u64)n_samples * (u64)code_phase_rate;
 
   /* Convert code phase back to natural units with sub-chip precision.
    * NOTE: the modulo is required to fix the fact rollover should 
    * occur at 1023 not 1024.
    */
-  /*printf("n: %u, %u, %llu\n", (unsigned int)n_samples, (unsigned int)code_phase_rate, (unsigned long long)propagated_code_phase);*/
-  /*return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;*/
-  float final_cp = (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
-  printf("final CP: %f\n", final_cp);
-  return ((u32)(code_phase*16 + n_samples) % (1023*16)) / 16.0;
+  return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
 }
 
 /** Initialises a tracking channel.

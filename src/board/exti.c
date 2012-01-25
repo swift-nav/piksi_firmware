@@ -49,8 +49,8 @@ void exti9_5_isr()
 {
   exti_reset_request(EXTI6);
   led_on(LED_GREEN);
-  gpio_set(GPIOC, GPIO11|GPIO10);
-  gpio_clear(GPIOC, GPIO11|GPIO10);
+  /*gpio_set(GPIOC, GPIO11|GPIO10);*/
+  /*gpio_clear(GPIOC, GPIO11|GPIO10);*/
   /*exti_count = timing_count();*/
   exti_count++;
 }

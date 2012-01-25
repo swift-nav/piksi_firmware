@@ -68,7 +68,7 @@ void acq_disable();
 void acq_read_corr(corr_t corrs[]);
 
 void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[]);
-void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float* cp, float* cf, float* snr);
+void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width, float* cp, float* cf, float* snr);
 
 void track_write_init(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase);
 void track_write_update(u8 channel, s32 carrier_freq, u32 code_phase_rate);

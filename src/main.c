@@ -103,9 +103,6 @@ int main(void)
 
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
 
-  propagate_code_phase(664, -550, 16368000);
-  while(1);
-
   spi_setup();
   max2769_setup();
   swift_nap_setup();
@@ -114,40 +111,72 @@ int main(void)
   
   led_toggle(LED_RED);
 
+  u8 prn = 10;
+
+  /* Initial coarse acq. */
+  float coarse_acq_code_phase;
+  float coarse_acq_carrier_freq;
+  float coarse_snr;
   acq_set_load_enable();
-  u32 acq_cnt = timing_count() + 1000;
-  timing_strobe(acq_cnt);
+  u32 coarse_acq_cnt = timing_count() + 1000;
+  timing_strobe(coarse_acq_cnt);
   wait_for_exti();
   acq_clear_load_enable();
 
-  float acq_code_phase;
-  float acq_carrier_freq;
-  float snr;
-
-  for (u8 prn=18; prn<21; prn++) {
-    do_acq(prn, 0, 1023, -10000, 10000, &acq_code_phase, &acq_carrier_freq, &snr);
-    printf("#PRN %u: %f, %f, %f\n", prn+1, acq_code_phase, acq_carrier_freq, snr);
-  }
-  while(1);
-
-  u32 code_phase_rate = (1.0 + acq_carrier_freq/L1_HZ) * TRACK_NOMINAL_CODE_PHASE_RATE;
-  printf("#CPR: %u\n", (unsigned int)code_phase_rate);
-
+  /*for (prn=0; prn<32; prn++) {*/
+  do_acq(prn, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
+  printf("#Coarse - PRN %u: %f, %f, %f\n", prn+1, coarse_acq_code_phase, coarse_acq_carrier_freq, coarse_snr);
+  /*}*/
   /*while(1);*/
+  /* Fine acq. */
+  float fine_acq_code_phase;
+  float fine_acq_carrier_freq;
+  float fine_snr;
+  acq_set_load_enable();
+  u32 fine_acq_cnt = timing_count() + 2000;
+  timing_strobe(fine_acq_cnt);
+  wait_for_exti();
+  acq_clear_load_enable();
+
+  float fine_cp = propagate_code_phase(coarse_acq_code_phase, coarse_acq_carrier_freq, fine_acq_cnt - coarse_acq_cnt);
+
+  do_acq(prn, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 30, &fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);
+
+
+  /*float fine2_acq_code_phase;*/
+  /*float fine2_acq_carrier_freq;*/
+  /*float fine2_snr;*/
+  /*acq_set_load_enable();*/
+  /*u32 fine2_acq_cnt = fine_acq_cnt + (SAMPLE_FREQ/1000)*250; // 100ms*/
+  /*timing_strobe(fine2_acq_cnt);*/
+  /*wait_for_exti();*/
+  /*acq_clear_load_enable();*/
+
+  /*float fine2_cp = propagate_code_phase(fine_acq_code_phase, fine_acq_carrier_freq, fine2_acq_cnt - fine_acq_cnt);*/
+
+  /*do_acq(prn, 0, 1023, coarse_acq_carrier_freq-2000, coarse_acq_carrier_freq+2000, &fine2_acq_code_phase, &fine2_acq_carrier_freq, &fine2_snr);*/
+
+
+  /*printf("# %u, %u, %u\n", (unsigned int)coarse_acq_cnt, (unsigned int)fine_acq_cnt, (unsigned int)fine2_acq_cnt);*/
+  printf("#Fine - PRN %u: (%f) %f, %f, %f\n", prn+1, fine_cp, fine_acq_code_phase, fine_acq_carrier_freq, fine_snr);
+  /*printf("#Fine2 - PRN %u: (%f) %f, %f, %f\n", prn+1, fine2_cp, fine2_acq_code_phase, fine2_acq_carrier_freq, fine2_snr);*/
+
+  /* Transition to tracking. */
+  u32 code_phase_rate = (1.0 + fine_acq_carrier_freq/L1_HZ) * TRACK_NOMINAL_CODE_PHASE_RATE;
 
   u32 track_cnt = timing_count() + 2000;
 
-  float track_cp = propagate_code_phase(acq_code_phase, acq_carrier_freq, track_cnt - acq_cnt);
+  float track_cp = propagate_code_phase(fine_acq_code_phase, fine_acq_carrier_freq, track_cnt - fine_acq_cnt);
 
-  tracking_channel_init(21, 0, track_cp, acq_carrier_freq, track_cnt);
+  tracking_channel_init(prn, 0, track_cp, fine_acq_carrier_freq, track_cnt);
 
-  corr_t cs[100][3];
+  corr_t cs[1000][3];
 
   // Do one open loop update as first set of correlations
   // are junk.
   wait_for_exti();
   track_read_corr(0, cs[0]);
-  track_write_update(0, acq_carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, code_phase_rate);
+  track_write_update(0, fine_acq_carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, code_phase_rate);
 
   double dll_disc = 0;
   double pll_disc = 0;
@@ -155,12 +184,12 @@ int main(void)
   double pll_disc_old;
 
   double dll_freq = code_phase_rate / TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  double pll_freq = acq_carrier_freq;
+  double pll_freq = fine_acq_carrier_freq;
 
   u32 dll_freq_fp;
   s16 pll_freq_fp;
 
-  for (u8 n=0; n<100; n++) {
+  for (u32 n=0; n<1000; n++) {
     wait_for_exti();
     track_read_corr(0, cs[n]);
 
@@ -189,7 +218,7 @@ int main(void)
 
   printf("# prop phase: %f\n", track_cp);
   printf("foo = [\n");
-  for (u8 n=0; n<100; n++)
+  for (u32 n=0; n<1000; n++)
     printf("(%6d,%6d),\n", (int)cs[n][1].I, (int)cs[n][1].Q);
   printf("]\n");
 
