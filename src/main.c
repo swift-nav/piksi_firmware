@@ -18,11 +18,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
-#include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/dma.h>
 #include <libopencm3/stm32/f2/flash.h>
-#include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/f2/gpio.h>
 
 #include "main.h"
@@ -30,8 +28,6 @@
 #include "swift_nap_io.h"
 #include "track.h"
 #include "acq.h"
-#include "hw/max2769.h"
-#include "hw/m25_flash.h"
 #include "hw/leds.h"
 #include "hw/spi.h"
 
