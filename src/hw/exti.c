@@ -48,7 +48,7 @@ void exti9_5_isr()
 {
   exti_reset_request(EXTI6);
 
-  u32 irq = swift_nap_read_irq();
+  u32 irq = swift_nap_read_irq_blocking();
 
   if (irq & IRQ_TRACK) {
     gpio_set(GPIOC, GPIO11);

@@ -46,7 +46,7 @@ void swift_nap_reset()
   gpio_clear(GPIOB, GPIO6);
 }
 
-void swift_nap_xfer(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[])
+void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[])
 {
   spi_slave_select(SPI_SLAVE_FPGA);
 
@@ -103,23 +103,23 @@ void timing_strobe_setup()
   timer_enable_counter(TIM2);
 }
 
-u32 swift_nap_read_irq()
+u32 swift_nap_read_irq_blocking()
 {
   u8 temp = 0;
-  swift_nap_xfer(SPI_ID_IRQ, 1, &temp, &temp); 
+  swift_nap_xfer_blocking(SPI_ID_IRQ, 1, &temp, &temp); 
   return temp;
 }
 
-void acq_set_load_enable()
+void acq_set_load_enable_blocking()
 {
   u8 temp[1] = {0xFF};
-  swift_nap_xfer(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
+  swift_nap_xfer_blocking(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
 }
 
-void acq_clear_load_enable()
+void acq_clear_load_enable_blocking()
 {
   u8 temp[1] = {0x00};
-  swift_nap_xfer(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
+  swift_nap_xfer_blocking(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
 }
 
 /** Write initialisation parameters to the Swift NAP acquisition channel.
@@ -151,7 +151,7 @@ void acq_clear_load_enable()
  * \param carrier_freq Carrier frequency i.e. Doppler in acquisition
  *                     units.
  */
-void acq_write_init(u8 prn, u16 code_phase, s16 carrier_freq)
+void acq_write_init_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
 {
   u32 temp = 0;
 
@@ -166,23 +166,23 @@ void acq_write_init(u8 prn, u16 code_phase, s16 carrier_freq)
   temp |= ((u32)carrier_freq << 17) & 0x1FFE0000;
   temp |= (1 << 29); /* Acq enabled */
 
-  swift_nap_xfer(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
+  swift_nap_xfer_blocking(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
 }
 
 /** Disable the acquisition channel.
  * Writes to the ACQ_INIT register in the Swift NAP to
  * disable the acquisition channel.
  */
-void acq_disable()
+void acq_disable_blocking()
 {
   u32 temp = 0;
-  swift_nap_xfer(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
+  swift_nap_xfer_blocking(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
 }
 
-void acq_read_corr(corr_t corrs[]) {
+void acq_read_corr_blocking(corr_t corrs[]) {
   u8 temp[2*ACQ_N_TAPS * 3];
   
-  swift_nap_xfer(SPI_ID_ACQ_CORR, 2*ACQ_N_TAPS*3, temp, temp);
+  swift_nap_xfer_blocking(SPI_ID_ACQ_CORR, 2*ACQ_N_TAPS*3, temp, temp);
 
   struct {s32 x:24;} s;
   for (u8 i=0; i<ACQ_N_TAPS; i++) {
@@ -198,7 +198,7 @@ void acq_read_corr(corr_t corrs[]) {
   }
 }
 
-void track_write_init(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
+void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
   /* for length(prn) = 5,
    *     length(carrier_phase) = 24,
    *     length(code_phase) = 14
@@ -212,10 +212,10 @@ void track_write_init(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
   temp[4] = (code_phase << 5) >> 8;
   temp[5] = ((code_phase << 5) >> 16) & 0x07;
 
-  swift_nap_xfer(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_INIT_OFFSET, 6, 0, temp);
+  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_INIT_OFFSET, 6, 0, temp);
 }
 
-void track_write_update(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
+void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
 
   temp[0] = carrier_freq;
@@ -225,14 +225,14 @@ void track_write_update(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
   temp[4] = (code_phase_rate >> 16);
   temp[5] = (code_phase_rate >> 24) & 0x1F;
 
-  swift_nap_xfer(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_UPDATE_OFFSET, 6, 0, temp);
+  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_UPDATE_OFFSET, 6, 0, temp);
 }
 
-void track_read_corr(u8 channel, corr_t corrs[]) {
+void track_read_corr_blocking(u8 channel, corr_t corrs[]) {
   /* 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8) */
   u8 temp[2*3 * 3];
   
-  swift_nap_xfer(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
+  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
 
   struct {s32 x:24;} s;
   for (u8 i=0; i<3; i++) {

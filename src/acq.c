@@ -24,19 +24,19 @@
 
 void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[])
 {
-  acq_write_init(prn, code_phase, carrier_freq); 
+  acq_write_init_blocking(prn, code_phase, carrier_freq); 
 
   /* Disable acq on next cycle, after this one has finished. */
-  acq_disable();
+  acq_disable_blocking();
 
   /* Wait for acq done IRQ. */
   wait_for_exti();
 
   /* Write to clear IRQ. */
-  acq_disable();
+  acq_disable_blocking();
 
   /* Read in correlations. */
-  acq_read_corr(corrs);
+  acq_read_corr_blocking(corrs);
 }
 
 /** Perform an aqcuisition.
@@ -75,14 +75,14 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
   u16 cp_max_acq = ACQ_N_TAPS*ceil(cp_max*ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)ACQ_N_TAPS);
 
   /* Write first and second sets of acq parameters (for pipelining). */
-  acq_write_init(prn, cp_min_acq, cf_min_acq); 
+  acq_write_init_blocking(prn, cp_min_acq, cf_min_acq); 
   /* If we are only doing a single acq then write disable here. */
   /*printf("(%d, %d) => \n", cp_min_acq+ACQ_N_TAPS, cf_min_acq);*/
   /*if (cp_min_acq+ACQ_N_TAPS >= cp_max_acq && cf_min_acq+cf_step >= cf_max_acq) {*/
           /*printf(" D\n");*/
     /*acq_disable();*/
   /*}else*/
-    acq_write_init(prn, cp_min_acq+ACQ_N_TAPS, cf_min_acq); 
+    acq_write_init_blocking(prn, cp_min_acq+ACQ_N_TAPS, cf_min_acq); 
 
   /* Save the exti count so we can detect the next interrupt. */
   u32 last_last_exti = last_exti_count();
@@ -95,7 +95,7 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
       last_last_exti = last_exti_count();
 
       /* Read in correlations. */
-      acq_read_corr(cs);
+      acq_read_corr_blocking(cs);
 
       /* Write parameters for 2 cycles time for acq pipelining apart
        * from the last two cycles where we want to write disable.
@@ -109,14 +109,14 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
        */
       if (code_phase < cp_max_acq - 2*ACQ_N_TAPS) {
         /*printf("(%d, %d) => %d, %d\n", code_phase, carrier_freq, code_phase+2*ACQ_N_TAPS, carrier_freq);*/
-        acq_write_init(prn, code_phase+2*ACQ_N_TAPS, carrier_freq); 
+        acq_write_init_blocking(prn, code_phase+2*ACQ_N_TAPS, carrier_freq); 
       } else {
         if (carrier_freq >= cf_max_acq && code_phase >= (cp_max_acq-2*ACQ_N_TAPS)) {
           /*printf("(%d, %d) => D\n", code_phase, carrier_freq);*/
-          acq_disable();
+          acq_disable_blocking();
         } else {
           /*printf("(%d, %d) => %d, %d\n", code_phase, carrier_freq, cp_min_acq+code_phase-cp_max_acq+2*ACQ_N_TAPS, carrier_freq+cf_step);*/
-          acq_write_init(prn, cp_min_acq + code_phase - cp_max_acq + 2*ACQ_N_TAPS, carrier_freq+cf_step); 
+          acq_write_init_blocking(prn, cp_min_acq + code_phase - cp_max_acq + 2*ACQ_N_TAPS, carrier_freq+cf_step); 
         }
       }
 

@@ -53,12 +53,11 @@ void spi_setup(void)
 
 void spi_slave_select(u8 slave)
 {
-  u32 i;
 
   spi_slave_deselect();
 
-  for (i = 0; i < 6; i++)
-    __asm__("nop");
+  /*for (i = 0; i < 6; i++)*/
+    /*__asm__("nop");*/
 
   switch (slave) {
     case SPI_SLAVE_FPGA:
@@ -72,8 +71,8 @@ void spi_slave_select(u8 slave)
       break;
   }
 
-  for (i = 0; i < 6; i++)
-    __asm__("nop");
+  /*for (i = 0; i < 6; i++)*/
+    /*__asm__("nop");*/
 }
 
 void spi_slave_deselect(void)

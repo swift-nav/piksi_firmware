@@ -96,13 +96,36 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
   /* Starting carrier phase is set to zero as we don't 
    * know the carrier freq well enough to calculate it.
    */
-  track_write_init(channel, prn, 0, code_phase*TRACK_CODE_PHASE_UNITS_PER_CHIP);
-  track_write_update(channel, \
+  track_write_init_blocking(channel, prn, 0, code_phase*TRACK_CODE_PHASE_UNITS_PER_CHIP);
+  track_write_update_blocking(channel, \
                      carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
                      code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
 
   /* Schedule the timing strobe for start_sample_count. */
   timing_strobe(start_sample_count);
+}
+
+void tracking_channel_get_corrs(u8 channel)
+{
+  tracking_channel_t* chan = &tracking_channel[channel];
+
+  switch(chan->state)
+  {
+  case TRACKING_FIRST_LOOP:
+    /* First set of correlations are junk so do one open loop update. */
+    tracking_channel_update(channel);
+    break;
+
+  case TRACKING_RUNNING:
+    /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
+    track_read_corr_blocking(channel, chan->cs);
+    break;
+
+  case TRACKING_DISABLED:
+  default:
+    /* WTF? */
+    break;
+  }
 }
 
 void tracking_channel_update(u8 channel)
@@ -113,7 +136,7 @@ void tracking_channel_update(u8 channel)
   {
   case TRACKING_FIRST_LOOP:
     /* First set of correlations are junk so do one open loop update. */
-    track_write_update(channel, \
+    track_write_update_blocking(channel, \
                        chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
                        chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
 
@@ -123,15 +146,10 @@ void tracking_channel_update(u8 channel)
 
   case TRACKING_RUNNING:
   {
-    /*corr_t cs[3];*/
+    /* Correlations should already be in chan->cs thanks to
+     * tracking_channel_get_corrs.
+     */
     corr_t* cs = chan->cs;
-
-    gpio_set(GPIOC, GPIO11);
-
-    /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
-    track_read_corr(channel, cs);
-
-    gpio_toggle(GPIOC, GPIO11);
 
     /* Update I and Q magnitude filters for SNR calculation.
      * filter = (1 - 2^-FILTER_COEFF)*filter + correlation_magnitude
@@ -147,7 +165,6 @@ void tracking_channel_update(u8 channel)
 
     /* TODO: check for divide by zero. */
     chan->pll_disc = atan((double)cs[1].Q/cs[1].I)/(2*PI);
-    gpio_toggle(GPIOC, GPIO11);
 
     chan->carrier_freq += PLL_PGAIN*(chan->pll_disc-pll_disc_prev) + PLL_IGAIN*chan->pll_disc;
 
@@ -158,18 +175,15 @@ void tracking_channel_update(u8 channel)
 
     chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
 
-    gpio_toggle(GPIOC, GPIO11);
-    track_write_update(channel, \
+    track_write_update_blocking(channel, \
                        chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
                        chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
-    gpio_clear(GPIOC, GPIO11);
     break;
   }
   case TRACKING_DISABLED:
   default:
     /* WTF? */
     break;
-
   }
 }
 

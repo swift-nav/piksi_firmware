@@ -20,6 +20,7 @@
 #include <string.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f2/rcc.h>
+#include <libopencm3/stm32/f2/dma.h>
 #include <libopencm3/stm32/f2/flash.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/f2/gpio.h>
@@ -100,12 +101,66 @@ int main(void)
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
 
   spi_setup();
-  max2769_setup();
+  /*max2769_setup();*/
   swift_nap_setup();
   swift_nap_reset();
   exti_setup();
   
   led_toggle(LED_RED);
+
+  u8 foo[6] = {0x03, 0x22, 0x22, 0x22, 0x22, 0x42};
+
+  RCC_AHB1ENR |= RCC_AHB1ENR_DMA1EN;
+
+  /* SPI disable. */
+  spi_disable(SPI2);
+  spi_enable_rx_dma(SPI2);
+  spi_enable_tx_dma(SPI2);
+
+  /* SPI2 RX */
+  DMA1_S3CR = 0; /* MAke sure stream is disabled to start. */
+  DMA1_S3CR = (0 << 5) | /* PFCTRL - peripheral is flow controller. */ \
+              (1 << 10) | /* MINC - increment memory ptr. */ \
+              0;
+
+  DMA1_S3NDTR = 5; /* 4+1 bytes. */
+  DMA1_S3PAR = &SPI2_DR;
+  DMA1_S3M0AR = foo;
+
+  DMA1_S3FCR = 0;
+
+  /* SPI2 TX */
+  DMA1_S4CR = 0; /* MAke sure stream is disabled to start. */
+  DMA1_S4CR = (0 << 5) | /* PFCTRL - peripheral is flow controller. */ \
+              (1 << 6) | /* DIR - memory to peripheral. */ \
+              (1 << 10) | /* MINC - increment memory ptr. */ \
+              0;
+
+  DMA1_S4NDTR = 5; /* 4+1 bytes. */
+  DMA1_S4PAR = &SPI2_DR;
+  DMA1_S4M0AR = foo;
+
+  DMA1_S4FCR = 0;
+
+  /* Enable DMA channels. */
+  DMA1_S3CR |= 1;
+  DMA1_S4CR |= 1;
+
+  spi_slave_select(SPI_SLAVE_FPGA);
+
+  /* Finally enable SPI. */
+  spi_enable(SPI2);
+
+  printf("%08X\n", (unsigned int)*((u32*)(0x40026000+16+24*4)));
+
+  while(1) {
+    for(u8 i=0; i<5; i++)
+      printf("%02X", foo[i]);
+    printf("\n");
+    printf("%03X %08X %08X\n", (unsigned int)SPI2_SR, (unsigned int)DMA1_HISR, (unsigned int)DMA1_LISR);
+    for (u32 i = 0; i < 600000; i++)
+      __asm__("nop");
+  }
 
   u8 prn = 21;
 
@@ -113,11 +168,11 @@ int main(void)
   float coarse_acq_code_phase;
   float coarse_acq_carrier_freq;
   float coarse_snr;
-  acq_set_load_enable();
+  acq_set_load_enable_blocking();
   u32 coarse_acq_cnt = timing_count() + 1000;
   timing_strobe(coarse_acq_cnt);
   wait_for_exti();
-  acq_clear_load_enable();
+  acq_clear_load_enable_blocking();
 
   /*for (prn=0; prn<32; prn++) {*/
   do_acq(prn, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
@@ -129,11 +184,11 @@ int main(void)
   float fine_acq_code_phase;
   float fine_acq_carrier_freq;
   float fine_snr;
-  acq_set_load_enable();
+  acq_set_load_enable_blocking();
   u32 fine_acq_cnt = timing_count() + 2000;
   timing_strobe(fine_acq_cnt);
   wait_for_exti();
-  acq_clear_load_enable();
+  acq_clear_load_enable_blocking();
 
   float fine_cp = propagate_code_phase(coarse_acq_code_phase, coarse_acq_carrier_freq, fine_acq_cnt - coarse_acq_cnt);
 

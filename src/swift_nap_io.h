@@ -61,22 +61,22 @@ typedef struct {
 
 void swift_nap_setup();
 void swift_nap_reset();
-void swift_nap_xfer(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[]);
+void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[]);
 
 void timing_strobe_setup();
 u32 timing_count();
 void timing_strobe(u32 falling_edge_count);
 
-u32 swift_nap_read_irq();
+u32 swift_nap_read_irq_blocking();
 
-void acq_set_load_enable();
-void acq_clear_load_enable();
-void acq_write_init(u8 prn, u16 code_phase, s16 carrier_freq);
-void acq_disable();
-void acq_read_corr(corr_t corrs[]);
+void acq_set_load_enable_blocking();
+void acq_clear_load_enable_blocking();
+void acq_write_init_blocking(u8 prn, u16 code_phase, s16 carrier_freq);
+void acq_disable_blocking();
+void acq_read_corr_blocking(corr_t corrs[]);
 
-void track_write_init(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase);
-void track_write_update(u8 channel, s32 carrier_freq, u32 code_phase_rate);
-void track_read_corr(u8 channel, corr_t corrs[]);
+void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase);
+void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate);
+void track_read_corr_blocking(u8 channel, corr_t corrs[]);
 
 #endif
