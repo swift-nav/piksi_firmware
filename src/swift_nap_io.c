@@ -20,12 +20,16 @@
 
 #include <libopencm3/stm32/spi.h>
 #include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/exti.h>
+#include <libopencm3/stm32/nvic.h>
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/timer.h>
 
 #include "swift_nap_io.h"
+#include "track.h"
 #include "hw/spi.h"
-#include "hw/exti.h"
+
+u32 exti_count = 0;
 
 void swift_nap_setup()
 {
@@ -62,6 +66,48 @@ void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[])
       spi_xfer(SPI_BUS_FPGA, data_out[i-1]);
 
   spi_slave_deselect();
+}
+
+void exti_setup()
+{
+  /* Signal from the FPGA is on PC6. */
+
+  /* Enable clock to GPIOA. */
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
+  /* Enable clock to SYSCFG which contains the EXTI functionality. */
+  RCC_APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+  exti_select_source(EXTI6, GPIOC);
+	exti_set_trigger(EXTI6, EXTI_TRIGGER_RISING);
+  exti_reset_request(EXTI6);
+	exti_enable_request(EXTI6);
+
+	/* Enable EXTI6 interrupt */
+	nvic_enable_irq(NVIC_EXTI9_5_IRQ);
+}
+
+void exti9_5_isr()
+{
+  exti_reset_request(EXTI6);
+
+  u32 irq = swift_nap_read_irq_blocking();
+
+  if (irq & IRQ_TRACK) {
+    tracking_channel_get_corrs(0);
+  }
+  
+  exti_count++;
+}
+
+u32 last_exti_count()
+{
+  return exti_count;
+}
+
+void wait_for_exti()
+{
+  u32 last_last_exti = last_exti_count();
+  while(last_exti_count() == last_last_exti);
 }
 
 void timing_strobe(u32 falling_edge_count)

@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <libopencm3/stm32/f2/gpio.h>
 
-#include "hw/exti.h"
 #include "swift_nap_io.h"
 
 void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[])

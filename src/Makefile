@@ -8,7 +8,6 @@ OBJS = main.o \
        hw/m25_flash.o \
        hw/max2769.o \
        hw/leds.o \
-       hw/exti.o \
        hw/spi.o \
 
 include ../stm32/Makefile.include

@@ -33,7 +33,6 @@
 #include "hw/max2769.h"
 #include "hw/m25_flash.h"
 #include "hw/leds.h"
-#include "hw/exti.h"
 #include "hw/spi.h"
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =

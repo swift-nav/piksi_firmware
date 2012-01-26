@@ -57,6 +57,7 @@ extern tracking_channel_t tracking_channel[TRACK_N_CHANNELS];
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_freq, u32 start_sample_count);
 
+void tracking_channel_get_corrs(u8 channel);
 void tracking_channel_update(u8 channel);
 float tracking_channel_snr(u8 channel);
 
