@@ -97,11 +97,8 @@ int main(void)
 
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
 
-  spi_setup();
-  /*max2769_setup();*/
   swift_nap_setup();
   swift_nap_reset();
-  exti_setup();
   
   led_toggle(LED_RED);
 

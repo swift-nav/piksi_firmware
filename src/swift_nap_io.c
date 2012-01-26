@@ -28,11 +28,17 @@
 #include "swift_nap_io.h"
 #include "track.h"
 #include "hw/spi.h"
+#include "hw/max2769.h"
 
 u32 exti_count = 0;
 
 void swift_nap_setup()
 {
+  /* Initialise the SPI peripheral. */
+  spi_setup();
+  /* Setup the front end. */
+  max2769_setup();
+
   /* Setup the reset line GPIO. */
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPBEN;
 	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO6);
@@ -40,6 +46,9 @@ void swift_nap_setup()
 
   /* Setup the timing strobe output. */
   timing_strobe_setup();
+
+  /* Setup the external interrupts. */
+  exti_setup();
 }
 
 void swift_nap_reset()
