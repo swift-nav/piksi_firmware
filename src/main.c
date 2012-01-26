@@ -84,8 +84,6 @@ int main(void)
     __asm__("nop");
 
 	led_setup();
-  led_off(LED_GREEN);
-  led_off(LED_RED);
 
   // Debug pins (CC1111 TX/RX)
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;

@@ -24,9 +24,13 @@ void led_setup(void)
 {
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
 	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO3|GPIO4);
+
+  led_off(LED_GREEN);
+  led_off(LED_RED);
 }
 
-void led_off(u8 led) {
+void led_off(u8 led)
+{
   switch (led) {
     case LED_1:
       gpio_set(GPIOC, GPIO3);
@@ -39,7 +43,8 @@ void led_off(u8 led) {
   }
 }
 
-void led_on(u8 led) {
+void led_on(u8 led)
+{
   switch (led) {
     case LED_1:
       gpio_clear(GPIOC, GPIO3);
@@ -52,7 +57,8 @@ void led_on(u8 led) {
   }
 }
 
-void led_toggle(u8 led) {
+void led_toggle(u8 led)
+{
   switch (led) {
     case LED_1:
       gpio_toggle(GPIOC, GPIO3);
