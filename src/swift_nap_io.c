@@ -130,6 +130,7 @@ void exti9_5_isr()
 
   if (irq & IRQ_TRACK) {
     tracking_channel_get_corrs(0);
+    tracking_channel_update(0);
   }
   
   exti_count++;
@@ -297,12 +298,12 @@ void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_p
    */
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
 
-  temp[0] = (prn & 0x1F) | (carrier_phase << 5 & 0xE0);
-  temp[1] = (carrier_phase << 5) >> 8;
-  temp[2] = (carrier_phase << 5) >> 16;
-  temp[3] = (((carrier_phase << 5) >> 24) & 0x1F) | (code_phase << 5);
-  temp[4] = (code_phase << 5) >> 8;
-  temp[5] = ((code_phase << 5) >> 16) & 0x07;
+  temp[0] = ((code_phase << 5) >> 16) & 0x07;
+  temp[1] = (code_phase << 5) >> 8;
+  temp[2] = (((carrier_phase << 5) >> 24) & 0x1F) | (code_phase << 5);
+  temp[3] = (carrier_phase << 5) >> 16;
+  temp[4] = (carrier_phase << 5) >> 8;
+  temp[5] = (prn & 0x1F) | (carrier_phase << 5 & 0xE0);
 
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_INIT_OFFSET, 6, 0, temp);
 }
@@ -310,12 +311,12 @@ void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_p
 void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
 
-  temp[0] = carrier_freq;
-  temp[1] = (carrier_freq >> 8);
-  temp[2] = code_phase_rate;
-  temp[3] = (code_phase_rate >> 8);
-  temp[4] = (code_phase_rate >> 16);
-  temp[5] = (code_phase_rate >> 24) & 0x1F;
+  temp[0] = (code_phase_rate >> 24) & 0x1F;
+  temp[1] = (code_phase_rate >> 16);
+  temp[2] = (code_phase_rate >> 8);
+  temp[3] = code_phase_rate;
+  temp[4] = (carrier_freq >> 8);
+  temp[5] = carrier_freq;
 
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_UPDATE_OFFSET, 6, 0, temp);
 }
@@ -326,17 +327,21 @@ void track_read_corr_blocking(u8 channel, corr_t corrs[]) {
   
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
 
-  struct {s32 x:24;} s;
-  for (u8 i=0; i<3; i++) {
-    corrs[2-i].Q  = (u32)temp[6*i+2];
-    corrs[2-i].Q |= (u32)temp[6*i+1] << 8;
-    corrs[2-i].Q |= (u32)temp[6*i]   << 16;
-    corrs[2-i].Q = s.x = corrs[2-i].Q; /* Sign extend! */
+  struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
 
-    corrs[2-i].I  = (u32)temp[6*i+5];
-    corrs[2-i].I |= (u32)temp[6*i+4] << 8;
-    corrs[2-i].I |= (u32)temp[6*i+3] << 16;
-    corrs[2-i].I = s.x = corrs[2-i].I; /* Sign extend! */
+  for (u8 i=0; i<3; i++) {
+    
+    sign.xtend  = (temp[6*(3-i-1)]   << 16)    // MSB
+                | (temp[6*(3-i-1)+1] << 8)     // Middle byte
+                | (temp[6*(3-i-1)+2]);         // LSB
+   
+    corrs[i].Q = sign.xtend; /* Sign extend! */
+
+    sign.xtend  = (temp[6*(3-i-1)+3] << 16)    // MSB
+                | (temp[6*(3-i-1)+4] << 8)     // Middle byte
+                | (temp[6*(3-i-1)+5]);         // LSB
+
+    corrs[i].I = sign.xtend; /* Sign extend! */
   }
 }
 
