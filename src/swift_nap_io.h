@@ -57,7 +57,8 @@
 #define TRACK_CODE_PHASE_RATE_UNITS_PER_HZ (TRACK_NOMINAL_CODE_PHASE_RATE / 1.023e6)
 
 typedef struct {
-  s32 I; s32 Q;
+  s32 I;
+  s32 Q;
 } corr_t;
 
 void swift_nap_setup();
