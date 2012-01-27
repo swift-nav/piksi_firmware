@@ -18,6 +18,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <libopencm3/stm32/f2/gpio.h>
 
 #include "main.h"
@@ -107,15 +108,23 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
 
 void tracking_channel_get_corrs(u8 channel)
 {
+  corr_t cs[3];
+  cs[0].I=0;
   tracking_channel_t* chan = &tracking_channel[channel];
 
   switch(chan->state)
   {
-  case TRACKING_FIRST_LOOP:
+  case TRACKING_FIRST_LOOP: {
     /* First set of correlations are junk so do one open loop update. */
-    tracking_channel_update(channel);
-    break;
+    /*tracking_channel_update(channel);*/
+    //track_read_corr_blocking(channel, cs);
+    //track_read_corr_blocking(channel, chan->cs);
 
+    //memcpy(chan->cs,cs,sizeof(cs));
+
+    /*printf("%d,%d %d,%d %d,%d\n", (int)chan->cs[0].I, (int)chan->cs[0].Q, (int)chan->cs[1].I, (int)chan->cs[1].Q, (int)chan->cs[2].I, (int)chan->cs[2].Q);*/
+    break;
+  }
   case TRACKING_RUNNING:
     /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
     track_read_corr_blocking(channel, chan->cs);

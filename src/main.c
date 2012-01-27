@@ -103,7 +103,7 @@ int main(void)
 
   led_toggle(LED_RED);
   
-  u8 prn = 8-1;
+  u8 prn = 14-1;
 
   /* Initial coarse acq. */
   float coarse_acq_code_phase;
@@ -144,13 +144,13 @@ int main(void)
 
   tracking_channel_init(0, prn, track_cp, fine_acq_carrier_freq, track_cnt);
 
-  printf("foo = [\n");
+  //printf("foo = [\n");
   while(1)
   {
-    for (u32 i = 0; i < 60000; i++)
+    for (u32 i = 0; i < 600000; i++)
       __asm__("nop");
 
-    /*printf("%.2f\n", tracking_channel_snr(0));*/
+    printf("%.2f\n", tracking_channel_snr(0));
     /*printf("%.2f\n", tracking_channel[0].carrier_freq);*/
     printf(" (%d, %d),\n", (unsigned int)tracking_channel[0].cs[0].I, (unsigned int)tracking_channel[0].cs[0].Q);
   }
