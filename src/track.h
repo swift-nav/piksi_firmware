@@ -19,6 +19,7 @@
 #define SWIFTNAV_TRACK_H
 
 #include <libopencm3/cm3/common.h>
+#include "swift_nap_io.h"
 
 #define DLL_IGAIN 1.431702e-2
 #define DLL_PGAIN 5.297297
