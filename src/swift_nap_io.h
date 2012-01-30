@@ -23,6 +23,7 @@
 #include "main.h"
 
 #define SPI_ID_IRQ 0x00
+#define SPI_ID_DECEASED_COW 0xFF
 
 #define SPI_ID_ACQ_BASE 0x01
 #define SPI_ID_ACQ_INIT        (SPI_ID_ACQ_BASE+0x00)
@@ -56,7 +57,8 @@
 #define TRACK_CODE_PHASE_RATE_UNITS_PER_HZ (TRACK_NOMINAL_CODE_PHASE_RATE / 1.023e6)
 
 typedef struct {
-  s32 I; s32 Q;
+  s32 I;
+  s32 Q;
 } corr_t;
 
 void swift_nap_setup();
@@ -71,6 +73,8 @@ void timing_strobe_setup();
 u32 timing_count();
 void timing_strobe(u32 falling_edge_count);
 
+void spi_dma_setup(); 
+
 u32 swift_nap_read_irq_blocking();
 
 void acq_set_load_enable_blocking();
@@ -82,5 +86,6 @@ void acq_read_corr_blocking(corr_t corrs[]);
 void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase);
 void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate);
 void track_read_corr_blocking(u8 channel, corr_t corrs[]);
+void track_read_corr_dma(u8 channel);
 
 #endif

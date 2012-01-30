@@ -18,11 +18,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
-#include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/dma.h>
 #include <libopencm3/stm32/f2/flash.h>
-#include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/f2/gpio.h>
 
 #include "main.h"
@@ -30,8 +28,6 @@
 #include "swift_nap_io.h"
 #include "track.h"
 #include "acq.h"
-#include "hw/max2769.h"
-#include "hw/m25_flash.h"
 #include "hw/leds.h"
 #include "hw/spi.h"
 
@@ -77,15 +73,12 @@ const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3 =
   .apb2_frequency = 30050625,
 };
 
-
 int main(void)
 {
   for (u32 i = 0; i < 600000; i++)
     __asm__("nop");
 
 	led_setup();
-  led_off(LED_GREEN);
-  led_off(LED_RED);
 
   // Debug pins (CC1111 TX/RX)
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
@@ -99,69 +92,18 @@ int main(void)
 
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
 
-  spi_setup();
-  /*max2769_setup();*/
   swift_nap_setup();
   swift_nap_reset();
-  exti_setup();
-  
+ 
+  u8 temp[4];
+  swift_nap_xfer_blocking(SPI_ID_DECEASED_COW, 4, temp, temp);
+
+  printf(" expired cow = %02X %02X %02X %02X\n",temp[0],temp[1],temp[2],temp[3]);
+
+
   led_toggle(LED_RED);
-
-  u8 foo[6] = {0x03, 0x22, 0x22, 0x22, 0x22, 0x42};
-
-  RCC_AHB1ENR |= RCC_AHB1ENR_DMA1EN;
-
-  /* SPI disable. */
-  spi_disable(SPI2);
-  spi_enable_rx_dma(SPI2);
-  spi_enable_tx_dma(SPI2);
-
-  /* SPI2 RX */
-  DMA1_S3CR = 0; /* MAke sure stream is disabled to start. */
-  DMA1_S3CR = (0 << 5) | /* PFCTRL - peripheral is flow controller. */ \
-              (1 << 10) | /* MINC - increment memory ptr. */ \
-              0;
-
-  DMA1_S3NDTR = 5; /* 4+1 bytes. */
-  DMA1_S3PAR = &SPI2_DR;
-  DMA1_S3M0AR = foo;
-
-  DMA1_S3FCR = 0;
-
-  /* SPI2 TX */
-  DMA1_S4CR = 0; /* MAke sure stream is disabled to start. */
-  DMA1_S4CR = (0 << 5) | /* PFCTRL - peripheral is flow controller. */ \
-              (1 << 6) | /* DIR - memory to peripheral. */ \
-              (1 << 10) | /* MINC - increment memory ptr. */ \
-              0;
-
-  DMA1_S4NDTR = 5; /* 4+1 bytes. */
-  DMA1_S4PAR = &SPI2_DR;
-  DMA1_S4M0AR = foo;
-
-  DMA1_S4FCR = 0;
-
-  /* Enable DMA channels. */
-  DMA1_S3CR |= 1;
-  DMA1_S4CR |= 1;
-
-  spi_slave_select(SPI_SLAVE_FPGA);
-
-  /* Finally enable SPI. */
-  spi_enable(SPI2);
-
-  printf("%08X\n", (unsigned int)*((u32*)(0x40026000+16+24*4)));
-
-  while(1) {
-    for(u8 i=0; i<5; i++)
-      printf("%02X", foo[i]);
-    printf("\n");
-    printf("%03X %08X %08X\n", (unsigned int)SPI2_SR, (unsigned int)DMA1_HISR, (unsigned int)DMA1_LISR);
-    for (u32 i = 0; i < 600000; i++)
-      __asm__("nop");
-  }
-
-  u8 prn = 21;
+  
+  u8 prn = 14-1;
 
   /* Initial coarse acq. */
   float coarse_acq_code_phase;
@@ -195,18 +137,22 @@ int main(void)
 
   printf("#Fine - PRN %u: (%f) %f, %f, %f\n", prn+1, fine_cp, fine_acq_code_phase, fine_acq_carrier_freq, fine_snr);
 
+
   /* Transition to tracking. */
   u32 track_cnt = timing_count() + 2000;
   float track_cp = propagate_code_phase(fine_acq_code_phase, fine_acq_carrier_freq, track_cnt - fine_acq_cnt);
 
   tracking_channel_init(0, prn, track_cp, fine_acq_carrier_freq, track_cnt);
 
+  //printf("foo = [\n");
   while(1)
   {
     for (u32 i = 0; i < 600000; i++)
       __asm__("nop");
 
     printf("%.2f\n", tracking_channel_snr(0));
+    /*printf("%.2f\n", tracking_channel[0].carrier_freq);*/
+    printf(" (%d, %d),\n", (unsigned int)tracking_channel[0].cs[0].I, (unsigned int)tracking_channel[0].cs[0].Q);
   }
 
   /*printf("foo = [\n");*/

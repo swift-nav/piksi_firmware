@@ -22,17 +22,40 @@
 #include <libopencm3/stm32/f2/gpio.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/nvic.h>
+#include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f2/rcc.h>
+#include <libopencm3/stm32/f2/dma.h>
 #include <libopencm3/stm32/f2/timer.h>
 
 #include "swift_nap_io.h"
 #include "track.h"
 #include "hw/spi.h"
+#include "hw/max2769.h"
 
 u32 exti_count = 0;
 
+#define SPI_DMA_BUFFER_LEN 22
+u8 spi_dma_buffer[SPI_DMA_BUFFER_LEN];
+
+
+void screaming_death() {
+  //disable all interrupts
+  __asm__("CPSID f;");
+ // __disable_irq();
+ 
+  while(1)
+    usart_send_blocking(USART2, '!');
+};
+
 void swift_nap_setup()
 {
+  /* Initialise the SPI peripheral. */
+  spi_setup();
+//  spi_dma_setup();
+  
+  /* Setup the front end. */
+  max2769_setup();
+
   /* Setup the reset line GPIO. */
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPBEN;
 	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO6);
@@ -40,6 +63,9 @@ void swift_nap_setup()
 
   /* Setup the timing strobe output. */
   timing_strobe_setup();
+
+  /* Setup the external interrupts. */
+  exti_setup();
 }
 
 void swift_nap_reset()
@@ -52,18 +78,28 @@ void swift_nap_reset()
 
 void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[])
 {
+
+  // Check that there's no DMA transfer in progress
+
+  if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
+    /* DMA transfer already in progress.
+     * TODO: handle this gracefully, but for now...
+     */
+    screaming_death();
+  }
+
+
   spi_slave_select(SPI_SLAVE_FPGA);
 
   spi_xfer(SPI_BUS_FPGA, spi_id);
 
   /* If data_in is NULL then discard read data. */
   if (data_in)
-    for (u8 i=n_bytes; i>0; i--)
-      data_in[n_bytes-i] = spi_xfer(SPI_BUS_FPGA, data_out[i-1]);
+    for (u8 i=0; i < n_bytes; i++)
+      data_in[i] = spi_xfer(SPI_BUS_FPGA, data_out[i]);
   else
-    for (u8 i=n_bytes; i>0; i--)
-    //for (u8 i=0; i<n_bytes; i++)
-      spi_xfer(SPI_BUS_FPGA, data_out[i-1]);
+    for (u8 i=0; i < n_bytes; i++)
+      spi_xfer(SPI_BUS_FPGA, data_out[i]);
 
   spi_slave_deselect();
 }
@@ -94,6 +130,7 @@ void exti9_5_isr()
 
   if (irq & IRQ_TRACK) {
     tracking_channel_get_corrs(0);
+    tracking_channel_update(0);
   }
   
   exti_count++;
@@ -199,20 +236,26 @@ void acq_clear_load_enable_blocking()
  */
 void acq_write_init_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
 {
-  u32 temp = 0;
+  u8 temp[4];
 
   /* Modulo 1023*4 in case adding ACQ_N_TAPS-1 rolls us over a
    * code phase boundary.
    */
   u16 code_phase_reg_value = (code_phase+ACQ_N_TAPS-1) % (1023*4);
 
-  temp |= prn & 0x1F;
-  /* Write corrected code phase, see note above. */
-  temp |= ((u32)code_phase_reg_value << 5) & 0x1FFE0;
-  temp |= ((u32)carrier_freq << 17) & 0x1FFE0000;
-  temp |= (1 << 29); /* Acq enabled */
+  temp[0] = (1<<5) |                          // Acq enabled
+            ((carrier_freq >> 7) & 0x1F);     // carrier freq [11:7]
 
-  swift_nap_xfer_blocking(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
+  temp[1] = (carrier_freq << 1) |            // carrier freq [6:0]
+            (code_phase_reg_value >> 11);     // code phase [11]
+ 
+  temp[2] = code_phase_reg_value >> 3;        // code phase [10:3]
+
+  temp[3] = (code_phase_reg_value << 5) |     // code phase [2:0]
+            (prn & 0x1F);                     // PRN number (0..31)
+
+  swift_nap_xfer_blocking(SPI_ID_ACQ_INIT, 4, 0, temp);
+
 }
 
 /** Disable the acquisition channel.
@@ -221,8 +264,8 @@ void acq_write_init_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
  */
 void acq_disable_blocking()
 {
-  u32 temp = 0;
-  swift_nap_xfer_blocking(SPI_ID_ACQ_INIT, 4, 0, (u8*)&temp);
+  u8 temp[4] = {0,0,0,0};
+  swift_nap_xfer_blocking(SPI_ID_ACQ_INIT, 4, 0, temp);
 }
 
 void acq_read_corr_blocking(corr_t corrs[]) {
@@ -230,17 +273,21 @@ void acq_read_corr_blocking(corr_t corrs[]) {
   
   swift_nap_xfer_blocking(SPI_ID_ACQ_CORR, 2*ACQ_N_TAPS*3, temp, temp);
 
-  struct {s32 x:24;} s;
-  for (u8 i=0; i<ACQ_N_TAPS; i++) {
-    corrs[i].Q  = (u32)temp[6*i+2];
-    corrs[i].Q |= (u32)temp[6*i+1] << 8;
-    corrs[i].Q |= (u32)temp[6*i]   << 16;
-    corrs[i].Q = s.x = corrs[i].Q; /* Sign extend! */
+  struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
 
-    corrs[i].I  = (u32)temp[6*i+5];
-    corrs[i].I |= (u32)temp[6*i+4] << 8;
-    corrs[i].I |= (u32)temp[6*i+3] << 16;
-    corrs[i].I = s.x = corrs[i].I; /* Sign extend! */
+  for (u8 i=0; i<ACQ_N_TAPS; i++) {
+    
+    sign.xtend  = (temp[6*(ACQ_N_TAPS-i-1)]   << 16)    // MSB
+                | (temp[6*(ACQ_N_TAPS-i-1)+1] << 8)     // Middle byte
+                | (temp[6*(ACQ_N_TAPS-i-1)+2]);         // LSB
+   
+    corrs[i].Q = sign.xtend; /* Sign extend! */
+
+    sign.xtend  = (temp[6*(ACQ_N_TAPS-i-1)+3] << 16)    // MSB
+                | (temp[6*(ACQ_N_TAPS-i-1)+4] << 8)     // Middle byte
+                | (temp[6*(ACQ_N_TAPS-i-1)+5]);         // LSB
+
+    corrs[i].I = sign.xtend; /* Sign extend! */
   }
 }
 
@@ -251,12 +298,12 @@ void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_p
    */
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
 
-  temp[0] = (prn & 0x1F) | (carrier_phase << 5 & 0xE0);
-  temp[1] = (carrier_phase << 5) >> 8;
-  temp[2] = (carrier_phase << 5) >> 16;
-  temp[3] = (((carrier_phase << 5) >> 24) & 0x1F) | (code_phase << 5);
-  temp[4] = (code_phase << 5) >> 8;
-  temp[5] = ((code_phase << 5) >> 16) & 0x07;
+  temp[0] = ((code_phase << 5) >> 16) & 0x07;
+  temp[1] = (code_phase << 5) >> 8;
+  temp[2] = (((carrier_phase << 5) >> 24) & 0x1F) | (code_phase << 5);
+  temp[3] = (carrier_phase << 5) >> 16;
+  temp[4] = (carrier_phase << 5) >> 8;
+  temp[5] = (prn & 0x1F) | (carrier_phase << 5 & 0xE0);
 
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_INIT_OFFSET, 6, 0, temp);
 }
@@ -264,12 +311,12 @@ void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_p
 void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
 
-  temp[0] = carrier_freq;
-  temp[1] = (carrier_freq >> 8);
-  temp[2] = code_phase_rate;
-  temp[3] = (code_phase_rate >> 8);
-  temp[4] = (code_phase_rate >> 16);
-  temp[5] = (code_phase_rate >> 24) & 0x1F;
+  temp[0] = (code_phase_rate >> 24) & 0x1F;
+  temp[1] = (code_phase_rate >> 16);
+  temp[2] = (code_phase_rate >> 8);
+  temp[3] = code_phase_rate;
+  temp[4] = (carrier_freq >> 8);
+  temp[5] = carrier_freq;
 
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_UPDATE_OFFSET, 6, 0, temp);
 }
@@ -280,17 +327,117 @@ void track_read_corr_blocking(u8 channel, corr_t corrs[]) {
   
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
 
+  struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
+
+  for (u8 i=0; i<3; i++) {
+    
+    sign.xtend  = (temp[6*(3-i-1)]   << 16)    // MSB
+                | (temp[6*(3-i-1)+1] << 8)     // Middle byte
+                | (temp[6*(3-i-1)+2]);         // LSB
+   
+    corrs[i].Q = sign.xtend; /* Sign extend! */
+
+    sign.xtend  = (temp[6*(3-i-1)+3] << 16)    // MSB
+                | (temp[6*(3-i-1)+4] << 8)     // Middle byte
+                | (temp[6*(3-i-1)+5]);         // LSB
+
+    corrs[i].I = sign.xtend; /* Sign extend! */
+  }
+}
+
+void spi_dma_setup() {
+
+  RCC_AHB1ENR |= RCC_AHB1ENR_DMA1EN;  // Enable clock to DMA peripheral
+
+  spi_enable_rx_dma(SPI2);  // Set appropriate bits in SPI2_CR2 to pass DMA requests to DMA controller
+  spi_enable_tx_dma(SPI2);
+
+  /* SPI2 RX - stream 3, channel 0, high priority*/
+  DMA1_S3CR = 0; /* Make sure stream is disabled to start. */
+  DMA1_S3CR = DMA_SxCR_DMEIE | DMA_SxCR_TEIE |  // Error interrupts
+              DMA_SxCR_TCIE |                      // Transfer complete interrupt
+              DMA_SxCR_DIR_PERIPHERAL_TO_MEM |
+              DMA_SxCR_MINC |                         // Increment the memory address after each transfer
+              DMA_SxCR_PSIZE_8BIT |                   // 8 bit transfers from SPI peripheral
+              DMA_SxCR_MSIZE_8BIT |                   // and to memory
+              DMA_SxCR_PL_HIGH |                      // High priority
+              DMA_SxCR_CHSEL(0);                      // The channel selects which request line will trigger a transfer
+                                                      // In this case, channel 0 = SPI2_RX (see CD00225773.pdf Table 22)
+
+  DMA1_S3NDTR = 0;        // For now, don't transfer any number of datas (will be set in the initiating function)
+
+  DMA1_S3PAR = &SPI2_DR;          // This is the address the data will be streamed from
+  DMA1_S3M0AR = spi_dma_buffer;   // And where it's going to end up
+
+  DMA1_S3FCR = 0;         // FIFO disabled, i.e. direct mode.  TODO: see if FIFO helps performance
+
+  /* SPI2 TX - stream 4, channel 0, high priority */
+  DMA1_S4CR = 0; /* Make sure stream is disabled to start. */
+  DMA1_S4CR = DMA_SxCR_DMEIE | DMA_SxCR_TEIE |  // Error interrupts
+                                                      // No transfer complete interrupt (we'll use the RX one)
+              DMA_SxCR_DIR_MEM_TO_PERIPHERAL |
+              DMA_SxCR_MINC |                         // Increment the memory address after each transfer
+              DMA_SxCR_PSIZE_8BIT |                   // 8 bit transfers to SPI peripheral
+              DMA_SxCR_MSIZE_8BIT |                   // and from memory
+              DMA_SxCR_PL_HIGH |                      // High priority
+              DMA_SxCR_CHSEL(0);                      // The channel selects which request line will trigger a transfer
+                                                      // In this case, channel 0 = SPI2_TX (see CD00225773.pdf Table 22)
+
+  DMA1_S4NDTR = 0;        // For now, don't transfer any number of datas (will be set in the initiating function)
+
+  DMA1_S4PAR = &SPI2_DR;          // This is the address the data will be streamed to
+  DMA1_S4M0AR = spi_dma_buffer;   // And where it's coming from
+
+  DMA1_S4FCR = 0;         // FIFO disabled, i.e. direct mode.  TODO: see if FIFO helps performance
+  /* SPI2 TX */
+
+}
+
+void swift_nap_xfer_dma(u8 n_bytes) {
+
+  if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
+    /* DMA transfer already in progress.
+     * TODO: handle this gracefully, but for now...
+     */
+    screaming_death();
+  }
+
+  DMA1_S4NDTR = n_bytes; // For now, don't transfer any number of datas (will be set in the initiating function)
+
+  spi_slave_select(SPI_SLAVE_FPGA);
+
+  /* Enable DMA channels. */
+  DMA1_S3CR |= DMA_SxCR_EN;
+  DMA1_S4CR |= DMA_SxCR_EN;
+}
+
+
+void track_read_corr_dma(u8 channel)
+{
+  spi_dma_buffer[0] = SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET; // Select correlation result register
+  
+  /* Start 18 byte DMA xfer i.e. 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8) */
+  swift_nap_xfer_dma(2*3*3);
+}
+
+void track_unpack_corr_dma(corr_t corrs[])
+{
+  /* Correlations now in DMA buffer, skip first byte that
+   * corresponds to the SPI ID.
+   */
+  u8* temp = spi_dma_buffer+1;
+
   struct {s32 x:24;} s;
   for (u8 i=0; i<3; i++) {
     corrs[2-i].Q  = (u32)temp[6*i+2];
     corrs[2-i].Q |= (u32)temp[6*i+1] << 8;
     corrs[2-i].Q |= (u32)temp[6*i]   << 16;
-    corrs[2-i].Q = s.x = corrs[2-i].Q; /* Sign extend! */
+    corrs[2-i].Q = s.x = corrs[2-i].Q; // Sign extend!
 
     corrs[2-i].I  = (u32)temp[6*i+5];
     corrs[2-i].I |= (u32)temp[6*i+4] << 8;
     corrs[2-i].I |= (u32)temp[6*i+3] << 16;
-    corrs[2-i].I = s.x = corrs[2-i].I; /* Sign extend! */
+    corrs[2-i].I = s.x = corrs[2-i].I; // Sign extend!
   }
 }
 
