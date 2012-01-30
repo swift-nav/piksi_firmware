@@ -24,6 +24,7 @@
 #include "main.h"
 #include "swift_nap_io.h"
 #include "track.h"
+#include "nav_msg.h"
 
 /* Initialiser using GNU extension, see
  * http://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html 
@@ -91,6 +92,8 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
   tracking_channel[channel].pll_disc = 0;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
   tracking_channel[channel].carrier_freq = carrier_freq;
+
+  nav_msg_init(&tracking_channel[channel].nav_msg);
 
   /* TODO: Write PRN into tracking channel when the FPGA code supports this. */
 
@@ -183,6 +186,8 @@ void tracking_channel_update(u8 channel)
     chan->dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
 
     chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
+  
+    nav_msg_update(&chan->nav_msg, cs[1].I);
 
     track_write_update_blocking(channel, \
                        chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \

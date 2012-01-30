@@ -10,11 +10,11 @@ typedef struct {
   u8 bit_phase_ref;
   u8 bit_phase_count;
   s32 nav_bit_integrate;
-} nav_msg;
+} nav_msg_t;
 
 
-void nav_msg_init(nav_msg *n);
-void nav_msg_update(nav_msg *n, s32 corr_prompt_real);
+void nav_msg_init(nav_msg_t *n);
+void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real);
 
 #endif
 

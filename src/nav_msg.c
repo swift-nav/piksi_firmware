@@ -3,7 +3,7 @@
 
 #define NAV_MSG_BIT_PHASE_THRES 4
 
-void nav_msg_init(nav_msg *n) {
+void nav_msg_init(nav_msg_t *n) {
   // Initialize the necessary parts of the nav message state structure
   n->subframe_bit_index = 0;
   n->bit_phase = 0;
@@ -12,7 +12,7 @@ void nav_msg_init(nav_msg *n) {
   n->nav_bit_integrate = 0;
 }
 
-void nav_msg_update(nav_msg *n, s32 corr_prompt_real) {
+void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
   // Called once per tracking loop update (atm fixed at 1 PRN [1 ms])
   // Performs the necessary steps to recover the nav bit clock, store the nav bits
   // and decode them.
@@ -31,7 +31,8 @@ void nav_msg_update(nav_msg *n, s32 corr_prompt_real) {
         n->bit_phase_ref = n->bit_phase;  // Store the bit phase hypothesis
         n->bit_phase_count = 1;
       }
-      printf("NAV_MSG: bit_phase_ref = %d, count = %d", n->bit_phase_ref, n->bit_phase_count);
+      if (n->bit_phase_count > 2)
+        printf("NAV_MSG: %d, %d", n->bit_phase_ref, n->bit_phase_count);
     }
     n->nav_bit_integrate = corr_prompt_real;  // Store the correlation for next time
  
@@ -52,6 +53,7 @@ void nav_msg_update(nav_msg *n, s32 corr_prompt_real) {
           if (i % 10 == 9) printf(" ");
           if (i % 80 == 79) printf("\n");
         }
+        printf("\n Tracking is probably hosed now because of all that printing. EIT!\n");
       }
 
       n->nav_bit_integrate = 0; // Zero the integrator for the next nav bit

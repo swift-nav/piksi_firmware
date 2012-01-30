@@ -20,6 +20,7 @@
 
 #include <libopencm3/cm3/common.h>
 #include "swift_nap_io.h"
+#include "nav_msg.h"
 
 #define DLL_IGAIN 1.431702e-2
 #define DLL_PGAIN 5.297297
@@ -51,6 +52,8 @@ typedef struct {
   float snr;
 
   corr_t cs[3];
+
+  nav_msg_t nav_msg;
 } tracking_channel_t;
 
 extern tracking_channel_t tracking_channel[TRACK_N_CHANNELS];
