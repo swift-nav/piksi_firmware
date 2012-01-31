@@ -277,15 +277,15 @@ void acq_read_corr_blocking(corr_t corrs[]) {
 
   for (u8 i=0; i<ACQ_N_TAPS; i++) {
     
-    sign.xtend  = (temp[6*(ACQ_N_TAPS-i-1)]   << 16)    // MSB
-                | (temp[6*(ACQ_N_TAPS-i-1)+1] << 8)     // Middle byte
-                | (temp[6*(ACQ_N_TAPS-i-1)+2]);         // LSB
+    sign.xtend  = (temp[6*i]   << 16)    // MSB
+                | (temp[6*i+1] << 8)     // Middle byte
+                | (temp[6*i+2]);         // LSB
    
     corrs[i].Q = sign.xtend; /* Sign extend! */
 
-    sign.xtend  = (temp[6*(ACQ_N_TAPS-i-1)+3] << 16)    // MSB
-                | (temp[6*(ACQ_N_TAPS-i-1)+4] << 8)     // Middle byte
-                | (temp[6*(ACQ_N_TAPS-i-1)+5]);         // LSB
+    sign.xtend  = (temp[6*i+3] << 16)    // MSB
+                | (temp[6*i+4] << 8)     // Middle byte
+                | (temp[6*i+5]);         // LSB
 
     corrs[i].I = sign.xtend; /* Sign extend! */
   }
