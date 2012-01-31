@@ -51,8 +51,8 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
           printf("%d", (n->subframe_bits[i >> 3] & (1 << (i & 0x07))) ? 1 : 0);
           if (i % 10 == 9) printf(" ");
           if (i % 80 == 79) printf("\n");
-*/
         }
+*/
       }
 
       n->nav_bit_integrate = 0; // Zero the integrator for the next nav bit
