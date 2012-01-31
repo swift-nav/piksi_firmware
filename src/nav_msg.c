@@ -1,7 +1,7 @@
 #include "nav_msg.h"
 #include <stdio.h>
 
-#define NAV_MSG_BIT_PHASE_THRES 4
+#define NAV_MSG_BIT_PHASE_THRES 5
 
 void nav_msg_init(nav_msg_t *n) {
   // Initialize the necessary parts of the nav message state structure
@@ -31,8 +31,6 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
         n->bit_phase_ref = n->bit_phase;  // Store the bit phase hypothesis
         n->bit_phase_count = 1;
       }
-      if (n->bit_phase_count > 2)
-        printf("NAV_MSG: %d, %d", n->bit_phase_ref, n->bit_phase_count);
     }
     n->nav_bit_integrate = corr_prompt_real;  // Store the correlation for next time
  
@@ -47,13 +45,14 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
       n->subframe_bit_index++;
 
       if (n->subframe_bit_index == 300) {
-        printf("NAV_MSG: Received a subframe: (look for 10001011 or 01110100)\n");
-        for (int i = 0; i < 300; i++) {
+        n->subframe_bit_index = 0;
+        printf("NAV_MSG: Got subframe!\n");
+/*        for (int i = 0; i < 300; i++) {
           printf("%d", (n->subframe_bits[i >> 3] & (1 << (i & 0x07))) ? 1 : 0);
           if (i % 10 == 9) printf(" ");
           if (i % 80 == 79) printf("\n");
+*/
         }
-        printf("\n Tracking is probably hosed now because of all that printing. EIT!\n");
       }
 
       n->nav_bit_integrate = 0; // Zero the integrator for the next nav bit
