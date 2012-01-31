@@ -118,6 +118,12 @@ int main(void)
   /*for (prn=0; prn<32; prn++) {*/
   do_acq(prn, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
   printf("#Coarse - PRN %u: %f, %f, %f\n", prn+1, coarse_acq_code_phase, coarse_acq_carrier_freq, coarse_snr);
+
+  if (coarse_snr < 8.0) {
+    printf("No findy satellite :(\n");
+    while(1);
+  }
+
   /*}*/
   /*while(1);*/
 
