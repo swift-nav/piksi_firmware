@@ -90,6 +90,8 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
   tracking_channel[channel].prn = prn;
   tracking_channel[channel].dll_disc = 0;
   tracking_channel[channel].pll_disc = 0;
+  tracking_channel[channel].I_filter = 0;
+  tracking_channel[channel].Q_filter = 0;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
   tracking_channel[channel].carrier_freq = carrier_freq;
 
@@ -165,11 +167,18 @@ void tracking_channel_update(u8 channel)
 
     /* Update I and Q magnitude filters for SNR calculation.
      * filter = (1 - 2^-FILTER_COEFF)*filter + correlation_magnitude
+     * If filters are uninitialised (=0) then initialise them with the
+     * first set of corellations.
      */
-    chan->I_filter -= chan->I_filter >> I_FILTER_COEFF;
-    chan->I_filter += abs(cs[1].I);
-    chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
-    chan->Q_filter += abs(cs[1].Q);
+    if (chan->I_filter == 0 && chan->Q_filter == 0) {
+      chan->I_filter = abs(cs[1].I) << I_FILTER_COEFF;
+      chan->Q_filter = abs(cs[1].Q) << Q_FILTER_COEFF;
+    } else {
+      chan->I_filter -= chan->I_filter >> I_FILTER_COEFF;
+      chan->I_filter += abs(cs[1].I);
+      chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
+      chan->Q_filter += abs(cs[1].Q);
+    }
     gpio_toggle(GPIOC, GPIO11);
 
     double dll_disc_prev = chan->dll_disc;
