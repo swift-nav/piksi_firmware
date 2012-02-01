@@ -99,9 +99,9 @@ void usart_write_dma(u8 *data, u8 n)
     memcpy(&usart_fifo[wr], data, n);
   else {
     /* Deal with case where write wraps the circular buffer. */
-    memcpy(&usart_fifo[wr], data, USART_BUFFER_LEN - wr);
-    memcpy(&usart_fifo[0], data, n - (USART_BUFFER_LEN - wr));
-  }    
+    memcpy(&usart_fifo[wr], &data[0], USART_BUFFER_LEN - wr);
+    memcpy(&usart_fifo[0], &data[USART_BUFFER_LEN-wr], n - (USART_BUFFER_LEN - wr));
+  }
 
   if (!(DMA2_S7CR & DMA_SxCR_EN))
     usart_tx_dma_schedule();
