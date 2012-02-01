@@ -318,6 +318,12 @@ void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_ra
   temp[4] = (carrier_freq >> 8);
   temp[5] = carrier_freq;
 
+  /*printf("%d, %d", (int)carrier_freq, (unsigned int)code_phase_rate);*/
+  /*printf("0x");*/
+  /*for(u8 i=0; i<6; i++)*/
+    /*printf("%02X", temp[i]);*/
+  /*printf("\n");*/
+
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_UPDATE_OFFSET, 6, 0, temp);
 }
 
