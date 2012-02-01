@@ -95,7 +95,7 @@ void usart_write_dma(u8 *data, u8 n)
   usart_fifo_wr = (usart_fifo_wr + n) % USART_BUFFER_LEN;
   __asm__("CPSIE i;");
 
-  if (wr + n < USART_BUFFER_LEN)
+  if (wr + n <= USART_BUFFER_LEN)
     memcpy(&usart_fifo[wr], data, n);
   else {
     /* Deal with case where write wraps the circular buffer. */
