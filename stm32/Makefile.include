@@ -19,9 +19,8 @@
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-SWIFTNAV_ROOT = ..
 PREFIX ?= arm-none-eabi
-GIT_VERSION := $(shell ../scripts/git-check.sh)
+GIT_VERSION := $(shell $(SWIFTNAV_ROOT)/scripts/git-check.sh)
 # PREFIX ?= arm-elf
 CC = $(PREFIX)-gcc
 LD = $(PREFIX)-gcc
@@ -29,7 +28,7 @@ OBJCOPY = $(PREFIX)-objcopy
 OBJDUMP = $(PREFIX)-objdump
 # Uncomment this line if you want to use the installed (not local) library.
 #TOOLCHAIN_DIR := $(shell dirname `which $(CC)`)/../$(PREFIX)
-TOOLCHAIN_DIR = $(SWIFTNAV_ROOT)/../libopencm3/
+TOOLCHAIN_DIR = /home/fnoble/libopencm3/
 CFLAGS += -O0 -g -Wall -Wextra -Werror -I$(TOOLCHAIN_DIR)/include \
        -fno-common -mcpu=cortex-m3 -mthumb -msoft-float -MD -DSTM32F2 \
        -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99
@@ -79,7 +78,7 @@ flash: $(BINARY).flash
 	@printf "  OBJDUMP $(*).list\n"
 	$(Q)$(OBJDUMP) -S $(*).elf > $(*).list
 
-%.elf: $(OBJS) $(LDSCRIPT) $(TOOLCHAIN_DIR)/lib/stm32/f2/libopencm3_stm32f2.a
+%.elf: $(OBJS)
 	@printf "  LD      $(subst $(shell pwd)/,,$(@))\n"
 	$(Q)$(LD) -o $(*).elf $(OBJS) -lopencm3_stm32f2 -Xlinker -Map=$(*).map $(LDFLAGS)
 
@@ -122,5 +121,4 @@ ftdi_kextload:
 
 .PHONY: images clean ftdi_kextload ftdi_kextunload
 
--include $(OBJS:.o=.d)
 
