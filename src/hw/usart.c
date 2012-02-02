@@ -74,7 +74,10 @@ void usart_dma_setup(void) {
   DMA2_S7PAR = &USART1_DR;    // DMA into the USART1 data register
   DMA2_S7M0AR = usart_fifo;   // from the usart_fifo.
 
-  DMA2_S7FCR = 0;         // DMA FIFO disabled, i.e. direct mode.  TODO: see if FIFO helps performance
+  // TODO: Investigate more about the best FIFO settings.
+  DMA2_S7FCR = DMA_SxFCR_DMDIS |          // Enable DMA stream FIFO
+               DMA_SxFCR_FTH_2_4_FULL |   // Triger level 1/2 full
+               DMA_SxFCR_FEIE;            // Enable FIFO error interrupt
 
   usart_fifo_wr = usart_fifo_rd = 0;  // Buffer is empty to begin with.
 
