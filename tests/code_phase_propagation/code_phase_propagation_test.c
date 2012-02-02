@@ -99,10 +99,10 @@ int main(void)
 
     do_acq(PRN-1, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 100, &fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);
 
-    float dt = (float)(fine_acq_cnt - coarse_acq_cnt) * 1000.0 / SAMPLE_FREQ; 
+    float dt = (float)(fine_acq_cnt - coarse_acq_cnt) * 1000.0 / SAMPLE_FREQ;
     printf("Fine:\n  Propagated for %.1f ms, propagated code phase %.4f\n", dt, fine_cp);
     printf("  Code phase: %7.4f, Carrier freq % 7.1f, SNR %5.2f\n", fine_acq_code_phase, fine_acq_carrier_freq, fine_snr);
-    printf("  Code phase error: %f\n", fabsf(fine_acq_code_phase - fine_cp));
+    printf("  Code phase error: %f\n", fine_acq_code_phase - fine_cp);
 
     /* Second fine acq. */
     float fine2_acq_code_phase;
@@ -118,10 +118,10 @@ int main(void)
 
     do_acq(PRN-1, fine2_cp-20, fine2_cp+20, fine_acq_carrier_freq-300, fine_acq_carrier_freq+300, 100, &fine2_acq_code_phase, &fine2_acq_carrier_freq, &fine2_snr);
 
-    dt = (float)(fine2_acq_cnt - fine_acq_cnt) * 1000.0 / SAMPLE_FREQ; 
+    dt = (float)(fine2_acq_cnt - fine_acq_cnt) * 1000.0 / SAMPLE_FREQ;
     printf("Second fine:\n  Propagated for %.1f ms, propagated code phase %.4f\n", dt, fine2_cp);
     printf("  Code phase: %7.4f, Carrier freq % 7.1f, SNR %5.2f\n", fine2_acq_code_phase, fine2_acq_carrier_freq, fine2_snr);
-    printf("  Code phase error: %f\n", fabsf(fine2_acq_code_phase - fine2_cp));
+    printf("  Code phase error: %f\n", fine2_acq_code_phase - fine2_cp);
   }
   
 	return 0;
