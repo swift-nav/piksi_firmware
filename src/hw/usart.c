@@ -24,10 +24,15 @@
 #include <libopencm3/stm32/f2/dma.h>
 
 #include "usart.h"
+#include "../swift_nap_io.h"
+#include "leds.h"
 
-u8 usart_fifo[USART_BUFFER_LEN];
-u8 usart_fifo_rd;
-u8 usart_fifo_wr;
+u8 usart_fifo_tx[USART_BUFFER_LEN];
+u8 usart_fifo_rx[USART_BUFFER_LEN];
+u8 usart_fifo_tx_rd;
+u8 usart_fifo_tx_wr;
+u8 usart_fifo_rx_rd;
+u8 usart_fifo_rx_wr;
 u8 usart_dma_xfer_len;
 
 void usart_tx_dma_schedule();
@@ -51,8 +56,9 @@ void usart_dma_setup(void) {
 	usart_set_stopbits(USART1, USART_STOPBITS_1);
 	usart_set_parity(USART1, USART_PARITY_NONE);
 	usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
-	usart_set_mode(USART1, USART_MODE_TX);
+	usart_set_mode(USART1, USART_MODE_TX_RX);
   usart_enable_tx_dma(USART1);
+  usart_enable_rx_dma(USART1);
 
 	/* Finally enable the USART. */
 	usart_enable(USART1);
@@ -60,29 +66,59 @@ void usart_dma_setup(void) {
   /* USART1 TX - DMA2, stream 7, channel 4, low priority*/
   DMA2_S7CR = 0; /* Make sure stream is disabled to start. */
   DMA2_S7CR = DMA_SxCR_DMEIE | DMA_SxCR_TEIE |  // Error interrupts
-              DMA_SxCR_TCIE |                      // Transfer complete interrupt
+              DMA_SxCR_TCIE |                   // Transfer complete interrupt
               DMA_SxCR_DIR_MEM_TO_PERIPHERAL |
-              DMA_SxCR_MINC |                         // Increment the memory address after each transfer
-              DMA_SxCR_PSIZE_8BIT |                   // 8 bit transfers to USART peripheral
-              DMA_SxCR_MSIZE_8BIT |                   // and from memory
-              DMA_SxCR_PL_LOW |                      // Low priority
-              DMA_SxCR_CHSEL(4);                      // The channel selects which request line will trigger a transfer
-                                                      // In this case, channel 4 = UART1_TX (see CD00225773.pdf Table 23)
+              DMA_SxCR_MINC |                   // Increment the memory address after each transfer
+              DMA_SxCR_PSIZE_8BIT |             // 8 bit transfers to USART peripheral
+              DMA_SxCR_MSIZE_8BIT |             // and from memory
+              DMA_SxCR_PL_LOW |                 // Low priority
+              DMA_SxCR_CHSEL(4);                // The channel selects which request line will trigger a transfer
+                                                // In this case, channel 4 = UART1_TX (see CD00225773.pdf Table 23)
 
-  DMA2_S7NDTR = 0;        // For now, don't transfer any number of datas (will be set in the initiating function)
+  DMA2_S7NDTR = 0;  // For now, don't transfer any number of datas (will be set in the initiating function)
 
-  DMA2_S7PAR = &USART1_DR;    // DMA into the USART1 data register
-  DMA2_S7M0AR = usart_fifo;   // from the usart_fifo.
+  DMA2_S7PAR = &USART1_DR;      // DMA into the USART1 data register
+  DMA2_S7M0AR = usart_fifo_tx;  // from the usart_fifo_tx.
 
   // TODO: Investigate more about the best FIFO settings.
   DMA2_S7FCR = DMA_SxFCR_DMDIS |          // Enable DMA stream FIFO
                DMA_SxFCR_FTH_2_4_FULL |   // Triger level 1/2 full
                DMA_SxFCR_FEIE;            // Enable FIFO error interrupt
 
-  usart_fifo_wr = usart_fifo_rd = 0;  // Buffer is empty to begin with.
+  usart_fifo_tx_wr = usart_fifo_tx_rd = 0;  // Buffer is empty to begin with.
 
-  /* Enable DMA2 Stream 7 interrupts with the NVIC. */
+  /* USART1 RX - DMA2, stream 5, channel 4, low priority*/
+  DMA2_S5CR = 0; /* Make sure stream is disabled to start. */
+  DMA2_S5CR = DMA_SxCR_DMEIE | DMA_SxCR_TEIE |  // Error interrupts
+              DMA_SxCR_TCIE |                   // Transfer complete interrupt
+              DMA_SxCR_CIRC |                   // Enable circular buffer mode
+              DMA_SxCR_DIR_PERIPHERAL_TO_MEM |
+              DMA_SxCR_MINC |                   // Increment the memory address after each transfer
+              DMA_SxCR_PSIZE_8BIT |             // 8 bit transfers to USART peripheral
+              DMA_SxCR_MSIZE_8BIT |             // and from memory
+              DMA_SxCR_PL_LOW |                 // Low priority
+              DMA_SxCR_CHSEL(4);                // The channel selects which request line will trigger a transfer
+                                                // In this case, channel 4 = UART1_RX (see CD00225773.pdf Table 23)
+
+  DMA2_S5NDTR = USART_BUFFER_LEN;  // For now, don't transfer any number of datas (will be set in the initiating function)
+
+  DMA2_S5PAR = &USART1_DR;      // DMA into the USART1 data register
+  DMA2_S5M0AR = usart_fifo_rx;  // from the usart_fifo_tx.
+
+  // TODO: Investigate more about the best FIFO settings.
+  DMA2_S5FCR = DMA_SxFCR_DMDIS |          // Enable DMA stream FIFO
+               DMA_SxFCR_FTH_2_4_FULL |   // Triger level 1/2 full
+               DMA_SxFCR_FEIE;            // Enable FIFO error interrupt
+
+  usart_fifo_rx_wr = usart_fifo_rx_rd = 0;  // Buffer is empty to begin with.
+
+  /* Enable DMA2 Stream 7 (TX) interrupts with the NVIC. */
   nvic_enable_irq(NVIC_DMA2_STREAM7_IRQ);
+
+  /* Enable DMA2 Stream 5 (RX) interrupts with the NVIC. */
+  nvic_enable_irq(NVIC_DMA2_STREAM5_IRQ);
+
+  DMA2_S5CR |= DMA_SxCR_EN;
 }
 
 void usart_write_dma(u8 *data, u8 n)
@@ -90,20 +126,20 @@ void usart_write_dma(u8 *data, u8 n)
   u8 wr;
 
   /* Disable interrupts to "atomically" increment
-   * usart_fifo_wr as we want this function to be reentrant.
+   * usart_fifo_tx_wr as we want this function to be reentrant.
    */
   __asm__("CPSID i;");
   // TODO: Check for buffer overflow
-  wr = usart_fifo_wr;
-  usart_fifo_wr = (usart_fifo_wr + n) % USART_BUFFER_LEN;
+  wr = usart_fifo_tx_wr;
+  usart_fifo_tx_wr = (usart_fifo_tx_wr + n) % USART_BUFFER_LEN;
   __asm__("CPSIE i;");
 
   if (wr + n <= USART_BUFFER_LEN)
-    memcpy(&usart_fifo[wr], data, n);
+    memcpy(&usart_fifo_tx[wr], data, n);
   else {
     /* Deal with case where write wraps the circular buffer. */
-    memcpy(&usart_fifo[wr], &data[0], USART_BUFFER_LEN - wr);
-    memcpy(&usart_fifo[0], &data[USART_BUFFER_LEN-wr], n - (USART_BUFFER_LEN - wr));
+    memcpy(&usart_fifo_tx[wr], &data[0], USART_BUFFER_LEN - wr);
+    memcpy(&usart_fifo_tx[0], &data[USART_BUFFER_LEN-wr], n - (USART_BUFFER_LEN - wr));
   }
 
   if (!(DMA2_S7CR & DMA_SxCR_EN))
@@ -115,14 +151,14 @@ void usart_tx_dma_schedule()
   /* Disable interrupts to "atomically" schedule the DMA. */
   __asm__("CPSID i;");
 
-  DMA2_S7M0AR = &usart_fifo[usart_fifo_rd];
+  DMA2_S7M0AR = &usart_fifo_tx[usart_fifo_tx_rd];
 
-  if (usart_fifo_rd < usart_fifo_wr) {
-    /* DMA up until usart_fifo_wr. */
-    DMA2_S7NDTR = usart_fifo_wr - usart_fifo_rd;
+  if (usart_fifo_tx_rd < usart_fifo_tx_wr) {
+    /* DMA up until usart_fifo_tx_wr. */
+    DMA2_S7NDTR = usart_fifo_tx_wr - usart_fifo_tx_rd;
   } else {
     /* DMA up until the end of the FIFO buffer. */
-    DMA2_S7NDTR = USART_BUFFER_LEN - usart_fifo_rd;
+    DMA2_S7NDTR = USART_BUFFER_LEN - usart_fifo_tx_rd;
   }
 
   /* Save the transfer length so we can increment the read index
@@ -145,12 +181,35 @@ void dma2_stream7_isr()
 
     __asm__("CPSID i;");
     /* Now that the transfer has finished we can increment the read index. */
-    usart_fifo_rd = (usart_fifo_rd + usart_dma_xfer_len) % USART_BUFFER_LEN;
-    if (usart_fifo_wr != usart_fifo_rd)
+    usart_fifo_tx_rd = (usart_fifo_tx_rd + usart_dma_xfer_len) % USART_BUFFER_LEN;
+    if (usart_fifo_tx_wr != usart_fifo_tx_rd)
       // FIFO not empty.
       usart_tx_dma_schedule();
     __asm__("CPSIE i;");
   } else {
     // TODO: Handle error interrupts! */
+    screaming_death();
   }
 }
+
+void dma2_stream5_isr()
+{
+  if (DMA2_HISR & DMA_HISR_TCIF5) {
+    /* Interrupt is Transmit Complete. We are in circular buffer mode
+     * so this probably means we just wrapped the buffer.
+     */
+
+    /* Clear the DMA transmit complete interrupt flag. */
+    DMA2_HIFCR = DMA_HIFCR_CTCIF5;
+
+    led_toggle(LED_RED);
+    __asm__("nop");
+    __asm__("nop");
+    __asm__("nop");
+    __asm__("nop");
+  } else {
+    // TODO: Handle error interrupts! */
+    screaming_death();
+  }
+}
+
