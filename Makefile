@@ -8,6 +8,12 @@ Q := @
 MAKEFLAGS += --no-print-directory
 endif
 
+ifndef PRN
+	MAKEFLAGS += $(warning PRN not defined, using default PRN (22) for tests, specify the PRN with 'make PRN=22')PRN=22
+else
+	MAKEFLAGS += PRN=$(PRN)
+endif
+
 .PHONY: all tests firmware docs
 
 all: firmware tests
