@@ -69,7 +69,7 @@ int main(void)
   for (u8 prn=0; prn<32; prn++) {
     do_acq(prn, 0, 1023, -7000, 7000, 300, &code_phase, &carrier_freq, &snr);
 
-    printf("PRN %2u - Code phase: %7.2f, Carrier Freq: % 7.1f, SNR: %5.2f", prn+1, code_phase, carrier_freq, snr);
+    printf("PRN %2u - Code phase: %7.2f, Carrier freq: % 7.1f, SNR: %5.2f", prn+1, code_phase, carrier_freq, snr);
     if (snr > 8.0)
       printf("   :D\n");
     else
