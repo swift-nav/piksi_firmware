@@ -23,19 +23,22 @@
 #include "main.h"
 
 #define SPI_ID_IRQ 0x00
+#define SPI_ID_ERROR 0x01
 #define SPI_ID_DECEASED_COW 0xFF
 
-#define SPI_ID_ACQ_BASE 0x01
+#define SPI_ID_ACQ_BASE 0x02
 #define SPI_ID_ACQ_INIT        (SPI_ID_ACQ_BASE+0x00)
 #define SPI_ID_ACQ_LOAD_ENABLE (SPI_ID_ACQ_BASE+0x01)
 #define SPI_ID_ACQ_CORR        (SPI_ID_ACQ_BASE+0x02)
+#define SPI_ID_ACQ_CODE        (SPI_ID_ACQ_BASE+0x03)
 
-#define SPI_ID_TRACK_BASE 0x04
+#define SPI_ID_TRACK_BASE 0x05
 #define TRACK_SIZE 4
 #define TRACK_INIT_OFFSET   0x00
 #define TRACK_UPDATE_OFFSET 0x01
 #define TRACK_CORR_OFFSET   0x02
 #define TRACK_PHASE_OFFSET  0x03
+#define TRACK_CODE_OFFSET  0x04
 
 #define IRQ_LOAD_DONE (1<<7)
 #define IRQ_ACQ_DONE  (1<<6)
@@ -47,7 +50,7 @@
 #define ACQ_CARRIER_FREQ_WIDTH 20
 #define ACQ_CARRIER_FREQ_UNITS_PER_HZ ((1<<ACQ_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ)
 
-#define TRACK_N_CHANNELS 1
+#define TRACK_N_CHANNELS 3
 #define TRACK_CODE_PHASE_WIDTH 14
 #define TRACK_CODE_PHASE_UNITS_PER_CHIP (1<<(TRACK_CODE_PHASE_WIDTH-10))
 #define TRACK_CARRIER_FREQ_WIDTH 24
@@ -60,6 +63,8 @@ typedef struct {
   s32 I;
   s32 Q;
 } corr_t;
+
+void screaming_death();
 
 void swift_nap_setup();
 void swift_nap_reset();
