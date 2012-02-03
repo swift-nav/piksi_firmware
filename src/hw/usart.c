@@ -32,7 +32,8 @@ u8 usart_fifo_rx[USART_BUFFER_LEN];
 u8 usart_fifo_tx_rd;
 u8 usart_fifo_tx_wr;
 u8 usart_fifo_rx_rd;
-u8 usart_fifo_rx_wr;
+u32 usart_fifo_rx_rd_wraps;
+u32 usart_fifo_rx_wr_wraps;
 u8 usart_dma_xfer_len;
 
 void usart_tx_dma_schedule();
@@ -110,7 +111,8 @@ void usart_dma_setup(void) {
                DMA_SxFCR_FTH_2_4_FULL |   // Triger level 1/2 full
                DMA_SxFCR_FEIE;            // Enable FIFO error interrupt
 
-  usart_fifo_rx_wr = usart_fifo_rx_rd = 0;  // Buffer is empty to begin with.
+  usart_fifo_rx_rd = 0;  // Buffer is empty to begin with.
+  usart_fifo_rx_rd_wraps = usart_fifo_rx_wr_wraps = 0;
 
   /* Enable DMA2 Stream 7 (TX) interrupts with the NVIC. */
   nvic_enable_irq(NVIC_DMA2_STREAM7_IRQ);
@@ -121,7 +123,7 @@ void usart_dma_setup(void) {
   DMA2_S5CR |= DMA_SxCR_EN;
 }
 
-void usart_write_dma(u8 *data, u8 n)
+void usart_write_dma(u8 data[], u8 n)
 {
   u8 wr;
 
@@ -202,6 +204,8 @@ void dma2_stream5_isr()
     /* Clear the DMA transmit complete interrupt flag. */
     DMA2_HIFCR = DMA_HIFCR_CTCIF5;
 
+    usart_fifo_rx_wr_wraps++;
+
     led_toggle(LED_RED);
     __asm__("nop");
     __asm__("nop");
@@ -213,3 +217,30 @@ void dma2_stream5_isr()
   }
 }
 
+u8 usart_n_read_dma()
+{
+  // Compare number of bytes written to the number read, if greater
+  // than a whole buffer then we have had an overflow.
+  if ((usart_fifo_rx_wr_wraps+1)*USART_BUFFER_LEN - DMA2_S5NDTR > usart_fifo_rx_rd_wraps*USART_BUFFER_LEN + usart_fifo_rx_rd) {
+    // Oh noes! my buffer doth run over.
+    screaming_death();
+  }
+  return (USART_BUFFER_LEN - DMA2_S5NDTR) - usart_fifo_rx_rd;
+}
+
+u8 usart_read_dma(u8 buff[], u8 n)
+{
+  u8 len = (n > usart_n_read_dma()) ? usart_n_read_dma() : n;
+
+  if (usart_fifo_rx_rd + len < USART_BUFFER_LEN) { 
+    memcpy(buff, &usart_fifo_rx[usart_fifo_rx_rd], len);
+    usart_fifo_rx_rd += len;
+  } else {
+    usart_fifo_rx_rd_wraps++;
+    memcpy(&buff[0], &usart_fifo_rx[usart_fifo_rx_rd], USART_BUFFER_LEN - usart_fifo_rx_rd);
+    memcpy(&buff[USART_BUFFER_LEN - usart_fifo_rx_rd], &usart_fifo_rx[0], len - USART_BUFFER_LEN + usart_fifo_rx_rd);
+    usart_fifo_rx_rd = len - USART_BUFFER_LEN + usart_fifo_rx_rd;
+  }
+
+  return len;
+}
