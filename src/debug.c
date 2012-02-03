@@ -25,6 +25,9 @@
 #include "debug.h"
 #include "hw/m25_flash.h"
 #include "hw/leds.h"
+#include "hw/usart.h"
+
+u8 msg_header[4] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2, 0, 0};
 
 u8 in_buff[2+255];
 u8 in_packet_valid = 0;
@@ -37,44 +40,30 @@ enum {
   get_packet
 } in_packet_state;
 
-void debug_setup() {
-  RCC_APB2ENR |= RCC_APB2ENR_USART1EN;
-	RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
-
-  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9|GPIO10);
-	gpio_set_af(GPIOA, GPIO_AF7, GPIO9|GPIO10);
-
-	/* Setup UART parameters. */
-	usart_set_baudrate(USART1, 921600);
-	usart_set_databits(USART1, 8);
-	usart_set_stopbits(USART1, USART_STOPBITS_1);
-	usart_set_parity(USART1, USART_PARITY_NONE);
-	usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
-	usart_set_mode(USART1, USART_MODE_TX_RX);
+void debug_setup()
+{
+  usart_dma_setup();
 
   /* Enable USART1 inerrupts with the NVIC. */
-  nvic_enable_irq(NVIC_USART1_IRQ);
-
+  /* Maybe re-enable this for RX. */
+  /*nvic_enable_irq(NVIC_USART1_IRQ);*/
   /* Enable USART1 Receive interrupt. */
-	USART_CR1(USART1) |= USART_CR1_RXNEIE;
-
-	/* Finally enable the USART. */
-	usart_enable(USART1);
+	/*USART_CR1(USART1) |= USART_CR1_RXNEIE;*/
 
   /* Disable input and output bufferings */
   setvbuf(stdin, NULL, _IONBF, 0);
   setvbuf(stdout, NULL, _IONBF, 0);
-
-  nvic_set_pending_irq(NVIC_USART1_IRQ);
 }
 
-void send_debug_msg(u8 msg_type, u8 len, u8 buff[]) {
-  usart_send_blocking(USART1, DEBUG_MAGIC_1);
-  usart_send_blocking(USART1, DEBUG_MAGIC_2);
-  usart_send_blocking(USART1, msg_type);
-  usart_send_blocking(USART1, len);
-  while(len--)
-    usart_send_blocking(USART1, *buff++);
+void send_debug_msg(u8 msg_type, u8 len, u8 buff[])
+{
+  msg_header[2] = msg_type;
+  msg_header[3] = len;
+  /* NOTE: these two writes should really be atomic but
+   * it doesn't matter too much for debug purposes.
+   */
+  usart_write_dma(msg_header, 4);
+  usart_write_dma(buff, len);
 }
 
 void usart1_isr(void)
