@@ -23,9 +23,10 @@
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f2/dma.h>
 
-#include "usart.h"
+#include "../debug.h"
 #include "../swift_nap_io.h"
 #include "leds.h"
+#include "usart.h"
 
 u8 usart_fifo_tx[USART_BUFFER_LEN];
 u8 usart_fifo_rx[USART_BUFFER_LEN];

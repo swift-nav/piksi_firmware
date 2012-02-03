@@ -149,14 +149,14 @@ void process_packet() {
           if ((i+1) % 16 == 0)
             printf("\n");
         }
-        m25_write_enable();
-        m25_page_program(fw->address, fw->length, fw->data);
+        /*m25_write_enable();*/
+        /*m25_page_program(fw->address, fw->length, fw->data);*/
       }
 
       case MSG_FLASH_READ: {
         u8 read_buff[250];
         msg_flash_read_t* fr = (msg_flash_read_t*)buff;
-        m25_read(fr->address, fr->length, read_buff);
+        /*m25_read(fr->address, fr->length, read_buff);*/
         printf("Got flash read cmd addr=0x%08X, len=%d\n", 
             (unsigned int)fr->address, (unsigned int)fr->length);
         for (u8 i = 0; i<fr->length; i++) {
@@ -169,8 +169,8 @@ void process_packet() {
 
       case MSG_FLASH_ERASE_ALL:
         printf("Got flash bulk erase cmd\n");
-        m25_write_enable();
-        m25_bulk_erase();
+        /*m25_write_enable();*/
+        /*m25_bulk_erase();*/
         break;
 
       default:
@@ -196,4 +196,13 @@ int _write (int file, char *ptr, int len)
   errno = EIO;
   return -1;
 }
+
+void screaming_death() {
+  //disable all interrupts
+  __asm__("CPSID f;");
+ // __disable_irq();
+ 
+  while(1)
+    usart_send_blocking(USART2, '!');
+};
 

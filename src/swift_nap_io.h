@@ -64,8 +64,6 @@ typedef struct {
   s32 Q;
 } corr_t;
 
-void screaming_death();
-
 void swift_nap_setup();
 void swift_nap_reset();
 void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[]);
