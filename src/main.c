@@ -94,8 +94,6 @@ int main(void)
   swift_nap_setup();
   swift_nap_reset();
  
-  u8 temp[4];
-
   led_toggle(LED_RED);
   
   u8 prn = 22-1;
