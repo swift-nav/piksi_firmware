@@ -203,6 +203,6 @@ void screaming_death() {
  // __disable_irq();
  
   while(1)
-    usart_send_blocking(USART2, '!');
+    usart_send_blocking(USART1, '!');
 };
 
