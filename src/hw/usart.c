@@ -204,13 +204,8 @@ void dma2_stream5_isr()
     /* Clear the DMA transmit complete interrupt flag. */
     DMA2_HIFCR = DMA_HIFCR_CTCIF5;
 
+    /* Increment our write wrap counter. */
     usart_fifo_rx_wr_wraps++;
-
-    led_toggle(LED_RED);
-    __asm__("nop");
-    __asm__("nop");
-    __asm__("nop");
-    __asm__("nop");
   } else {
     // TODO: Handle error interrupts! */
     screaming_death();
@@ -219,28 +214,33 @@ void dma2_stream5_isr()
 
 u8 usart_n_read_dma()
 {
+  __asm__("CPSID i;");
   // Compare number of bytes written to the number read, if greater
   // than a whole buffer then we have had an overflow.
-  if ((usart_fifo_rx_wr_wraps+1)*USART_BUFFER_LEN - DMA2_S5NDTR > usart_fifo_rx_rd_wraps*USART_BUFFER_LEN + usart_fifo_rx_rd) {
-    // Oh noes! my buffer doth run over.
+  u32 n_read = usart_fifo_rx_rd_wraps*USART_BUFFER_LEN + usart_fifo_rx_rd;
+  u32 n_written = (usart_fifo_rx_wr_wraps+1)*USART_BUFFER_LEN - DMA2_S5NDTR;
+  __asm__("CPSIE i;");
+  if (n_written - n_read > USART_BUFFER_LEN) {
+    // My buffer runneth over.
     screaming_death();
   }
-  return (USART_BUFFER_LEN - DMA2_S5NDTR) - usart_fifo_rx_rd;
+  return n_written - n_read;
 }
 
-u8 usart_read_dma(u8 buff[], u8 n)
+u8 usart_read_dma(u8 buff[], u8 len)
 {
-  u8 len = (n > usart_n_read_dma()) ? usart_n_read_dma() : n;
+  u8 n_to_read = usart_n_read_dma();
+  u8 n = (len > n_to_read) ? n_to_read : len;
 
-  if (usart_fifo_rx_rd + len < USART_BUFFER_LEN) { 
-    memcpy(buff, &usart_fifo_rx[usart_fifo_rx_rd], len);
-    usart_fifo_rx_rd += len;
+  if (usart_fifo_rx_rd + n < USART_BUFFER_LEN) { 
+    memcpy(buff, &usart_fifo_rx[usart_fifo_rx_rd], n);
+    usart_fifo_rx_rd += n;
   } else {
     usart_fifo_rx_rd_wraps++;
     memcpy(&buff[0], &usart_fifo_rx[usart_fifo_rx_rd], USART_BUFFER_LEN - usart_fifo_rx_rd);
-    memcpy(&buff[USART_BUFFER_LEN - usart_fifo_rx_rd], &usart_fifo_rx[0], len - USART_BUFFER_LEN + usart_fifo_rx_rd);
-    usart_fifo_rx_rd = len - USART_BUFFER_LEN + usart_fifo_rx_rd;
+    memcpy(&buff[USART_BUFFER_LEN - usart_fifo_rx_rd], &usart_fifo_rx[0], n - USART_BUFFER_LEN + usart_fifo_rx_rd);
+    usart_fifo_rx_rd = n - USART_BUFFER_LEN + usart_fifo_rx_rd;
   }
 
-  return len;
+  return n;
 }
