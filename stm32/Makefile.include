@@ -29,7 +29,7 @@ OBJCOPY = $(PREFIX)-objcopy
 OBJDUMP = $(PREFIX)-objdump
 # Uncomment this line if you want to use the installed (not local) library.
 #TOOLCHAIN_DIR := $(shell dirname `which $(CC)`)/../$(PREFIX)
-TOOLCHAIN_DIR = /home/fnoble/libopencm3/
+TOOLCHAIN_DIR = $(SWIFTNAV_ROOT)/../libopencm3
 CFLAGS += -O0 -g -Wall -Wextra -Werror -I$(TOOLCHAIN_DIR)/include \
        -fno-common -mcpu=cortex-m3 -mthumb -msoft-float -MD -DSTM32F2 \
        -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99
