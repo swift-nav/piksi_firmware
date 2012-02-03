@@ -86,30 +86,17 @@ int main(void)
   gpio_clear(GPIOC, GPIO10|GPIO11);
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
-  /*rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);*/
 
   debug_setup();
-
-  /*while(1) {*/
-    /*printf("Foo\n");*/
-    /*for (u32 i = 0; i < 300000; i++)*/
-      /*__asm__("nop");*/
-  /*}*/
 
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
 
   swift_nap_setup();
   swift_nap_reset();
  
-  u8 temp[4];
-  swift_nap_xfer_blocking(SPI_ID_DECEASED_COW, 4, temp, temp);
-
-  printf(" expired cow = %02X %02X %02X %02X\n",temp[0],temp[1],temp[2],temp[3]);
-
-
   led_toggle(LED_RED);
   
-  u8 prn = 20-1;
+  u8 prn = 22-1;
 
   /* Initial coarse acq. */
   float coarse_acq_code_phase;
@@ -121,7 +108,6 @@ int main(void)
   wait_for_exti();
   acq_clear_load_enable_blocking();
 
-  /*for (prn=0; prn<32; prn++) {*/
   do_acq(prn, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
   printf("#Coarse - PRN %u: %f, %f, %f\n", prn+1, coarse_acq_code_phase, coarse_acq_carrier_freq, coarse_snr);
 
@@ -129,9 +115,6 @@ int main(void)
     printf("No findy satellite :(\n");
     while(1);
   }
-
-  /*}*/
-  /*while(1);*/
 
   /* Fine acq. */
   float fine_acq_code_phase;
@@ -156,24 +139,13 @@ int main(void)
 
   tracking_channel_init(0, prn, track_cp, fine_acq_carrier_freq, track_cnt);
 
-  //printf("foo = [\n");
   while(1)
   {
     for (u32 i = 0; i < 600000; i++)
       __asm__("nop");
 
-    /*printf("%.2f\n", tracking_channel_snr(0));*/
-    printf("Foo\n");
-    /*printf("%.2f\n", tracking_channel[0].carrier_freq);*/
-    /*printf(" (%d, %d),\n", (unsigned int)tracking_channel[0].cs[0].I, (unsigned int)tracking_channel[0].cs[0].Q);*/
+    printf("%.2f\n", tracking_channel_snr(0));
   }
-
-  /*printf("foo = [\n");*/
-  /*for (u32 n=0; n<1000; n++)*/
-    /*printf("(%6d,%6d),\n", (int)cs[n][1].I, (int)cs[n][1].Q);*/
-  /*printf("]\n");*/
-
-  /*track_read_corr(0, cs[0]);*/
 
   while (1);
   

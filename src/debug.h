@@ -31,5 +31,6 @@ u8* get_in_packet();
 void process_packet();
 //u8 get_debug_msg(u8 *type, u8 *len, u8 *buff[]);
 
+void screaming_death();
 
 #endif

@@ -29,6 +29,7 @@
 
 #include "swift_nap_io.h"
 #include "track.h"
+#include "debug.h"
 #include "hw/spi.h"
 #include "hw/max2769.h"
 
@@ -36,16 +37,6 @@ u32 exti_count = 0;
 
 #define SPI_DMA_BUFFER_LEN 22
 u8 spi_dma_buffer[SPI_DMA_BUFFER_LEN];
-
-
-void screaming_death() {
-  //disable all interrupts
-  __asm__("CPSID f;");
- // __disable_irq();
- 
-  while(1)
-    usart_send_blocking(USART2, '!');
-};
 
 void swift_nap_setup()
 {

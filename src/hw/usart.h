@@ -24,5 +24,7 @@
 
 void usart_dma_setup(void);
 void usart_write_dma(u8 *data, u8 n);
+u8 usart_n_read_dma();
+u8 usart_read_dma(u8 buff[], u8 len);
 
 #endif
