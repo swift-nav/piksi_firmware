@@ -134,17 +134,32 @@ int main(void)
 
 
   /* Transition to tracking. */
-  u32 track_cnt = timing_count() + 2000;
+  u32 track_cnt = timing_count() + 20000;
   float track_cp = propagate_code_phase(fine_acq_code_phase, fine_acq_carrier_freq, track_cnt - fine_acq_cnt);
 
-  tracking_channel_init(0, prn, track_cp, fine_acq_carrier_freq, track_cnt);
+  tracking_channel_init(1, prn, track_cp, fine_acq_carrier_freq, track_cnt);
+  tracking_channel_init(2, prn, track_cp, fine_acq_carrier_freq, track_cnt);
 
   while(1)
   {
-    for (u32 i = 0; i < 600000; i++)
+    for (u32 i = 0; i < 1000000; i++)
       __asm__("nop");
 
-    printf("%.2f\n", tracking_channel_snr(0));
+    for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+      switch (tracking_channel[i].state) {
+        default:
+        case TRACKING_DISABLED:
+          printf("X\t");
+          break;
+        case TRACKING_FIRST_LOOP:
+          printf("F\t");
+          break;
+        case TRACKING_RUNNING:
+          printf("%.2f\t", tracking_channel_snr(i));
+          break;
+      }
+    }
+    printf("\n");
   }
 
   while (1);
