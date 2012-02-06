@@ -32,17 +32,17 @@
 #define SPI_ID_ACQ_CORR        (SPI_ID_ACQ_BASE+0x02)
 #define SPI_ID_ACQ_CODE        (SPI_ID_ACQ_BASE+0x03)
 
-#define SPI_ID_TRACK_BASE 0x05
-#define TRACK_SIZE 4
+#define SPI_ID_TRACK_BASE   0x05
+#define TRACK_SIZE          4
 #define TRACK_INIT_OFFSET   0x00
 #define TRACK_UPDATE_OFFSET 0x01
 #define TRACK_CORR_OFFSET   0x02
 #define TRACK_PHASE_OFFSET  0x03
-#define TRACK_CODE_OFFSET  0x04
+#define TRACK_CODE_OFFSET   0x04
 
-#define IRQ_LOAD_DONE (1<<7)
-#define IRQ_ACQ_DONE  (1<<6)
-#define IRQ_TRACK     (1<<5)
+#define IRQ_ACQ_DONE      (1<<31)
+#define IRQ_ACQ_LOAD_DONE (1<<30)
+#define IRQ_TRACK_MASK    (~(IRQ_ACQ_LOAD_DONE|IRQ_ACQ_DONE))
 
 #define ACQ_N_TAPS 15
 #define ACQ_CODE_PHASE_WIDTH 12
