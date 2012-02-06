@@ -206,6 +206,13 @@ u32 swift_nap_read_irq_blocking()
   return (temp[0]<<24)|(temp[1]<<16)|(temp[2]<<8)|temp[3];
 }
 
+u32 swift_nap_read_error_blocking()
+{
+  u8 temp[4] = {0, 0, 0, 0};
+  swift_nap_xfer_blocking(SPI_ID_ERROR, 4, temp, temp);
+  return (temp[0]<<24)|(temp[1]<<16)|(temp[2]<<8)|temp[3];
+}
+
 void acq_set_load_enable_blocking()
 {
   u8 temp[1] = {0xFF};

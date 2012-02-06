@@ -76,9 +76,10 @@ void timing_strobe_setup();
 u32 timing_count();
 void timing_strobe(u32 falling_edge_count);
 
-void spi_dma_setup(); 
+void spi_dma_setup();
 
 u32 swift_nap_read_irq_blocking();
+u32 swift_nap_read_error_blocking();
 
 void acq_set_load_enable_blocking();
 void acq_clear_load_enable_blocking();
