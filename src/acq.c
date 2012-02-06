@@ -21,6 +21,8 @@
 
 #include "swift_nap_io.h"
 
+u8 acq_load_done_flag = 0;
+
 void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[])
 {
   acq_write_init_blocking(prn, code_phase, carrier_freq); 
@@ -36,6 +38,25 @@ void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[])
 
   /* Read in correlations. */
   acq_read_corr_blocking(corrs);
+}
+
+void acq_schedule_load(u32 count)
+{
+  acq_load_done_flag = 0;
+  acq_set_load_enable_blocking();
+  timing_strobe(count);
+}
+
+void acq_service_load_done()
+{
+  acq_clear_load_enable_blocking();
+  acq_load_done_flag = 1;
+}
+
+void acq_wait_load_done()
+{
+  while(acq_load_done_flag != 1);
+  acq_load_done_flag = 0;
 }
 
 /** Perform an aqcuisition.

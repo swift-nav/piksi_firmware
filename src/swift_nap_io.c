@@ -29,6 +29,7 @@
 
 #include "swift_nap_io.h"
 #include "track.h"
+#include "acq.h"
 #include "debug.h"
 #include "hw/spi.h"
 #include "hw/max2769.h"
@@ -124,7 +125,7 @@ void exti9_5_isr()
   }
 
   if (irq & IRQ_ACQ_LOAD_DONE) {
-    /* TODO: implement me. */
+    acq_service_load_done();
   }
 
   /* Mask off everything but tracking irqs. */
