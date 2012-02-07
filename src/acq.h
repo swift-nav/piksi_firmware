@@ -20,6 +20,8 @@
 
 #include <libopencm3/cm3/common.h>
 
+#define ACQ_THRESHOLD 16.0
+
 /* NOTE: Minimum bin width 1/ACQ_CARRIER_FREQ_UNITS_PER_HZ (~16 Hz) */
 #define ACQ_CARRIER_BIN_WIDTH 300
 

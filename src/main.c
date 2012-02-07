@@ -114,7 +114,7 @@ int main(void)
 
   printf("#Coarse - PRN %u: %f, %f, %f\n", prn+1, coarse_acq_code_phase, coarse_acq_carrier_freq, coarse_snr);
 
-  if (coarse_snr < 8.0) {
+  if (coarse_snr < ACQ_THRESHOLD) {
     printf("No findy satellite :(\n");
     while(1);
   }
