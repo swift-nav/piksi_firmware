@@ -47,8 +47,8 @@ void debug_setup()
   usart_dma_setup();
 
   /* Disable input and output bufferings */
-  setvbuf(stdin, NULL, _IONBF, 0);
-  setvbuf(stdout, NULL, _IONBF, 0);
+  /*setvbuf(stdin, NULL, _IONBF, 0);*/
+  /*setvbuf(stdout, NULL, _IONBF, 0);*/
 }
 
 void debug_send_msg(u8 msg_type, u8 len, u8 buff[])
