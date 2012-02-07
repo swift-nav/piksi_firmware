@@ -52,6 +52,8 @@ void acq_service_irq();
 void acq_wait_done();
 void acq_get_results(float* cp, float* cf, float* snr);
 
+u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr);
+
 void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[]);
 void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width, float* cp, float* cf, float* snr);
 
