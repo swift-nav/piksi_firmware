@@ -21,6 +21,7 @@
 
 #include "swift_nap_io.h"
 #include "acq.h"
+#include "track.h"
 
 acq_state_t acq_state;
 u8 acq_load_done_flag = 0;
