@@ -70,6 +70,7 @@ void swift_nap_reset()
 
 void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[])
 {
+  __asm__("CPSID i;");
 
   // Check that there's no DMA transfer in progress
 
@@ -94,6 +95,7 @@ void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[])
       spi_xfer(SPI_BUS_FPGA, data_out[i]);
 
   spi_slave_deselect();
+  __asm__("CPSIE i;");
 }
 
 void exti_setup()
