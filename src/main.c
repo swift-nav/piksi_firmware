@@ -165,9 +165,9 @@ int main(void)
       }
     }
     printf("\n");
-    __asm__("CPSID i;");
-    printf("Error: 0x%08X\n", (unsigned int)swift_nap_read_error_blocking());
-    __asm__("CPSIE i;");
+    u32 err = swift_nap_read_error_blocking();
+    if (err)
+      printf("Error: 0x%08X\n", (unsigned int)err);
 
   }
 
