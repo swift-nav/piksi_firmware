@@ -106,7 +106,12 @@ int main(void)
   acq_schedule_load(coarse_acq_cnt);
   acq_wait_load_done();
 
-  do_acq(prn, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
+  /*do_acq(prn, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);*/
+
+  acq_start(prn, 0, 1023, -7000, 7000, 300);
+  acq_wait_done();
+  acq_get_results(&coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
+
   printf("#Coarse - PRN %u: %f, %f, %f\n", prn+1, coarse_acq_code_phase, coarse_acq_carrier_freq, coarse_snr);
 
   if (coarse_snr < 8.0) {
@@ -124,7 +129,11 @@ int main(void)
 
   float fine_cp = propagate_code_phase(coarse_acq_code_phase, coarse_acq_carrier_freq, fine_acq_cnt - coarse_acq_cnt);
 
-  do_acq(prn, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 30, &fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);
+  /*do_acq(prn, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 30, &fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);*/
+
+  acq_start(prn, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 100);
+  acq_wait_done();
+  acq_get_results(&fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);
 
   printf("#Fine - PRN %u: (%f) %f, %f, %f\n", prn+1, fine_cp, fine_acq_code_phase, fine_acq_carrier_freq, fine_snr);
 

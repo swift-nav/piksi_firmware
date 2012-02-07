@@ -121,7 +121,7 @@ void exti9_5_isr()
   u32 irq = swift_nap_read_irq_blocking();
 
   if (irq & IRQ_ACQ_DONE) {
-    /* TODO: implement me. */
+    acq_service_irq();
   }
 
   if (irq & IRQ_ACQ_LOAD_DONE) {
