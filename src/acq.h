@@ -38,8 +38,8 @@ typedef struct {
   u16 cp_min, cp_max;
   s16 carrier_freq;
   u16 code_phase;
-  float mean, sq_mean;
-  float best_mag;
+  u64 power_acc;
+  u64 best_power;
   s16 best_cf;
   u16 best_cp;
   u32 count;

@@ -79,9 +79,8 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
   /* Initialise our acquisition state struct. */
   acq_state.state = ACQ_RUNNING;
   acq_state.prn = prn;
-  acq_state.best_mag = 0;
-  acq_state.mean = 0;
-  acq_state.sq_mean = 0;
+  acq_state.best_power = 0;
+  acq_state.power_acc = 0;
   acq_state.count = 0;
   acq_state.carrier_freq = acq_state.cf_min;
   acq_state.code_phase = acq_state.cp_min;
@@ -94,7 +93,7 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
 
 void acq_service_irq()
 {
-  float mag, mag_sq;
+  u64 power;
   corr_t cs[ACQ_N_TAPS];
 
   switch(acq_state.state)
@@ -138,12 +137,10 @@ void acq_service_irq()
       }
 
       for (u8 i=0; i<ACQ_N_TAPS; i++) {
-        mag_sq = (float)cs[i].I*(float)cs[i].I + (float)cs[i].Q*(float)cs[i].Q;
-        mag = sqrt(mag_sq);
-        acq_state.mean += mag;
-        acq_state.sq_mean += mag_sq;
-        if (mag > acq_state.best_mag) {
-          acq_state.best_mag = mag;
+        power = (u64)cs[i].I*(u64)cs[i].I + (u64)cs[i].Q*(u64)cs[i].Q;
+        acq_state.power_acc += power;
+        if (power > acq_state.best_power) {
+          acq_state.best_power = power;
           acq_state.best_cf = acq_state.carrier_freq;
           acq_state.best_cp = acq_state.code_phase + i;
         }
@@ -165,14 +162,10 @@ void acq_wait_done()
 
 void acq_get_results(float* cp, float* cf, float* snr)
 {
-  float sd;
-
-  sd = sqrt(acq_state.count*acq_state.sq_mean - acq_state.mean*acq_state.mean) / acq_state.count;
-  acq_state.mean = acq_state.mean / acq_state.count;
-
   *cp = (float)acq_state.best_cp / ACQ_CODE_PHASE_UNITS_PER_CHIP;
   *cf = (float)acq_state.best_cf / ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-  *snr = (acq_state.best_mag - acq_state.mean) / sd;
+  /* "SNR" estimated by peak power over mean power. */
+  *snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
 }
 
 u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
