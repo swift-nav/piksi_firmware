@@ -219,92 +219,13 @@ u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
  */
 void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width, float* cp, float* cf, float* snr)
 {
-  corr_t cs[ACQ_N_TAPS];
-
-  float mag, mag_sq, best_mag = 0;
-  float sd, mean = 0, sq_mean = 0;
-  u32 count = 0;
-  u16 best_cp = 0;
-  s16 best_cf = 0;
-
-  /* Calculate the range parameters in acq units. Explicitly expand
-   * the range to the nearest multiple of the step size to make sure
-   * we cover at least the specified range.
-   */
-  s16 cf_step = cf_bin_width*ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-  s16 cf_min_acq = cf_step*floor(cf_min*ACQ_CARRIER_FREQ_UNITS_PER_HZ / (float)cf_step);
-  s16 cf_max_acq = cf_step*ceil(cf_max*ACQ_CARRIER_FREQ_UNITS_PER_HZ / (float)cf_step);
-  /* cp_step = ACQ_N_TAPS */
-  u16 cp_min_acq = ACQ_N_TAPS*floor(cp_min*ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)ACQ_N_TAPS);
-  u16 cp_max_acq = ACQ_N_TAPS*ceil(cp_max*ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)ACQ_N_TAPS);
-
-  /* Write first and second sets of acq parameters (for pipelining). */
-  acq_write_init_blocking(prn, cp_min_acq, cf_min_acq); 
-  /* If we are only doing a single acq then write disable here. */
-  /*printf("(%d, %d) => \n", cp_min_acq+ACQ_N_TAPS, cf_min_acq);*/
-  /*if (cp_min_acq+ACQ_N_TAPS >= cp_max_acq && cf_min_acq+cf_step >= cf_max_acq) {*/
-          /*printf(" D\n");*/
-    /*acq_disable();*/
-  /*}else*/
-    acq_write_init_blocking(prn, cp_min_acq+ACQ_N_TAPS, cf_min_acq); 
-
-  /* Save the exti count so we can detect the next interrupt. */
-  u32 last_last_exti = last_exti_count();
-
-  for (s16 carrier_freq = cf_min_acq; carrier_freq <= cf_max_acq; carrier_freq += cf_step) {
-    for (u16 code_phase = cp_min_acq; code_phase < cp_max_acq; code_phase += ACQ_N_TAPS) {
-
-      /* Wait for acq done IRQ and save the new exti count. */
-      while(last_exti_count() == last_last_exti);
-      last_last_exti = last_exti_count();
-
-      /* Read in correlations. */
-      acq_read_corr_blocking(cs);
-
-      /* Write parameters for 2 cycles time for acq pipelining apart
-       * from the last two cycles where we want to write disable.
-       * The first time to disable and the second time really just
-       * to clear the interrupt from the last cycle.
-       *
-       * NOTE: we must take care to handle wrapping, when we get to
-       * the end of the code phase range the parameters for 2 cycles
-       * time will be with the next carrier freq value and a small
-       * code phase value.
-       */
-      if (code_phase < cp_max_acq - 2*ACQ_N_TAPS) {
-        /*printf("(%d, %d) => %d, %d\n", code_phase, carrier_freq, code_phase+2*ACQ_N_TAPS, carrier_freq);*/
-        acq_write_init_blocking(prn, code_phase+2*ACQ_N_TAPS, carrier_freq); 
-      } else {
-        if (carrier_freq >= cf_max_acq && code_phase >= (cp_max_acq-2*ACQ_N_TAPS)) {
-          /*printf("(%d, %d) => D\n", code_phase, carrier_freq);*/
-          acq_disable_blocking();
-        } else {
-          /*printf("(%d, %d) => %d, %d\n", code_phase, carrier_freq, cp_min_acq+code_phase-cp_max_acq+2*ACQ_N_TAPS, carrier_freq+cf_step);*/
-          acq_write_init_blocking(prn, cp_min_acq + code_phase - cp_max_acq + 2*ACQ_N_TAPS, carrier_freq+cf_step); 
-        }
-      }
-
-      for (u8 i=0; i<ACQ_N_TAPS; i++) {
-        mag_sq = (float)cs[i].I*(float)cs[i].I + (float)cs[i].Q*(float)cs[i].Q;
-        mag = sqrt(mag_sq);
-        mean += mag;
-        sq_mean += mag_sq;
-        if (mag > best_mag) {
-          best_mag = mag;
-          best_cf = carrier_freq;
-          best_cp = code_phase + i;
-        }
-        /*printf("%f, %f, %f, %f, %f, %d, %d\n", mag_sq, mag, mean, sq_mean, best_mag, best_cf, best_cp);*/
-      }
-      count += ACQ_N_TAPS;
-    }
+  acq_start(prn, cp_min, cp_max, cf_min, cf_max, cf_bin_width);
+  while(acq_state.state == ACQ_RUNNING) {
+    wait_for_exti();
+    acq_service_irq();
   }
-
-  sd = sqrt(count*sq_mean - mean*mean) / count;
-  mean = mean / count;
-
-  *cp = (float)best_cp / ACQ_CODE_PHASE_UNITS_PER_CHIP;
-  *cf = (float)best_cf / ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-  *snr = (best_mag - mean) / sd;
+  wait_for_exti();
+  acq_service_irq();
+  acq_get_results(cp, cf, snr);
 }
 
