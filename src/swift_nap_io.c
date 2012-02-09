@@ -150,6 +150,14 @@ void exti9_5_isr()
   }
   
   exti_count++;
+
+  /* We need a level (not edge) sensitive interrupt -
+   * if there is another interrupt pending on the Swift
+   * NAP then the IRQ line will stay high. Therefore if
+   * the line is still high, trigger another interrupt.
+   */
+  if (GPIOC_IDR & GPIO6)
+    EXTI_SWIER = (1<<6);
 }
 
 u32 last_exti_count()
