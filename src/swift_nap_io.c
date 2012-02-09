@@ -173,9 +173,32 @@ void wait_for_exti()
 
 void timing_strobe(u32 falling_edge_count)
 {
+  /* Clear the capture compare interrupt flag,
+   * used to detect when the timing strobe has
+   * gone low.
+   */
+  TIM2_SR &= ~TIM_SR_CC1IF;
+
+  /* Setup a new capture compare timer count. */
   timer_set_oc_mode(TIM2, TIM_OC1, TIM_OCM_FORCE_HIGH);
   timer_set_oc_value(TIM2, TIM_OC1, falling_edge_count);
   timer_set_oc_mode(TIM2, TIM_OC1, TIM_OCM_INACTIVE);
+
+  /* Wait until the the capture compare interrupt
+   * flag is set indicating that the previous timing
+   * strobe has completed.
+   */
+  /*while(!(TIM2_SR | TIM_SR_CC1IF));*/
+
+  /* TODO: find out why the above isn't working,
+   * in the mean time this will work.
+   */
+  while(TIM2_CNT <= TIM2_CCR1); 
+  /* Add a little bit of delay before the next
+   * timing strobe.
+   */
+  for (u32 i = 0; i < 50; i++)
+    __asm__("nop");
 }
 
 u32 timing_count() {
