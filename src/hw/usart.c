@@ -145,7 +145,13 @@ void usart_write_dma(u8 data[], u8 n)
     memcpy(&usart_fifo_tx[0], &data[USART_BUFFER_LEN-wr], n - (USART_BUFFER_LEN - wr));
   }
 
-  if (!(DMA2_S7CR & DMA_SxCR_EN))
+  /* Check if there is a DMA transfer either in progress or waiting
+   * for its interrupt to be serviced. Its very important to also
+   * check the interrupt flag as EN will be cleared when the transfer
+   * finishes but we really need to make sure the ISR has been run to
+   * finish up the bookkeeping for the transfer.
+   */
+  if (!((DMA2_S7CR & DMA_SxCR_EN) || (DMA2_HISR & DMA_HISR_TCIF7)))
     usart_tx_dma_schedule();
 }
 

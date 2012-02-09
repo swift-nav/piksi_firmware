@@ -23,13 +23,25 @@
 #define DEBUG_MAGIC_1 0xBE
 #define DEBUG_MAGIC_2 0xEF
 
-#define DEBUG_MSG(msg_type, item) \
-  send_debug_msg(msg_type, sizeof(item), (u8*)&(item))
+#define DEBUG_MSG(msg_type, item) send_debug_msg(msg_type, sizeof(item), (u8*)&(item))
+
+/* Define the type of our callback function
+ * for convenience.
+ */
+typedef void(*msg_callback_t)(u8 msg[]);
+
+/* Define a linked list of message callbacks. */
+typedef struct msg_callbacks_node {
+  u8 msg_type;
+  msg_callback_t cb;
+  struct msg_callbacks_node* next;
+} msg_callbacks_node_t;
+
 void debug_setup();
-void send_debug_msg(u8 msg_type, u8 len, u8 buff[]);
-u8* get_in_packet();
-void process_packet();
-//u8 get_debug_msg(u8 *type, u8 *len, u8 *buff[]);
+void debug_send_msg(u8 msg_type, u8 len, u8 buff[]);
+void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_t* node);
+msg_callback_t debug_find_callback(u8 msg_id);
+void debug_process_messages();
 
 void screaming_death();
 

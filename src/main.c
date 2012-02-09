@@ -96,19 +96,22 @@ int main(void)
  
   led_toggle(LED_RED);
   
-  u8 prn = 22-1;
+  u8 prn = 32-1;
 
   /* Initial coarse acq. */
   float coarse_acq_code_phase;
   float coarse_acq_carrier_freq;
   float coarse_snr;
-  acq_set_load_enable_blocking();
   u32 coarse_acq_cnt = timing_count() + 1000;
-  timing_strobe(coarse_acq_cnt);
-  wait_for_exti();
-  acq_clear_load_enable_blocking();
+  acq_schedule_load(coarse_acq_cnt);
+  acq_wait_load_done();
 
-  do_acq(prn, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
+  /*do_acq(prn, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);*/
+
+  acq_start(prn, 0, 1023, -7000, 7000, 300);
+  acq_wait_done();
+  acq_get_results(&coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
+
   printf("#Coarse - PRN %u: %f, %f, %f\n", prn+1, coarse_acq_code_phase, coarse_acq_carrier_freq, coarse_snr);
 
   if (coarse_snr < 8.0) {
@@ -120,31 +123,52 @@ int main(void)
   float fine_acq_code_phase;
   float fine_acq_carrier_freq;
   float fine_snr;
-  acq_set_load_enable_blocking();
   u32 fine_acq_cnt = timing_count() + 2000;
-  timing_strobe(fine_acq_cnt);
-  wait_for_exti();
-  acq_clear_load_enable_blocking();
+  acq_schedule_load(fine_acq_cnt);
+  acq_wait_load_done();
 
   float fine_cp = propagate_code_phase(coarse_acq_code_phase, coarse_acq_carrier_freq, fine_acq_cnt - coarse_acq_cnt);
 
-  do_acq(prn, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 30, &fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);
+  /*do_acq(prn, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 30, &fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);*/
+
+  acq_start(prn, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 100);
+  acq_wait_done();
+  acq_get_results(&fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);
 
   printf("#Fine - PRN %u: (%f) %f, %f, %f\n", prn+1, fine_cp, fine_acq_code_phase, fine_acq_carrier_freq, fine_snr);
 
 
   /* Transition to tracking. */
-  u32 track_cnt = timing_count() + 2000;
+  u32 track_cnt = timing_count() + 20000;
   float track_cp = propagate_code_phase(fine_acq_code_phase, fine_acq_carrier_freq, track_cnt - fine_acq_cnt);
 
-  tracking_channel_init(0, prn, track_cp, fine_acq_carrier_freq, track_cnt);
+  tracking_channel_init(1, prn, track_cp, fine_acq_carrier_freq, track_cnt);
+  tracking_channel_init(2, prn, track_cp, fine_acq_carrier_freq, track_cnt);
 
   while(1)
   {
-    for (u32 i = 0; i < 600000; i++)
+    for (u32 i = 0; i < 1000000; i++)
       __asm__("nop");
 
-    printf("%.2f\n", tracking_channel_snr(0));
+    for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+      switch (tracking_channel[i].state) {
+        default:
+        case TRACKING_DISABLED:
+          printf("X\t");
+          break;
+        case TRACKING_FIRST_LOOP:
+          printf("F\t");
+          break;
+        case TRACKING_RUNNING:
+          printf("%.2f\t", tracking_channel_snr(i));
+          break;
+      }
+    }
+    printf("\n");
+    __asm__("CPSID i;");
+    printf("Error: 0x%08X\n", (unsigned int)swift_nap_read_error_blocking());
+    __asm__("CPSIE i;");
+
   }
 
   while (1);

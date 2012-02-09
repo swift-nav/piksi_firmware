@@ -29,6 +29,7 @@
 
 #include "swift_nap_io.h"
 #include "track.h"
+#include "acq.h"
 #include "debug.h"
 #include "hw/spi.h"
 #include "hw/max2769.h"
@@ -119,9 +120,31 @@ void exti9_5_isr()
 
   u32 irq = swift_nap_read_irq_blocking();
 
-  if (irq & IRQ_TRACK) {
-    tracking_channel_get_corrs(0);
-    tracking_channel_update(0);
+  if (irq & IRQ_ACQ_DONE) {
+    acq_service_irq();
+  }
+
+  if (irq & IRQ_ACQ_LOAD_DONE) {
+    acq_service_load_done();
+  }
+
+  /* Mask off everything but tracking irqs. */
+  irq &= IRQ_TRACK_MASK;
+
+  /* Loop over tracking irq bit flags. */
+  for(u8 n=0; n<TRACK_N_CHANNELS; n++) {
+    /* Save a bit of time by seeing if the rest of the bits
+     * are zero in one go so we don't have to loop over all
+     * of them.
+     */
+    if (!(irq >> n))
+      break;
+
+    /* Test is the nth tracking irq flag is set, if so service it. */
+    if ((irq >> n) & 1) {
+      tracking_channel_get_corrs(n);
+      tracking_channel_update(n);
+    }
   }
   
   exti_count++;
@@ -179,9 +202,16 @@ void timing_strobe_setup()
 
 u32 swift_nap_read_irq_blocking()
 {
-  u8 temp = 0;
-  swift_nap_xfer_blocking(SPI_ID_IRQ, 1, &temp, &temp); 
-  return temp;
+  u8 temp[4] = {0, 0, 0, 0};
+  swift_nap_xfer_blocking(SPI_ID_IRQ, 4, temp, temp);
+  return (temp[0]<<24)|(temp[1]<<16)|(temp[2]<<8)|temp[3];
+}
+
+u32 swift_nap_read_error_blocking()
+{
+  u8 temp[4] = {0, 0, 0, 0};
+  swift_nap_xfer_blocking(SPI_ID_ERROR, 4, temp, temp);
+  return (temp[0]<<24)|(temp[1]<<16)|(temp[2]<<8)|temp[3];
 }
 
 void acq_set_load_enable_blocking()

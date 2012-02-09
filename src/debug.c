@@ -29,33 +29,29 @@
 
 u8 msg_header[4] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2, 0, 0};
 
-u8 in_buff[2+255];
-u8 in_packet_valid = 0;
-u8 in_packet_count = 0;
-enum {
-  waiting_1,
-  waiting_2,
-  get_type,
-  get_len,
-  get_packet
-} in_packet_state;
+u8 msg_buff[255];
+
+typedef enum {
+  WAITING_1,
+  WAITING_2,
+  GET_TYPE,
+  GET_LEN,
+  GET_MSG
+} debug_process_messages_state_t;
+
+/* Store a pointer to the head of our linked list. */
+msg_callbacks_node_t* msg_callbacks_head = 0;
 
 void debug_setup()
 {
   usart_dma_setup();
-
-  /* Enable USART1 inerrupts with the NVIC. */
-  /* Maybe re-enable this for RX. */
-  /*nvic_enable_irq(NVIC_USART1_IRQ);*/
-  /* Enable USART1 Receive interrupt. */
-	/*USART_CR1(USART1) |= USART_CR1_RXNEIE;*/
 
   /* Disable input and output bufferings */
   setvbuf(stdin, NULL, _IONBF, 0);
   setvbuf(stdout, NULL, _IONBF, 0);
 }
 
-void send_debug_msg(u8 msg_type, u8 len, u8 buff[])
+void debug_send_msg(u8 msg_type, u8 len, u8 buff[])
 {
   msg_header[2] = msg_type;
   msg_header[3] = len;
@@ -66,121 +62,108 @@ void send_debug_msg(u8 msg_type, u8 len, u8 buff[])
   usart_write_dma(buff, len);
 }
 
-void usart1_isr(void)
+/** Register a callback for a message type.
+ * Register a callback that is called when a message
+ * with type msg_type is received.
+ *
+ * This function must be passed a pointer to a
+ * STATICALLY ALLOCATED msg_callback_node_t which it
+ * will use to store a reference to your callback.
+ * This struct need not be initialised.
+ */
+void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_t* node)
 {
-	static u8 data = 0;
+  /* Fill in our new msg_callback_node_t. */
+  node->msg_type = msg_type;
+  node->cb = cb;
+  /* The next pointer is set to NULL, i.e. this
+   * will be the new end of the linked list.
+   */
+  node->next = 0;
 
-	/* Check if we were called because of RXNE. */
-	if (((USART_CR1(USART1) & USART_CR1_RXNEIE) != 0) &&
-		((USART_SR(USART1) & USART_SR_RXNE) != 0)) {
-
-		/* Retrieve the data from the peripheral. */
-		data = usart_recv(USART1);
-    
-    switch (in_packet_state) {
-      case waiting_1:
-        if (data == DEBUG_MAGIC_1)
-          in_packet_state = waiting_2;
-        break;
-      case waiting_2:
-        if (data == DEBUG_MAGIC_2) {
-          led_on(LED_GREEN);
-          in_packet_state = get_type;
-        }
-        break;
-      case get_type:
-        /* TODO: detect if we have an unprocessed packet here 
-         * we are overwriting. */
-        in_packet_valid = 0;
-        in_buff[0] = data;
-        in_packet_state = get_len;
-        break;
-      case get_len:
-        in_buff[1] = data;
-        in_packet_state = get_packet;
-        in_packet_count = 0;
-        break;
-      case get_packet:
-        /* TODO: Setup DMA transfer here. */
-        in_buff[2+in_packet_count] = data;
-        in_packet_count++;
-        if (in_packet_count == in_buff[1]) {
-          in_packet_valid = 1;
-          in_packet_state = waiting_1;
-        } else
-          in_packet_state = get_packet;
-        break;
-    }
-	}
-}
-
-u8* get_in_packet() {
-  /* TODO: this should really be a packet queue. */
-  if (!in_packet_valid)
-    return 0;
-  else {
-    in_packet_valid = 0;
-    return in_buff;
+  /* If our linked list is empty then just
+   * add the new node to the start.
+   */
+  if (msg_callbacks_head == 0) {
+    msg_callbacks_head = node;
+    return;
   }
+
+  /* Find the tail of our linked list and
+   * add our new node to the end.
+   */
+  msg_callbacks_node_t* p = msg_callbacks_head;
+  while(p->next)
+    p = p->next;
+
+  p->next = node;
 }
 
-void process_packet() {
-  u8 type, length;
-  u8* buff;
+msg_callback_t debug_find_callback(u8 msg_type)
+{
+  /* If our list is empty, return NULL. */
+  if (!msg_callbacks_head)
+    return 0;
 
-  buff = get_in_packet();
+  /* Traverse the linked list and return the callback
+   * function pointer if we find a node with a matching
+   * message id.
+   */
+  msg_callbacks_node_t* p = msg_callbacks_head;
+  do {
+    if (p->msg_type == msg_type)
+      return p->cb;
+  } while((p = p->next));
 
-  if (buff) {
-    type = buff[0];
-    length = buff[1];
-    buff = &buff[2];
+  /* Didn't find a matching callback, return NULL. */
+  return 0;
+}
 
-    switch(type) {
-      case MSG_U32:
-        printf("Got u32: 0x%08X\n", *(unsigned int*)buff);
+void debug_process_messages()
+{
+  u8 len, temp;
+  static u8 msg_type, msg_len, msg_n_read;
+  static debug_process_messages_state_t state = WAITING_1;
+
+  while((len = usart_n_read_dma()))
+  {
+    /* If there are no bytes waiting to be processed then return. */
+    if (len == 0)
+      return;
+
+    switch(state) {
+      case WAITING_1:
+        usart_read_dma(&temp, 1);
+        if (temp == DEBUG_MAGIC_1)
+          state = WAITING_2;
         break;
-
-      case MSG_FLASH_WRITE: {
-        msg_flash_write_t* fw = (msg_flash_write_t*)buff;
-        printf("Got flash write cmd addr=0x%08X, len=%d\n", 
-            (unsigned int)fw->address, (unsigned int)fw->length);
-        for (u8 i = 0; i<fw->length; i++) {
-          printf("%02X ", fw->data[i]);
-          if ((i+1) % 16 == 0)
-            printf("\n");
+      case WAITING_2:
+        usart_read_dma(&temp, 1);
+        if (temp == DEBUG_MAGIC_2)
+          state = GET_TYPE;
+        break;
+      case GET_TYPE:
+        usart_read_dma(&msg_type, 1);
+        state = GET_LEN;
+        break;
+      case GET_LEN:
+        usart_read_dma(&msg_len, 1);
+        msg_n_read = 0;
+        state = GET_MSG;
+        break;
+      case GET_MSG:
+        if (msg_len - msg_n_read > 0) {
+          /* Not received whole message yet, try and get some more. */
+          msg_n_read += usart_read_dma(msg_buff, msg_len - msg_n_read);
+        } else {
+          /* Message complete, process it. */
+          (*debug_find_callback(msg_type))(msg_buff);
+          state = WAITING_1;
         }
-        /*m25_write_enable();*/
-        /*m25_page_program(fw->address, fw->length, fw->data);*/
-      }
-
-      case MSG_FLASH_READ: {
-        u8 read_buff[250];
-        msg_flash_read_t* fr = (msg_flash_read_t*)buff;
-        /*m25_read(fr->address, fr->length, read_buff);*/
-        printf("Got flash read cmd addr=0x%08X, len=%d\n", 
-            (unsigned int)fr->address, (unsigned int)fr->length);
-        for (u8 i = 0; i<fr->length; i++) {
-          printf("%02X ", read_buff[i]);
-          if ((i+1) % 16 == 0)
-            printf("\n");
-        }
         break;
-      }
-
-      case MSG_FLASH_ERASE_ALL:
-        printf("Got flash bulk erase cmd\n");
-        /*m25_write_enable();*/
-        /*m25_bulk_erase();*/
-        break;
-
       default:
-        printf("Got unknown packet ID=0x%02X, len=%d, contents:\n", type, length);
-        for (u8 i = 0; i<length; i++) {
-          printf("%02X ", buff[i]);
-          if ((i+1) % 16 == 0)
-            printf("\n");
-        }
-        printf("\n\n");
+        state = WAITING_1;
+        break;
     }
   }
 }
@@ -190,7 +173,7 @@ int _write (int file, char *ptr, int len)
 	if (file == 1) {
     if (len > 255) len = 255; /* Send maximum of 255 chars at a time */
 
-    send_debug_msg(MSG_PRINT, len, (u8*)ptr);
+    debug_send_msg(MSG_PRINT, len, (u8*)ptr);
 		return len;
 	}
   errno = EIO;
