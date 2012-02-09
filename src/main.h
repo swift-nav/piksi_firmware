@@ -24,4 +24,12 @@
 #define L1_HZ 1575.42e6
 #define NOMINAL_CODE_PHASE_RATE_HZ 1.023e6
 
+#define DO_EVERY(n, cmd) { \
+  static u32 do_every_count = 0; \
+  if (do_every_count % (n) == 0) { \
+    cmd; \
+  } \
+  do_every_count++; \
+}
+
 #endif
