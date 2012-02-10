@@ -96,54 +96,37 @@ int main(void)
  
   led_toggle(LED_RED);
   
-  u8 prn = 32-1;
+  u8 prn = 31-1;
 
   /* Initial coarse acq. */
-  float coarse_acq_code_phase;
-  float coarse_acq_carrier_freq;
-  float coarse_snr;
-  u32 coarse_acq_cnt = timing_count() + 1000;
-  acq_schedule_load(coarse_acq_cnt);
-  acq_wait_load_done();
+  float acq_code_phase;
+  float acq_carrier_freq;
+  float acq_snr;
+  u32 acq_count = acq_full_two_stage(prn, &acq_code_phase, &acq_carrier_freq, &acq_snr);
 
-  /*do_acq(prn, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);*/
+  printf("# PRN %u: %f, %f, %f\n", prn+1, acq_code_phase, acq_carrier_freq, acq_snr);
 
-  acq_start(prn, 0, 1023, -7000, 7000, 300);
-  acq_wait_done();
-  acq_get_results(&coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
-
-  printf("#Coarse - PRN %u: %f, %f, %f\n", prn+1, coarse_acq_code_phase, coarse_acq_carrier_freq, coarse_snr);
-
-  if (coarse_snr < ACQ_THRESHOLD) {
+  if (acq_snr < ACQ_THRESHOLD) {
     printf("No findy satellite :(\n");
     while(1);
   }
 
-  /* Fine acq. */
-  float fine_acq_code_phase;
-  float fine_acq_carrier_freq;
-  float fine_snr;
-  u32 fine_acq_cnt = timing_count() + 2000;
-  acq_schedule_load(fine_acq_cnt);
-  acq_wait_load_done();
-
-  float fine_cp = propagate_code_phase(coarse_acq_code_phase, coarse_acq_carrier_freq, fine_acq_cnt - coarse_acq_cnt);
-
-  /*do_acq(prn, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 30, &fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);*/
-
-  acq_start(prn, fine_cp-20, fine_cp+20, coarse_acq_carrier_freq-300, coarse_acq_carrier_freq+300, 100);
-  acq_wait_done();
-  acq_get_results(&fine_acq_code_phase, &fine_acq_carrier_freq, &fine_snr);
-
-  printf("#Fine - PRN %u: (%f) %f, %f, %f\n", prn+1, fine_cp, fine_acq_code_phase, fine_acq_carrier_freq, fine_snr);
-
-
   /* Transition to tracking. */
-  u32 track_cnt = timing_count() + 20000;
-  float track_cp = propagate_code_phase(fine_acq_code_phase, fine_acq_carrier_freq, track_cnt - fine_acq_cnt);
+  u32 track_count = timing_count() + 20000;
+  float track_cp = propagate_code_phase(acq_code_phase, acq_carrier_freq, track_count - acq_count);
 
-  tracking_channel_init(1, prn, track_cp, fine_acq_carrier_freq, track_cnt);
-  tracking_channel_init(2, prn, track_cp, fine_acq_carrier_freq, track_cnt);
+  tracking_channel_init(1, prn, track_cp, acq_carrier_freq, track_count);
+
+  prn = 1-1;
+
+  acq_count = acq_full_two_stage(prn, &acq_code_phase, &acq_carrier_freq, &acq_snr);
+
+  printf("# PRN %u: %f, %f, %f\n", prn+1, acq_code_phase, acq_carrier_freq, acq_snr);
+
+  u32 track_count2 = timing_count() + 20000;
+  float track_cp2 = propagate_code_phase(acq_code_phase, acq_carrier_freq, track_count2 - acq_count);
+
+  tracking_channel_init(2, prn, track_cp2, acq_carrier_freq, track_count2);
 
   while(1)
   {
