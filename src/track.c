@@ -115,21 +115,14 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
 
 void tracking_channel_get_corrs(u8 channel)
 {
-  /*corr_t cs[3];*/
-  /*cs[0].I=0;*/
+  gpio_set(GPIOC, GPIO10);
   tracking_channel_t* chan = &tracking_channel[channel];
 
   switch(chan->state)
   {
   case TRACKING_FIRST_LOOP: {
     /* First set of correlations are junk so do one open loop update. */
-    /*tracking_channel_update(channel);*/
-    /*track_read_corr_blocking(channel, cs);*/
     track_read_corr_blocking(channel, chan->cs);
-
-    /*memcpy(chan->cs,cs,sizeof(cs));*/
-
-    /*printf("%d,%d %d,%d %d,%d\n", (int)chan->cs[0].I, (int)chan->cs[0].Q, (int)chan->cs[1].I, (int)chan->cs[1].Q, (int)chan->cs[2].I, (int)chan->cs[2].Q);*/
     break;
   }
   case TRACKING_RUNNING:
@@ -142,10 +135,12 @@ void tracking_channel_get_corrs(u8 channel)
     /* WTF? */
     break;
   }
+  gpio_clear(GPIOC, GPIO10);
 }
 
 void tracking_channel_update(u8 channel)
 {
+  gpio_set(GPIOC, GPIO11);
   tracking_channel_t* chan = &tracking_channel[channel];
 
   switch(chan->state)
@@ -185,13 +180,14 @@ void tracking_channel_update(u8 channel)
       chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
       chan->Q_filter += abs(cs[1].Q);
     }
-    gpio_toggle(GPIOC, GPIO11);
 
     double dll_disc_prev = chan->dll_disc;
     double pll_disc_prev = chan->pll_disc;
 
+    gpio_toggle(GPIOC, GPIO11);
     /* TODO: check for divide by zero. */
     chan->pll_disc = atan((double)cs[1].Q/cs[1].I)/(2*PI);
+    gpio_toggle(GPIOC, GPIO11);
 
     chan->carrier_freq += PLL_PGAIN*(chan->pll_disc-pll_disc_prev) + PLL_IGAIN*chan->pll_disc;
 
@@ -215,6 +211,7 @@ void tracking_channel_update(u8 channel)
     tracking_channel_disable(channel);
     break;
   }
+  gpio_clear(GPIOC, GPIO11);
 }
 
 void tracking_channel_disable(u8 channel)
