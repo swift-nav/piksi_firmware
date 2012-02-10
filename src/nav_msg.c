@@ -16,15 +16,18 @@ void nav_msg_init(nav_msg_t *n) {
 
 }
 
-u32 extract_word(nav_msg_t *n, u16 bit_index, u8 n_bits) {
+u32 extract_word(nav_msg_t *n, u16 bit_index, u8 n_bits, u8 invert) {
 // Extract a word of n_bits length (n_bits <= 32) at position bit_index into the subframe
 // Takes account of the offset stored in n, and the circular nature of the n->subframe_bits buffer
 
   if (n->subframe_start_index) {  // offset for the start of the subframe in the buffer
     if (n->subframe_start_index > 0)
       bit_index += n->subframe_start_index; // standard
-    else
+    else { 
       bit_index -= n->subframe_start_index; // bits are inverse!
+      invert = !invert;
+    }
+    
     bit_index--;
   }
 
@@ -41,7 +44,8 @@ u32 extract_word(nav_msg_t *n, u16 bit_index, u8 n_bits) {
     word |=  n->subframe_bits[bix_hi] >> (32 - bix_lo);
   }
 
-  if (n->subframe_start_index < 0)  // bits are inverse
+
+  if (invert)
     word = ~word;
   
   return word >> (32 - n_bits);
@@ -89,7 +93,7 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
       // Yo dawg, are we still looking for the preamble?
       if (!n->subframe_start_index) {
         // Check whether there's a preamble at the start of the circular subframe_bits buffer
-        u8 preamble_candidate = extract_word(n, n->subframe_bit_index, 8);
+        u8 preamble_candidate = extract_word(n, n->subframe_bit_index, 8, 0);
       
         if (preamble_candidate == 0x8B) {
           printf("NAV_MSG: Found preamble\n");
@@ -102,9 +106,22 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
         
         if (n->subframe_start_index) {
           // Looks like we found a preamble, but let's confirm.
-          if (extract_word(n, 300, 8) == 0x8B) {
-            // There's another in the following subframe.  Looks good so far.
-            printf("  TOW = %03X .. %03X\n",(unsigned int)extract_word(n,30,17), (unsigned int)extract_word(n,330,17));
+          if (extract_word(n, 300, 8, 0) == 0x8B) {
+            // There's another preamble in the following subframe.  Looks good so far.
+            // Extract the TOW:
+            
+            unsigned int TOW_trunc = extract_word(n,30,17,extract_word(n,29,1,0)); // bit 29 is D30* for the second word, where the TOW resides.
+            TOW_trunc++;  // Increment it, to see what we expect at the start of the next subframe
+            if (TOW_trunc >= 7*24*60*10)  // Handle end of week rollover
+              TOW_trunc = 0;
+
+            if (TOW_trunc == extract_word(n,330,17,extract_word(n,329,1,0)))
+              printf("  TOW confirmed: %u:%u:%u:%u\n",  TOW_trunc / (24*60*10), 
+                                                        (TOW_trunc / (60*10)) % 24, 
+                                                        (TOW_trunc / 10) % (24*60),
+                                                        (TOW_trunc % 10) * 6);
+            else
+              printf("  TOW failed: %03X\n",TOW_trunc);
           }
           n->subframe_start_index = 0;
         }
