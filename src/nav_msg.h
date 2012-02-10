@@ -4,12 +4,14 @@
 #include "int_types.h"
 
 typedef struct {
-  u8 subframe_bits[38];
+  u32 subframe_bits[12];
   u16 subframe_bit_index;
+  u16 subframe_preamble_index;
   u8 bit_phase;
   u8 bit_phase_ref;
   u8 bit_phase_count;
   s32 nav_bit_integrate;
+  
 } nav_msg_t;
 
 

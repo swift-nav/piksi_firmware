@@ -197,8 +197,19 @@ void tracking_channel_update(u8 channel)
     chan->dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
 
     chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
-  
+ 
+
+    u32 timer_val = timing_count();
+    
+    static u32 max_timer_val = 0;
+
     nav_msg_update(&chan->nav_msg, cs[1].I);
+    
+    timer_val = timing_count() - timer_val;
+    if (timer_val > max_timer_val) {
+      max_timer_val = timer_val;
+      printf("n_m_u took %.1f us\n", max_timer_val/16.368);
+    }
 
     track_write_update_blocking(channel, \
                        chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
