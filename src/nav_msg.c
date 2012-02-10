@@ -11,10 +11,42 @@ void nav_msg_init(nav_msg_t *n) {
   n->bit_phase_ref = 0;
   n->bit_phase_count = 0;
   n->nav_bit_integrate = 0;
-  n->subframe_preamble_index = 0;
+  n->subframe_start_index = 0;
   memset(n->subframe_bits,0,sizeof(n->subframe_bits));
 
 }
+
+u32 extract_word(nav_msg_t *n, u16 bit_index, u8 n_bits) {
+// Extract a word of n_bits length (n_bits <= 32) at position bit_index into the subframe
+// Takes account of the offset stored in n, and the circular nature of the n->subframe_bits buffer
+
+  if (n->subframe_start_index) {  // offset for the start of the subframe in the buffer
+    if (n->subframe_start_index > 0)
+      bit_index += n->subframe_start_index; // standard
+    else
+      bit_index -= n->subframe_start_index; // bits are inverse!
+    bit_index--;
+  }
+
+  if (bit_index > NAV_MSG_SUBFRAME_BITS_LEN*32) // wrap if necessary
+    bit_index -= NAV_MSG_SUBFRAME_BITS_LEN*32;
+
+  u8 bix_hi = bit_index >> 5;
+  u8 bix_lo = bit_index & 0x1F;
+  u32 word = n->subframe_bits[bix_hi] << bix_lo;
+  if (bix_lo) {
+    bix_hi++;
+    if (bix_hi == NAV_MSG_SUBFRAME_BITS_LEN)
+      bix_hi=0;
+    word |=  n->subframe_bits[bix_hi] >> (32 - bix_lo);
+  }
+
+  if (n->subframe_start_index < 0)  // bits are inverse
+    word = ~word;
+  
+  return word >> (32 - n_bits);
+}
+
 
 void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
   // Called once per tracking loop update (atm fixed at 1 PRN [1 ms])
@@ -40,7 +72,9 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
  
   } else {
     // We have bit phase lock
-    if (n->bit_phase == n->bit_phase_ref) {
+    if (n->bit_phase != n->bit_phase_ref)  
+      n->nav_bit_integrate += corr_prompt_real; // Sum the correlations over the 20 ms bit period
+    else {
       // Dump the nav bit, i.e. determine the sign of the correlation over the nav bit period
       if (n->nav_bit_integrate > 0) // Is bit 1?
         n->subframe_bits[n->subframe_bit_index >> 5] |=   1 << (31 - (n->subframe_bit_index & 0x1F));
@@ -51,27 +85,31 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
       
       n->subframe_bit_index++;
       if (n->subframe_bit_index == 12*32)  n->subframe_bit_index = 0;
+   
+      // Yo dawg, are we still looking for the preamble?
+      if (!n->subframe_start_index) {
+        // Check whether there's a preamble at the start of the circular subframe_bits buffer
+        u8 preamble_candidate = extract_word(n, n->subframe_bit_index, 8);
       
-      u8 bix_hi = n->subframe_bit_index >> 5;
-      u8 bix_lo = n->subframe_bit_index & 0x1F;
+        if (preamble_candidate == 0x8B) {
+          printf("NAV_MSG: Found preamble\n");
+           n->subframe_start_index = n->subframe_bit_index + 1;
+        }
+        else if (preamble_candidate == 0x74) {
+          printf("NAV_MSG: Found ~preamble\n");
+           n->subframe_start_index = -(n->subframe_bit_index + 1);
+        }
+        
+        if (n->subframe_start_index) {
+          // Looks like we found a preamble, but let's confirm.
+          if (extract_word(n, 300, 8) == 0x8B) {
+            // There's another in the following subframe.  Looks good so far.
+            printf("  TOW = %03X .. %03X\n",(unsigned int)extract_word(n,30,17), (unsigned int)extract_word(n,330,17));
+          }
+        }
 
-      // Check whether there's a preamble at the start of the circular subframe_bits buffer
-      u32 preamble_candidate = n->subframe_bits[bix_hi] << bix_lo;
-      if (bix_lo)
-        preamble_candidate |= n->subframe_bits[(bix_hi + 1) % (12*32)] >> (32 - bix_lo);
-      
-
-      if (preamble_candidate >> 24 == 0x8B) {
-        printf("NAV_MSG: Found preamble : %08X\n",(unsigned int)preamble_candidate);
-       // n->subframe_preamble_index = n->subframe_;
-      }
-      if (preamble_candidate >> 24 == 0x74) {
-        printf("NAV_MSG: Found ~preamble: %08X\n",(unsigned int)~preamble_candidate);
-       // n->subframe_preamble_index = n->subframe_;
-       // n->subframe_status = NAV_BITS_SUBFRAME_INVERSE_PREAMBLE;
       }
     }
-    n->nav_bit_integrate += corr_prompt_real; // Sum the correlations over the 20 ms bit period
   }
 
 }
