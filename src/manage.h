@@ -20,7 +20,7 @@
 
 #include <libopencm3/cm3/common.h>
 
-#define ACQ_THRESHOLD 16.0
+#define ACQ_THRESHOLD 14.0
 #define TRACK_THRESHOLD 2.0
 #define TRACK_SNR_THRES_COUNT 1000
 
