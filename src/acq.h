@@ -20,15 +20,15 @@
 
 #include <libopencm3/cm3/common.h>
 
-#define ACQ_THRESHOLD 16.0
-
 /* NOTE: Minimum bin width 1/ACQ_CARRIER_FREQ_UNITS_PER_HZ (~16 Hz) */
 #define ACQ_CARRIER_BIN_WIDTH 300
 
 typedef enum {
   ACQ_DISABLED = 0,
+  ACQ_LOADING,
+  ACQ_LOADING_DONE,
   ACQ_RUNNING,
-  ACQ_DONE
+  ACQ_RUNNING_DONE
 } acq_status_t;
 
 typedef struct {
@@ -47,16 +47,15 @@ typedef struct {
 
 void acq_schedule_load(u32 count);
 void acq_service_load_done();
-void acq_wait_load_done();
+u8 acq_get_load_done();
 
 void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width);
 void acq_service_irq();
-void acq_wait_done();
+u8 acq_get_done();
 void acq_get_results(float* cp, float* cf, float* snr);
 
 u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr);
 
-void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[]);
 void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width, float* cp, float* cf, float* snr);
 
 #endif

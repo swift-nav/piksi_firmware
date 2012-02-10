@@ -24,28 +24,10 @@
 #include "track.h"
 
 acq_state_t acq_state;
-u8 acq_load_done_flag = 0;
-
-void do_one_acq(u8 prn, u16 code_phase, s16 carrier_freq, corr_t corrs[])
-{
-  acq_write_init_blocking(prn, code_phase, carrier_freq); 
-
-  /* Disable acq on next cycle, after this one has finished. */
-  acq_disable_blocking();
-
-  /* Wait for acq done IRQ. */
-  wait_for_exti();
-
-  /* Write to clear IRQ. */
-  acq_disable_blocking();
-
-  /* Read in correlations. */
-  acq_read_corr_blocking(corrs);
-}
 
 void acq_schedule_load(u32 count)
 {
-  acq_load_done_flag = 0;
+  acq_state.state = ACQ_LOADING;
   acq_set_load_enable_blocking();
   timing_strobe(count);
 }
@@ -53,13 +35,12 @@ void acq_schedule_load(u32 count)
 void acq_service_load_done()
 {
   acq_clear_load_enable_blocking();
-  acq_load_done_flag = 1;
+  acq_state.state = ACQ_LOADING_DONE;
 }
 
-void acq_wait_load_done()
+u8 acq_get_load_done()
 {
-  while(acq_load_done_flag != 1);
-  acq_load_done_flag = 0;
+  return (acq_state.state == ACQ_LOADING_DONE);
 }
 
 void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width)
@@ -128,7 +109,7 @@ void acq_service_irq()
         if (acq_state.carrier_freq >= acq_state.cf_max && \
             acq_state.code_phase >= (acq_state.cp_max-2*ACQ_N_TAPS)) {
           acq_disable_blocking();
-          acq_state.state = ACQ_DONE;
+          acq_state.state = ACQ_RUNNING_DONE;
         } else {
           acq_write_init_blocking(acq_state.prn, \
             acq_state.cp_min + acq_state.code_phase - acq_state.cp_max + 2*ACQ_N_TAPS, \
@@ -155,9 +136,9 @@ void acq_service_irq()
   }
 }
 
-void acq_wait_done()
+u8 acq_get_done()
 {
-  while (acq_state.state != ACQ_DONE);
+  return (acq_state.state == ACQ_RUNNING_DONE);
 }
 
 void acq_get_results(float* cp, float* cf, float* snr)
@@ -177,21 +158,21 @@ u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
 
   u32 coarse_count = timing_count() + 1000;
   acq_schedule_load(coarse_count);
-  acq_wait_load_done();
+  while(!acq_get_load_done());
 
   acq_start(prn, 0, 1023, -7000, 7000, 300);
-  acq_wait_done();
+  while(!acq_get_done());
   acq_get_results(&coarse_code_phase, &coarse_carrier_freq, &coarse_snr);
 
   /* Fine acq. */
   u32 fine_count = timing_count() + 2000;
   acq_schedule_load(fine_count);
-  acq_wait_load_done();
+  while(!acq_get_load_done());
 
   float fine_cp = propagate_code_phase(coarse_code_phase, coarse_carrier_freq, fine_count - coarse_count);
 
   acq_start(prn, fine_cp-20, fine_cp+20, coarse_carrier_freq-300, coarse_carrier_freq+300, 100);
-  acq_wait_done();
+  while(!acq_get_done());
   acq_get_results(cp, cf, snr);
 
   return fine_count;
