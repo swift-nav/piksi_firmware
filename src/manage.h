@@ -21,7 +21,8 @@
 #include <libopencm3/cm3/common.h>
 
 #define ACQ_THRESHOLD 16.0
-#define TRACK_THRESHOLD 0.1
+#define TRACK_THRESHOLD 2.0
+#define TRACK_SNR_THRES_COUNT 1000
 
 #define MANAGE_NO_CHANNELS_FREE 255
 

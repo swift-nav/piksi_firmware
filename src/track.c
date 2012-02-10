@@ -88,6 +88,8 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
   /* Setup tracking_channel struct. */
   tracking_channel[channel].state = TRACKING_FIRST_LOOP;
   tracking_channel[channel].prn = prn;
+  tracking_channel[channel].update_count = 0;
+  tracking_channel[channel].snr_threshold_count = 0;
   tracking_channel[channel].dll_disc = 0;
   tracking_channel[channel].pll_disc = 0;
   tracking_channel[channel].I_filter = 0;
@@ -149,6 +151,8 @@ void tracking_channel_update(u8 channel)
   switch(chan->state)
   {
   case TRACKING_FIRST_LOOP:
+    chan->update_count++;
+
     /* First set of correlations are junk so do one open loop update. */
     track_write_update_blocking(channel, \
                        chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
@@ -160,6 +164,8 @@ void tracking_channel_update(u8 channel)
 
   case TRACKING_RUNNING:
   {
+    chan->update_count++;
+
     /* Correlations should already be in chan->cs thanks to
      * tracking_channel_get_corrs.
      */
