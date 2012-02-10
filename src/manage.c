@@ -22,9 +22,10 @@
 #include "manage.h"
 
 acq_prn_t acq_prn_param[32] = {
-  [19] = {.state = ACQ_PRN_UNTRIED},
+  [12] = {.state = ACQ_PRN_UNTRIED},
   [22] = {.state = ACQ_PRN_UNTRIED},
-  [31] = {.state = ACQ_PRN_UNTRIED}
+  [6] = {.state = ACQ_PRN_UNTRIED},
+  [9] = {.state = ACQ_PRN_UNTRIED}
 };
 
 acq_manage_t acq_manage;
@@ -161,10 +162,20 @@ void manage_acq()
         acq_manage.state = ACQ_MANAGE_START;
         break;
       }
+      u8 chan = manage_track_new_acq(acq_manage.fine_snr);
+      if (chan == MANAGE_NO_CHANNELS_FREE) {
+        /* No channels are free to accept our new satellite :( */
+        /* TODO: Perhaps we can try to warm start this one
+         * later using another fine acq.
+         */
+        acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
+        acq_manage.state = ACQ_MANAGE_START;
+        break;
+      }
       /* Transition to tracking. */
       u32 track_count = timing_count() + 20000;
       float track_cp = propagate_code_phase(fine_cp, fine_cf, track_count - acq_manage.fine_timer_count);
-      tracking_channel_init(0, acq_manage.prn, track_cp, fine_cf, track_count);
+      tracking_channel_init(chan, acq_manage.prn, track_cp, fine_cf, track_count);
       acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRACKING;
       acq_manage.state = ACQ_MANAGE_START;
       break;
@@ -172,3 +183,30 @@ void manage_acq()
   }
 }
 
+u8 manage_track_new_acq(float snr __attribute__((unused)))
+{
+  /* Decide which (if any) tracking channel to put
+   * a newly acquired satellite into.
+   */
+  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+    if (tracking_channel[i].state == TRACKING_DISABLED) {
+      return i;
+    }
+  }
+
+  return MANAGE_NO_CHANNELS_FREE;
+}
+
+void manage_track()
+{
+  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+    if (tracking_channel[i].state == TRACKING_RUNNING) {
+      if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
+        /* This tracking channel has lost its satellite. */
+        printf("Disabling channel %d\n", i);
+        tracking_channel_disable(i);
+        acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_UNTRIED;
+      }
+    }
+  }
+}

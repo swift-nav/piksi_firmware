@@ -21,6 +21,9 @@
 #include <libopencm3/cm3/common.h>
 
 #define ACQ_THRESHOLD 16.0
+#define TRACK_THRESHOLD 0.1
+
+#define MANAGE_NO_CHANNELS_FREE 255
 
 typedef enum {
   ACQ_MANAGE_START = 0,
@@ -52,5 +55,7 @@ typedef struct {
 } acq_prn_t;
 
 void manage_acq();
+u8 manage_track_new_acq(float snr);
+void manage_track();
 
 #endif

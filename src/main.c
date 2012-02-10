@@ -99,8 +99,9 @@ int main(void)
   
   while(1)
   {
-    for (u32 i = 0; i < 10000; i++)
+    for (u32 i = 0; i < 3000; i++)
       __asm__("nop");
+    manage_track();
     manage_acq();
 
     DO_EVERY(300,
