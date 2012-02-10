@@ -105,8 +105,8 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
           if (extract_word(n, 300, 8) == 0x8B) {
             // There's another in the following subframe.  Looks good so far.
             printf("  TOW = %03X .. %03X\n",(unsigned int)extract_word(n,30,17), (unsigned int)extract_word(n,330,17));
-            n->subframe_start_index = 0;
           }
+          n->subframe_start_index = 0;
         }
 
       }
