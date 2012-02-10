@@ -52,11 +52,13 @@ u32 extract_word(nav_msg_t *n, u16 bit_index, u8 n_bits, u8 invert) {
 }
 
 
-void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
+u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
   // Called once per tracking loop update (atm fixed at 1 PRN [1 ms])
   // Performs the necessary steps to recover the nav bit clock, store the nav bits
   // and decode them.
   
+  u32 TOW_ms = 0;
+
   // Do we have bit phase lock yet? (Do we know which of the 20 possible PRN offsets corresponds to the nav bit edges?)
     n->bit_phase++;
     n->bit_phase %= 20;
@@ -88,18 +90,25 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
       n->nav_bit_integrate = 0; // Zero the integrator for the next nav bit
       
       n->subframe_bit_index++;
-      if (n->subframe_bit_index == 12*32)  n->subframe_bit_index = 0;
+      if (n->subframe_bit_index == NAV_MSG_SUBFRAME_BITS_LEN*32)
+        n->subframe_bit_index = 0;
    
       // Yo dawg, are we still looking for the preamble?
       if (!n->subframe_start_index) {
+ 
+        
+        // We're going to look for the preamble at a time 360 nav bits ago, then again 60 nav bits ago.
+        //
+        #define SUBFRAME_START_BUFFER_OFFSET (NAV_MSG_SUBFRAME_BITS_LEN*32 - 360)
+        
         // Check whether there's a preamble at the start of the circular subframe_bits buffer
-        u8 preamble_candidate = extract_word(n, n->subframe_bit_index, 8, 0);
+        u8 preamble_candidate = extract_word(n, n->subframe_bit_index + SUBFRAME_START_BUFFER_OFFSET, 8, 0);
       
         if (preamble_candidate == 0x8B) {
-           n->subframe_start_index = n->subframe_bit_index + 1;
+           n->subframe_start_index = n->subframe_bit_index + SUBFRAME_START_BUFFER_OFFSET + 1;
         }
         else if (preamble_candidate == 0x74) {
-           n->subframe_start_index = -(n->subframe_bit_index + 1);
+           n->subframe_start_index = -(n->subframe_bit_index + SUBFRAME_START_BUFFER_OFFSET + 1);
         }
         
         if (n->subframe_start_index) {
@@ -113,11 +122,19 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
             if (TOW_trunc >= 7*24*60*10)  // Handle end of week rollover
               TOW_trunc = 0;
 
-            if (TOW_trunc == extract_word(n,330,17,extract_word(n,329,1,0)))
-              printf("  TOW confirmed: %u:%02u:%02u:%02u\n",  TOW_trunc / (24*60*10), 
-                                                        (TOW_trunc / (60*10)) % 24, 
-                                                        (TOW_trunc / 10) % 60,
-                                                        (TOW_trunc % 10) * 6);
+            if (TOW_trunc == extract_word(n,330,17,extract_word(n,329,1,0))) {
+              // We got the TOW.
+
+              // printf("  TOW confirmed: %u:%02u:%02u:%02u\n",
+              //  TOW_trunc / (24*60*10),   (TOW_trunc / (60*10)) % 24,   (TOW_trunc / 10) % 60,   (TOW_trunc % 10) * 6);
+              
+
+              // The TOW in the message is for the start of the NEXT subframe.
+              // 
+              TOW_ms = TOW_trunc * 6000 + (300-60)*20;
+              printf("TOW = hh:%02d:%02d.00\n", (int) (TOW_ms / 60000 % 60), (int)(TOW_ms / 1000 % 60));
+              
+            }
           }
           n->subframe_start_index = 0;
         }
@@ -125,5 +142,7 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
       }
     }
   }
+
+  return TOW_ms;
 
 }
