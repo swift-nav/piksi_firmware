@@ -156,12 +156,14 @@ void manage_acq()
       printf("Fine %f, %f, %f\n", fine_cp,
                                   fine_cf,
                                   acq_manage.fine_snr);
-      if (acq_manage.fine_snr < ACQ_THRESHOLD) {
-        /* Didn't find the satellite :( */
-        acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
-        acq_manage.state = ACQ_MANAGE_START;
-        break;
-      }
+      // BELOW REMOVED - if we found it in coarse then we'll consider it acquired.
+      // TODO: Change SNR calculation so it is valid for fine then reenable this.
+      //if (acq_manage.fine_snr < ACQ_THRESHOLD) {
+      //  /* Didn't find the satellite :( */
+      //  acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
+      //  acq_manage.state = ACQ_MANAGE_START;
+      //  break;
+      //}
       u8 chan = manage_track_new_acq(acq_manage.fine_snr);
       if (chan == MANAGE_NO_CHANNELS_FREE) {
         /* No channels are free to accept our new satellite :( */
