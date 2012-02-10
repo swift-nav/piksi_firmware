@@ -34,6 +34,16 @@ void manage_acq()
   switch (acq_manage.state) {
     default:
     case ACQ_MANAGE_START: {
+      /* Check if there are tracking channels free first. */
+      u8 i;
+      for (i=0; i<TRACK_N_CHANNELS; i++) {
+        if (tracking_channel[i].state == TRACKING_DISABLED)
+          break;
+      }
+      if (i == TRACK_N_CHANNELS)
+        /* No tracking channels free :( */
+        break;
+
       /* Acquisition channel is free, decide which PRN
        * to try and then start it acquiring.
        */
