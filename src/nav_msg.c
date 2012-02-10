@@ -120,6 +120,8 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
                                                         (TOW_trunc / (60*10)) % 24, 
                                                         (TOW_trunc / 10) % (24*60),
                                                         (TOW_trunc % 10) * 6);
+            else
+              printf("  TOW failed: %03X\n",TOW_trunc);
           }
           n->subframe_start_index = 0;
         }
