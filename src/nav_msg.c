@@ -60,7 +60,6 @@ void nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
       if (bix_lo)
         preamble_candidate |= n->subframe_bits[(bix_hi + 1) % (12*32)] >> (32 - bix_lo);
       
-      preamble_candidate >>= 24;
 
       if (preamble_candidate >> 24 == 0x8B) {
         printf("NAV_MSG: Found preamble : %08X\n",(unsigned int)preamble_candidate);
