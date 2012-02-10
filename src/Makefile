@@ -6,6 +6,7 @@ OBJS = main.o \
        track.o \
        nav_msg.o \
        acq.o \
+       manage.o \
        hw/m25_flash.o \
        hw/max2769.o \
        hw/leds.o \

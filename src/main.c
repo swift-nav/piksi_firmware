@@ -28,6 +28,7 @@
 #include "swift_nap_io.h"
 #include "track.h"
 #include "acq.h"
+#include "manage.h"
 #include "hw/leds.h"
 #include "hw/spi.h"
 
@@ -96,43 +97,13 @@ int main(void)
  
   led_toggle(LED_RED);
   
-  u8 prn = 31-1;
-
-  /* Initial coarse acq. */
-  float acq_code_phase;
-  float acq_carrier_freq;
-  float acq_snr;
-  u32 acq_count = acq_full_two_stage(prn, &acq_code_phase, &acq_carrier_freq, &acq_snr);
-
-  printf("# PRN %u: %f, %f, %f\n", prn+1, acq_code_phase, acq_carrier_freq, acq_snr);
-
-  if (acq_snr < ACQ_THRESHOLD) {
-    printf("No findy satellite :(\n");
-    while(1);
-  }
-
-  /* Transition to tracking. */
-  u32 track_count = timing_count() + 20000;
-  float track_cp = propagate_code_phase(acq_code_phase, acq_carrier_freq, track_count - acq_count);
-
-  tracking_channel_init(1, prn, track_cp, acq_carrier_freq, track_count);
-
-  prn = 1-1;
-
-  acq_count = acq_full_two_stage(prn, &acq_code_phase, &acq_carrier_freq, &acq_snr);
-
-  printf("# PRN %u: %f, %f, %f\n", prn+1, acq_code_phase, acq_carrier_freq, acq_snr);
-
-  u32 track_count2 = timing_count() + 20000;
-  float track_cp2 = propagate_code_phase(acq_code_phase, acq_carrier_freq, track_count2 - acq_count);
-
-  tracking_channel_init(2, prn, track_cp2, acq_carrier_freq, track_count2);
-
   while(1)
   {
-    for (u32 i = 0; i < 1000000; i++)
+    for (u32 i = 0; i < 10000; i++)
       __asm__("nop");
+    manage_acq();
 
+    DO_EVERY(300,
     for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
       switch (tracking_channel[i].state) {
         default:
@@ -143,11 +114,12 @@ int main(void)
           printf("F\t");
           break;
         case TRACKING_RUNNING:
-          printf("%.2f\t", tracking_channel_snr(i));
+          printf("(%d) %.2f\t", tracking_channel[i].prn+1, tracking_channel_snr(i));
           break;
       }
     }
     printf("\n");
+    )
     u32 err = swift_nap_read_error_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);
