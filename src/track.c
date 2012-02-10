@@ -206,9 +206,20 @@ void tracking_channel_update(u8 channel)
   case TRACKING_DISABLED:
   default:
     /* WTF? */
+    tracking_channel_disable(channel);
     break;
   }
 }
+
+void tracking_channel_disable(u8 channel)
+{
+  /* Write zero to the code phase rate to stop the channel
+   * from generating interrupts.
+   */
+  track_write_update_blocking(channel, 0, 0);
+  tracking_channel[channel].state = TRACKING_DISABLED;
+}
+
 
 float tracking_channel_snr(u8 channel)
 {

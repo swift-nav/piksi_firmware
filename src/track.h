@@ -63,6 +63,7 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
 
 void tracking_channel_get_corrs(u8 channel);
 void tracking_channel_update(u8 channel);
+void tracking_channel_disable(u8 channel);
 float tracking_channel_snr(u8 channel);
 
 #endif
