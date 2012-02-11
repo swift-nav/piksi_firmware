@@ -43,6 +43,8 @@ typedef struct {
   u32 snr_threshold_count;
   u8 prn;
 
+  u32 sample_count;
+
   u32 code_phase;
   u32 code_phase_rate_fp;
 

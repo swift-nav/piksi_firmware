@@ -97,7 +97,8 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
   tracking_channel[channel].Q_filter = 0;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
   tracking_channel[channel].carrier_freq = carrier_freq;
-  
+  tracking_channel[channel].sample_count = start_sample_count;
+
   nav_msg_init(&tracking_channel[channel].nav_msg);
 
   /* TODO: Write PRN into tracking channel when the FPGA code supports this. */
@@ -200,20 +201,23 @@ void tracking_channel_update(u8 channel)
 
     /* trial_cp = code_phase + 1023*16*code_phase_rate_fp */
     u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4);
-
+    chan->sample_count += 1023*16;
     /* If 16*1023*CPR >= 1 PRN  */
     if (trial_cp >= PRN_ROLLOVER) {
       /* If (16*1023-1)*CPR >= 1 PRN */
-      if (trial_cp-chan->code_phase_rate_fp >= PRN_ROLLOVER)
+      if (trial_cp-chan->code_phase_rate_fp >= PRN_ROLLOVER) {
         /* Then rollover was after 16*1023-1 samples, code_phase = (16*1023-1)*CPR */
         chan->code_phase = trial_cp-chan->code_phase_rate_fp;
-      else
+        chan->sample_count--;
+      } else {
         /* Then rollover was after 16*1023 samples, code_phase = 16*1023*CPR */
         chan->code_phase = trial_cp;
-    } else 
+      }
+    } else {
       /* Then rollover was after 16*1023+1 samples, code_phase = (16*1023+1)*CPR */
       chan->code_phase = trial_cp+chan->code_phase_rate_fp;
-
+      chan->sample_count++;
+    }
     /* NOTE: Whole PRNs are implicitly dropped as code_phase is a u32.
      * Now 0 <= code_phase <= (2^29 - 2)
      */
