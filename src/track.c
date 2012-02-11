@@ -193,7 +193,9 @@ void tracking_channel_update(u8 channel)
       u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4);
       chan->sample_count += 1023*16;
 
-      DO_EVERY(987, printf("lag=%u\n",(unsigned int)timing_count() - (unsigned int)chan->sample_count);)
+      u32 lag = timing_count() - chan->sample_count;
+      if (lag > 16368)
+        printf("PRN %02d, lag = %u samples\n",chan->prn+1, (unsigned int)lag);
 
       /* If 16*1023*CPR >= 1 PRN  */
       if (trial_cp >= TRACK_PRN_ROLLOVER) {
