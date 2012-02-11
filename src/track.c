@@ -189,13 +189,14 @@ void tracking_channel_update(u8 channel)
        * value (1023*16), hence we only need to test these cases.
        */
 
-      /* trial_cp = code_phase + 1023*16*code_phase_rate_fp */
-      u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4);
+      /* Sample count also needs to be increased by N, again we can use the
+       * trick, we will set it to 1023*16 here and then either increment or
+       * decrement it later depending on where we find the rollover.
+       */
       chan->sample_count += 1023*16;
 
-      u32 lag = timing_count() - chan->sample_count;
-      if (lag > 16368)
-        printf("PRN %02d, lag = %u samples\n",chan->prn+1, (unsigned int)lag);
+      /* trial_cp = code_phase + 1023*16*code_phase_rate_fp */
+      u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4);
 
       /* If 16*1023*CPR >= 1 PRN  */
       if (trial_cp >= TRACK_PRN_ROLLOVER) {
@@ -218,6 +219,10 @@ void tracking_channel_update(u8 channel)
       /* NOTE: Whole PRNs are implicitly dropped as code_phase is a u32.
        * Now 0 <= code_phase <= (2^29 - 2)
        */
+
+      u32 lag = timing_count() - chan->sample_count;
+      if (lag > 16368)
+        printf("PRN %02d, lag = %u samples\n",chan->prn+1, (unsigned int)lag);
 
       /* Run the loop filters. */
 
