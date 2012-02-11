@@ -158,6 +158,23 @@ void tracking_channel_update(u8 channel)
   case TRACKING_FIRST_LOOP:
     chan->update_count++;
 
+    /* Calculate the code_phase, this is a special case as we didn't start
+     * on a code phase rollover so we can't use the trick we do below.
+     * NOTE: code_phase is passed from init and contains the code phase in
+     * init units (chips*16), now we have to convert it to match the
+     * Swift NAP internal code phase accumulation units.
+     *
+     * Solve: new_code_phase = (N*code_phase_rate_fp + code_phase) % 1 PRN
+     *        where N*code_phase_rate_fp + code_phase > 1 PRN
+     *
+     * N = (1 PRN - code_phase - 1) / code_phase_rate_fp
+     *
+     *  Where the -1 in the numerator gives us the ceil rather than the floor
+     *  of the division.
+     */
+    u32 N = (TRACK_PRN_ROLLOVER - ((u64)chan->code_phase << 29) - 1) / chan->code_phase_rate_fp;
+    chan->code_phase = (((u64)chan->code_phase << 29) + N*(u64)chan->code_phase_rate_fp) % TRACK_PRN_ROLLOVER;
+
     /* First set of correlations are junk so do one open loop update. */
     track_write_update_blocking(channel, \
                        chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
