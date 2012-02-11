@@ -105,6 +105,14 @@ int main(void)
     manage_track();
     manage_acq();
 
+    // Check if there is a new nav msg subframe to process.
+    // TODO: move this into a function
+    
+    for (u8 i=0; i<TRACK_N_CHANNELS; i++)
+      if (tracking_channel[i].state == TRACKING_RUNNING && tracking_channel[i].nav_msg.subframe_start_index)
+        process_subframe(&tracking_channel[i].nav_msg, 0);
+
+
     DO_EVERY(10000,
     for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
       switch (tracking_channel[i].state) {
