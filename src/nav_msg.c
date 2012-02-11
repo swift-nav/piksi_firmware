@@ -125,17 +125,13 @@ u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
             if (TOW_trunc == extract_word(n,330,17,extract_word(n,329,1,0))) {
               // We got the TOW.
 
-              // printf("  TOW confirmed: %u:%02u:%02u:%02u\n",
-              //  TOW_trunc / (24*60*10),   (TOW_trunc / (60*10)) % 24,   (TOW_trunc / 10) % 60,   (TOW_trunc % 10) * 6);
-              
-
               // The TOW in the message is for the start of the NEXT subframe.
               // That is, 240 nav bits' time from now, since we are 60 nav bits into the second subframe that we recorded. 
               if (TOW_trunc)
                 TOW_ms = TOW_trunc * 6000 - (300-60)*20;
               else  // end of week special case
                 TOW_ms = 7*24*60*60*1000 - (300-60)*20; 
-              printf("TOW = hh:%02d:%02d.%03d\n", (int) (TOW_ms / 60000 % 60), (int)(TOW_ms / 1000 % 60), (int)(TOW_ms % 1000));
+              //printf("TOW = hh:%02d:%02d.%03d\n", (int) (TOW_ms / 60000 % 60), (int)(TOW_ms / 1000 % 60), (int)(TOW_ms % 1000));
               
             }
           }

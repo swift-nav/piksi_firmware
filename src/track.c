@@ -89,6 +89,7 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
   tracking_channel[channel].state = TRACKING_FIRST_LOOP;
   tracking_channel[channel].prn = prn;
   tracking_channel[channel].update_count = 0;
+  tracking_channel[channel].TOW_ms = 0;
   tracking_channel[channel].snr_threshold_count = 0;
   tracking_channel[channel].dll_disc = 0;
   tracking_channel[channel].pll_disc = 0;
@@ -96,7 +97,7 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
   tracking_channel[channel].Q_filter = 0;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
   tracking_channel[channel].carrier_freq = carrier_freq;
-
+  
   nav_msg_init(&tracking_channel[channel].nav_msg);
 
   /* TODO: Write PRN into tracking channel when the FPGA code supports this. */
@@ -160,6 +161,9 @@ void tracking_channel_update(u8 channel)
   case TRACKING_RUNNING:
   {
     chan->update_count++;
+    chan->TOW_ms++;
+    if (chan->TOW_ms == 7*24*60*60*1000)
+      chan->TOW_ms = 0;
 
     /* Correlations should already be in chan->cs thanks to
      * tracking_channel_get_corrs.
@@ -229,15 +233,19 @@ void tracking_channel_update(u8 channel)
  
 
     u32 timer_val = timing_count();
-    
     static u32 max_timer_val = 0;
 
-    nav_msg_update(&chan->nav_msg, cs[1].I);
+    u32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
     
     timer_val = timing_count() - timer_val;
     if (timer_val > max_timer_val) {
       max_timer_val = timer_val;
       printf("n_m_u took %.1f us\n", max_timer_val/16.368);
+    }
+
+    if (chan->TOW_ms != TOW_ms) {
+      printf("PRN %d TOW mismatch: %u, %u\n",(int)chan->prn, (unsigned int)chan->TOW_ms, (unsigned int)TOW_ms);
+      chan->TOW_ms = TOW_ms;
     }
 
     /* Save the exact code phase rate in fixed point as used by the Swift NAP

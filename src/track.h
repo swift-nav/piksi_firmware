@@ -39,6 +39,7 @@ typedef enum {
 typedef struct {
   tracking_state_t state; 
   u32 update_count;
+  u32 TOW_ms;
   u32 snr_threshold_count;
   u8 prn;
 
