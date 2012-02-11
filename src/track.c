@@ -249,8 +249,8 @@ void tracking_channel_update(u8 channel)
       printf("n_m_u took %.1f us\n", max_timer_val/16.368);
     }
 
-    if (chan->TOW_ms != TOW_ms) {
-      printf("PRN %d TOW mismatch: %u, %u\n",(int)chan->prn, (unsigned int)chan->TOW_ms, (unsigned int)TOW_ms);
+    if (TOW_ms && chan->TOW_ms != TOW_ms) {
+      printf("PRN %d TOW mismatch: %u, %u\n",(int)chan->prn + 1, (unsigned int)chan->TOW_ms, (unsigned int)TOW_ms);
       chan->TOW_ms = TOW_ms;
     }
 
