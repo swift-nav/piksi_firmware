@@ -192,8 +192,10 @@ void process_subframe(nav_msg_t *n, ephemeris_t *e __attribute__((unused))) {
   for (int i = 0; i < 9; i++) {
     subframe_words[i] = extract_word(n, 30+i, 32, 0);
     // MSBs are D29* and D30*.  LSBs are D1...D30
-    if (nav_parity(subframe_words[i]))
+    if (nav_parity(subframe_words[i])) {
       printf("process_subframe: Parity error!\n");
+      return;
+    }
   }
 
   n->subframe_start_index = 0;  // Mark the subframe as processed
