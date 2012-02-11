@@ -42,6 +42,9 @@ typedef struct {
   u32 snr_threshold_count;
   u8 prn;
 
+  u64 code_phase;
+  u32 code_phase_rate_fp;
+
   double code_phase_rate;
   double carrier_freq;
 

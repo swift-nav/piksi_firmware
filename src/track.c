@@ -180,6 +180,35 @@ void tracking_channel_update(u8 channel)
       chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
       chan->Q_filter += abs(cs[1].Q);
     }
+    
+    /* Accumulate code phase, taking care to try and exactly match what is
+     * going on in the Swift NAP. As we are interrupted on code phase rollover
+     * in the Swift NAP and that is when all the correlations are valid we must
+     * find the residual (sub-sample) code phase after rollover.
+     *
+     * i.e. solve N*code_phase_rate > 1 PRN == 2^42 in Swift NAP tracking units.
+     *
+     * NOTE: We can save a lot of time here by realising that with reasonable
+     * Doppler shifts N can never be more than 1 sample away from the nominal
+     * value (16*1023), hence we only need to test these cases.
+     */
+
+    /* trial_cp = 16*1023*code_phase_rate_fp */
+    u64 trial_cp = ((chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4;
+    /* If 16*1023*CPR > 2^42 */
+    if (trial_cp > ((u64)1<<42)) {
+      /* If (16*1023-1)*CPR > 2^42) */
+      if (trial_cp-chan->code_phase_rate_fp > ((u64)1<<42))
+        /* Then rollover was after 16*1023-1 samples, code_phase = (16*1023-1)*CPR % 2^42 */
+        chan->code_phase = (trial_cp-chan->code_phase_rate_fp) & (((u64)1<<42)-1);
+      else
+        /* Then rollover was after 16*1023 samples, code_phase = 16*1023*CPR % 2^42 */
+        chan->code_phase = trial_cp & (((u64)1<<42)-1);
+    } else 
+      /* Then rollover was after 16*1023+1 samples, code_phase = (16*1023+1)*CPR % 2^42 */
+      chan->code_phase = (trial_cp+chan->code_phase_rate_fp) & (((u64)1<<42)-1);
+
+    /* Run the loop filters. */
 
     double dll_disc_prev = chan->dll_disc;
     double pll_disc_prev = chan->pll_disc;
@@ -210,6 +239,12 @@ void tracking_channel_update(u8 channel)
       max_timer_val = timer_val;
       printf("n_m_u took %.1f us\n", max_timer_val/16.368);
     }
+
+    /* Save the exact code phase rate in fixed point as used by the Swift NAP
+     * so we can exactly predict rollover / accumulate the code phase on the
+     * STM next tracking update.
+     */
+    chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
     track_write_update_blocking(channel, \
                        chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
