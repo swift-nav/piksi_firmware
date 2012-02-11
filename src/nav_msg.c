@@ -130,9 +130,12 @@ u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
               
 
               // The TOW in the message is for the start of the NEXT subframe.
-              // 
-              TOW_ms = TOW_trunc * 6000 - 60*20;
-              printf("TOW = hh:%02d:%02d.00\n", (int) (TOW_ms / 60000 % 60), (int)(TOW_ms / 1000 % 60));
+              // That is, 240 nav bits' time from now, since we are 60 nav bits into the second subframe that we recorded. 
+              if (TOW_trunc)
+                TOW_ms = TOW_trunc * 6000 - (300-60)*20;
+              else  // end of week special case
+                TOW_ms = 7*24*60*60*1000 - (300-60)*20; 
+              printf("TOW = hh:%02d:%02d.%03d\n", (int) (TOW_ms / 60000 % 60), (int)(TOW_ms / 1000 % 60), (int)(TOW_ms % 1000));
               
             }
           }
