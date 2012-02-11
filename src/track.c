@@ -224,6 +224,13 @@ void tracking_channel_update(u8 channel)
       if (lag > 16368)
         printf("PRN %02d, lag = %u samples\n",chan->prn+1, (unsigned int)lag);
 
+      u64 nap_cp;
+      u32 nap_cf;
+      DO_EVERY(5000,
+        track_read_phase_blocking(channel, &nap_cf, &nap_cp);
+        printf("(%d) NAP: 0x%08X, STM: 0x%08X\n", chan->prn+1, (unsigned int)(nap_cp&0xFFFFFFFF), (unsigned int)chan->code_phase);
+      );
+
       /* Run the loop filters. */
 
       double dll_disc_prev = chan->dll_disc;

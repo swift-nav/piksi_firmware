@@ -91,6 +91,7 @@ void acq_read_corr_blocking(corr_t corrs[]);
 void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase);
 void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate);
 void track_read_corr_blocking(u8 channel, corr_t corrs[]);
+void track_read_phase_blocking(u8 channel, u32* carrier_phase, u64* code_phase);
 void track_read_corr_dma(u8 channel);
 
 #endif
