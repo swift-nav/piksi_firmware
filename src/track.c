@@ -72,21 +72,21 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
 }
 
 /** Initialises a tracking channel.
- * Initialises a tracking channel on the Swift NAP.
+ * Initialises a tracking channel on the Swift NAP. The start_sample_count
+ * must be contrived to be at or close to a PRN edge (code phase = 0).
  *
  * \param prn                PRN number - 1 (0-31).
  * \param channel            Tracking channel number on the Swift NAP.
- * \param code_phase         Code phase at start of tracking in chips [0-1023).
  * \param carrier_freq       Carrier frequency (Doppler) at start of tracking in Hz.
  * \param start_sample_count Sample count on which to start tracking.
  */
-void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_freq, u32 start_sample_count)
+void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sample_count)
 {
   /* Calculate code phase rate with carrier aiding. */
   float code_phase_rate = (1 + carrier_freq/L1_HZ) * NOMINAL_CODE_PHASE_RATE_HZ;
 
   /* Setup tracking_channel struct. */
-  tracking_channel[channel].state = TRACKING_FIRST_LOOP;
+  tracking_channel[channel].state = TRACKING_RUNNING;
   tracking_channel[channel].prn = prn;
   tracking_channel[channel].update_count = 0;
   tracking_channel[channel].TOW_ms = 0;
@@ -95,7 +95,9 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
   tracking_channel[channel].pll_disc = 0;
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
+  tracking_channel[channel].code_phase = 0;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
+  tracking_channel[channel].code_phase_rate_fp = code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   tracking_channel[channel].carrier_freq = carrier_freq;
   tracking_channel[channel].sample_count = start_sample_count;
 
@@ -103,10 +105,16 @@ void tracking_channel_init(u8 channel, u8 prn, float code_phase, float carrier_f
 
   /* TODO: Write PRN into tracking channel when the FPGA code supports this. */
 
+  /* Store the starting code phase in tracking_channel[n].code_phase
+   * until it is used by the first loop update handler, from then
+   * on it will store the code phase corresponding to the last update.
+   */
+  /*tracking_channel[channel].code_phase = code_phase*TRACK_CODE_PHASE_UNITS_PER_CHIP;*/
+
   /* Starting carrier phase is set to zero as we don't 
    * know the carrier freq well enough to calculate it.
    */
-  track_write_init_blocking(channel, prn, 0, code_phase*TRACK_CODE_PHASE_UNITS_PER_CHIP);
+  track_write_init_blocking(channel, prn, 0, 0);
   track_write_update_blocking(channel, \
                      carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
                      code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);

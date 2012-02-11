@@ -177,7 +177,11 @@ void manage_acq()
       /* Transition to tracking. */
       u32 track_count = timing_count() + 20000;
       float track_cp = propagate_code_phase(fine_cp, fine_cf, track_count - acq_manage.fine_timer_count);
-      tracking_channel_init(chan, acq_manage.prn, track_cp, fine_cf, track_count);
+     
+      // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
+      track_count += 16*(1023.0-track_cp)*(1.0 + fine_cf / L1_HZ);
+
+      tracking_channel_init(chan, acq_manage.prn, fine_cf, track_count);
       acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRACKING;
       acq_manage.state = ACQ_MANAGE_START;
       break;
