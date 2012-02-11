@@ -32,7 +32,6 @@
 
 typedef enum {
   TRACKING_DISABLED = 0,
-  TRACKING_FIRST_LOOP,
   TRACKING_RUNNING
 } tracking_state_t;
 

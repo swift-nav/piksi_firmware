@@ -112,9 +112,6 @@ int main(void)
         case TRACKING_DISABLED:
           printf("X\t");
           break;
-        case TRACKING_FIRST_LOOP:
-          printf("F\t");
-          break;
         case TRACKING_RUNNING:
           printf("(%d) %.2f\t", tracking_channel[i].prn+1, tracking_channel_snr(i));
           break;

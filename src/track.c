@@ -130,20 +130,15 @@ void tracking_channel_get_corrs(u8 channel)
 
   switch(chan->state)
   {
-  case TRACKING_FIRST_LOOP: {
-    /* First set of correlations are junk so do one open loop update. */
-    track_read_corr_blocking(channel, chan->cs);
-    break;
-  }
-  case TRACKING_RUNNING:
-    /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
-    track_read_corr_blocking(channel, chan->cs);
-    break;
+    case TRACKING_RUNNING:
+      /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
+      track_read_corr_blocking(channel, chan->cs);
+      break;
 
-  case TRACKING_DISABLED:
-  default:
-    /* WTF? */
-    break;
+    case TRACKING_DISABLED:
+    default:
+      /* WTF? */
+      break;
   }
   gpio_clear(GPIOC, GPIO10);
 }
@@ -155,154 +150,125 @@ void tracking_channel_update(u8 channel)
 
   switch(chan->state)
   {
-  case TRACKING_FIRST_LOOP:
-    chan->update_count++;
+    case TRACKING_RUNNING:
+    {
+      chan->update_count++;
+      chan->TOW_ms++;
+      if (chan->TOW_ms == 7*24*60*60*1000)
+        chan->TOW_ms = 0;
 
-    /* Calculate the code_phase, this is a special case as we didn't start
-     * on a code phase rollover so we can't use the trick we do below.
-     * NOTE: code_phase is passed from init and contains the code phase in
-     * init units (chips*16), now we have to convert it to match the
-     * Swift NAP internal code phase accumulation units.
-     *
-     * Solve: new_code_phase = (N*code_phase_rate_fp + code_phase) % 1 PRN
-     *        where N*code_phase_rate_fp + code_phase > 1 PRN
-     *
-     * N = (1 PRN - code_phase - 1) / code_phase_rate_fp
-     *
-     *  Where the -1 in the numerator gives us the ceil rather than the floor
-     *  of the division.
-     */
-    u32 N = (TRACK_PRN_ROLLOVER - ((u64)chan->code_phase << 29) - 1) / chan->code_phase_rate_fp;
-    chan->code_phase = (((u64)chan->code_phase << 29) + N*(u64)chan->code_phase_rate_fp) % TRACK_PRN_ROLLOVER;
+      /* Correlations should already be in chan->cs thanks to
+       * tracking_channel_get_corrs.
+       */
+      corr_t* cs = chan->cs;
 
-    /* First set of correlations are junk so do one open loop update. */
-    track_write_update_blocking(channel, \
-                       chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                       chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
-
-    /* Next update start running loop filters. */
-    chan->state = TRACKING_RUNNING;
-    break;
-
-  case TRACKING_RUNNING:
-  {
-    chan->update_count++;
-    chan->TOW_ms++;
-    if (chan->TOW_ms == 7*24*60*60*1000)
-      chan->TOW_ms = 0;
-
-    /* Correlations should already be in chan->cs thanks to
-     * tracking_channel_get_corrs.
-     */
-    corr_t* cs = chan->cs;
-
-    /* Update I and Q magnitude filters for SNR calculation.
-     * filter = (1 - 2^-FILTER_COEFF)*filter + correlation_magnitude
-     * If filters are uninitialised (=0) then initialise them with the
-     * first set of corellations.
-     */
-    if (chan->I_filter == 0 && chan->Q_filter == 0) {
-      chan->I_filter = abs(cs[1].I) << I_FILTER_COEFF;
-      chan->Q_filter = abs(cs[1].Q) << Q_FILTER_COEFF;
-    } else {
-      chan->I_filter -= chan->I_filter >> I_FILTER_COEFF;
-      chan->I_filter += abs(cs[1].I);
-      chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
-      chan->Q_filter += abs(cs[1].Q);
-    }
-    
-    /* Accumulate code phase, taking care to try and exactly match what is
-     * going on in the Swift NAP. As we are interrupted on code phase rollover
-     * in the Swift NAP and that is when all the correlations are valid we must
-     * find the residual (sub-sample) code phase after rollover.
-     *
-     * i.e. solve N*code_phase_rate > 1 PRN == 1023*16*2^28 in Swift NAP tracking units.
-     *
-     * NOTE: We can save a lot of time here by realising that with reasonable
-     * Doppler shifts N can never be more than 1 sample away from the nominal
-     * value (1023*16), hence we only need to test these cases.
-     */
-
-    /* trial_cp = code_phase + 1023*16*code_phase_rate_fp */
-    u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4);
-    chan->sample_count += 1023*16;
-
-    DO_EVERY(987, printf("lag=%u\n",(unsigned int)timing_count() - (unsigned int)chan->sample_count);)
-
-    /* If 16*1023*CPR >= 1 PRN  */
-    if (trial_cp >= TRACK_PRN_ROLLOVER) {
-      /* If (16*1023-1)*CPR >= 1 PRN */
-      if (trial_cp-chan->code_phase_rate_fp >= TRACK_PRN_ROLLOVER) {
-        /* Then rollover was after 16*1023-1 samples, code_phase = (16*1023-1)*CPR */
-        chan->code_phase = trial_cp-chan->code_phase_rate_fp;
-        chan->sample_count--;
+      /* Update I and Q magnitude filters for SNR calculation.
+       * filter = (1 - 2^-FILTER_COEFF)*filter + correlation_magnitude
+       * If filters are uninitialised (=0) then initialise them with the
+       * first set of corellations.
+       */
+      if (chan->I_filter == 0 && chan->Q_filter == 0) {
+        chan->I_filter = abs(cs[1].I) << I_FILTER_COEFF;
+        chan->Q_filter = abs(cs[1].Q) << Q_FILTER_COEFF;
       } else {
-        /* Then rollover was after 16*1023 samples, code_phase = 16*1023*CPR */
-        chan->code_phase = trial_cp;
+        chan->I_filter -= chan->I_filter >> I_FILTER_COEFF;
+        chan->I_filter += abs(cs[1].I);
+        chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
+        chan->Q_filter += abs(cs[1].Q);
       }
-    } else {
-      /* Then rollover was after 16*1023+1 samples, code_phase = (16*1023+1)*CPR */
-      chan->code_phase = trial_cp+chan->code_phase_rate_fp;
-      chan->sample_count++;
+      
+      /* Accumulate code phase, taking care to try and exactly match what is
+       * going on in the Swift NAP. As we are interrupted on code phase rollover
+       * in the Swift NAP and that is when all the correlations are valid we must
+       * find the residual (sub-sample) code phase after rollover.
+       *
+       * i.e. solve N*code_phase_rate > 1 PRN == 1023*16*2^28 in Swift NAP tracking units.
+       *
+       * NOTE: We can save a lot of time here by realising that with reasonable
+       * Doppler shifts N can never be more than 1 sample away from the nominal
+       * value (1023*16), hence we only need to test these cases.
+       */
+
+      /* trial_cp = code_phase + 1023*16*code_phase_rate_fp */
+      u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4);
+      chan->sample_count += 1023*16;
+
+      DO_EVERY(987, printf("lag=%u\n",(unsigned int)timing_count() - (unsigned int)chan->sample_count);)
+
+      /* If 16*1023*CPR >= 1 PRN  */
+      if (trial_cp >= TRACK_PRN_ROLLOVER) {
+        /* If (16*1023-1)*CPR >= 1 PRN */
+        if (trial_cp-chan->code_phase_rate_fp >= TRACK_PRN_ROLLOVER) {
+          /* Then rollover was after 16*1023-1 samples, code_phase = (16*1023-1)*CPR */
+          chan->code_phase = trial_cp-chan->code_phase_rate_fp;
+          chan->sample_count--;
+        } else {
+          /* Then rollover was after 16*1023 samples, code_phase = 16*1023*CPR */
+          chan->code_phase = trial_cp;
+        }
+      } else {
+        /* Then rollover was after 16*1023+1 samples, code_phase = (16*1023+1)*CPR */
+        chan->code_phase = trial_cp+chan->code_phase_rate_fp;
+        chan->sample_count++;
+      }
+      // TODO: put another condition or two in here to check for a code phase update booboo (i.e. sample increment != {16367, 16368, 16369})
+
+      /* NOTE: Whole PRNs are implicitly dropped as code_phase is a u32.
+       * Now 0 <= code_phase <= (2^29 - 2)
+       */
+
+      /* Run the loop filters. */
+
+      double dll_disc_prev = chan->dll_disc;
+      double pll_disc_prev = chan->pll_disc;
+
+      gpio_toggle(GPIOC, GPIO11);
+      /* TODO: check for divide by zero. */
+      chan->pll_disc = atan((double)cs[1].Q/cs[1].I)/(2*PI);
+      gpio_toggle(GPIOC, GPIO11);
+
+      chan->carrier_freq += PLL_PGAIN*(chan->pll_disc-pll_disc_prev) + PLL_IGAIN*chan->pll_disc;
+
+      double early_mag = sqrt((double)cs[0].I*cs[0].I + (double)cs[0].Q*cs[0].Q);
+      double late_mag = sqrt((double)cs[2].I*cs[2].I + (double)cs[2].Q*cs[2].Q);
+
+      chan->dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
+
+      chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
+   
+
+      u32 timer_val = timing_count();
+      static u32 max_timer_val = 0;
+
+      u32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
+      
+      timer_val = timing_count() - timer_val;
+      if (timer_val > max_timer_val) {
+        max_timer_val = timer_val;
+        printf("n_m_u took %.1f us\n", max_timer_val/16.368);
+      }
+
+      if (TOW_ms && chan->TOW_ms != TOW_ms) {
+        printf("PRN %d TOW mismatch: %u, %u\n",(int)chan->prn + 1, (unsigned int)chan->TOW_ms, (unsigned int)TOW_ms);
+        chan->TOW_ms = TOW_ms;
+      }
+
+      /* Save the exact code phase rate in fixed point as used by the Swift NAP
+       * so we can exactly predict rollover / accumulate the code phase on the
+       * STM next tracking update.
+       */
+      chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+
+      track_write_update_blocking(channel, \
+                         chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+                         chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+      break;
     }
-    // TODO: put another condition or two in here to check for a code phase update booboo (i.e. sample increment != {16367, 16368, 16369})
-
-    /* NOTE: Whole PRNs are implicitly dropped as code_phase is a u32.
-     * Now 0 <= code_phase <= (2^29 - 2)
-     */
-
-    /* Run the loop filters. */
-
-    double dll_disc_prev = chan->dll_disc;
-    double pll_disc_prev = chan->pll_disc;
-
-    gpio_toggle(GPIOC, GPIO11);
-    /* TODO: check for divide by zero. */
-    chan->pll_disc = atan((double)cs[1].Q/cs[1].I)/(2*PI);
-    gpio_toggle(GPIOC, GPIO11);
-
-    chan->carrier_freq += PLL_PGAIN*(chan->pll_disc-pll_disc_prev) + PLL_IGAIN*chan->pll_disc;
-
-    double early_mag = sqrt((double)cs[0].I*cs[0].I + (double)cs[0].Q*cs[0].Q);
-    double late_mag = sqrt((double)cs[2].I*cs[2].I + (double)cs[2].Q*cs[2].Q);
-
-    chan->dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
-
-    chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
- 
-
-    u32 timer_val = timing_count();
-    static u32 max_timer_val = 0;
-
-    u32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
-    
-    timer_val = timing_count() - timer_val;
-    if (timer_val > max_timer_val) {
-      max_timer_val = timer_val;
-      printf("n_m_u took %.1f us\n", max_timer_val/16.368);
-    }
-
-    if (TOW_ms && chan->TOW_ms != TOW_ms) {
-      printf("PRN %d TOW mismatch: %u, %u\n",(int)chan->prn + 1, (unsigned int)chan->TOW_ms, (unsigned int)TOW_ms);
-      chan->TOW_ms = TOW_ms;
-    }
-
-    /* Save the exact code phase rate in fixed point as used by the Swift NAP
-     * so we can exactly predict rollover / accumulate the code phase on the
-     * STM next tracking update.
-     */
-    chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-
-    track_write_update_blocking(channel, \
-                       chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                       chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
-    break;
-  }
-  case TRACKING_DISABLED:
-  default:
-    /* WTF? */
-    tracking_channel_disable(channel);
-    break;
+    case TRACKING_DISABLED:
+    default:
+      /* WTF? */
+      tracking_channel_disable(channel);
+      break;
   }
   gpio_clear(GPIOC, GPIO11);
 }
