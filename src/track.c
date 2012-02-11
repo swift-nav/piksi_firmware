@@ -190,27 +190,33 @@ void tracking_channel_update(u8 channel)
      * in the Swift NAP and that is when all the correlations are valid we must
      * find the residual (sub-sample) code phase after rollover.
      *
-     * i.e. solve N*code_phase_rate > 1 PRN == 2^42 in Swift NAP tracking units.
+     * i.e. solve N*code_phase_rate > 1 PRN == 1023*16*2^28 in Swift NAP tracking units.
      *
      * NOTE: We can save a lot of time here by realising that with reasonable
      * Doppler shifts N can never be more than 1 sample away from the nominal
-     * value (16*1023), hence we only need to test these cases.
+     * value (1023*16), hence we only need to test these cases.
      */
+    #define PRN_ROLLOVER ((u64)1023*16*(1<<28))
 
-    /* trial_cp = 16*1023*code_phase_rate_fp */
-    u64 trial_cp = ((chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4;
-    /* If 16*1023*CPR > 2^42 */
-    if (trial_cp > ((u64)1<<42)) {
-      /* If (16*1023-1)*CPR > 2^42) */
-      if (trial_cp-chan->code_phase_rate_fp > ((u64)1<<42))
-        /* Then rollover was after 16*1023-1 samples, code_phase = (16*1023-1)*CPR % 2^42 */
-        chan->code_phase = (trial_cp-chan->code_phase_rate_fp) & (((u64)1<<42)-1);
+    /* trial_cp = code_phase + 1023*16*code_phase_rate_fp */
+    u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4);
+
+    /* If 16*1023*CPR >= 1 PRN  */
+    if (trial_cp >= PRN_ROLLOVER) {
+      /* If (16*1023-1)*CPR >= 1 PRN */
+      if (trial_cp-chan->code_phase_rate_fp >= PRN_ROLLOVER)
+        /* Then rollover was after 16*1023-1 samples, code_phase = (16*1023-1)*CPR */
+        chan->code_phase = trial_cp-chan->code_phase_rate_fp;
       else
-        /* Then rollover was after 16*1023 samples, code_phase = 16*1023*CPR % 2^42 */
-        chan->code_phase = trial_cp & (((u64)1<<42)-1);
+        /* Then rollover was after 16*1023 samples, code_phase = 16*1023*CPR */
+        chan->code_phase = trial_cp;
     } else 
-      /* Then rollover was after 16*1023+1 samples, code_phase = (16*1023+1)*CPR % 2^42 */
-      chan->code_phase = (trial_cp+chan->code_phase_rate_fp) & (((u64)1<<42)-1);
+      /* Then rollover was after 16*1023+1 samples, code_phase = (16*1023+1)*CPR */
+      chan->code_phase = trial_cp+chan->code_phase_rate_fp;
+
+    /* NOTE: Whole PRNs are implicitly dropped as code_phase is a u32.
+     * Now 0 <= code_phase <= (2^29 - 2)
+     */
 
     /* Run the loop filters. */
 
