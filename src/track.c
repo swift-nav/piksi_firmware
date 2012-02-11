@@ -202,6 +202,9 @@ void tracking_channel_update(u8 channel)
     /* trial_cp = code_phase + 1023*16*code_phase_rate_fp */
     u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4);
     chan->sample_count += 1023*16;
+
+    DO_EVERY(987, printf("lag=%u\n",(unsigned int)timing_count() - (unsigned int)chan->sample_count);)
+
     /* If 16*1023*CPR >= 1 PRN  */
     if (trial_cp >= PRN_ROLLOVER) {
       /* If (16*1023-1)*CPR >= 1 PRN */
@@ -218,6 +221,8 @@ void tracking_channel_update(u8 channel)
       chan->code_phase = trial_cp+chan->code_phase_rate_fp;
       chan->sample_count++;
     }
+    // TODO: put another condition or two in here to check for a code phase update booboo (i.e. sample increment != {16367, 16368, 16369})
+
     /* NOTE: Whole PRNs are implicitly dropped as code_phase is a u32.
      * Now 0 <= code_phase <= (2^29 - 2)
      */

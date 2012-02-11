@@ -135,9 +135,7 @@ u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
               
             }
           }
-          n->subframe_start_index = 0;
         }
-
       }
     }
   }
