@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+
 #define NAV_MSG_BIT_PHASE_THRES 5
 
 void nav_msg_init(nav_msg_t *n) {
@@ -139,7 +140,63 @@ u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
       }
     }
   }
-
   return TOW_ms;
+}
+
+int nav_parity(u32 word) {
+// expects a word where MSB = D29*, bit 30 = D30*, bit 29 = D1, ... LSB = D30 as described in IS-GPS-200E Table 20-XIV
+// Inverts the bits if necessary, and checks the parity.
+// Returns 0 for success, 1 for fail.
+
+  if (word & 1<<30)     // inspect D30*
+    word ^= 0x3FFFFFC0; // invert all the data bits!
+
+  u32 p;
+
+  #define NAV_PARITY_CHECK(mask) \
+  p = word & mask; \
+  p ^= p >> 1; p ^= p >> 2; p ^= p >> 4; p ^= p >> 8; p ^= p >> 16; \
+  if (p) return 1;
+
+  NAV_PARITY_CHECK(0b10111011000111110011010010100000); // check d25
+  printf("d25 ok\n");
+
+  NAV_PARITY_CHECK(0b01011101100011111001101001010000); // check d26
+  printf("d26 ok\n");
+
+  NAV_PARITY_CHECK(0b10101110110001111100110100001000); // check d27
+  printf("d27 ok\n");
+
+  NAV_PARITY_CHECK(0b01010111011000111110011010000100); // check d28
+  printf("d28 ok\n");
+
+  NAV_PARITY_CHECK(0b01101011101100011111001101000010); // check d29
+  printf("d29 ok\n");
+
+  NAV_PARITY_CHECK(0b10001011011110101000100111000001); // check d30
+  printf("d30 ok\n");
+
+  return 0;
+}
+
+
+
+
+void process_subframe(nav_msg_t *n, ephemeris_t *e __attribute__((unused))) {
+  // Check parity and parse out the ephemeris from the most recently received subframe
+  
+  // First things first - check the parity, and invert bits if necessary.
+  // process the data, skipping the first word, TLM, and starting with HOW
+
+  u32 subframe_words[9];
+  for (int i = 0; i < 9; i++) {
+    subframe_words[i] = extract_word(n, 30+i, 32, 0);
+    // MSBs are D29* and D30*.  LSBs are D1...D30
+    if (nav_parity(subframe_words[i]))
+      printf("process_subframe: Parity error!\n");
+  }
+
+  n->subframe_start_index = 0;  // Mark the subframe as processed
 
 }
+

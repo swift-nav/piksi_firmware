@@ -2,6 +2,7 @@
 #define SWIFTNAV_NAV_MSG_H
 
 #include "int_types.h"
+#include "ephemeris.h"
 
 #define NAV_MSG_SUBFRAME_BITS_LEN 12    // Buffer 384 nav bits
 
@@ -19,6 +20,7 @@ typedef struct {
 
 void nav_msg_init(nav_msg_t *n);
 u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real);
+void process_subframe(nav_msg_t *n, ephemeris_t *e);
 
 #endif
 
