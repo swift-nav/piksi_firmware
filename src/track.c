@@ -98,6 +98,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].code_phase = 0;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
   tracking_channel[channel].code_phase_rate_fp = code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  tracking_channel[channel].code_phase_rate_fp_prev = tracking_channel[channel].code_phase_rate_fp;
   tracking_channel[channel].carrier_freq = carrier_freq;
   tracking_channel[channel].sample_count = start_sample_count;
 
@@ -195,15 +196,15 @@ void tracking_channel_update(u8 channel)
        */
       chan->sample_count += 1023*16;
 
-      /* trial_cp = code_phase + 1023*16*code_phase_rate_fp */
-      u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp << 10) - chan->code_phase_rate_fp) << 4);
+      /* trial_cp = code_phase + 1023*16*code_phase_rate_fp_prev */
+      u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp_prev << 10) - chan->code_phase_rate_fp_prev) << 4);
 
       /* If 16*1023*CPR >= 1 PRN  */
       if (trial_cp >= TRACK_PRN_ROLLOVER) {
         /* If (16*1023-1)*CPR >= 1 PRN */
-        if (trial_cp-chan->code_phase_rate_fp >= TRACK_PRN_ROLLOVER) {
+        if (trial_cp-chan->code_phase_rate_fp_prev >= TRACK_PRN_ROLLOVER) {
           /* Then rollover was after 16*1023-1 samples, code_phase = (16*1023-1)*CPR */
-          chan->code_phase = trial_cp-chan->code_phase_rate_fp;
+          chan->code_phase = trial_cp-chan->code_phase_rate_fp_prev;
           chan->sample_count--;
         } else {
           /* Then rollover was after 16*1023 samples, code_phase = 16*1023*CPR */
@@ -211,7 +212,7 @@ void tracking_channel_update(u8 channel)
         }
       } else {
         /* Then rollover was after 16*1023+1 samples, code_phase = (16*1023+1)*CPR */
-        chan->code_phase = trial_cp+chan->code_phase_rate_fp;
+        chan->code_phase = trial_cp+chan->code_phase_rate_fp_prev;
         chan->sample_count++;
       }
       // TODO: put another condition or two in here to check for a code phase update booboo (i.e. sample increment != {16367, 16368, 16369})
@@ -224,12 +225,13 @@ void tracking_channel_update(u8 channel)
       if (lag > 16368)
         printf("PRN %02d, lag = %u samples\n",chan->prn+1, (unsigned int)lag);
 
-      u64 nap_cp;
+      u64 nap_cp_e;
       u32 nap_cf;
-      DO_EVERY(5000,
-        track_read_phase_blocking(channel, &nap_cf, &nap_cp);
-        printf("(%d) NAP: 0x%08X, STM: 0x%08X\n", chan->prn+1, (unsigned int)(nap_cp&0xFFFFFFFF), (unsigned int)chan->code_phase);
+      DO_ONLY(5,
+        track_read_phase_blocking(channel, &nap_cf, &cp_e);
+        printf("(%d) cpr: 0x%08X, NAP early: 0x%08X, STM prompt: 0x%08X\n", chan->prn+1, (unsigned int)chan->code_phase_rate_fp, (unsigned int)(nap_cp_e&0xFFFFFFFF), (unsigned int)chan->code_phase);
       );
+      
 
       /* Run the loop filters. */
 
@@ -271,6 +273,7 @@ void tracking_channel_update(u8 channel)
        * so we can exactly predict rollover / accumulate the code phase on the
        * STM next tracking update.
        */
+      chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
       chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
       track_write_update_blocking(channel, \
