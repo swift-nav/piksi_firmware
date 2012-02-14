@@ -94,7 +94,7 @@ void manage_acq()
       if (!acq_get_load_done())
         break;
       /* Done loading, now lets set that coarse acquisition going. */
-      acq_start(acq_manage.prn, 0, 1023, -7000, 7000, 300);
+      acq_start(acq_manage.prn, 0, 1023, -8500, 8500, 400);
       acq_manage.state = ACQ_MANAGE_RUNNING_COARSE;
       break;
 
