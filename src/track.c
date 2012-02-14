@@ -117,7 +117,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   track_write_init_blocking(channel, prn, 0, 0);
   track_write_update_blocking(channel, \
                      carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                     code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+                     tracking_channel[channel].code_phase_rate_fp);
 
   /* Schedule the timing strobe for start_sample_count. */
   timing_strobe(start_sample_count);
@@ -275,7 +275,7 @@ void tracking_channel_update(u8 channel)
 
       track_write_update_blocking(channel, \
                          chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                         chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+                         chan->code_phase_rate_fp);
       break;
     }
     case TRACKING_DISABLED:
