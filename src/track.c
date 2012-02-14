@@ -95,10 +95,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].pll_disc = 0;
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
-  tracking_channel[channel].code_phase = 0;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
-  tracking_channel[channel].code_phase_rate_fp = code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  tracking_channel[channel].code_phase_rate_fp_prev = tracking_channel[channel].code_phase_rate_fp;
   tracking_channel[channel].carrier_freq = carrier_freq;
   tracking_channel[channel].sample_count = start_sample_count;
 
@@ -106,19 +103,14 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
 
   /* TODO: Write PRN into tracking channel when the FPGA code supports this. */
 
-  /* Store the starting code phase in tracking_channel[n].code_phase
-   * until it is used by the first loop update handler, from then
-   * on it will store the code phase corresponding to the last update.
-   */
-  /*tracking_channel[channel].code_phase = code_phase*TRACK_CODE_PHASE_UNITS_PER_CHIP;*/
-
   /* Starting carrier phase is set to zero as we don't 
    * know the carrier freq well enough to calculate it.
    */
+  /* TODO: add comment explaining why code phase is set to zero. See doxygen comment up top */
   track_write_init_blocking(channel, prn, 0, 0);
   track_write_update_blocking(channel, \
                      carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                     tracking_channel[channel].code_phase_rate_fp);
+                     code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
 
   /* Schedule the timing strobe for start_sample_count. */
   timing_strobe(start_sample_count);
@@ -138,7 +130,7 @@ void tracking_channel_get_corrs(u8 channel)
 
     case TRACKING_DISABLED:
     default:
-      /* WTF? */
+      /* TODO: WTF? */
       break;
   }
   gpio_clear(GPIOC, GPIO10);
@@ -178,60 +170,9 @@ void tracking_channel_update(u8 channel)
         chan->Q_filter += abs(cs[1].Q);
       }
       
-      /* Accumulate code phase, taking care to try and exactly match what is
-       * going on in the Swift NAP. As we are interrupted on code phase rollover
-       * in the Swift NAP and that is when all the correlations are valid we must
-       * find the residual (sub-sample) code phase after rollover.
-       *
-       * i.e. solve N*code_phase_rate > 1 PRN == 1023*16*2^28 in Swift NAP tracking units.
-       *
-       * NOTE: We can save a lot of time here by realising that with reasonable
-       * Doppler shifts N can never be more than 1 sample away from the nominal
-       * value (1023*16), hence we only need to test these cases.
-       */
-
-      /* Sample count also needs to be increased by N, again we can use the
-       * trick, we will set it to 1023*16 here and then either increment or
-       * decrement it later depending on where we find the rollover.
-       */
-      chan->sample_count += 1023*16;
-
-      /* trial_cp = code_phase + 1023*16*code_phase_rate_fp_prev */
-      u64 trial_cp = chan->code_phase + ((((u64)chan->code_phase_rate_fp_prev << 10) - chan->code_phase_rate_fp_prev) << 4);
-
-      /* If 16*1023*CPR >= 1 PRN  */
-      if (trial_cp >= TRACK_PRN_ROLLOVER) {
-        /* If (16*1023-1)*CPR >= 1 PRN */
-        if (trial_cp-chan->code_phase_rate_fp_prev >= TRACK_PRN_ROLLOVER) {
-          /* Then rollover was after 16*1023-1 samples, code_phase = (16*1023-1)*CPR */
-          chan->code_phase = trial_cp-chan->code_phase_rate_fp_prev;
-          chan->sample_count--;
-        } else {
-          /* Then rollover was after 16*1023 samples, code_phase = 16*1023*CPR */
-          chan->code_phase = trial_cp;
-        }
-      } else {
-        /* Then rollover was after 16*1023+1 samples, code_phase = (16*1023+1)*CPR */
-        chan->code_phase = trial_cp+chan->code_phase_rate_fp_prev;
-        chan->sample_count++;
-      }
-      // TODO: put another condition or two in here to check for a code phase update booboo (i.e. sample increment != {16367, 16368, 16369})
-
-      /* NOTE: Whole PRNs are implicitly dropped as code_phase is a u32.
-       * Now 0 <= code_phase <= (2^29 - 2)
-       */
-
       u32 lag = timing_count() - chan->sample_count;
       if (lag > 16368)
         printf("PRN %02d, lag = %u samples\n",chan->prn+1, (unsigned int)lag);
-
-      u64 nap_cp_e;
-      u32 nap_cf;
-      DO_ONLY(5,
-        track_read_phase_blocking(channel, &nap_cf, &cp_e);
-        printf("(%d) cpr: 0x%08X, NAP early: 0x%08X, STM prompt: 0x%08X\n", chan->prn+1, (unsigned int)chan->code_phase_rate_fp, (unsigned int)(nap_cp_e&0xFFFFFFFF), (unsigned int)chan->code_phase);
-      );
-      
 
       /* Run the loop filters. */
 
@@ -269,21 +210,14 @@ void tracking_channel_update(u8 channel)
         chan->TOW_ms = TOW_ms;
       }
 
-      /* Save the exact code phase rate in fixed point as used by the Swift NAP
-       * so we can exactly predict rollover / accumulate the code phase on the
-       * STM next tracking update.
-       */
-      chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
-      chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-
       track_write_update_blocking(channel, \
                          chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                         chan->code_phase_rate_fp);
+                         chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
       break;
     }
     case TRACKING_DISABLED:
     default:
-      /* WTF? */
+      /* TODO: WTF? */
       tracking_channel_disable(channel);
       break;
   }
