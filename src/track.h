@@ -44,10 +44,6 @@ typedef struct {
 
   u32 sample_count;
 
-  u32 code_phase;
-  u32 code_phase_rate_fp;
-  u32 code_phase_rate_fp_prev;
-
   double code_phase_rate;
   double carrier_freq;
 
