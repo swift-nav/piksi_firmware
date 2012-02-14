@@ -125,7 +125,7 @@ void tracking_channel_get_corrs(u8 channel)
   {
     case TRACKING_RUNNING:
       /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
-      track_read_corr_blocking(channel, chan->cs);
+      track_read_corr_blocking(channel, &chan->corr_sample_count, chan->cs);
       break;
 
     case TRACKING_DISABLED:
@@ -146,6 +146,7 @@ void tracking_channel_update(u8 channel)
     case TRACKING_RUNNING:
     {
       chan->update_count++;
+      chan->sample_count += chan->corr_sample_count;
       chan->TOW_ms++;
       if (chan->TOW_ms == 7*24*60*60*1000)
         chan->TOW_ms = 0;

@@ -381,25 +381,29 @@ void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_ra
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_UPDATE_OFFSET, 6, 0, temp);
 }
 
-void track_read_corr_blocking(u8 channel, corr_t corrs[]) {
-  /* 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8) */
-  u8 temp[2*3 * 3];
+void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]) {
+  /* 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8)
+   * + 16 bits sample count.
+   */
+  u8 temp[2*3*3+2];
   
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
 
   struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
 
+  *sample_count = (temp[0]<<8) | temp[1];
+
   for (u8 i=0; i<3; i++) {
     
-    sign.xtend  = (temp[6*(3-i-1)]   << 16)    // MSB
-                | (temp[6*(3-i-1)+1] << 8)     // Middle byte
-                | (temp[6*(3-i-1)+2]);         // LSB
+    sign.xtend  = (temp[6*(3-i-1)+2] << 16)    // MSB
+                | (temp[6*(3-i-1)+3] << 8)     // Middle byte
+                | (temp[6*(3-i-1)+4]);         // LSB
    
     corrs[i].Q = sign.xtend; /* Sign extend! */
 
-    sign.xtend  = (temp[6*(3-i-1)+3] << 16)    // MSB
-                | (temp[6*(3-i-1)+4] << 8)     // Middle byte
-                | (temp[6*(3-i-1)+5]);         // LSB
+    sign.xtend  = (temp[6*(3-i-1)+5] << 16)    // MSB
+                | (temp[6*(3-i-1)+6] << 8)     // Middle byte
+                | (temp[6*(3-i-1)+7]);         // LSB
 
     corrs[i].I = sign.xtend; /* Sign extend! */
   }

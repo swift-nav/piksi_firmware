@@ -55,6 +55,7 @@ typedef struct {
   u32 I_filter, Q_filter;
   float snr;
 
+  u16 corr_sample_count;
   corr_t cs[3];
 
   nav_msg_t nav_msg;
