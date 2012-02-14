@@ -405,6 +405,24 @@ void track_read_corr_blocking(u8 channel, corr_t corrs[]) {
   }
 }
 
+void track_read_phase_blocking(u8 channel, u32* carrier_phase, u64* code_phase)
+{
+  u8 temp[9] = {0, 0, 0x22, 0, 0, 0, 0, 0, 0};
+
+  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_PHASE_OFFSET, 9, temp, temp);
+
+  *carrier_phase = temp[8] |
+                   (temp[7] << 8) |
+                   (temp[6] << 16);
+
+  *code_phase = (u64)temp[5] |
+                ((u64)temp[4] << 8) |
+                ((u64)temp[3] << 16) |
+                ((u64)temp[2] << 24) |
+                ((u64)temp[1] << 32) |
+                ((u64)temp[0] << 40);
+}
+
 void spi_dma_setup() {
 
   RCC_AHB1ENR |= RCC_AHB1ENR_DMA1EN;  // Enable clock to DMA peripheral

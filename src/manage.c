@@ -80,7 +80,7 @@ void manage_acq()
        * into the acquisition ram on the Swift NAP for
        * an initial coarse acquisition.
        */
-      printf("Acq choosing PRN: %d\n", prn+1);
+     // printf("Acq choosing PRN: %d\n", prn+1);
       acq_manage.prn = prn;
       acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
       acq_manage.state = ACQ_MANAGE_LOADING_COARSE;
@@ -94,7 +94,7 @@ void manage_acq()
       if (!acq_get_load_done())
         break;
       /* Done loading, now lets set that coarse acquisition going. */
-      acq_start(acq_manage.prn, 0, 1023, -7000, 7000, 300);
+      acq_start(acq_manage.prn, 0, 1023, -8500, 8500, 400);
       acq_manage.state = ACQ_MANAGE_RUNNING_COARSE;
       break;
 
@@ -110,7 +110,7 @@ void manage_acq()
       acq_get_results(&acq_manage.coarse_cp,
                       &acq_manage.coarse_cf,
                       &acq_manage.coarse_snr);
-      printf("Coarse %f, %f, %f\n", acq_manage.coarse_cp,
+      printf("PRN %d coarse @ %+.0f Hz, %.1f SNR\n", acq_manage.prn + 1,
                                     acq_manage.coarse_cf,
                                     acq_manage.coarse_snr);
       if (acq_manage.coarse_snr < ACQ_THRESHOLD) {
@@ -153,7 +153,7 @@ void manage_acq()
        */
       float fine_cp, fine_cf;
       acq_get_results(&fine_cp, &fine_cf, &acq_manage.fine_snr);
-      printf("Fine %f, %f, %f\n", fine_cp,
+      printf("PRN %d Fine @ %+.0f Hz,  %.1f SNR\n", acq_manage.prn + 1,
                                   fine_cf,
                                   acq_manage.fine_snr);
       // BELOW REMOVED - if we found it in coarse then we'll consider it acquired.

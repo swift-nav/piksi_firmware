@@ -124,8 +124,8 @@ u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
               TOW_trunc = 0;
 
             if (TOW_trunc == extract_word(n,330,17,extract_word(n,329,1,0))) {
-              // We got the TOW.
-
+              // We got two appropriately spaced preambles, and two matching TOW counts.  Pretty certain now.
+            
               // The TOW in the message is for the start of the NEXT subframe.
               // That is, 240 nav bits' time from now, since we are 60 nav bits into the second subframe that we recorded. 
               if (TOW_trunc)
@@ -134,8 +134,10 @@ u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
                 TOW_ms = 7*24*60*60*1000 - (300-60)*20; 
               //printf("TOW = hh:%02d:%02d.%03d\n", (int) (TOW_ms / 60000 % 60), (int)(TOW_ms / 1000 % 60), (int)(TOW_ms % 1000));
               
-            }
-          }
+            } else
+              n->subframe_start_index = 0;  // the TOW counts didn't match - disregard.
+          } else
+            n->subframe_start_index = 0;    // didn't find a second preamble in the right spot - disregard.
         }
       }
     }
@@ -143,38 +145,44 @@ u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
   return TOW_ms;
 }
 
-int nav_parity(u32 word) {
+
+int parity(u32 x) {
+  // Returns 1 if there are an odd number of bits set
+  x ^= x >> 1;
+  x ^= x >> 2;
+  x ^= x >> 4;
+  x ^= x >> 8;
+  x ^= x >> 16;
+  return (x & 1);
+}
+
+int nav_parity(u32 *word) {
 // expects a word where MSB = D29*, bit 30 = D30*, bit 29 = D1, ... LSB = D30 as described in IS-GPS-200E Table 20-XIV
 // Inverts the bits if necessary, and checks the parity.
 // Returns 0 for success, 1 for fail.
 
-  if (word & 1<<30)     // inspect D30*
-    word ^= 0x3FFFFFC0; // invert all the data bits!
+  if (*word & 1<<30)     // inspect D30*
+    *word ^= 0x3FFFFFC0; // invert all the data bits!
 
-  u32 p;
+ // printf("w=%08X  ",(unsigned int )word);
 
-  #define NAV_PARITY_CHECK(mask) \
-  p = word & mask; \
-  p ^= p >> 1; p ^= p >> 2; p ^= p >> 4; p ^= p >> 8; p ^= p >> 16; \
-  if (p) return 1;
+  if (parity(*word & 0b10111011000111110011010010100000)) // check d25 (see IS-GPS-200E Table 20-XIV)
+    return 25;
 
-  NAV_PARITY_CHECK(0b10111011000111110011010010100000); // check d25
-  printf("d25 ok\n");
+  if (parity(*word & 0b01011101100011111001101001010000)) // check d26
+    return 26;
 
-  NAV_PARITY_CHECK(0b01011101100011111001101001010000); // check d26
-  printf("d26 ok\n");
+  if (parity(*word & 0b10101110110001111100110100001000)) // check d27
+    return 27;
 
-  NAV_PARITY_CHECK(0b10101110110001111100110100001000); // check d27
-  printf("d27 ok\n");
+  if (parity(*word & 0b01010111011000111110011010000100)) // check d28
+    return 28;
 
-  NAV_PARITY_CHECK(0b01010111011000111110011010000100); // check d28
-  printf("d28 ok\n");
+  if (parity(*word & 0b01101011101100011111001101000010)) // check d29
+    return 29;
 
-  NAV_PARITY_CHECK(0b01101011101100011111001101000010); // check d29
-  printf("d29 ok\n");
-
-  NAV_PARITY_CHECK(0b10001011011110101000100111000001); // check d30
-  printf("d30 ok\n");
+  if (parity(*word & 0b10001011011110101000100111000001)) // check d30
+    return 30;
 
   return 0;
 }
@@ -188,15 +196,22 @@ void process_subframe(nav_msg_t *n, ephemeris_t *e __attribute__((unused))) {
   // First things first - check the parity, and invert bits if necessary.
   // process the data, skipping the first word, TLM, and starting with HOW
 
-  u32 subframe_words[9];
+  printf("  %d  ", (n->subframe_start_index > 0));
+
+  u32 sf_word[9];
   for (int i = 0; i < 9; i++) {
-    subframe_words[i] = extract_word(n, 30+i, 32, 0);
+    sf_word[i] = extract_word(n, 28+i*30, 32, 0);
     // MSBs are D29* and D30*.  LSBs are D1...D30
-    if (nav_parity(subframe_words[i])) {
-      printf("process_subframe: Parity error!\n");
+    if (nav_parity(&sf_word[i])) {
+      printf("SUBFRAME PARITY ERROR\n");
+      n->subframe_start_index = 0;  // Mark the subframe as processed
       return;
     }
   }
+
+  u8 sfid = sf_word[0] >> 8 & 0x07;
+  
+  printf("Processing subframe %d\n",sfid);
 
   n->subframe_start_index = 0;  // Mark the subframe as processed
 
