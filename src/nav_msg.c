@@ -124,8 +124,8 @@ u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
               TOW_trunc = 0;
 
             if (TOW_trunc == extract_word(n,330,17,extract_word(n,329,1,0))) {
-              // We got the TOW.
-
+              // We got two appropriately spaced preambles, and two matching TOW counts.  Pretty certain now.
+            
               // The TOW in the message is for the start of the NEXT subframe.
               // That is, 240 nav bits' time from now, since we are 60 nav bits into the second subframe that we recorded. 
               if (TOW_trunc)
@@ -134,8 +134,10 @@ u32 nav_msg_update(nav_msg_t *n, s32 corr_prompt_real) {
                 TOW_ms = 7*24*60*60*1000 - (300-60)*20; 
               //printf("TOW = hh:%02d:%02d.%03d\n", (int) (TOW_ms / 60000 % 60), (int)(TOW_ms / 1000 % 60), (int)(TOW_ms % 1000));
               
-            }
-          }
+            } else
+              n->subframe_start_index = 0;  // the TOW counts didn't match - disregard.
+          } else
+            n->subframe_start_index = 0;    // didn't find a second preamble in the right spot - disregard.
         }
       }
     }
