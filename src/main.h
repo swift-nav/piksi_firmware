@@ -32,4 +32,12 @@
   do_every_count++; \
 }
 
+#define DO_ONLY(n, cmd) { \
+  static u32 do_only_count = 0; \
+  if (do_only_count < (n)) { \
+    do_only_count++; \
+    cmd; \
+  } \
+}
+
 #endif
