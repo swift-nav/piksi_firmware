@@ -411,21 +411,16 @@ void track_read_phase_blocking(u8 channel, u32* carrier_phase, u64* code_phase)
 
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_PHASE_OFFSET, 9, temp, temp);
 
-  /*for(u8 i=0; i<9; i++)*/
-    /*printf("%02X ", temp[i]);*/
-  /*printf("\n");*/
+  *carrier_phase = temp[8] |
+                   (temp[7] << 8) |
+                   (temp[6] << 16);
 
-  *carrier_phase = (temp[8] >> 6) |
-                   (temp[7] << 2) |
-                   (temp[6] << 10) |
-                   ((temp[5] & 0x3F) << 18);
-
-  *code_phase = ((u64)temp[5] >> 6) |
-                ((u64)temp[4] << 2) |
-                ((u64)temp[3] << 10) |
-                ((u64)temp[2] << 18) |
-                ((u64)temp[1] << 26) |
-                ((u64)temp[0] << 34);
+  *code_phase = (u64)temp[5] |
+                ((u64)temp[4] << 8) |
+                ((u64)temp[3] << 16) |
+                ((u64)temp[2] << 24) |
+                ((u64)temp[1] << 32) |
+                ((u64)temp[0] << 40);
 }
 
 void spi_dma_setup() {
