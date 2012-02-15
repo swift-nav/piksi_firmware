@@ -43,8 +43,12 @@ typedef struct {
   u8 prn;
 
   u32 sample_count;
+  u32 code_phase_early;
+  u32 code_phase_prompt;
 
   double code_phase_rate;
+  u32 code_phase_rate_fp;
+  u32 code_phase_rate_fp_prev[2];
   double carrier_freq;
 
   /* Loop filter state. */

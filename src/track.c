@@ -95,6 +95,10 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].pll_disc = 0;
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
+  tracking_channel[channel].code_phase_early = 0;
+  tracking_channel[channel].code_phase_rate_fp = code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  tracking_channel[channel].code_phase_rate_fp_prev[0] = tracking_channel[channel].code_phase_rate_fp;
+  tracking_channel[channel].code_phase_rate_fp_prev[1] = tracking_channel[channel].code_phase_rate_fp;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
   tracking_channel[channel].carrier_freq = carrier_freq;
   tracking_channel[channel].sample_count = start_sample_count;
@@ -110,7 +114,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   track_write_init_blocking(channel, prn, 0, 0);
   track_write_update_blocking(channel, \
                      carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                     code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+                     tracking_channel[channel].code_phase_rate_fp);
 
   /* Schedule the timing strobe for start_sample_count. */
   timing_strobe(start_sample_count);
@@ -150,6 +154,15 @@ void tracking_channel_update(u8 channel)
       chan->TOW_ms++;
       if (chan->TOW_ms == 7*24*60*60*1000)
         chan->TOW_ms = 0;
+
+      chan->code_phase_early += chan->corr_sample_count*chan->code_phase_rate_fp_prev[1];
+      chan->code_phase_prompt = chan->code_phase_early - 8*chan->code_phase_rate_fp_prev[1];
+      /*u64 cp;*/
+      /*u32 cf;*/
+      /*DO_ONLY(10,*/
+        /*track_read_phase_blocking(channel, &cf, &cp);*/
+        /*printf("%d CPR: 0x%08X, count: %d, NAP: 0x%08X, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->code_phase_rate_fp_prev[1], (unsigned int)chan->corr_sample_count, (unsigned int)(cp&0xFFFFFFFF), (unsigned int)chan->code_phase_early);*/
+      /*)*/
 
       /* Correlations should already be in chan->cs thanks to
        * tracking_channel_get_corrs.
@@ -211,9 +224,13 @@ void tracking_channel_update(u8 channel)
         chan->TOW_ms = TOW_ms;
       }
 
+      chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+      chan->code_phase_rate_fp_prev[1] = chan->code_phase_rate_fp_prev[0];
+      chan->code_phase_rate_fp_prev[0] = chan->code_phase_rate_fp;
+
       track_write_update_blocking(channel, \
                          chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                         chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+                         chan->code_phase_rate_fp);
       break;
     }
     case TRACKING_DISABLED:
