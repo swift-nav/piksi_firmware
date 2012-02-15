@@ -268,4 +268,16 @@ float tracking_channel_snr(u8 channel)
                 (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
 }
 
+void calc_pseudoranges(double pseudoranges[])
+{
+  double TOT_s[TRACK_N_CHANNELS]; /* Time of transmit in seconds. */
+
+  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+    TOT_s[i] = 1000*tracking_channel[i].TOW_ms + (double)tracking_channel[i].code_phase_prompt / (TRACK_CODE_PHASE_UNITS_PER_CHIP * (double)tracking_channel[i].code_phase_rate);
+  }
+
+  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+    pseudoranges[i] = 60e-3 + TOT_s[0] - TOT_s[i];
+  }
+}
 
