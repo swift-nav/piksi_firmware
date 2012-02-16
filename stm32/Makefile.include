@@ -122,4 +122,5 @@ ftdi_kextload:
 
 .PHONY: images clean ftdi_kextload ftdi_kextunload
 
+-include $(OBJS:.o=.d)
 
