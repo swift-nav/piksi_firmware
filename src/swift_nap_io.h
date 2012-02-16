@@ -51,14 +51,14 @@
 #define ACQ_CARRIER_FREQ_UNITS_PER_HZ ((1<<ACQ_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ)
 
 #define TRACK_N_CHANNELS 4
-#define TRACK_CODE_PHASE_WIDTH 14
-#define TRACK_CODE_PHASE_UNITS_PER_CHIP (1<<(TRACK_CODE_PHASE_WIDTH-10))
+#define TRACK_INIT_CODE_PHASE_WIDTH 14
+#define TRACK_INIT_CODE_PHASE_UNITS_PER_CHIP (1<<(TRACK_INIT_CODE_PHASE_WIDTH-10))
 #define TRACK_CARRIER_FREQ_WIDTH 24
 #define TRACK_CARRIER_FREQ_UNITS_PER_HZ ((1<<TRACK_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ)
 #define TRACK_CODE_PHASE_RATE_WIDTH 29
 #define TRACK_NOMINAL_CODE_PHASE_RATE (1<<(TRACK_CODE_PHASE_RATE_WIDTH-1))
 #define TRACK_CODE_PHASE_RATE_UNITS_PER_HZ (TRACK_NOMINAL_CODE_PHASE_RATE / 1.023e6)
-#define TRACK_PRN_ROLLOVER ((u64)1023*16*(1<<28))
+#define TRACK_CODE_PHASE_UNITS_PER_CHIP ((u64)1<<32)
 
 typedef struct {
   s32 I;
@@ -90,7 +90,7 @@ void acq_read_corr_blocking(corr_t corrs[]);
 
 void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase);
 void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate);
-void track_read_corr_blocking(u8 channel, corr_t corrs[]);
+void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]);
 void track_read_phase_blocking(u8 channel, u32* carrier_phase, u64* code_phase);
 void track_read_corr_dma(u8 channel);
 

@@ -114,7 +114,7 @@ int main(void)
         process_subframe(&tracking_channel[i].nav_msg, 0);
       }
 
-    DO_EVERY(10000,
+    DO_EVERY(1000,
     for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
       switch (tracking_channel[i].state) {
         default:
