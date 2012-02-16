@@ -2,6 +2,7 @@ BINARY = swiftnav-firmware
 
 SWIFTLIB_OBJS = ../swiftlib/linear_algebra.o \
                 ../swiftlib/coord_system.o \
+                ../swiftlib/pvt.o \
 
 OBJS = main.o \
        debug.o \
