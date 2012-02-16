@@ -127,7 +127,7 @@ int main(void)
       }
     }
     printf("\n");
-    )
+    );
     u32 err = swift_nap_read_error_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);

@@ -24,20 +24,23 @@
 #define L1_HZ 1575.42e6
 #define NOMINAL_CODE_PHASE_RATE_HZ 1.023e6
 
-#define DO_EVERY(n, cmd) { \
+/* See http://c-faq.com/cpp/multistmt.html for
+ * and explaination of the do {} while(0)
+ */
+#define DO_EVERY(n, cmd) do { \
   static u32 do_every_count = 0; \
   if (do_every_count % (n) == 0) { \
     cmd; \
   } \
   do_every_count++; \
-}
+} while(0)
 
-#define DO_ONLY(n, cmd) { \
+#define DO_ONLY(n, cmd) do { \
   static u32 do_only_count = 0; \
   if (do_only_count < (n)) { \
     do_only_count++; \
     cmd; \
   } \
-}
+} while(0)
 
 #endif
