@@ -270,11 +270,18 @@ float tracking_channel_snr(u8 channel)
 
 void calc_pseudoranges(double pseudoranges[])
 {
+  u32 nav_count = timing_count();
+
   double TOT_s[TRACK_N_CHANNELS]; /* Time of transmit in seconds. */
 
+  __asm__("CPSID i;");
   for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-    TOT_s[i] = 1000*tracking_channel[i].TOW_ms + (double)tracking_channel[i].code_phase_prompt / (TRACK_CODE_PHASE_UNITS_PER_CHIP * (double)tracking_channel[i].code_phase_rate);
+    TOT_s[i] = 1e-3*tracking_channel[i].TOW_ms;
+    TOT_s[i] += ((tracking_channel[i].code_phase_prompt
+                  + tracking_channel[i].code_phase_rate * (nav_count - tracking_channel[i].sample_count))
+               / TRACK_CODE_PHASE_UNITS_PER_CHIP) / 1.023e6;
   }
+  __asm__("CPSIE i;");
 
   for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
     pseudoranges[i] = 60e-3 + TOT_s[0] - TOT_s[i];
