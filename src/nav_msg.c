@@ -1,6 +1,7 @@
 #include "nav_msg.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 
 #define NAV_MSG_BIT_PHASE_THRES 5
@@ -14,6 +15,7 @@ void nav_msg_init(nav_msg_t *n) {
   n->nav_bit_integrate = 0;
   n->subframe_start_index = 0;
   memset(n->subframe_bits,0,sizeof(n->subframe_bits));
+  n->next_subframe_id = 1;
 
 }
 
@@ -190,30 +192,187 @@ int nav_parity(u32 *word) {
 
 
 
-void process_subframe(nav_msg_t *n, ephemeris_t *e __attribute__((unused))) {
+void process_subframe(nav_msg_t *n, ephemeris_t *e) {
   // Check parity and parse out the ephemeris from the most recently received subframe
   
   // First things first - check the parity, and invert bits if necessary.
   // process the data, skipping the first word, TLM, and starting with HOW
 
-  printf("  %d  ", (n->subframe_start_index > 0));
+  // printf("  %d  ", (n->subframe_start_index > 0));
 
-  u32 sf_word[9];
-  for (int i = 0; i < 9; i++) {
-    sf_word[i] = extract_word(n, 28+i*30, 32, 0);
-    // MSBs are D29* and D30*.  LSBs are D1...D30
-    if (nav_parity(&sf_word[i])) {
-      printf("SUBFRAME PARITY ERROR\n");
+  if (!e) {
+    printf(" process_subframe: CALLED WITH e = NULL!\n");
+    n->subframe_start_index = 0;  // Mark the subframe as processed
+    n->next_subframe_id = 1;      // Make sure we start again next time
+    return;
+  }
+  u32 sf_word2 = extract_word(n, 28, 32, 0);
+  if (nav_parity(&sf_word2)) {
+      printf("SUBFRAME PARITY ERROR (word 2)\n");
       n->subframe_start_index = 0;  // Mark the subframe as processed
+      n->next_subframe_id = 1;      // Make sure we start again next time
       return;
+  }
+
+  u8 sf_id = sf_word2 >> 8 & 0x07;    // Which of 5 possible subframes is it?
+
+  printf("sf_id = %d\n",sf_id);
+
+  if (sf_id <= 3 && sf_id == n->next_subframe_id) {  // Is it the one that we want next?
+    
+    for (int w = 0; w < 8; w++) {   // For words 3..10
+      n->frame_words[sf_id-1][w] = extract_word(n, 30*(w+2) - 2, 32, 0);    // Get the bits
+      // MSBs are D29* and D30*.  LSBs are D1...D30
+      if (nav_parity(&n->frame_words[sf_id-1][w])) {  // Check parity and invert bits if D30*
+        printf("SUBFRAME PARITY ERROR (word %d)\n", w+3);
+        n->next_subframe_id = 1;      // Make sure we start again next time
+        n->subframe_start_index = 0;  // Mark the subframe as processed
+        return;
+      }      
+    }
+    n->subframe_start_index = 0;  // Mark the subframe as processed
+    n->next_subframe_id++;
+
+    if (sf_id == 3) {
+      // Got all of subframes 1 to 3
+      n->next_subframe_id = 1;      // Make sure we start again next time
+
+      // Now let's actually go through the parameters...
+      
+      // These unions facilitate signed/unsigned conversion and sign extension
+      union {
+        char s8;
+        unsigned char u8;
+      } onebyte;
+
+      union
+      {
+        short s16;
+        unsigned short u16;
+      } twobyte;
+
+      union
+      {
+        int s32;
+        unsigned u32;
+      } fourbyte;
+
+      // Subframe 1: SV health, T_GD, t_oc, a_f2, a_f1, a_f0
+      
+      e->healthy = n->frame_words[0][3-3] >> (30-17) & 1;     // Health flag: Word 3, bit 17
+      if (!e->healthy)
+        printf("UNHEALTHY");
+     
+      onebyte.u8 = n->frame_words[0][7-3] >> (30-24) & 0xFF;  // t_gd: Word 7, bits 17-24
+      e->tgd = onebyte.s8 * pow(2,-31);
+
+      e->toc = (n->frame_words[0][8-3] >> (30-24) & 0xFFFF) * 16;   // t_oc: Word 8, bits 8-24
+
+      onebyte.u8 = n->frame_words[0][9-3] >> (30-8) & 0xFF;         // a_f2: Word 9, bits 1-8
+      e->af2 = onebyte.s8 * pow(2,-55);
+
+      twobyte.u16 = n->frame_words[0][9-3] >> (30-24) & 0xFFFF;     // a_f1: Word 9, bits 9-24    
+      e->af1 = twobyte.s16 * pow(2,-43);
+
+      fourbyte.u32 = n->frame_words[0][10-3] >> (30-22) & 0x3FFFFF; // a_f0: Word 10, bits 1-22
+      fourbyte.u32 <<= 10; // Shift to the left for sign extension             
+      fourbyte.s32 >>= 10; // Carry the sign bit back down and reduce to signed 22 bit value
+      e->af0 = fourbyte.s32 * pow(2,-32);
+
+
+      // Subframe 2: crs, dn, m0, cuc, ecc, cus, sqrta, toe
+      
+      twobyte.u16 = n->frame_words[1][3-3] >> (30-24) & 0xFFFF;     // crs: Word 3, bits 9-24
+      e->crs = twobyte.s16 * pow(2,-5);
+
+      twobyte.u16 = n->frame_words[1][4-3] >> (30-16) & 0xFFFF;     // dn: Word 4, bits 1-16
+      e->dn = twobyte.s16 * pow(2,-43) * M_PI;
+
+      fourbyte.u32 = ((n->frame_words[1][4-3] >> (30-24) & 0xFF) << 24) // m0: Word 4, bits 17-24              
+                  | (n->frame_words[1][5-3] >> (30-24) & 0xFFFFFF);     // and word 5, bits 1-24 
+      e->m0 = fourbyte.s32 * pow(2,-31) * M_PI;
+
+      twobyte.u16 = n->frame_words[1][6-3] >> (30-16) & 0xFFFF;    // cuc: Word 6, bits 1-16
+      e->cuc = twobyte.s16 * pow(2,-29);
+
+      fourbyte.u32 = ((n->frame_words[1][6-3] >> (30-24) & 0xFF) << 24) // ecc: Word 6, bits 17-24              
+                  | (n->frame_words[1][7-3] >> (30-24) & 0xFFFFFF);     // and word 7, bits 1-24 
+      e->ecc = fourbyte.u32 * pow(2,-33);
+
+      
+      twobyte.u16 = n->frame_words[1][8-3] >> (30-16) & 0xFFFF;   // cus: Word 8, bits 1-16
+      e->cus = twobyte.s16 * pow(2,-29);
+
+
+      fourbyte.u32 = ((n->frame_words[1][8-3] >> (30-24) & 0xFF) << 24) // sqrta: Word 8, bits 17-24              
+                  | (n->frame_words[1][9-3] >> (30-24) & 0xFFFFFF);     // and word 9, bits 1-24 
+      e->sqrta = fourbyte.u32 * pow(2,-19);
+
+      e->toe = (n->frame_words[1][10-3] >> (30-16) & 0xFFFF) * 16;   // t_oe: Word 10, bits 1-16
+
+
+      // Subframe 3: cic, omega0, cis, inc, crc, w, omegadot, inc_dot
+
+      twobyte.u16 = n->frame_words[2][3-3] >> (30-16) & 0xFFFF;   // cic: Word 3, bits 1-16
+      e->cic = twobyte.s16 * pow(2,-29);
+      
+      fourbyte.u32 = ((n->frame_words[2][3-3] >> (30-24) & 0xFF) << 24) // omega0: Word 3, bits 17-24              
+                  | (n->frame_words[2][4-3] >> (30-24) & 0xFFFFFF);     // and word 4, bits 1-24 
+      e->omega0 = fourbyte.s32 * pow(2,-31) * M_PI; 
+
+      twobyte.u16 = n->frame_words[2][5-3] >> (30-16) & 0xFFFF; // cis: Word 5, bits 1-16
+      e->cis = twobyte.s16 * pow(2,-29);
+
+      fourbyte.u32 = ((n->frame_words[2][5-3] >> (30-24) & 0xFF) << 24) // inc (i0): Word 5, bits 17-24              
+                  | (n->frame_words[2][6-3] >> (30-24) & 0xFFFFFF);     // and word 6, bits 1-24 
+      e->inc = fourbyte.s32 * pow(2,-31) * M_PI; 
+
+      twobyte.u16 = n->frame_words[2][7-3] >> (30-16) & 0xFFFF; // crc: Word 7, bits 1-16
+      e->crc = twobyte.s16 * pow(2,-5);
+
+      fourbyte.u32 = ((n->frame_words[2][7-3] >> (30-24) & 0xFF) << 24) // w (omega): Word 7, bits 17-24              
+                  | (n->frame_words[2][8-3] >> (30-24) & 0xFFFFFF);     // and word 8, bits 1-24 
+      e->w = fourbyte.s32 * pow(2,-31) * M_PI; 
+
+      fourbyte.u32 = n->frame_words[2][9-3] >> (30-24) & 0xFFFFFF;     // Omega_dot: Word 9, bits 1-24
+      fourbyte.u32 <<= 8; // shift left for sign extension
+      fourbyte.s32 >>= 8; // sign-extend it
+      e->omegadot = fourbyte.s32 * pow(2,-43) * M_PI;
+
+      twobyte.u16 = n->frame_words[2][10-3] >> (30-22) & 0x3FFF;  // inc_dot (IDOT): Word 10, bits 9-22 
+      twobyte.u16 <<= 2;
+      twobyte.s16 >>= 2;  // sign-extend
+      e->inc_dot = twobyte.s16 * pow(2,-43) * M_PI;
+
+  
+      e->valid = 1;
+
+      printf("Health %d\n", e->healthy);
+      printf("TGD %16g\n", e->tgd);
+      printf("TOC %16u\n", (unsigned int)e->toc);
+      printf("af2 %16g\n", e->af2);
+      printf("af1 %16g\n", e->af1);
+      printf("af0 %16g\n", e->af0);
+      printf("CRS %16g\n", e->crs);
+      printf("DN %16g\n", e->dn);
+      printf("M0 %16g\n", e->m0);
+      printf("CUC %16g\n", e->cuc);
+      printf("Ecc %16g\n", e->ecc);
+      printf("CUS %16g\n", e->cus);
+      printf("SQRT A %16g\n", e->sqrta);
+      printf("TOE %16u\n", (unsigned int)e->toe);
+      printf("CIC %16g\n", e->cic);
+      printf("omega0 %16g\n", e->omega0);
+      printf("CIS %16g\n", e->cis);
+      printf("Inc %16g\n", e->inc);
+      printf("CRC %16g\n", e->crc);
+      printf("W %16g\n", e->w);
+      printf("omegadot %16g\n", e->omegadot);
+      printf("inc_dot %16g\n", e->inc_dot);
+
     }
   }
 
-  u8 sfid = sf_word[0] >> 8 & 0x07;
-  
-  printf("Processing subframe %d\n",sfid);
-
-  n->subframe_start_index = 0;  // Mark the subframe as processed
-
+        
 }
 
