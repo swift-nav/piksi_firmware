@@ -14,7 +14,9 @@ typedef struct {
   u8 bit_phase_ref;
   u8 bit_phase_count;
   s32 nav_bit_integrate;
-  
+
+  u32 frame_words[3][8];
+  u8 next_subframe_id;
 } nav_msg_t;
 
 
