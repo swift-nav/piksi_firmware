@@ -347,28 +347,28 @@ void process_subframe(nav_msg_t *n, ephemeris_t *e) {
   
       e->valid = 1;
 
-      printf("Health %d\n", e->healthy);
-      printf("TGD %16g\n", e->tgd);
-      printf("TOC %16u\n", (unsigned int)e->toc);
-      printf("af2 %16g\n", e->af2);
-      printf("af1 %16g\n", e->af1);
-      printf("af0 %16g\n", e->af0);
-      printf("CRS %16g\n", e->crs);
-      printf("DN %16g\n", e->dn);
-      printf("M0 %16g\n", e->m0);
-      printf("CUC %16g\n", e->cuc);
-      printf("Ecc %16g\n", e->ecc);
-      printf("CUS %16g\n", e->cus);
-      printf("SQRT A %16g\n", e->sqrta);
-      printf("TOE %16u\n", (unsigned int)e->toe);
-      printf("CIC %16g\n", e->cic);
-      printf("omega0 %16g\n", e->omega0);
-      printf("CIS %16g\n", e->cis);
-      printf("Inc %16g\n", e->inc);
-      printf("CRC %16g\n", e->crc);
-      printf("W %16g\n", e->w);
-      printf("omegadot %16g\n", e->omegadot);
-      printf("inc_dot %16g\n", e->inc_dot);
+      /*printf("Health %d\n", e->healthy);*/
+      /*printf("TGD %16g\n", e->tgd);*/
+      /*printf("TOC %16u\n", (unsigned int)e->toc);*/
+      /*printf("af2 %16g\n", e->af2);*/
+      /*printf("af1 %16g\n", e->af1);*/
+      /*printf("af0 %16g\n", e->af0);*/
+      /*printf("CRS %16g\n", e->crs);*/
+      /*printf("DN %16g\n", e->dn);*/
+      /*printf("M0 %16g\n", e->m0);*/
+      /*printf("CUC %16g\n", e->cuc);*/
+      /*printf("Ecc %16g\n", e->ecc);*/
+      /*printf("CUS %16g\n", e->cus);*/
+      /*printf("SQRT A %16g\n", e->sqrta);*/
+      /*printf("TOE %16u\n", (unsigned int)e->toe);*/
+      /*printf("CIC %16g\n", e->cic);*/
+      /*printf("omega0 %16g\n", e->omega0);*/
+      /*printf("CIS %16g\n", e->cis);*/
+      /*printf("Inc %16g\n", e->inc);*/
+      /*printf("CRC %16g\n", e->crc);*/
+      /*printf("W %16g\n", e->w);*/
+      /*printf("omegadot %16g\n", e->omegadot);*/
+      /*printf("inc_dot %16g\n", e->inc_dot);*/
 
     }
   } else {  // didn't get the subframe that we want next
