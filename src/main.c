@@ -32,6 +32,9 @@
 #include "hw/leds.h"
 #include "hw/spi.h"
 
+#include <swiftlib/pvt.h>
+#include <swiftlib/ephemeris.h>
+
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
   .pllm = 16,
