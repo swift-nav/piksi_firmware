@@ -25,20 +25,13 @@
 typedef struct {
   double pos[3];
   double vel[3];
-  double az;
-  double el;
   double clock_err;
   double clock_drift;
-  double code_carrier_delta;
   double pseudorange;
-  double raw_pseudorange;   
   double pseudorange_rate;
-  double pseudorange_rate_rate;
-  double rssi;
   int prn;
-  double totc;
-  int recv_idx;
 } gnss_satellite_state;
+
 
 typedef struct {
   double innovation[GNSS_MAX_OBS];

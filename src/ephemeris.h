@@ -1,6 +1,8 @@
 #ifndef SWIFTNAV_EPHEMERIS_H
 #define SWIFTNAV_EPHEMERIS_H
 
+#include <stdint.h>
+
 typedef struct {
   double tgd;
   double crs, crc, cuc, cus, cic, cis;
@@ -12,5 +14,6 @@ typedef struct {
 
 
 } ephemeris_t;
+
 
 #endif

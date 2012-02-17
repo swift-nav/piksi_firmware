@@ -9,15 +9,12 @@
 
 #include "linear_algebra.h"
 #include "coord_system.h"
-#include "ephemeris.h"
 
 #include "pvt.h"
 
 void init_sat(gnss_satellite_state *sat, unsigned int prn, int recv_idx)
 {
   sat->prn = prn;
-  sat->az = sat->el = 0;
-  sat->recv_idx = recv_idx;
   // DBG("Initializing PRN %02u\n",prn+1);
 }
 
