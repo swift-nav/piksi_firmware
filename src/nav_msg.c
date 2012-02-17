@@ -371,6 +371,9 @@ void process_subframe(nav_msg_t *n, ephemeris_t *e) {
       printf("inc_dot %16g\n", e->inc_dot);
 
     }
+  } else {  // didn't get the subframe that we want next
+      n->next_subframe_id = 1;      // Make sure we start again next time
+      n->subframe_start_index = 0;  // Mark the subframe as processed
   }
 
         
