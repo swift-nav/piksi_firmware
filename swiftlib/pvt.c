@@ -15,6 +15,7 @@
 void init_sat(gnss_satellite_state *sat, unsigned int prn, int recv_idx)
 {
   sat->prn = prn;
+  sat->recv_idx = recv_idx;
   // DBG("Initializing PRN %02u\n",prn+1);
 }
 
@@ -286,8 +287,8 @@ calc_PVT(gnss_solution *soln,
          unsigned int n_recv,    
          const gnss_satellite_state sats[GPS_NUM_SATS],
          const double W[GPS_NUM_SATS],
-         double rx_time[n_recv],
-         double rx_freq_bias[n_recv],
+         /*double rx_time[n_recv],*/
+         /*double rx_freq_bias[n_recv],*/
          solution_plus *plus)       
 {
   unsigned int n = 3+n_recv;
@@ -300,7 +301,8 @@ calc_PVT(gnss_solution *soln,
    */
 
   // pos[3], clock err, vel[3], intermediate freq err
-  static double rx_state[6+2*GNSS_MAX_RECEIVERS] = {-2712219, -4316338, 3820996}; 
+  /*static double rx_state[6+2*GNSS_MAX_RECEIVERS] = {-2712219, -4316338, 3820996}; */
+  static double rx_state[6+2*GNSS_MAX_RECEIVERS] = {0, 0, 0}; 
 
   unsigned int max_iterations, i;
   double update;
@@ -319,14 +321,18 @@ calc_PVT(gnss_solution *soln,
       break;
     }
   }
+  printf("%d iterations\n", i);
 
   if (i >= max_iterations) {
      printf("Position solution not available after %d iterations, giving up.\n", i);
     // DBG("||correction|| was %lf\n", -update);
     /* Reset state to woodpecker if solution fails */
-    rx_state[0] = -2712219;
-    rx_state[1] = -4316338;
-    rx_state[2] = 3820996;
+    /*rx_state[0] = -2712219;*/
+    /*rx_state[1] = -4316338;*/
+    /*rx_state[2] = 3820996;*/
+    rx_state[0] = 0;
+    rx_state[1] = 0;
+    rx_state[2] = 0;
     return -1;
   }
 
@@ -346,20 +352,20 @@ calc_PVT(gnss_solution *soln,
   /* The question was unclear.  What I meant was: which time do we
    * give to the autopilot as "the" solution time?  "soln->time"
    * hasn't changed.  */
-  if (rx_time) {
-    for (int r = 0; r < (int)n_recv; r++)
-      for (i = 0; i < n_used; i++)
-        if (sats[i].recv_idx == r) {
-          rx_time[r]=sats[i].totc + sats[i].pseudorange/NAV_C - rx_state[3+r]/NAV_C;
-          break;
-        }
-  }
+  /*if (rx_time) {*/
+    /*for (int r = 0; r < (int)n_recv; r++)*/
+      /*for (i = 0; i < n_used; i++)*/
+        /*if (sats[i].recv_idx == r) {*/
+          /*rx_time[r]=sats[i].totc + sats[i].pseudorange/NAV_C - rx_state[3+r]/NAV_C;*/
+          /*break;*/
+        /*}*/
+  /*}*/
   
-  if (rx_freq_bias) {
-    for (int r = 0; r < (int)n_recv; r++) {
-      rx_freq_bias[r]=(rx_state[n+3+r]/NAV_C)*GPS_L1_HZ;
-    }
-  }
+  /*if (rx_freq_bias) {*/
+    /*for (int r = 0; r < (int)n_recv; r++) {*/
+      /*rx_freq_bias[r]=(rx_state[n+3+r]/NAV_C)*GPS_L1_HZ;*/
+    /*}*/
+  /*}*/
 
   return 0;
 }
