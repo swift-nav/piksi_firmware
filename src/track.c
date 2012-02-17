@@ -269,23 +269,27 @@ float tracking_channel_snr(u8 channel)
                 (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
 }
 
-void calc_pseudoranges(double pseudoranges[])
+void calc_pseudoranges(double pseudoranges[], double pseudorange_rates[], double TOTs[])
 {
   u32 nav_count = timing_count();
-
-  double TOT_s[TRACK_N_CHANNELS]; /* Time of transmit in seconds. */
+  double mean_TOT = 0;
 
   __asm__("CPSID i;");
   for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-    TOT_s[i] = 1e-3*tracking_channel[i].TOW_ms;
-    TOT_s[i] += ((tracking_channel[i].code_phase_prompt
-                  + tracking_channel[i].code_phase_rate * (nav_count - tracking_channel[i].sample_count))
-               / TRACK_CODE_PHASE_UNITS_PER_CHIP) / 1.023e6;
+    TOTs[i] = 1e-3*tracking_channel[i].TOW_ms;
+    TOTs[i] += (((double)tracking_channel[i].code_phase_prompt
+                  + (double)tracking_channel[i].code_phase_rate_fp_prev[1] * ((double)nav_count - (double)tracking_channel[i].sample_count))
+               / (double)TRACK_CODE_PHASE_UNITS_PER_CHIP) / 1.023e6;
+
+    mean_TOT += TOTs[i];
+    pseudorange_rates[i] = NAV_C * tracking_channel[i].carrier_freq / L1_HZ;
   }
   __asm__("CPSIE i;");
 
+  mean_TOT = mean_TOT/TRACK_N_CHANNELS;
+
   for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-    pseudoranges[i] = 60e-3 + TOT_s[0] - TOT_s[i];
+    pseudoranges[i] = (mean_TOT - TOTs[i])*NAV_C + NOMINAL_RANGE;
   }
 }
 

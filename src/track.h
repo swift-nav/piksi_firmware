@@ -76,4 +76,6 @@ void tracking_channel_update(u8 channel);
 void tracking_channel_disable(u8 channel);
 float tracking_channel_snr(u8 channel);
 
+void calc_pseudoranges(double pseudoranges[], double pseudorange_rates[], double TOTs[]);
+
 #endif
