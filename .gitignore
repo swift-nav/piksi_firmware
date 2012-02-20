@@ -7,5 +7,6 @@ docs/html
 *.srec
 *.bin
 *.map
+*.pyc
 /tags
 /libopencm3_for_ctags
