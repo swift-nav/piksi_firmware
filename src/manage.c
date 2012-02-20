@@ -22,10 +22,11 @@
 #include "manage.h"
 
 acq_prn_t acq_prn_param[32] = {
-  [12] = {.state = ACQ_PRN_UNTRIED},
-  [22] = {.state = ACQ_PRN_UNTRIED},
-  [6] = {.state = ACQ_PRN_UNTRIED},
-  [9] = {.state = ACQ_PRN_UNTRIED}
+  [2] = {.state = ACQ_PRN_UNTRIED},
+  [17] = {.state = ACQ_PRN_UNTRIED},
+  [20] = {.state = ACQ_PRN_UNTRIED},
+  [21] = {.state = ACQ_PRN_UNTRIED}
+//  [0 ... 31] = {.state = ACQ_PRN_UNTRIED}
 };
 
 acq_manage_t acq_manage;

@@ -6,6 +6,8 @@ import struct
 import threading
 import time
 import sys
+import string
+import pylab
 
 DEBUG_MAGIC_1 = 0xBE
 DEBUG_MAGIC_2 = 0xEF
@@ -80,18 +82,57 @@ messages =  parse_messages('../src/debug_messages.h')
 
 class ListenerThread (threading.Thread):
   wants_to_stop = False
+  prep_plot_vals = False
 
   def stop(self):
     self.wants_to_stop = True
 
   def run(self):
+    pylab.figure(1)
+    pylab.ion()
+    pylab.xlabel("Hz")
+    pylab.ylabel("Magnitude")
+    pylab.title("CW around DC")
+    num_avgs = 35
+    freq_pts = 101
+    freqs = pylab.zeros(freq_pts)
+    mags = pylab.zeros((num_avgs,freq_pts))
+    avg_mags = pylab.zeros(freq_pts)
+    avg_count = 0
+    freq_count = 0
+    plot_y_max = 0
     while(not self.wants_to_stop):
       mt, ml, md = get_message(ser)
       if mt == MSG_PRINT:
-        #sys.stdout.write("\x1b[34m" + md + "\x1b[0m")
-        sys.stdout.write(md)
-      else:
-        print "%s: %s" % (messages[mt][0], str(extract_message(mt, ml, md, messages)))
+#          sys.stdout.write("\x1b[34m" + md + "\x1b[0m")
+#        sys.stdout.write(md)
+        if (re.search("#PLOT_DATA_START",md)):
+          self.prep_plot_vals = True
+          freq_count = 0
+        elif self.prep_plot_vals and bool(re.match("[-+]\d+.\d+ \d+$",md)):
+          freqs[freq_count] = float(string.split(md," ")[0])
+          avg_mags[freq_count] = avg_mags[freq_count]-mags[avg_count][freq_count]
+          mags[avg_count][freq_count] = float(string.split(md," ")[1])
+          avg_mags[freq_count] = avg_mags[freq_count]+mags[avg_count][freq_count]
+          freq_count += 1
+        elif self.prep_plot_vals and (re.search("#PLOT_DATA_END",md)):
+          print str(avg_count)
+          self.prep_plot_vals = False
+          if (max(avg_mags) > plot_y_max):
+            plot_y_max = max(avg_mags)
+          pylab.clf()
+          pylab.plot(freqs,avg_mags)
+          pylab.axis([min(freqs),max(freqs),0,plot_y_max])
+          pylab.xlabel("Hz")
+          pylab.ylabel("Magnitude")
+          pylab.title("Spectrum around DC")
+          pylab.draw()
+          if (avg_count == (num_avgs-1)):
+            avg_count = 0
+          else:
+            avg_count += 1
+#      else:
+#        print "%s: %s" % (messages[mt][0], str(extract_message(mt, ml, md, messages)))
 
 def send_msg(ser, msg_type_name, args):
   msg_type = find_message_type_by_name(msg_type_name, messages)

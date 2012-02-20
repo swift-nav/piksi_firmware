@@ -1,6 +1,6 @@
-BINARY = acq_test
+BINARY = cw_test
 
-OBJS = acq_test.o \
+OBJS = cw_test.o \
        ../../src/debug.o \
        ../../src/swift_nap_io.o \
        ../../src/cw.o \
