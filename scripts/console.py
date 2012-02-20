@@ -3,7 +3,7 @@
 from enthought.traits.api import Str, Instance, Dict, HasTraits, Int
 from enthought.traits.ui.api import Item, ShellEditor, View, VSplit, HSplit, Tabbed, InstanceEditor
 
-import seriallink
+import serial_link
 from output_stream import OutputStream
 
 class SwiftConsole(HasTraits):
