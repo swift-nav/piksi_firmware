@@ -18,7 +18,9 @@
 #ifndef SWIFTNAV_DEBUG_H
 #define SWIFTNAV_DEBUG_H
 
-#include "debug_messages.h"
+#include <libopencm3/cm3/common.h>
+
+#define MSG_PRINT 0x01
 
 #define DEBUG_MAGIC_1 0xBE
 #define DEBUG_MAGIC_2 0xEF
