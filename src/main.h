@@ -18,6 +18,8 @@
 #ifndef SWIFTNAV_MAIN_H
 #define SWIFTNAV_MAIN_H
 
+#include <libopencm3/cm3/common.h>
+
 /* GPS official value of Pi. */
 #define PI 3.1415926535898
 #define SAMPLE_FREQ 16368000
