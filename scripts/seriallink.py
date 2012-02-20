@@ -7,6 +7,9 @@ import threading
 import time
 import sys
 
+DEFAULT_PORT = '/dev/ttyUSB1'
+DEFAULT_BAUD = 921600
+
 DEBUG_MAGIC_1 = 0xBE
 DEBUG_MAGIC_2 = 0xEF
 
@@ -63,13 +66,13 @@ class SerialLink:
       data += self.ser.read(msg_len - len(data))
     return (msg_type, data)
 
-  def send_message(serial, msg_type, msg):
+  def send_message(self, msg_type, msg):
     print "Sending, id=0x%02X, len=%d" % (msg_type, len(msg))
-    serial.write(chr(DEBUG_MAGIC_1))
-    serial.write(chr(DEBUG_MAGIC_2))
-    serial.write(chr(msg_type))
-    serial.write(chr(len(msg)))
-    serial.write(msg)
+    self.ser.write(chr(DEBUG_MAGIC_1))
+    self.ser.write(chr(DEBUG_MAGIC_2))
+    self.ser.write(chr(msg_type))
+    self.ser.write(chr(len(msg)))
+    self.ser.write(msg)
 
   def add_callback(self, msg_type, callback):
     self.callbacks[msg_type] = callback
@@ -84,7 +87,7 @@ def default_print_callback(data):
   sys.stdout.write(data)
 
 if __name__ == "__main__":
-  link = SerialLink('/dev/ttyUSB1', 921600)
+  link = SerialLink(DEFAULT_PORT, DEFAULT_BAUD)
   link.add_callback(MSG_PRINT, default_print_callback)
   try:
     while True:
