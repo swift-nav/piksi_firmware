@@ -24,7 +24,8 @@
 #include "main.h"
 #include "swift_nap_io.h"
 #include "track.h"
-#include "nav_msg.h"
+
+#include <swiftlib/pvt.h>
 
 /* Initialiser using GNU extension, see
  * http://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html 
@@ -73,7 +74,7 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
 
 /** Initialises a tracking channel.
  * Initialises a tracking channel on the Swift NAP. The start_sample_count
- * must be contrived to be at or close to a PRN edge (code phase = 0).
+ * must be contrived to be at or close to a PRN edge (PROMPT code phase = 0).
  *
  * \param prn                PRN number - 1 (0-31).
  * \param channel            Tracking channel number on the Swift NAP.
@@ -95,6 +96,10 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].pll_disc = 0;
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
+  tracking_channel[channel].code_phase_early = 0;
+  tracking_channel[channel].code_phase_rate_fp = code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  tracking_channel[channel].code_phase_rate_fp_prev[0] = tracking_channel[channel].code_phase_rate_fp;
+  tracking_channel[channel].code_phase_rate_fp_prev[1] = tracking_channel[channel].code_phase_rate_fp;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
   tracking_channel[channel].carrier_freq = carrier_freq;
   tracking_channel[channel].sample_count = start_sample_count;
@@ -106,11 +111,16 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   /* Starting carrier phase is set to zero as we don't 
    * know the carrier freq well enough to calculate it.
    */
-  /* TODO: add comment explaining why code phase is set to zero. See doxygen comment up top */
-  track_write_init_blocking(channel, prn, 0, 0);
+  /* TODO: add comment explaining why code phase is set to 0.5 chips.
+   * This is basically because the NAP expects you to write the EARLY code
+   * for initialisation and we want this function to be called close to
+   * PROMPT code phase rollover, which corresponds to an early code phase
+   * of 0.5 chips. See doxygen comment up top.
+   */
+  track_write_init_blocking(channel, prn, 0, 0.5*TRACK_INIT_CODE_PHASE_UNITS_PER_CHIP);
   track_write_update_blocking(channel, \
                      carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                     code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+                     tracking_channel[channel].code_phase_rate_fp);
 
   /* Schedule the timing strobe for start_sample_count. */
   timing_strobe(start_sample_count);
@@ -150,6 +160,15 @@ void tracking_channel_update(u8 channel)
       chan->TOW_ms++;
       if (chan->TOW_ms == 7*24*60*60*1000)
         chan->TOW_ms = 0;
+
+      chan->code_phase_early += chan->corr_sample_count*chan->code_phase_rate_fp_prev[1];
+      chan->code_phase_prompt = chan->code_phase_early - 8*chan->code_phase_rate_fp_prev[1];
+      /*u64 cp;*/
+      /*u32 cf;*/
+      /*DO_ONLY(10,*/
+        /*track_read_phase_blocking(channel, &cf, &cp);*/
+        /*printf("%d CPR: 0x%08X, count: %d, NAP: 0x%08X, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->code_phase_rate_fp_prev[1], (unsigned int)chan->corr_sample_count, (unsigned int)(cp&0xFFFFFFFF), (unsigned int)chan->code_phase_early);*/
+      /*)*/
 
       /* Correlations should already be in chan->cs thanks to
        * tracking_channel_get_corrs.
@@ -194,6 +213,10 @@ void tracking_channel_update(u8 channel)
 
       chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
    
+      /*double snr, power;*/
+      /*snr = (double)abs(cs[1].I) / abs(cs[1].Q);*/
+      /*power = sqrt((double)cs[1].I*cs[1].I + (double)cs[1].Q*cs[1].Q);*/
+      /*DO_ONLY(100, printf("%d dll_disc: %f, cpr: %f, snr: %f, pwr: %f\n", chan->prn+1, chan->dll_disc, -1.023e6+chan->code_phase_rate, snr, power); )*/
 
       u32 timer_val = timing_count();
       static u32 max_timer_val = 0;
@@ -211,9 +234,13 @@ void tracking_channel_update(u8 channel)
         chan->TOW_ms = TOW_ms;
       }
 
+      chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+      chan->code_phase_rate_fp_prev[1] = chan->code_phase_rate_fp_prev[0];
+      chan->code_phase_rate_fp_prev[0] = chan->code_phase_rate_fp;
+
       track_write_update_blocking(channel, \
                          chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                         chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ);
+                         chan->code_phase_rate_fp);
       break;
     }
     case TRACKING_DISABLED:
@@ -242,4 +269,27 @@ float tracking_channel_snr(u8 channel)
                 (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
 }
 
+void calc_pseudoranges(double pseudoranges[], double pseudorange_rates[], double TOTs[])
+{
+  u32 nav_count = timing_count();
+  double mean_TOT = 0;
+
+  __asm__("CPSID i;");
+  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+    TOTs[i] = 1e-3*tracking_channel[i].TOW_ms;
+    TOTs[i] += (((double)tracking_channel[i].code_phase_prompt
+                  + (double)tracking_channel[i].code_phase_rate_fp_prev[1] * ((double)nav_count - (double)tracking_channel[i].sample_count))
+               / (double)TRACK_CODE_PHASE_UNITS_PER_CHIP) / 1.023e6;
+
+    mean_TOT += TOTs[i];
+    pseudorange_rates[i] = NAV_C * tracking_channel[i].carrier_freq / L1_HZ;
+  }
+  __asm__("CPSIE i;");
+
+  mean_TOT = mean_TOT/TRACK_N_CHANNELS;
+
+  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+    pseudoranges[i] = (mean_TOT - TOTs[i])*NAV_C + NOMINAL_RANGE;
+  }
+}
 

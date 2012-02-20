@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Henry Hallam <henry@swift-nav.com>
+ * Copyright (C) 2012 Fergus Noble <fergusnoble@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,16 +16,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SWIFTNAV_USART_H
-#define SWIFTNAV_USART_H
+#ifndef SWIFTLIB_COMMON_H
+#define SWIFTLIB_COMMON_H
 
-#define USART_BUFFER_LEN 4096
-
-#include <libopencm3/cm3/common.h>
-
-void usart_dma_setup(void);
-void usart_write_dma(u8 *data, u16 n);
-u16 usart_n_read_dma();
-u16 usart_read_dma(u8 buff[], u16 len);
+#ifndef LIBOPENCM3_CM3_COMMON_H
+  /* Type definitions for shorter and nicer code */
+  #include <stdint.h>
+  #include <stdbool.h>
+  typedef int8_t s8;
+  typedef int16_t s16;
+  typedef int32_t s32;
+  typedef uint8_t u8;
+  typedef uint16_t u16;
+  typedef uint32_t u32;
+  typedef uint64_t u64;
+#endif
 
 #endif

@@ -30,12 +30,12 @@
 
 u8 usart_fifo_tx[USART_BUFFER_LEN];
 u8 usart_fifo_rx[USART_BUFFER_LEN];
-u8 usart_fifo_tx_rd;
-u8 usart_fifo_tx_wr;
-u8 usart_fifo_rx_rd;
+u16 usart_fifo_tx_rd;
+u16 usart_fifo_tx_wr;
+u16 usart_fifo_rx_rd;
 u32 usart_fifo_rx_rd_wraps;
 u32 usart_fifo_rx_wr_wraps;
-u8 usart_dma_xfer_len;
+u16 usart_dma_xfer_len;
 
 void usart_tx_dma_schedule();
 
@@ -124,9 +124,9 @@ void usart_dma_setup(void) {
   DMA2_S5CR |= DMA_SxCR_EN;
 }
 
-void usart_write_dma(u8 data[], u8 n)
+void usart_write_dma(u8 data[], u16 n)
 {
-  u8 wr;
+  u16 wr;
 
   /* Disable interrupts to "atomically" increment
    * usart_fifo_tx_wr as we want this function to be reentrant.
@@ -219,7 +219,7 @@ void dma2_stream5_isr()
   }
 }
 
-u8 usart_n_read_dma()
+u16 usart_n_read_dma()
 {
   __asm__("CPSID i;");
   // Compare number of bytes written to the number read, if greater
@@ -234,10 +234,10 @@ u8 usart_n_read_dma()
   return n_written - n_read;
 }
 
-u8 usart_read_dma(u8 buff[], u8 len)
+u16 usart_read_dma(u8 buff[], u16 len)
 {
-  u8 n_to_read = usart_n_read_dma();
-  u8 n = (len > n_to_read) ? n_to_read : len;
+  u16 n_to_read = usart_n_read_dma();
+  u16 n = (len > n_to_read) ? n_to_read : len;
 
   if (usart_fifo_rx_rd + n < USART_BUFFER_LEN) { 
     memcpy(buff, &usart_fifo_rx[usart_fifo_rx_rd], n);

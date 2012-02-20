@@ -32,6 +32,9 @@
 #include "hw/leds.h"
 #include "hw/spi.h"
 
+#include <swiftlib/pvt.h>
+#include <swiftlib/ephemeris.h>
+
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
   .pllm = 16,
@@ -98,6 +101,8 @@ int main(void)
  
   led_toggle(LED_RED);
   
+  static ephemeris_t es[32];
+  static gnss_satellite_state sat_states[32];
   while(1)
   {
     for (u32 i = 0; i < 3000; i++)
@@ -111,10 +116,58 @@ int main(void)
     for (u8 i=0; i<TRACK_N_CHANNELS; i++)
       if (tracking_channel[i].state == TRACKING_RUNNING && tracking_channel[i].nav_msg.subframe_start_index) {
         printf(" PRN %d",tracking_channel[i].prn + 1);
-        process_subframe(&tracking_channel[i].nav_msg, 0);
+        process_subframe(&tracking_channel[i].nav_msg, &es[tracking_channel[i].prn]);
       }
 
-    DO_EVERY(10000,
+    u8 n_ready = 0;
+    for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+      if (es[tracking_channel[i].prn].valid == 1 && es[tracking_channel[i].prn].healthy == 1 && tracking_channel[i].state == TRACKING_RUNNING)
+        n_ready++;
+    }
+    if (n_ready >= 4) {
+      /* Got enough sats/ephemerides, do a solution. */
+      printf("Starting solution!\n");
+      double prs[TRACK_N_CHANNELS];
+      double prrs[TRACK_N_CHANNELS];
+      double TOTs[TRACK_N_CHANNELS];
+      calc_pseudoranges(prs, prrs, TOTs);
+      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+        sat_states[i].prn = tracking_channel[i].prn;
+        sat_states[i].recv_idx = 0;
+        calc_sat_pos(sat_states[i].pos,
+                     sat_states[i].vel,
+                     &sat_states[i].clock_err,
+                     &sat_states[i].clock_rate_err,
+                     &es[sat_states[i].prn],
+                     TOTs[i]);
+        sat_states[i].pseudorange = prs[i] + sat_states[i].clock_err*NAV_C;
+        sat_states[i].pseudorange_rate = prrs[i] - sat_states[i].clock_rate_err*NAV_C;
+        printf("PRN: %d, ", sat_states[i].prn+1);
+        printf("tow: %f, ", (double)tracking_channel[i].TOW_ms);
+        printf("TOT: %f, ", TOTs[i]);
+        printf("err: %f, ", sat_states[i].clock_err*NAV_C);
+        printf("pr: %f, ", sat_states[i].pseudorange);
+        printf("prr: %f, \n", sat_states[i].pseudorange_rate);
+      }
+      gnss_solution soln;
+      solution_plus plus;
+      double W[32] = EQUAL_WEIGHTING;
+      calc_PVT(&soln, 4, 1, sat_states, W, &plus);
+      double dist = sqrt(
+          (soln.pos_xyz[0]+2712219)*(soln.pos_xyz[0]+2712219) + 
+          (soln.pos_xyz[1]+4316338)*(soln.pos_xyz[1]+4316338) + 
+          (soln.pos_xyz[2]-3820996)*(soln.pos_xyz[2]-3820996)
+      );
+      printf("======= SOLUTION ==============================\n");
+      printf("Lat: %f, Lon: %f, Height: %f\n", R2D*soln.pos_llh[0], R2D*soln.pos_llh[1], soln.pos_llh[2]);
+      printf("X: %f, Y: %f, Z: %f\n", soln.pos_xyz[0], soln.pos_xyz[1], soln.pos_xyz[2]);
+      printf("Dist to WPR: %f\n", dist);
+      printf("Err Cov: %f %f %f %f %f %f\n", soln.err_cov[0], soln.err_cov[1], soln.err_cov[2], soln.err_cov[3], soln.err_cov[4], soln.err_cov[5]);
+      printf("===============================================\n");
+      while(1);
+    }
+
+    DO_EVERY(1000,
     for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
       switch (tracking_channel[i].state) {
         default:
@@ -127,7 +180,7 @@ int main(void)
       }
     }
     printf("\n");
-    )
+    );
     u32 err = swift_nap_read_error_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);

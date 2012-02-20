@@ -1,7 +1,7 @@
 #ifndef SWIFTNAV_NAV_MSG_H
 #define SWIFTNAV_NAV_MSG_H
 
-#include "int_types.h"
+#include "common.h"
 #include "ephemeris.h"
 
 #define NAV_MSG_SUBFRAME_BITS_LEN 12    // Buffer 384 nav bits
@@ -14,7 +14,9 @@ typedef struct {
   u8 bit_phase_ref;
   u8 bit_phase_count;
   s32 nav_bit_integrate;
-  
+
+  u32 frame_words[3][8];
+  u8 next_subframe_id;
 } nav_msg_t;
 
 
