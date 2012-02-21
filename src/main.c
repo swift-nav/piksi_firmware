@@ -168,18 +168,13 @@ int main(void)
     }
 
     DO_EVERY(1000,
-    for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-      switch (tracking_channel[i].state) {
-        default:
-        case TRACKING_DISABLED:
-          printf("X\t");
-          break;
-        case TRACKING_RUNNING:
-          printf("(%d) %.2f\t", tracking_channel[i].prn+1, tracking_channel_snr(i));
-          break;
-      }
-    }
-    printf("\n");
+      float snrs[TRACK_N_CHANNELS];
+      for (u8 i=0; i<TRACK_N_CHANNELS; i++)
+        if (tracking_channel[i].state == TRACKING_RUNNING)
+          snrs[i] = tracking_channel_snr(i);
+        else
+          snrs[i] = -1.0;
+      debug_send_msg(0x22, sizeof(snrs), (u8*)snrs);
     );
     u32 err = swift_nap_read_error_blocking();
     if (err)
