@@ -77,7 +77,7 @@ def send_message(serial, msg_type, msg):
   serial.write(chr(len(msg)))
   serial.write(msg)
 
-ser = serial.Serial('/dev/ttyUSB2', 921600, timeout=1)
+ser = serial.Serial('/dev/ttyUSB1', 921600, timeout=1)
 messages =  parse_messages('../src/debug_messages.h')
 
 class ListenerThread (threading.Thread):
@@ -93,7 +93,7 @@ class ListenerThread (threading.Thread):
     pylab.xlabel("Hz")
     pylab.ylabel("Magnitude")
     pylab.title("CW around DC")
-    num_avgs = 10
+    num_avgs = 40
     #Find number of freq points
     freq_pts = 0
     mt, ml, md = get_message(ser)
@@ -138,12 +138,11 @@ class ListenerThread (threading.Thread):
             if (avg_mags[i] > max_avgs):
               max_avgs = avg_mags[i]
               max_freq = freqs[i]
-          if (pylab.mean(avg_mags) < plot_y_min):
-            plot_y_min = pylab.mean(avg_mags)
+          plot_y_min = 2*pylab.mean(avg_mags) - plot_y_max
           freqs_mhz = freqs/1e6
           pylab.clf()
-          pylab.plot(freqs_mhz,avg_mags)
-#          pylab.semilogy(freqs_mhz,avg_mags)
+#          pylab.plot(freqs_mhz,avg_mags)
+          pylab.semilogy(freqs_mhz,avg_mags)
           pylab.axis([min(freqs_mhz),max(freqs_mhz),plot_y_min,plot_y_max])
           pylab.xlabel("MHz")
           pylab.ylabel("Magnitude")
