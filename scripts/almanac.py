@@ -100,7 +100,7 @@ class Sat:
     angle_to_horizon = m.pi/2 - angle_to_normal
     # velocity of the satellite in the axis of the vector from receiver to satellite
     radial_velocity = n.vdot(vec_rec_sat, sat_vel)
-    doppler_shift = GPS_L1_HZ * radial_velocity / NAV_C
+    doppler_shift = GPS_L1_HZ * -radial_velocity / NAV_C
     
     if (angle_to_horizon > elevation_mask*(m.pi/180)) and (self.healthy):
       return doppler_shift
