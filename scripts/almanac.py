@@ -117,6 +117,9 @@ class Sat:
 class Almanac:
   sats = None
 
+  def almanac_valid(self):
+    return (self.sats != None)
+
   def download_almanac(self):
     u = urllib2.urlopen('http://www.navcen.uscg.gov/?pageName=currentAlmanac&format=yuma')
     if u:
