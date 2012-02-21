@@ -29,7 +29,7 @@
 
 u8 msg_header[4] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2, 0, 0};
 
-u8 msg_buff[255];
+u8 msg_buff[USART_BUFFER_LEN];
 
 typedef enum {
   WAITING_1,
@@ -154,9 +154,11 @@ void debug_process_messages()
       case GET_MSG:
         if (msg_len - msg_n_read > 0) {
           /* Not received whole message yet, try and get some more. */
-          msg_n_read += usart_read_dma(msg_buff, msg_len - msg_n_read);
-        } else {
+          msg_n_read += usart_read_dma(&msg_buff[msg_n_read], msg_len - msg_n_read);
+        }
+        if (msg_len - msg_n_read <= 0) {
           /* Message complete, process it. */
+          printf("msg: %d, len %d\n", msg_type, msg_len);
           (*debug_find_callback(msg_type))(msg_buff);
           state = WAITING_1;
         }
