@@ -3,6 +3,8 @@ from enthought.traits.ui.api import Item, View
 
 import threading
 import time
+import struct
+from ctypes import create_string_buffer
 
 from almanac import Almanac
 
@@ -32,7 +34,20 @@ class AlmanacView(HasTraits):
   )
 
   def _warm_start_fired(self):
-    pass
+    acq_prn_t = struct.Struct('<hhB')
+    buff = create_string_buffer(32*acq_prn_t.size)
+    dopps = dict(self.alm.get_dopps())
+
+    for prn in range(1, 33):
+      state = 0 #ACQ_PRN_SKIP
+      cf_min = cf_max = 0.0
+      if prn in dopps.keys():
+        state = 1 #ACQ_PRN_UNTRIED
+        cf_min = round(dopps[prn] - 2500)
+        cf_max = round(dopps[prn] + 2500)
+      acq_prn_t.pack_into(buff, (prn-1)*acq_prn_t.size, cf_min, cf_max, state)
+
+    self.link.send_message(0x69, buff.raw)
 
   def update_alamanc_view(self):
     prns, dopps = zip(*self.alm.get_dopps())
