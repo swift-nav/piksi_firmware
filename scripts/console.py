@@ -19,6 +19,7 @@ import struct
 import serial_link
 from output_stream import OutputStream
 from tracking_view import TrackingView
+from almanac_view import AlmanacView
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -27,12 +28,13 @@ class SwiftConsole(HasTraits):
   a = Int
   b = Int
   tracking_view = Instance(TrackingView)
+  almanac_view = Instance(AlmanacView)
 
   view = View(
     VSplit(
       Tabbed(
         Item('tracking_view', style='custom', show_label=False),
-        Item('b')
+        Item('almanac_view', style='custom', show_label=False),
       ),
       HSplit(
         Item('python_console_env', editor=ShellEditor()),
@@ -40,7 +42,8 @@ class SwiftConsole(HasTraits):
         Item('tracking_view', style='custom', editor=InstanceEditor(view='snr_bar_view')),
         show_labels=False
       )
-    )
+    ),
+    kind='live'
   )
 
   def print_message_callback(self, data):
@@ -53,11 +56,13 @@ class SwiftConsole(HasTraits):
     self.link.add_callback(serial_link.MSG_PRINT, self.print_message_callback)
 
     self.tracking_view = TrackingView(self.link)
+    self.almanac_view = AlmanacView(self.link)
 
     self.python_console_env = {
         'send_message': self.link.send_message
     }
     self.python_console_env.update(self.tracking_view.python_console_cmds)
+    self.python_console_env.update(self.almanac_view.python_console_cmds)
 
   def stop(self):
     self.link.close()
