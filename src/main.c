@@ -107,6 +107,7 @@ int main(void)
   {
     for (u32 i = 0; i < 3000; i++)
       __asm__("nop");
+    debug_process_messages();
     manage_track();
     manage_acq();
 
