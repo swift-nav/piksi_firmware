@@ -23,7 +23,7 @@
 
 cw_state_t cw_state;
 
-void do_one_cw(s16 carrier_freq, corr_t* corrs)
+void do_one_cw(s32 carrier_freq, corr_t* corrs)
 {
   cw_write_init_blocking(carrier_freq); 
 

@@ -132,10 +132,14 @@ void exti9_5_isr()
   }
 
   if (irq & IRQ_CW_DONE) {
+    DO_EVERY(50000,
+      printf("doing cw service irq\n");
+    )
     cw_service_irq();
   }
 
   if (irq & IRQ_CW_LOAD_DONE) {
+    printf("doing cw service load done\n");
     cw_service_load_done();
   }
 
@@ -545,22 +549,24 @@ void cw_clear_load_enable_blocking()
   swift_nap_xfer_blocking(SPI_ID_CW_LOAD_ENABLE, 1, 0, temp); 
 }
 
-void cw_write_init_blocking(s16 carrier_freq)
+void cw_write_init_blocking(s32 carrier_freq)
 {
-  u8 temp[2];
+  u8 temp[3];
 
-  temp[0] = (1<<4) |                        // cw enabled
-            ((carrier_freq >> 8) & 0xFF);   // carrier freq [11:8]
+  temp[0] = (1<<3) |                        // cw enabled
+            ((carrier_freq >> 30) & 0x04) | // carrier freq [sign]
+            ((carrier_freq >> 16) & 0x03);  // carrier freq [17:16]
 
-  temp[1] = carrier_freq & 0xFF;            // carrier freq [7:0]
+  temp[1] = (carrier_freq >> 8) & 0xFF;     // carrier freq [15:8]
+  temp[2] = carrier_freq & 0xFF;            // carrier freq [7:0]
 
-  swift_nap_xfer_blocking(SPI_ID_CW_INIT, 2, 0, temp);
+  swift_nap_xfer_blocking(SPI_ID_CW_INIT, 3, 0, temp);
 }
 
 void cw_disable_blocking()
 {
-  u8 temp[2] = {0,0};
-  swift_nap_xfer_blocking(SPI_ID_CW_INIT, 2, 0, temp);
+  u8 temp[3] = {0,0,0};
+  swift_nap_xfer_blocking(SPI_ID_CW_INIT, 3, 0, temp);
 }
 
 void cw_read_corr_blocking(corr_t* corrs) {

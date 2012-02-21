@@ -108,7 +108,7 @@ void track_read_corr_dma(u8 channel);
 
 void cw_set_load_enable_blocking();
 void cw_clear_load_enable_blocking();
-void cw_write_init_blocking(s16 carrier_freq);
+void cw_write_init_blocking(s32 carrier_freq);
 void cw_disable_blocking();
 void cw_read_corr_blocking(corr_t* corrs);
 

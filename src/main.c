@@ -112,20 +112,21 @@ int main(void)
 		printf("# Finished loading cw ram\n");
 
 		// Do CW detection
-		cw_start(-7000,7000,14000/(SPECTRUM_LEN-1));
-//		cw_start(-4e6,4e6,8e6/(SPECTRUM_LEN-1));
+//		cw_start(-7000,7000,14000/(SPECTRUM_LEN-1));
+		cw_start(-4e6,4e6,8e6/(SPECTRUM_LEN-1));
 		while (!(cw_get_running_done()));
 		printf("# Finished doing cw detection\n");
 
 		for (u16 si=0;si<SPECTRUM_LEN;si++) {
 			
-			for (u32 dly = 0; dly < 70000; dly++)
+			for (u32 dly = 0; dly < 45000; dly++)
 				__asm__("nop");
 			
 			cw_get_spectrum_point(&cw_freq,&cw_power,si);
 			
-//			printf("%+7.2f %lu\n",cw_freq,(long unsigned int)cw_power,(unsigned int)si);
-			printf("%+4.2f %lu\n",cw_freq,(long unsigned int)cw_power);
+//			printf("%+7.2f %lu # %d\n",cw_freq,(long unsigned int)cw_power,(unsigned int)si);
+			printf("%+7.1f %lu\n",cw_freq,(long unsigned int)cw_power);
+//			printf("%+4.2f %lu\n",cw_freq,(long unsigned int)cw_power);
 		
 			u32 err = swift_nap_read_error_blocking();
 			if (err) {

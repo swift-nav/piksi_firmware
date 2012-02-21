@@ -20,7 +20,7 @@
 
 #include <libopencm3/cm3/common.h>
 
-#define SPECTRUM_LEN 101
+#define SPECTRUM_LEN 301
 
 typedef enum {
   CW_DISABLED = 0,
@@ -32,14 +32,14 @@ typedef enum {
 
 typedef struct {
   cw_status_t state;
-  s16 cf_step, cf_min, cf_max;
-  s16 carrier_freq;
+  s32 cf_step, cf_min, cf_max;
+  s32 carrier_freq;
   u64 power_acc;
   u64 best_power;
-  s16 best_freq;
+  s32 best_freq;
 	u16 count;
 	u64 spectrum_power[SPECTRUM_LEN];
-	s16 spectrum_freq[SPECTRUM_LEN];
+	s32 spectrum_freq[SPECTRUM_LEN];
 } cw_state_t;
 
 void cw_schedule_load(u32 count);
@@ -52,6 +52,6 @@ void cw_service_irq();
 void cw_get_results(float* cf, float* snr);
 void cw_get_spectrum_point(float* freq, u64* power, u16 index);
 //void cw_get_spectrum_point(float* freq, float* power, u16 index);
-void do_one_cw(s16 carrier_freq, corr_t* corrs);
+void do_one_cw(s32 carrier_freq, corr_t* corrs);
 
 #endif

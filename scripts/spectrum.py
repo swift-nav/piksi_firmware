@@ -93,14 +93,26 @@ class ListenerThread (threading.Thread):
     pylab.xlabel("Hz")
     pylab.ylabel("Magnitude")
     pylab.title("CW around DC")
-    num_avgs = 35
-    freq_pts = 101
+    num_avgs = 10
+    #Find number of freq points
+    freq_pts = 0
+    mt, ml, md = get_message(ser)
+    while not(re.search("#PLOT_DATA_START",md)):
+      freq_pts = 0
+      mt, ml, md = get_message(ser)
+    while not((re.search("#PLOT_DATA_END",md))):
+      if bool(re.match("[-+]\d+.\d+ \d+$",md)):
+        freq_pts += 1
+      mt, ml, md = get_message(ser)
+    #Initialize arrays
     freqs = pylab.zeros(freq_pts)
     mags = pylab.zeros((num_avgs,freq_pts))
     avg_mags = pylab.zeros(freq_pts)
     avg_count = 0
     freq_count = 0
     plot_y_max = 0
+    plot_y_min = pylab.inf
+    freq_pts = 0
     while(not self.wants_to_stop):
       mt, ml, md = get_message(ser)
       if mt == MSG_PRINT:
@@ -109,6 +121,7 @@ class ListenerThread (threading.Thread):
         if (re.search("#PLOT_DATA_START",md)):
           self.prep_plot_vals = True
           freq_count = 0
+#        elif self.prep_plot_vals and bool(re.match("[-+]\d+.\d+ \d+ # \d+$",md)):
         elif self.prep_plot_vals and bool(re.match("[-+]\d+.\d+ \d+$",md)):
           freqs[freq_count] = float(string.split(md," ")[0])
           avg_mags[freq_count] = avg_mags[freq_count]-mags[avg_count][freq_count]
@@ -116,17 +129,29 @@ class ListenerThread (threading.Thread):
           avg_mags[freq_count] = avg_mags[freq_count]+mags[avg_count][freq_count]
           freq_count += 1
         elif self.prep_plot_vals and (re.search("#PLOT_DATA_END",md)):
-          print str(avg_count)
           self.prep_plot_vals = False
-          if (max(avg_mags) > plot_y_max):
-            plot_y_max = max(avg_mags)
+          max_avgs = 0
+          max_freq = 0
+          for i in range(0,len(avg_mags)):
+            if (avg_mags[i] > plot_y_max):
+              plot_y_max = avg_mags[i]
+            if (avg_mags[i] > max_avgs):
+              max_avgs = avg_mags[i]
+              max_freq = freqs[i]
+          if (pylab.mean(avg_mags) < plot_y_min):
+            plot_y_min = pylab.mean(avg_mags)
+          freqs_mhz = freqs/1e6
           pylab.clf()
-          pylab.plot(freqs,avg_mags)
-          pylab.axis([min(freqs),max(freqs),0,plot_y_max])
-          pylab.xlabel("Hz")
+          pylab.plot(freqs_mhz,avg_mags)
+#          pylab.semilogy(freqs_mhz,avg_mags)
+          pylab.axis([min(freqs_mhz),max(freqs_mhz),plot_y_min,plot_y_max])
+          pylab.xlabel("MHz")
           pylab.ylabel("Magnitude")
-          pylab.title("Spectrum around DC")
+          pylab.title("Spectrum")
           pylab.draw()
+          print str(avg_count)
+          print "  max freq =", str((1.57542e9 + max_freq)/1e9), "GHz"
+          print "  max freq offset from carrier=", str(max_freq)
           if (avg_count == (num_avgs-1)):
             avg_count = 0
           else:
