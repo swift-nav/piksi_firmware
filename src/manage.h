@@ -25,6 +25,13 @@
 #define TRACK_SNR_INIT_COUNT 5000
 #define TRACK_SNR_THRES_COUNT 2000
 
+#define ACQ_FULL_CF_MIN  -8500
+#define ACQ_FULL_CF_MAX   8500
+#define ACQ_FULL_CF_STEP  400
+#define ACQ_FINE_CF_WIDTH 300
+#define ACQ_FINE_CP_WIDTH 20
+#define ACQ_FINE_CF_STEP  100
+
 #define MANAGE_NO_CHANNELS_FREE 255
 
 typedef enum {
@@ -44,18 +51,19 @@ typedef struct {
   u32 fine_timer_count;
 } acq_manage_t;
 
-typedef enum {
-  ACQ_PRN_SKIP = 0,
-  ACQ_PRN_UNTRIED,
-  ACQ_PRN_TRIED,
-  ACQ_PRN_ACQUIRING,
-  ACQ_PRN_TRACKING
-} acq_prn_state_t;
+#define ACQ_PRN_SKIP      0
+#define ACQ_PRN_UNTRIED   1
+#define ACQ_PRN_TRIED     2
+#define ACQ_PRN_ACQUIRING 3
+#define ACQ_PRN_TRACKING  4
 
-typedef struct {
-  acq_prn_state_t state;
+typedef struct __attribute__((packed)) {
+  s16 carrier_freq_min; /* Integer Hz. */
+  s16 carrier_freq_max;
+  u8 state;
 } acq_prn_t;
 
+void manage_acq_setup();
 void manage_acq();
 u8 manage_track_new_acq(float snr);
 void manage_track();

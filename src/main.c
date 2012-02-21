@@ -98,6 +98,8 @@ int main(void)
 
   swift_nap_setup();
   swift_nap_reset();
+
+  manage_acq_setup();
  
   led_toggle(LED_RED);
   

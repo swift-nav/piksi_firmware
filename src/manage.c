@@ -16,19 +16,48 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #include "acq.h"
 #include "track.h"
 #include "manage.h"
+#include "debug.h"
 
 acq_prn_t acq_prn_param[32] = {
-  [12] = {.state = ACQ_PRN_UNTRIED},
-  [22] = {.state = ACQ_PRN_UNTRIED},
-  [6] = {.state = ACQ_PRN_UNTRIED},
-  [9] = {.state = ACQ_PRN_UNTRIED}
+  [0 ... 31] = { .state = ACQ_PRN_SKIP },
 };
 
 acq_manage_t acq_manage;
+
+msg_callbacks_node_t acq_setup_callback_node;
+void acq_setup_callback(u8 buff[])
+{
+  acq_prn_t *acq_prn_param_new = (acq_prn_t*)buff;
+
+  /* Copy PRN parameters from the setup message for all the PRNs
+   * that are not either tracking or acquiring.
+   */
+  for (u8 prn=0; prn<32; prn++) {
+    if (acq_prn_param[prn].state != ACQ_PRN_ACQUIRING
+        && acq_prn_param[prn].state != ACQ_PRN_TRACKING) {
+      /*printf("Setting PRN %02d, %d %d ... %d\n", prn+1,*/
+          /*acq_prn_param_new[prn].state,*/
+          /*acq_prn_param_new[prn].carrier_freq_min,*/
+          /*acq_prn_param_new[prn].carrier_freq_max*/
+      /*);*/
+      memcpy(&acq_prn_param[prn], &acq_prn_param_new[prn], sizeof(acq_prn_t));
+    }
+  }
+}
+
+void manage_acq_setup()
+{
+  for (u8 prn=0; prn<32; prn++) {
+    acq_prn_param[prn].carrier_freq_min = ACQ_FULL_CF_MIN;
+    acq_prn_param[prn].carrier_freq_max = ACQ_FULL_CF_MAX;
+  }
+  debug_register_callback(0x69, &acq_setup_callback, &acq_setup_callback_node);
+}
 
 void manage_acq()
 {
@@ -94,8 +123,15 @@ void manage_acq()
       if (!acq_get_load_done())
         break;
       /* Done loading, now lets set that coarse acquisition going. */
-      acq_start(acq_manage.prn, 0, 1023, -8500, 8500, 400);
+      acq_start(acq_manage.prn, 0, 1023, 
+          acq_prn_param[acq_manage.prn].carrier_freq_min,
+          acq_prn_param[acq_manage.prn].carrier_freq_max,
+          ACQ_FULL_CF_STEP);
       acq_manage.state = ACQ_MANAGE_RUNNING_COARSE;
+
+      /* Reset the carrier frequency window for the next pass. */
+      acq_prn_param[acq_manage.prn].carrier_freq_min = ACQ_FULL_CF_MIN;
+      acq_prn_param[acq_manage.prn].carrier_freq_max = ACQ_FULL_CF_MAX;
       break;
 
     case ACQ_MANAGE_RUNNING_COARSE:
@@ -136,10 +172,10 @@ void manage_acq()
                         acq_manage.fine_timer_count - acq_manage.coarse_timer_count
                       );
       acq_start(acq_manage.prn,
-                fine_cp-20,
-                fine_cp+20,
-                acq_manage.coarse_cf-300,
-                acq_manage.coarse_cf+300, 100);
+                fine_cp-ACQ_FINE_CP_WIDTH,
+                fine_cp+ACQ_FINE_CP_WIDTH,
+                acq_manage.coarse_cf-ACQ_FINE_CF_WIDTH,
+                acq_manage.coarse_cf+ACQ_FINE_CF_WIDTH, ACQ_FINE_CF_STEP);
       acq_manage.state = ACQ_MANAGE_RUNNING_FINE;
       break;
 
