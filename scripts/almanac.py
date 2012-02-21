@@ -1,6 +1,7 @@
 import math as m
 import numpy as n
 import time
+import urllib2
 
 NAV_GM = 3.986005e14
 NAV_OMEGAE_DOT = 7.2921151467e-005
@@ -109,23 +110,48 @@ class Sat:
   def __str__(self):
     dopp = self.calc_vis_dopp(time_of_week(), WPR)
     if dopp != None:
-      return "SV%02d\t@ %+7.1f Hz\n" % (self.prn, dopp)
+      return "PRN%02d\t@ %+7.1f Hz\n" % (self.prn, dopp)
     else:
-      return "SV%02d Not Visible\n" % self.prn
+      return "PRN%02d Not Visible\n" % self.prn
 
-def extract_yuma_blocks(yuma):
-  blocks = []
-  for (n, line) in enumerate(yuma):
-    if line[:3] == "ID:":
-      blocks += [yuma[n:n+13]]
-  return blocks
+class Almanac:
+  sats = None
 
-def get_dopps(yuma_filename):
-  fp = open('almanac.yuma', 'r')
-  yuma_blocks = extract_yuma_blocks(fp.readlines())
-  fp.close()
-  sats = map(lambda bl: Sat(bl), yuma_blocks)
-  dopps = map(lambda s: (s.prn, s.calc_vis_dopp(time_of_week(), WPR)), sats)
-  dopps = filter(lambda (prn, dopp): (dopp != None), dopps)
-  return dopps
+  def download_almanac(self):
+    u = urllib2.urlopen('http://www.navcen.uscg.gov/?pageName=currentAlmanac&format=yuma')
+    if u:
+      self.process_yuma(u.readlines())
 
+  def load_almanac_file(self, filename):
+    fp = open(filename, 'r')
+    if fp:
+      self.process_yuma(fp.readlines())
+    fp.close()
+
+  def process_yuma(self, yuma):
+    if yuma:
+      blocks = []
+      for (n, line) in enumerate(yuma):
+        if line[:3] == "ID:":
+          blocks += [yuma[n:n+13]]
+      self.sats = map(lambda bl: Sat(bl), blocks)
+    else:
+      self.sats = None
+
+  def get_dopps(self, tow=None, location=WPR):
+    if not tow:
+      tow = time_of_week()
+
+    if self.sats:
+      dopps = map(lambda s: (s.prn, s.calc_vis_dopp(tow, location)), self.sats)
+      dopps = filter(lambda (prn, dopp): (dopp != None), dopps)
+      return dopps
+    else:
+      return None
+
+if __name__ == "__main__":
+  alm = Almanac()
+  print "Downloading current almanac"
+  alm.download_almanac()
+  print "Dopplers:"
+  print alm.get_dopps()
