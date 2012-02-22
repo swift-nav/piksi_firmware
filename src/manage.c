@@ -249,7 +249,7 @@ void manage_track()
           /* This tracking channel has lost its satellite. */
           printf("Disabling channel %d\n", i);
           tracking_channel_disable(i);
-          acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_UNTRIED;
+          acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_TRIED;
         }
       } else {
         tracking_channel[i].snr_threshold_count = tracking_channel[i].update_count;
