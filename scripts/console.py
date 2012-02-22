@@ -43,7 +43,9 @@ class SwiftConsole(HasTraits):
         show_labels=False
       )
     ),
-    kind='live'
+    resizable = True,
+    width = 1000,
+    height = 600
   )
 
   def print_message_callback(self, data):
