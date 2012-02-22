@@ -222,6 +222,9 @@ void manage_acq()
       acq_manage.state = ACQ_MANAGE_START;
       break;
     }
+    case ACQ_MANAGE_DISABLED:
+      /* Do nothing. */
+      break;
   }
 }
 
