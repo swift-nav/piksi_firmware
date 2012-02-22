@@ -88,6 +88,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   /* Calculate code phase rate with carrier aiding. */
   float code_phase_rate = (1 + carrier_freq/L1_HZ) * NOMINAL_CODE_PHASE_RATE_HZ;
 
+  start_sample_count -= 0.5*16; // Start on the early code phase rollover, not the late.
+
   /* Setup tracking_channel struct. */
   tracking_channel[channel].state = TRACKING_RUNNING;
   tracking_channel[channel].prn = prn;
@@ -98,6 +100,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].pll_disc = 0;
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
+  /*tracking_channel[channel].code_phase_early = 0.5*TRACK_INIT_CODE_PHASE_UNITS_PER_CHIP;*/
   tracking_channel[channel].code_phase_early = 0;
   tracking_channel[channel].code_phase_rate_fp = code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   tracking_channel[channel].code_phase_rate_fp_prev[0] = tracking_channel[channel].code_phase_rate_fp;
@@ -119,7 +122,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
    * PROMPT code phase rollover, which corresponds to an early code phase
    * of 0.5 chips. See doxygen comment up top.
    */
-  track_write_init_blocking(channel, prn, 0, 0.5*TRACK_INIT_CODE_PHASE_UNITS_PER_CHIP);
+  /*track_write_init_blocking(channel, prn, 0, 0.5*TRACK_INIT_CODE_PHASE_UNITS_PER_CHIP);*/
+  track_write_init_blocking(channel, prn, 0, 0);
   track_write_update_blocking(channel, \
                      carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
                      tracking_channel[channel].code_phase_rate_fp);
