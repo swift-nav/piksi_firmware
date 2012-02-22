@@ -75,7 +75,7 @@ def send_message(serial, msg_type, msg):
   serial.write(chr(len(msg)))
   serial.write(msg)
 
-ser = serial.Serial('/dev/ttyUSB2', 921600, timeout=1)
+ser = serial.Serial('/dev/ttyUSB1', 921600, timeout=1)
 messages =  parse_messages('../src/debug_messages.h')
 
 class ListenerThread (threading.Thread):

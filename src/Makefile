@@ -3,6 +3,7 @@ BINARY = swiftnav-firmware
 OBJS = main.o \
        debug.o \
        swift_nap_io.o \
+       ca_codes.o \
        cw.o \
        track.o \
        nav_msg.o \

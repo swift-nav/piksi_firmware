@@ -117,7 +117,7 @@ class ListenerThread (threading.Thread):
       mt, ml, md = get_message(ser)
       if mt == MSG_PRINT:
 #          sys.stdout.write("\x1b[34m" + md + "\x1b[0m")
-#        sys.stdout.write(md)
+        sys.stdout.write(md)
         if (re.search("#PLOT_DATA_START",md)):
           self.prep_plot_vals = True
           freq_count = 0

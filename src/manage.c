@@ -23,9 +23,13 @@
 
 acq_prn_t acq_prn_param[32] = {
   [2] = {.state = ACQ_PRN_UNTRIED},
-  [17] = {.state = ACQ_PRN_UNTRIED},
+  [3] = {.state = ACQ_PRN_UNTRIED},
+  [13] = {.state = ACQ_PRN_UNTRIED},
+  [14] = {.state = ACQ_PRN_UNTRIED},
+  [19] = {.state = ACQ_PRN_UNTRIED},
   [20] = {.state = ACQ_PRN_UNTRIED},
-  [21] = {.state = ACQ_PRN_UNTRIED}
+  [21] = {.state = ACQ_PRN_UNTRIED},
+  [22] = {.state = ACQ_PRN_UNTRIED}
 //  [0 ... 31] = {.state = ACQ_PRN_UNTRIED}
 };
 

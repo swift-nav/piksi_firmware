@@ -30,6 +30,7 @@
 #include "swift_nap_io.h"
 #include "track.h"
 #include "acq.h"
+#include "ca_codes.h"
 #include "cw.h"
 #include "debug.h"
 #include "hw/spi.h"
@@ -132,14 +133,10 @@ void exti9_5_isr()
   }
 
   if (irq & IRQ_CW_DONE) {
-    DO_EVERY(50000,
-      printf("doing cw service irq\n");
-    )
     cw_service_irq();
   }
 
   if (irq & IRQ_CW_LOAD_DONE) {
-    printf("doing cw service load done\n");
     cw_service_load_done();
   }
 
@@ -359,6 +356,10 @@ void acq_read_corr_blocking(corr_t corrs[]) {
   }
 }
 
+void acq_write_code_blocking(u8 prn) {
+  swift_nap_xfer_blocking(SPI_ID_ACQ_CODE, 128, 0, get_ca_code(prn));
+}
+
 void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
   /* for length(prn) = 5,
    *     length(carrier_phase) = 24,
@@ -535,6 +536,10 @@ void track_unpack_corr_dma(corr_t corrs[])
     corrs[2-i].I |= (u32)temp[6*i+3] << 16;
     corrs[2-i].I = s.x = corrs[2-i].I; // Sign extend!
   }
+}
+
+void track_write_code_blocking(u8 channel,u8 prn) {
+  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CODE_OFFSET, 128, 0, get_ca_code(prn));
 }
 
 void cw_set_load_enable_blocking()

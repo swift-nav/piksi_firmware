@@ -102,7 +102,12 @@ int main(void)
 	u64 cw_power;
 	float cw_freq;
 
+  u8 iir_delay_count;
+
 	while(1) {
+
+		led_toggle(LED_GREEN);
+		led_toggle(LED_RED);
 
 		printf("#PLOT_DATA_START\n");
 
@@ -112,21 +117,28 @@ int main(void)
 		printf("# Finished loading cw ram\n");
 
 		// Do CW detection
-//		cw_start(-7000,7000,14000/(SPECTRUM_LEN-1));
-		cw_start(-4e6,4e6,8e6/(SPECTRUM_LEN-1));
+//		cw_start(-4e6,4e6,8e6/(SPECTRUM_LEN-1));
+//		cw_start(-0.5e6,0.5e6,8e6/(SPECTRUM_LEN-1));
+//		cw_start(0.5e6,0.7e6,0.2e6/(SPECTRUM_LEN-1));
+//    float cf = (1.575542*1e9-1.575420*1e9);
+    float cf = 0;
+    float span = 8e6;
+		cw_start(cf-span/2,cf+span/2,span/(SPECTRUM_LEN-1));
 		while (!(cw_get_running_done()));
 		printf("# Finished doing cw detection\n");
 
 		for (u16 si=0;si<SPECTRUM_LEN;si++) {
 			
-			for (u32 dly = 0; dly < 45000; dly++)
+			for (u32 dly = 0; dly < 50000; dly++)
 				__asm__("nop");
-			
+
 			cw_get_spectrum_point(&cw_freq,&cw_power,si);
 			
-//			printf("%+7.2f %lu # %d\n",cw_freq,(long unsigned int)cw_power,(unsigned int)si);
-			printf("%+7.1f %lu\n",cw_freq,(long unsigned int)cw_power);
-//			printf("%+4.2f %lu\n",cw_freq,(long unsigned int)cw_power);
+      if (~((cw_power == 0) && (cw_freq == 0))) {
+//			  printf("%+7.2f %lu # %d\n",cw_freq,(long unsigned int)cw_power,(unsigned int)si);
+			  printf("%+7.1f %lu\n",cw_freq,(long unsigned int)cw_power);
+//			  printf("%+4.2f %lu\n",cw_freq,(long unsigned int)cw_power);
+      }
 		
 			u32 err = swift_nap_read_error_blocking();
 			if (err) {
@@ -137,9 +149,7 @@ int main(void)
 
 		printf("#PLOT_DATA_END\n");
 
-//		for (u32 dly = 0; dly < 100000; dly++)
-//		for (u32 dly = 0; dly < 500000; dly++)
-//			__asm__("nop");
+    iir_delay_count++;
 
 	}
 

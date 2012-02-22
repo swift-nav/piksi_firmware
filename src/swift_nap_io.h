@@ -99,12 +99,14 @@ void acq_clear_load_enable_blocking();
 void acq_write_init_blocking(u8 prn, u16 code_phase, s16 carrier_freq);
 void acq_disable_blocking();
 void acq_read_corr_blocking(corr_t corrs[]);
+void acq_write_code_blocking(u8 prn);
 
 void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase);
 void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate);
 void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]);
 void track_read_phase_blocking(u8 channel, u32* carrier_phase, u64* code_phase);
 void track_read_corr_dma(u8 channel);
+void track_write_code_blocking(u8 channel, u8 prn);
 
 void cw_set_load_enable_blocking();
 void cw_clear_load_enable_blocking();

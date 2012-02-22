@@ -20,7 +20,8 @@
 
 #include <libopencm3/cm3/common.h>
 
-#define SPECTRUM_LEN 1201
+#define SPECTRUM_LEN 301
+//#define SPECTRUM_LEN 501
 
 typedef enum {
   CW_DISABLED = 0,
