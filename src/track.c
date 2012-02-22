@@ -103,8 +103,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   /*tracking_channel[channel].code_phase_early = 0.5*TRACK_INIT_CODE_PHASE_UNITS_PER_CHIP;*/
   tracking_channel[channel].code_phase_early = 0;
   tracking_channel[channel].code_phase_rate_fp = code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  tracking_channel[channel].code_phase_rate_fp_prev[0] = tracking_channel[channel].code_phase_rate_fp;
-  tracking_channel[channel].code_phase_rate_fp_prev[1] = tracking_channel[channel].code_phase_rate_fp;
+  tracking_channel[channel].code_phase_rate_fp_prev = tracking_channel[channel].code_phase_rate_fp;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
   tracking_channel[channel].carrier_freq = carrier_freq;
   tracking_channel[channel].sample_count = start_sample_count;
@@ -174,7 +173,7 @@ void tracking_channel_update(u8 channel)
         chan->TOW_ms = 0;
 
       /*chan->code_phase_early += chan->corr_sample_count*chan->code_phase_rate_fp_prev[1];*/
-      chan->code_phase_early = (u64)chan->code_phase_early + (u64)chan->corr_sample_count*chan->code_phase_rate_fp_prev[0];
+      chan->code_phase_early = (u64)chan->code_phase_early + (u64)chan->corr_sample_count*chan->code_phase_rate_fp_prev;
       /*if (chan->code_phase_early >= (1<<29)) {*/
 
         /*u64 cp;*/
@@ -192,7 +191,7 @@ void tracking_channel_update(u8 channel)
       track_read_phase_blocking(channel, &cf, &cp);
       if ((cp&0xFFFFFFFF) != chan->code_phase_early) {
         DO_ONLY(100,
-          printf("%d %u CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->update_count, (unsigned int)chan->code_phase_rate_fp_prev[0], (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);
+          printf("%d %u CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->update_count, (unsigned int)chan->code_phase_rate_fp_prev, (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);
         );
       }
 
@@ -260,8 +259,7 @@ void tracking_channel_update(u8 channel)
         chan->TOW_ms = TOW_ms;
       }
 
-      chan->code_phase_rate_fp_prev[1] = chan->code_phase_rate_fp_prev[0];
-      chan->code_phase_rate_fp_prev[0] = chan->code_phase_rate_fp;
+      chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
       chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
       track_write_update_blocking(channel, \
@@ -308,13 +306,13 @@ void calc_pseudoranges(double pseudoranges[], double pseudorange_rates[], double
     printf("%d: TOW_ms %u, CP: %u, CPR: %d, nav_cnt: %u, sample_cnt: %u\n", i,
         (unsigned int)tracking_channel[i].TOW_ms,
         (unsigned int)tracking_channel[i].code_phase_early,
-        (int)tracking_channel[i].code_phase_rate_fp_prev[0],
+        (int)tracking_channel[i].code_phase_rate_fp_prev,
         (unsigned int)nav_count,
         (unsigned int)tracking_channel[i].sample_count
     );
     TOTs[i] = 1e-3*tracking_channel[i].TOW_ms;
     TOTs[i] += (((double)tracking_channel[i].code_phase_early
-                  + (double)tracking_channel[i].code_phase_rate_fp_prev[0] * ((double)nav_count - (double)tracking_channel[i].sample_count))
+                  + (double)tracking_channel[i].code_phase_rate_fp_prev * ((double)nav_count - (double)tracking_channel[i].sample_count))
                / (double)TRACK_CODE_PHASE_UNITS_PER_CHIP) / 1.023e6;
 
     /*TOTs[i] = 1e-3*tracking_channel[i].TOW_ms;*/

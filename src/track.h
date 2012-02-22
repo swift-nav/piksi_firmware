@@ -49,7 +49,7 @@ typedef struct {
 
   double code_phase_rate;
   u32 code_phase_rate_fp;
-  u32 code_phase_rate_fp_prev[2];
+  u32 code_phase_rate_fp_prev;
   double carrier_freq;
 
   /* Loop filter state. */
