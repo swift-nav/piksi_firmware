@@ -20,4 +20,8 @@ int calc_sat_pos(double pos[3], double vel[3],
              const ephemeris_t *ephemeris,
              double time_of_transmit);
 
+double predict_range(double rx_pos[3],
+                     double time_of_transmit,
+                     ephemeris_t *ephemeris);
+
 #endif

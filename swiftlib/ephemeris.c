@@ -1,3 +1,4 @@
+#include "linear_algebra.h"
 #include "ephemeris.h"
 #include <math.h>
 #include <stdlib.h>
@@ -136,3 +137,20 @@ int calc_sat_pos(double pos[3], double vel[3],
   
   return 0;
 }
+
+double predict_range(double rx_pos[3],
+                     double time_of_transmit,
+                     ephemeris_t *ephemeris)
+{
+  double sat_pos[3];
+  double sat_vel[3];
+  double temp[3];
+  double clock_err, clock_rate_err;
+
+  calc_sat_pos(sat_pos, sat_vel, &clock_err, &clock_rate_err, ephemeris, time_of_transmit);
+
+  vector_subtract(sat_pos, rx_pos, temp); // temp = sat_pos - rx_pos
+  return vector_norm(temp);
+}
+
+
