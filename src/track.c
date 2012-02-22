@@ -134,6 +134,9 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
 
 void tracking_channel_get_corrs(u8 channel)
 {
+  static u32 foo;
+  foo = timing_count();
+
   gpio_set(GPIOC, GPIO10);
   tracking_channel_t* chan = &tracking_channel[channel];
 
@@ -142,6 +145,10 @@ void tracking_channel_get_corrs(u8 channel)
     case TRACKING_RUNNING:
       /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
       track_read_corr_blocking(channel, &chan->corr_sample_count, chan->cs);
+      chan->sample_count += chan->corr_sample_count;
+      DO_ONLY(100,
+          printf("%u, %u, %u, d: %d\n", (unsigned int)foo, (unsigned int)chan->corr_sample_count, (unsigned int)chan->sample_count, (int)(foo - chan->sample_count));
+      );
       break;
 
     case TRACKING_DISABLED:
@@ -162,7 +169,6 @@ void tracking_channel_update(u8 channel)
     case TRACKING_RUNNING:
     {
       chan->update_count++;
-      chan->sample_count += chan->corr_sample_count;
       chan->TOW_ms++;
       if (chan->TOW_ms == 7*24*60*60*1000)
         chan->TOW_ms = 0;
@@ -310,6 +316,9 @@ void calc_pseudoranges(double pseudoranges[], double pseudorange_rates[], double
     TOTs[i] += (((double)tracking_channel[i].code_phase_early
                   + (double)tracking_channel[i].code_phase_rate_fp_prev[0] * ((double)nav_count - (double)tracking_channel[i].sample_count))
                / (double)TRACK_CODE_PHASE_UNITS_PER_CHIP) / 1.023e6;
+
+    /*TOTs[i] = 1e-3*tracking_channel[i].TOW_ms;*/
+    /*TOTs[i] += (nav_count - tracking_channel[i].sample_count) / (1.023e6 * 16.0);*/
 
     mean_TOT += TOTs[i];
     pseudorange_rates[i] = NAV_C * -tracking_channel[i].carrier_freq / L1_HZ;
