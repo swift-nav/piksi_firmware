@@ -169,26 +169,26 @@ void tracking_channel_update(u8 channel)
 
       /*chan->code_phase_early += chan->corr_sample_count*chan->code_phase_rate_fp_prev[1];*/
       chan->code_phase_early = (u64)chan->code_phase_early + (u64)chan->corr_sample_count*chan->code_phase_rate_fp_prev[0];
-      if (chan->code_phase_early >= (1<<29)) {
+      /*if (chan->code_phase_early >= (1<<29)) {*/
 
-        u64 cp;
-        u32 cf;
-        track_read_phase_blocking(channel, &cf, &cp);
-        printf("%d CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->code_phase_rate_fp_prev[0], (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);
+        /*u64 cp;*/
+        /*u32 cf;*/
+        /*track_read_phase_blocking(channel, &cf, &cp);*/
+        /*printf("%d CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->code_phase_rate_fp_prev[0], (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);*/
 
-        printf("EIT (PRN%02d) %u\n",chan->prn+1, (unsigned int)chan->code_phase_early >> 28);
-//        chan->code_phase_early &= (1<<29)-1;
-      }
+        /*printf("EIT (PRN%02d) %u\n",chan->prn+1, (unsigned int)chan->code_phase_early >> 28);*/
+/*//        chan->code_phase_early &= (1<<29)-1;*/
+      /*}*/
       /*chan->code_phase_prompt = chan->code_phase_early - 8*chan->code_phase_rate_fp_prev[1];*/
 
-      /*DO_ONLY(100,*/
-      /*u64 cp;*/
-      /*u32 cf;*/
-      /*track_read_phase_blocking(channel, &cf, &cp);*/
-      /*if ((cp&0xFFFFFFFF) != chan->code_phase_early) {*/
-        /*printf("%d %u CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->update_count, (unsigned int)chan->code_phase_rate_fp_prev[1], (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);*/
-      /*}*/
-      /*);*/
+      u64 cp;
+      u32 cf;
+      track_read_phase_blocking(channel, &cf, &cp);
+      if ((cp&0xFFFFFFFF) != chan->code_phase_early) {
+        DO_ONLY(100,
+          printf("%d %u CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->update_count, (unsigned int)chan->code_phase_rate_fp_prev[0], (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);
+        );
+      }
 
       /* Correlations should already be in chan->cs thanks to
        * tracking_channel_get_corrs.
@@ -254,9 +254,9 @@ void tracking_channel_update(u8 channel)
         chan->TOW_ms = TOW_ms;
       }
 
-      chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
       chan->code_phase_rate_fp_prev[1] = chan->code_phase_rate_fp_prev[0];
       chan->code_phase_rate_fp_prev[0] = chan->code_phase_rate_fp;
+      chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
       track_write_update_blocking(channel, \
                          chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
@@ -302,13 +302,13 @@ void calc_pseudoranges(double pseudoranges[], double pseudorange_rates[], double
     printf("%d: TOW_ms %u, CP: %u, CPR: %d, nav_cnt: %u, sample_cnt: %u\n", i,
         (unsigned int)tracking_channel[i].TOW_ms,
         (unsigned int)tracking_channel[i].code_phase_early,
-        (int)tracking_channel[i].code_phase_rate_fp_prev[1],
+        (int)tracking_channel[i].code_phase_rate_fp_prev[0],
         (unsigned int)nav_count,
         (unsigned int)tracking_channel[i].sample_count
     );
     TOTs[i] = 1e-3*tracking_channel[i].TOW_ms;
     TOTs[i] += (((double)tracking_channel[i].code_phase_early
-                  + (double)tracking_channel[i].code_phase_rate_fp_prev[1] * ((double)nav_count - (double)tracking_channel[i].sample_count))
+                  + (double)tracking_channel[i].code_phase_rate_fp_prev[0] * ((double)nav_count - (double)tracking_channel[i].sample_count))
                / (double)TRACK_CODE_PHASE_UNITS_PER_CHIP) / 1.023e6;
 
     mean_TOT += TOTs[i];
