@@ -181,6 +181,13 @@ int main(void)
         printf("%f, ", r);
       }
       printf("])\n");
+      printf("pr_err = array([");
+      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+        double r = ranges[i] - mean_range + NOMINAL_RANGE;
+        printf("%f, ", (sat_states[i].pseudorange - r)*1023/3e5);
+      }
+      printf("])\n");
+
 
       gnss_solution soln;
       solution_plus plus;
