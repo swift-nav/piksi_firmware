@@ -277,7 +277,7 @@ void process_subframe(nav_msg_t *n, ephemeris_t *e) {
       fourbyte.u32 = n->frame_words[0][10-3] >> (30-22) & 0x3FFFFF; // a_f0: Word 10, bits 1-22
       fourbyte.u32 <<= 10; // Shift to the left for sign extension             
       fourbyte.s32 >>= 10; // Carry the sign bit back down and reduce to signed 22 bit value
-      e->af0 = fourbyte.s32 * pow(2,-32);
+      e->af0 = fourbyte.s32 * pow(2,-31);
 
 
       // Subframe 2: crs, dn, m0, cuc, ecc, cus, sqrta, toe
