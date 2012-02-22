@@ -43,8 +43,8 @@ class AlmanacView(HasTraits):
       cf_min = cf_max = 0.0
       if prn in dopps.keys():
         state = 1 #ACQ_PRN_UNTRIED
-        cf_min = round(dopps[prn] - 2500)
-        cf_max = round(dopps[prn] + 2500)
+        cf_min = round(dopps[prn] - 3500)
+        cf_max = round(dopps[prn] + 3500)
       acq_prn_t.pack_into(buff, (prn-1)*acq_prn_t.size, cf_min, cf_max, state)
 
     self.link.send_message(0x69, buff.raw)
