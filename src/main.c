@@ -34,6 +34,8 @@
 
 #include <swiftlib/pvt.h>
 #include <swiftlib/ephemeris.h>
+#include <swiftlib/coord_system.h>
+#include <swiftlib/linear_algebra.h>
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
@@ -102,6 +104,11 @@ int main(void)
   manage_acq_setup();
  
   led_toggle(LED_RED);
+
+  const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
+
+  double WPR_xyz[3];
+  wgsllh2xyz(WPR_llh, WPR_xyz);
   
   static ephemeris_t es[32];
   static gnss_satellite_state sat_states[32];
@@ -133,6 +140,8 @@ int main(void)
       double prs[TRACK_N_CHANNELS];
       double prrs[TRACK_N_CHANNELS];
       double TOTs[TRACK_N_CHANNELS];
+      double ranges[TRACK_N_CHANNELS];
+      double mean_range=0;
       calc_pseudoranges(prs, prrs, TOTs);
       for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
         sat_states[i].prn = tracking_channel[i].prn;
@@ -145,32 +154,52 @@ int main(void)
                      TOTs[i]);
         sat_states[i].pseudorange = prs[i] + sat_states[i].clock_err*NAV_C;
         sat_states[i].pseudorange_rate = prrs[i] - sat_states[i].clock_rate_err*NAV_C;
+        ranges[i] = predict_range(WPR_xyz, TOTs[i], &es[sat_states[i].prn]);
+        mean_range += ranges[i];
+      }
+      mean_range /= TRACK_N_CHANNELS;
+      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+        double r = ranges[i] - mean_range + NOMINAL_RANGE;
         printf("PRN: %d, ", sat_states[i].prn+1);
         printf("tow: %f, ", (double)tracking_channel[i].TOW_ms);
         printf("TOT: %f, ", TOTs[i]);
         printf("err: %f, ", sat_states[i].clock_err*NAV_C);
+        printf("r: %f, ", ranges[i]);
+        printf("ppr: %f, ", r);
         printf("pr: %f, ", sat_states[i].pseudorange);
         printf("prr: %f, \n", sat_states[i].pseudorange_rate);
       }
+
+      printf("pr = array([");
+      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+        printf("%f, ", sat_states[i].pseudorange);
+      }
+      printf("])\n");
+      printf("ppr = array([");
+      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+        double r = ranges[i] - mean_range + NOMINAL_RANGE;
+        printf("%f, ", r);
+      }
+      printf("])\n");
+
       gnss_solution soln;
       solution_plus plus;
       double W[32] = EQUAL_WEIGHTING;
       calc_PVT(&soln, 4, 1, sat_states, W, &plus);
-      double dist = sqrt(
-          (soln.pos_xyz[0]+2712219)*(soln.pos_xyz[0]+2712219) + 
-          (soln.pos_xyz[1]+4316338)*(soln.pos_xyz[1]+4316338) + 
-          (soln.pos_xyz[2]-3820996)*(soln.pos_xyz[2]-3820996)
-      );
+      double temp[3];
+      vector_subtract(soln.pos_xyz, WPR_xyz, temp);
+      double dist = vector_norm(temp);
       printf("======= SOLUTION ==============================\n");
       printf("Lat: %f, Lon: %f, Height: %f\n", R2D*soln.pos_llh[0], R2D*soln.pos_llh[1], soln.pos_llh[2]);
       printf("X: %f, Y: %f, Z: %f\n", soln.pos_xyz[0], soln.pos_xyz[1], soln.pos_xyz[2]);
       printf("Dist to WPR: %f\n", dist);
       printf("Err Cov: %f %f %f %f %f %f\n", soln.err_cov[0], soln.err_cov[1], soln.err_cov[2], soln.err_cov[3], soln.err_cov[4], soln.err_cov[5]);
+      printf("PDOP: %f \n", plus.pdop);
       printf("===============================================\n");
       while(1);
     }
 
-    DO_EVERY(1000,
+    DO_EVERY(500,
       float snrs[TRACK_N_CHANNELS];
       for (u8 i=0; i<TRACK_N_CHANNELS; i++)
         if (tracking_channel[i].state == TRACKING_RUNNING)

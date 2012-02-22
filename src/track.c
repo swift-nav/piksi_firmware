@@ -20,6 +20,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/exti.h>
+#include <libopencm3/stm32/nvic.h>
 
 #include "main.h"
 #include "swift_nap_io.h"
@@ -161,14 +163,28 @@ void tracking_channel_update(u8 channel)
       if (chan->TOW_ms == 7*24*60*60*1000)
         chan->TOW_ms = 0;
 
-      chan->code_phase_early += chan->corr_sample_count*chan->code_phase_rate_fp_prev[1];
-      chan->code_phase_prompt = chan->code_phase_early - 8*chan->code_phase_rate_fp_prev[1];
+      /*chan->code_phase_early += chan->corr_sample_count*chan->code_phase_rate_fp_prev[1];*/
+      chan->code_phase_early = (u64)chan->code_phase_early + (u64)chan->corr_sample_count*chan->code_phase_rate_fp_prev[0];
+      if (chan->code_phase_early >= (1<<29)) {
+
+        u64 cp;
+        u32 cf;
+        track_read_phase_blocking(channel, &cf, &cp);
+        printf("%d CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->code_phase_rate_fp_prev[0], (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);
+
+        printf("EIT (PRN%02d) %u\n",chan->prn+1, (unsigned int)chan->code_phase_early >> 28);
+//        chan->code_phase_early &= (1<<29)-1;
+      }
+      /*chan->code_phase_prompt = chan->code_phase_early - 8*chan->code_phase_rate_fp_prev[1];*/
+
+      /*DO_ONLY(100,*/
       /*u64 cp;*/
       /*u32 cf;*/
-      /*DO_ONLY(10,*/
-        /*track_read_phase_blocking(channel, &cf, &cp);*/
-        /*printf("%d CPR: 0x%08X, count: %d, NAP: 0x%08X, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->code_phase_rate_fp_prev[1], (unsigned int)chan->corr_sample_count, (unsigned int)(cp&0xFFFFFFFF), (unsigned int)chan->code_phase_early);*/
-      /*)*/
+      /*track_read_phase_blocking(channel, &cf, &cp);*/
+      /*if ((cp&0xFFFFFFFF) != chan->code_phase_early) {*/
+        /*printf("%d %u CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->update_count, (unsigned int)chan->code_phase_rate_fp_prev[1], (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);*/
+      /*}*/
+      /*);*/
 
       /* Correlations should already be in chan->cs thanks to
        * tracking_channel_get_corrs.
@@ -274,17 +290,27 @@ void calc_pseudoranges(double pseudoranges[], double pseudorange_rates[], double
   u32 nav_count = timing_count();
   double mean_TOT = 0;
 
-  __asm__("CPSID i;");
+  /*__asm__("CPSID i;");*/
+  exti_disable_request(EXTI6);
+	nvic_disable_irq(NVIC_EXTI9_5_IRQ);
+  
   for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+    printf("%d: TOW_ms %u, CP: %u, CPR: %d, nav_cnt: %u, sample_cnt: %u\n", i,
+        (unsigned int)tracking_channel[i].TOW_ms,
+        (unsigned int)tracking_channel[i].code_phase_early,
+        (int)tracking_channel[i].code_phase_rate_fp_prev[1],
+        (unsigned int)nav_count,
+        (unsigned int)tracking_channel[i].sample_count
+    );
     TOTs[i] = 1e-3*tracking_channel[i].TOW_ms;
-    TOTs[i] += (((double)tracking_channel[i].code_phase_prompt
+    TOTs[i] += (((double)tracking_channel[i].code_phase_early
                   + (double)tracking_channel[i].code_phase_rate_fp_prev[1] * ((double)nav_count - (double)tracking_channel[i].sample_count))
                / (double)TRACK_CODE_PHASE_UNITS_PER_CHIP) / 1.023e6;
 
     mean_TOT += TOTs[i];
-    pseudorange_rates[i] = NAV_C * tracking_channel[i].carrier_freq / L1_HZ;
+    pseudorange_rates[i] = NAV_C * -tracking_channel[i].carrier_freq / L1_HZ;
   }
-  __asm__("CPSIE i;");
+  /*__asm__("CPSIE i;");*/
 
   mean_TOT = mean_TOT/TRACK_N_CHANNELS;
 
