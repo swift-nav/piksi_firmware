@@ -34,6 +34,7 @@ class SwiftConsole(HasTraits):
     VSplit(
       Tabbed(
         Item('tracking_view', style='custom', show_label=False),
+        Item('tracking_view', style='custom', show_label=False, editor=InstanceEditor(view='snr_line_view')),
         Item('almanac_view', style='custom', show_label=False),
       ),
       HSplit(
