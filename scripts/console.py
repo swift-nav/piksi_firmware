@@ -52,10 +52,10 @@ class SwiftConsole(HasTraits):
   def print_message_callback(self, data):
     self.console_output.write(data.encode('ascii', 'ignore'))
 
-  def __init__(self):
+  def __init__(self, port=serial_link.DEFAULT_PORT):
     self.console_output = OutputStream()
 
-    self.link = serial_link.SerialLink(serial_link.DEFAULT_PORT, serial_link.DEFAULT_BAUD)
+    self.link = serial_link.SerialLink(port, serial_link.DEFAULT_BAUD)
     self.link.add_callback(serial_link.MSG_PRINT, self.print_message_callback)
 
     self.tracking_view = TrackingView(self.link)
@@ -70,7 +70,16 @@ class SwiftConsole(HasTraits):
   def stop(self):
     self.link.close()
 
-console = SwiftConsole()
+import argparse
+
+parser = argparse.ArgumentParser(description='Swift Nav Console.')
+parser.add_argument('-p', '--port',
+                   default=serial_link.DEFAULT_PORT, nargs=1,
+                   help='specify the serial port to use.')
+
+args = parser.parse_args()
+
+console = SwiftConsole(args.port)
 
 console.configure_traits()
 console.stop()
