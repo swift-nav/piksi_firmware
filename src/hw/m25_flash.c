@@ -17,6 +17,9 @@
 
 #include "spi.h"
 #include "m25_flash.h"
+#include "../debug.h"
+#include <stdio.h>
+
 
 void m25_write_enable(void)
 {
@@ -65,10 +68,8 @@ void m25_write_status(u8 sr)
   spi_slave_deselect();
 }
 
-void m25_read(u32 addr, u32 len, u8 buff[])
+void m25_read(u32 addr, u32 len, u8 *buff)
 {
-  u32 i;
-
   spi_slave_select(SPI_SLAVE_FLASH);
 
   spi_xfer(SPI_BUS_FLASH, M25_FAST_READ);
@@ -79,8 +80,8 @@ void m25_read(u32 addr, u32 len, u8 buff[])
 
   spi_xfer(SPI_BUS_FLASH, 0x00); /* Dummy byte */
 
-  for(i = 0; i < len; i++)
-    buff[i] = spi_xfer(SPI_BUS_FLASH, 0x00);
+  while(len--)
+    *buff++ = spi_xfer(SPI_BUS_FLASH, 0x00);
 
   spi_slave_deselect();
 }
@@ -145,5 +146,59 @@ void m25_bulk_erase(void)
   spi_slave_deselect();
 
   while(m25_read_status() & M25_SR_WIP);
+}
+
+
+void flash_write_callback(u8 buff[] __attribute__((unused))) {
+}
+
+void flash_read_callback(u8 buff[]) {
+  // Msg format:  u32 addr, u32 len
+  u32 addr, len;
+  static u8 flash_data[16];
+  
+  addr = *(u32 *)&buff[0];
+  len  = *(u32 *)&buff[4];
+
+  printf("SPI Flash reading %d bytes from %08X:\n", (int)len, (unsigned int)addr);
+
+  while (len) {
+    u8 chunk_len = 16;
+    if (len < 16) chunk_len = len;
+
+    m25_read(addr, chunk_len, flash_data);
+
+    printf("%08X:  ", (unsigned int)addr);
+    
+    for (u8 chunk_i = 0; chunk_i < chunk_len; chunk_i++) 
+      printf("%02X ", (char)flash_data[chunk_i]);
+
+    printf("\n");
+
+    len -= chunk_len;
+    addr += chunk_len;
+  }
+
+
+}
+
+void flash_erase_callback(u8 buff[] __attribute__((unused))) {
+}
+
+
+void m25_setup(void) {
+  // Assumes spi_setup already called
+
+  static msg_callbacks_node_t flash_write_node, flash_read_node, flash_erase_node;
+  debug_register_callback(0xF0, &flash_write_callback, &flash_write_node);
+  debug_register_callback(0xF1, &flash_read_callback,  &flash_read_node);
+  debug_register_callback(0xF2, &flash_erase_callback, &flash_erase_node);
+
+  printf("SPI flash callbacks registered\n");
+
+  u32 m25_id = m25_read_id();
+
+  printf("SPI flash capacity = %02X, type = %02X, manufacturer = %02X\n", (char) (m25_id & 0xFF), (char)((m25_id >> 8) & 0xFF), (char)((m25_id >> 16) & 0xFF));
+
 }
 

@@ -55,6 +55,7 @@ void spi_slave_select(u8 slave)
 {
 
   spi_slave_deselect();
+  __asm__("CPSID i;");    // Disable interrupts
 
   /*for (i = 0; i < 6; i++)*/
     /*__asm__("nop");*/
@@ -81,5 +82,6 @@ void spi_slave_deselect(void)
   gpio_set(GPIOC, GPIO8);
   /* Deselect Configuration flash and Front-end CS */
   gpio_set(GPIOB, GPIO11 | GPIO12);
+  __asm__("CPSIE i;");    // Re-enable interrupts
 }
 
