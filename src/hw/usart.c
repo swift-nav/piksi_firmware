@@ -128,6 +128,8 @@ void usart_write_dma(u8 data[], u16 n)
 {
   u16 wr;
 
+  if (n == 0) return;
+
   /* Disable interrupts to "atomically" increment
    * usart_fifo_tx_wr as we want this function to be reentrant.
    */
