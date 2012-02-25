@@ -51,5 +51,7 @@ void m25_subsector_erase(u32 addr);
 void m25_sector_erase(u32 addr);
 void m25_bulk_erase(void);
 
+void m25_setup(void);
+
 #endif
 

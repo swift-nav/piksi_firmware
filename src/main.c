@@ -31,6 +31,7 @@
 #include "manage.h"
 #include "hw/leds.h"
 #include "hw/spi.h"
+#include "hw/m25_flash.h"
 
 #include <swiftlib/pvt.h>
 #include <swiftlib/ephemeris.h>
@@ -100,6 +101,8 @@ int main(void)
 
   swift_nap_setup();
   swift_nap_reset();
+
+  m25_setup();
 
   manage_acq_setup();
  
