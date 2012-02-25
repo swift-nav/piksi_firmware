@@ -18,7 +18,7 @@ import os
 from enthought.kiva.fonttools.font_manager import fontManager, FontProperties
 if os.name == "posix":
   font = FontProperties()
-  font.set_name("DejaVu Sans")
+  font.set_name("Arial")
   fontManager.defaultFont = fontManager.findfont(font)
 
 from enthought.traits.api import Str, Instance, Dict, HasTraits, Int
