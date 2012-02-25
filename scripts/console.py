@@ -1,5 +1,15 @@
 #!/usr/bin/env python
 
+import serial_link
+
+import argparse
+parser = argparse.ArgumentParser(description='Swift Nav Console.')
+parser.add_argument('-p', '--port',
+                   default=[serial_link.DEFAULT_PORT], nargs=1,
+                   help='specify the serial port to use.')
+args = parser.parse_args()
+serial_port = args.port[0]
+
 import logging
 logging.basicConfig()
 
@@ -16,7 +26,6 @@ from enthought.traits.ui.api import Item, ShellEditor, View, VSplit, HSplit, Tab
 
 import struct
 
-import serial_link
 from output_stream import OutputStream
 from tracking_view import TrackingView
 from almanac_view import AlmanacView
@@ -70,16 +79,7 @@ class SwiftConsole(HasTraits):
   def stop(self):
     self.link.close()
 
-import argparse
-
-parser = argparse.ArgumentParser(description='Swift Nav Console.')
-parser.add_argument('-p', '--port',
-                   default=serial_link.DEFAULT_PORT, nargs=1,
-                   help='specify the serial port to use.')
-
-args = parser.parse_args()
-
-console = SwiftConsole(args.port)
+console = SwiftConsole(serial_port)
 
 console.configure_traits()
 console.stop()
