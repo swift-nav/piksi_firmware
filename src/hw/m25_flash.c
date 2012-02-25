@@ -166,12 +166,13 @@ void flash_write_callback(u8 buff[]) {
   m25_page_program(addr, len, data);
   printf("ok\n");
 
+  debug_send_msg(0xF0,0,0);   // Report completion
 }
 
 void flash_read_callback(u8 buff[]) {
   // Msg format:  u32 addr, u32 len
   u32 addr, len;
-  static u8 flash_data[16];
+  static char flash_data[16];
   
   addr = *(u32 *)&buff[0];
   len  = *(u32 *)&buff[4];
@@ -182,12 +183,21 @@ void flash_read_callback(u8 buff[]) {
     u8 chunk_len = 16;
     if (len < 16) chunk_len = len;
 
-    m25_read(addr, chunk_len, flash_data);
+    m25_read(addr, chunk_len, (u8 *)flash_data);
 
     printf("%08X:  ", (unsigned int)addr);
     
     for (u8 chunk_i = 0; chunk_i < chunk_len; chunk_i++) 
-      printf("%02X ", (char)flash_data[chunk_i]);
+      printf("%02X ", flash_data[chunk_i]);
+/*
+    printf("  ");
+    
+    for (u8 chunk_i = 0; chunk_i < chunk_len; chunk_i++)
+      if (flash_data[chunk_i] >= 32)
+        printf("%c", flash_data[chunk_i]);
+      else
+        printf(".");
+*/
 
     printf("\n");
 
@@ -206,9 +216,12 @@ void flash_erase_callback(u8 buff[] ) {
 
   printf("SPI Flash erasing 64KB from 0x%06X...", (unsigned int)addr & 0xFF0000);
 
+  m25_write_enable();
   m25_sector_erase(addr);
 
   printf("ok\n");
+
+  debug_send_msg(0xF0,0,0);   // Report completion
 
 }
 
