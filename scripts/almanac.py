@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import math as m
 import numpy as n
 import time
