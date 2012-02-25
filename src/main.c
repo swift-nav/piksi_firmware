@@ -80,6 +80,8 @@ const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3 =
   .apb2_frequency = 30050625,
 };
 
+
+
 int main(void)
 {
   for (u32 i = 0; i < 600000; i++)
@@ -92,7 +94,9 @@ int main(void)
 	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO10|GPIO11);
   gpio_clear(GPIOC, GPIO10|GPIO11);
 
-  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
+  //rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
+
+
 
   debug_setup();
 
@@ -208,7 +212,7 @@ int main(void)
       printf("===============================================\n");
       while(1);
     }
-
+/*
     DO_EVERY(500,
       float snrs[TRACK_N_CHANNELS];
       for (u8 i=0; i<TRACK_N_CHANNELS; i++)
@@ -221,7 +225,7 @@ int main(void)
     u32 err = swift_nap_read_error_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);
-
+*/
   }
 
   while (1);
