@@ -29,6 +29,7 @@ import struct
 from output_stream import OutputStream
 from tracking_view import TrackingView
 from almanac_view import AlmanacView
+import flash
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -70,8 +71,11 @@ class SwiftConsole(HasTraits):
     self.tracking_view = TrackingView(self.link)
     self.almanac_view = AlmanacView(self.link)
 
+    self.flash = flash.Flash(self.link)
     self.python_console_env = {
-        'send_message': self.link.send_message
+        'send_message': self.link.send_message,
+        'link': self.link,
+        'flash': self.flash
     }
     self.python_console_env.update(self.tracking_view.python_console_cmds)
     self.python_console_env.update(self.almanac_view.python_console_cmds)
