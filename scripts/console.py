@@ -72,6 +72,7 @@ class SwiftConsole(HasTraits):
     self.almanac_view = AlmanacView(self.link)
 
     self.flash = flash.Flash(self.link)
+    self.flash.start()
     self.python_console_env = {
         'send_message': self.link.send_message,
         'link': self.link,
@@ -81,6 +82,7 @@ class SwiftConsole(HasTraits):
     self.python_console_env.update(self.almanac_view.python_console_cmds)
 
   def stop(self):
+    self.flash.stop()
     self.link.close()
 
 console = SwiftConsole(serial_port)
