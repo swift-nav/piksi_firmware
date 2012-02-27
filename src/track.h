@@ -20,6 +20,7 @@
 
 #include <libopencm3/cm3/common.h>
 #include <swiftlib/nav_msg.h>
+#include <swiftlib/track.h>
 
 #include "swift_nap_io.h"
 
@@ -45,7 +46,6 @@ typedef struct {
 
   u32 sample_count;
   u32 code_phase_early;
-  u32 code_phase_prompt;
 
   double code_phase_rate;
   u32 code_phase_rate_fp;
@@ -74,8 +74,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
 void tracking_channel_get_corrs(u8 channel);
 void tracking_channel_update(u8 channel);
 void tracking_channel_disable(u8 channel);
+void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
 float tracking_channel_snr(u8 channel);
-
-void calc_pseudoranges(double pseudoranges[], double pseudorange_rates[], double TOTs[]);
 
 #endif

@@ -34,6 +34,7 @@
 #include "hw/m25_flash.h"
 
 #include <swiftlib/pvt.h>
+#include <swiftlib/track.h>
 #include <swiftlib/ephemeris.h>
 #include <swiftlib/coord_system.h>
 #include <swiftlib/linear_algebra.h>
@@ -96,12 +97,9 @@ int main(void)
 
   //rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
 
-
-
   debug_setup();
 
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
-
 
   swift_nap_setup();
   swift_nap_reset();
@@ -144,25 +142,19 @@ int main(void)
     if (n_ready >= 4) {
       /* Got enough sats/ephemerides, do a solution. */
       printf("Starting solution!\n");
-      double prs[TRACK_N_CHANNELS];
-      double prrs[TRACK_N_CHANNELS];
-      double TOTs[TRACK_N_CHANNELS];
-      double ranges[TRACK_N_CHANNELS];
-      double mean_range=0;
-      calc_pseudoranges(prs, prrs, TOTs);
+      navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
+      channel_measurement_t meas[TRACK_N_CHANNELS];
+      calc_pseudoranges(TRACK_N_CHANNELS, meas, nav_meas, timing_count());
+
       for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-        sat_states[i].prn = tracking_channel[i].prn;
+        sat_states[i].prn = meas[i].prn;
         sat_states[i].recv_idx = 0;
-        calc_sat_pos(sat_states[i].pos,
-                     sat_states[i].vel,
-                     &sat_states[i].clock_err,
-                     &sat_states[i].clock_rate_err,
-                     &es[sat_states[i].prn],
-                     TOTs[i]);
-        sat_states[i].pseudorange = prs[i] + sat_states[i].clock_err*NAV_C;
-        sat_states[i].pseudorange_rate = prrs[i] - sat_states[i].clock_rate_err*NAV_C;
-        ranges[i] = predict_range(WPR_xyz, TOTs[i], &es[sat_states[i].prn]);
-        mean_range += ranges[i];
+        memcpy(sat_states[i].pos, nav_meas[i].sat_pos, sizeof(nav_meas[i].pos));
+        memcpy(sat_states[i].vel, nav_meas[i].sat_vel, sizeof(nav_meas[i].vel));
+        sat_states[i].pseudorange = nav_meas[i].pseudorange;
+        sat_states[i].pseudorange_rate = nav_meas[i].pseudorange_rate;
+        //ranges[i] = predict_range(WPR_xyz, TOTs[i], &es[sat_states[i].prn]);
+        //mean_range += ranges[i];
       }
       mean_range /= TRACK_N_CHANNELS;
       for (u8 i=0; i<TRACK_N_CHANNELS; i++) {

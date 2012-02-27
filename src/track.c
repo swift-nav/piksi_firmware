@@ -261,38 +261,25 @@ void tracking_channel_disable(u8 channel)
   tracking_channel[channel].state = TRACKING_DISABLED;
 }
 
+void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
+{
+  tracking_channel_t* chan = &tracking_channel[channel];
+
+  /* Update our channel measurement. */
+  meas->prn = chan->prn;
+  meas->code_phase_chips = (double)chan->code_phase_early / TRACK_CODE_PHASE_UNITS_PER_CHIP;
+  meas->code_phase_rate_chips_per_second = (double)chan->code_phase_rate_fp_prev / TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  meas->carrier_phase_radians = 0;
+  meas->carrier_freq_hz = chan->carrier_freq;
+  meas->time_of_week_ms = chan->TOW_ms;
+  meas->receiver_time_samples = chan->sample_count;
+  meas->snr = tracking_channel_snr(channel);
+}
 
 float tracking_channel_snr(u8 channel)
 {
   /* Calculate SNR from I and Q filtered magnitudes. */ 
   return (float)(tracking_channel[channel].I_filter >> I_FILTER_COEFF) / \
                 (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
-}
-
-void calc_pseudoranges(double pseudoranges[], double pseudorange_rates[], double TOTs[])
-{
-  u32 nav_count = timing_count();
-  double mean_TOT = 0;
-
-  __asm__("CPSID i;");
-  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-    TOTs[i] = 1e-3*tracking_channel[i].TOW_ms;
-    TOTs[i] += (((double)tracking_channel[i].code_phase_early
-                  + (double)tracking_channel[i].code_phase_rate_fp_prev * ((double)nav_count - (double)tracking_channel[i].sample_count))
-               / (double)TRACK_CODE_PHASE_UNITS_PER_CHIP) / 1.023e6;
-
-    /*TOTs[i] = 1e-3*tracking_channel[i].TOW_ms;*/
-    /*TOTs[i] += (nav_count - tracking_channel[i].sample_count) / (1.023e6 * 16.0);*/
-
-    mean_TOT += TOTs[i];
-    pseudorange_rates[i] = NAV_C * -tracking_channel[i].carrier_freq / L1_HZ;
-  }
-  __asm__("CPSIE i;");
-
-  mean_TOT = mean_TOT/TRACK_N_CHANNELS;
-
-  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-    pseudoranges[i] = (mean_TOT - TOTs[i])*NAV_C + NOMINAL_RANGE;
-  }
 }
 
