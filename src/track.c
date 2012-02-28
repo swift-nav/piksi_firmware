@@ -272,7 +272,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->carrier_phase = 0;
   meas->carrier_freq = chan->carrier_freq;
   meas->time_of_week_ms = chan->TOW_ms;
-  meas->receiver_time = chan->sample_count / SAMPLE_FREQ;
+  meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
   meas->snr = tracking_channel_snr(channel);
 }
 

@@ -95,7 +95,7 @@ int main(void)
 	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO10|GPIO11);
   gpio_clear(GPIOC, GPIO10|GPIO11);
 
-  //rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
+  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
 
   debug_setup();
 
@@ -144,7 +144,9 @@ int main(void)
       printf("Starting solution!\n");
       navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
       channel_measurement_t meas[TRACK_N_CHANNELS];
-      calc_navigation_measurement(TRACK_N_CHANNELS, meas, nav_meas, timing_count(), es);
+      for (u8 i=0; i<TRACK_N_CHANNELS; i++)
+        tracking_update_measurement(i, &meas[i]);
+      calc_navigation_measurement(TRACK_N_CHANNELS, meas, nav_meas, (double)timing_count()/SAMPLE_FREQ, es);
 
       for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
         sat_states[i].prn = meas[i].prn;
@@ -172,7 +174,6 @@ int main(void)
       printf("===============================================\n");
       while(1);
     }
-/*
     DO_EVERY(500,
       float snrs[TRACK_N_CHANNELS];
       for (u8 i=0; i<TRACK_N_CHANNELS; i++)
@@ -185,7 +186,6 @@ int main(void)
     u32 err = swift_nap_read_error_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);
-*/
   }
 
   while (1);

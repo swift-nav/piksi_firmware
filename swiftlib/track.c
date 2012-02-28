@@ -22,9 +22,9 @@ void calc_navigation_measurement(u8 n_channels, channel_measurement_t meas[], na
 
   for (u8 i=0; i<n_channels; i++) {
     calc_sat_pos(nav_meas[i].sat_pos, nav_meas[i].sat_vel, &clock_err, &clock_rate_err, &ephemerides[meas[i].prn], TOTs[i]);
-    nav_meas[i].pseudorange= (mean_TOT - TOTs[i])*NAV_C + NOMINAL_RANGE;
-    nav_meas[i].pseudorange+= clock_err*NAV_C;
-    nav_meas[i].pseudorange_rate-= clock_rate_err*NAV_C;
+    nav_meas[i].pseudorange = (mean_TOT - TOTs[i])*NAV_C + NOMINAL_RANGE;
+    nav_meas[i].pseudorange += clock_err*NAV_C;
+    nav_meas[i].pseudorange_rate -= clock_rate_err*NAV_C;
   }
 }
 
