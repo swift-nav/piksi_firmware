@@ -144,50 +144,18 @@ int main(void)
       printf("Starting solution!\n");
       navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
       channel_measurement_t meas[TRACK_N_CHANNELS];
-      calc_pseudoranges(TRACK_N_CHANNELS, meas, nav_meas, timing_count());
+      calc_navigation_measurement(TRACK_N_CHANNELS, meas, nav_meas, timing_count(), es);
 
       for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
         sat_states[i].prn = meas[i].prn;
         sat_states[i].recv_idx = 0;
-        memcpy(sat_states[i].pos, nav_meas[i].sat_pos, sizeof(nav_meas[i].pos));
-        memcpy(sat_states[i].vel, nav_meas[i].sat_vel, sizeof(nav_meas[i].vel));
+        memcpy(sat_states[i].pos, nav_meas[i].sat_pos, sizeof(nav_meas[i].sat_pos));
+        memcpy(sat_states[i].vel, nav_meas[i].sat_vel, sizeof(nav_meas[i].sat_vel));
         sat_states[i].pseudorange = nav_meas[i].pseudorange;
         sat_states[i].pseudorange_rate = nav_meas[i].pseudorange_rate;
         //ranges[i] = predict_range(WPR_xyz, TOTs[i], &es[sat_states[i].prn]);
         //mean_range += ranges[i];
       }
-      mean_range /= TRACK_N_CHANNELS;
-      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-        double r = ranges[i] - mean_range + NOMINAL_RANGE;
-        printf("PRN: %d, ", sat_states[i].prn+1);
-        printf("tow: %f, ", (double)tracking_channel[i].TOW_ms);
-        printf("TOT: %f, ", TOTs[i]);
-        printf("err: %f, ", sat_states[i].clock_err*NAV_C);
-        printf("r: %f, ", ranges[i]);
-        printf("ppr: %f, ", r);
-        printf("pr: %f, ", sat_states[i].pseudorange);
-        printf("prr: %f, \n", sat_states[i].pseudorange_rate);
-      }
-
-      printf("pr = array([");
-      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-        printf("%f, ", sat_states[i].pseudorange);
-      }
-      printf("])\n");
-      printf("ppr = array([");
-      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-        double r = ranges[i] - mean_range + NOMINAL_RANGE;
-        printf("%f, ", r);
-      }
-      printf("])\n");
-      printf("pr_err = array([");
-      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-        double r = ranges[i] - mean_range + NOMINAL_RANGE;
-        printf("%f, ", (sat_states[i].pseudorange - r)*1023/3e5);
-      }
-      printf("])\n");
-
-
       gnss_solution soln;
       solution_plus plus;
       double W[32] = EQUAL_WEIGHTING;

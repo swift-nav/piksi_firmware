@@ -3,6 +3,7 @@ BINARY = swiftnav-firmware
 SWIFTLIB_OBJS = ../swiftlib/linear_algebra.o \
                 ../swiftlib/coord_system.o \
                 ../swiftlib/pvt.o \
+                ../swiftlib/track.o \
                 ../swiftlib/nav_msg.o \
                 ../swiftlib/ephemeris.o \
 

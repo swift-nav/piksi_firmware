@@ -7,6 +7,8 @@
 #ifndef SWIFTLIB_PVT_H
 #define SWIFTLIB_PVT_H
 
+#include "common.h"
+
 /* GPS constants */
 #define GPS_NUM_SATS  32
 #define GPS_PI      3.14159265358979323846
@@ -74,9 +76,9 @@ typedef struct __attribute__((packed)) {
   double err_cov[7];
 
   double time; // GPS time of week [sec]
-  uint8_t gps_solution_valid; //0 = invalid, 1 = carrier phase, 2 = code phase
-  uint8_t num_channels; // Number of SVs tracked
-  uint8_t num_PVT; // Number of SVs tracked by Blackfin and that are ready for PVT
+  u8 gps_solution_valid; //0 = invalid, 1 = carrier phase, 2 = code phase
+  u8 num_channels; // Number of SVs tracked
+  u8 num_PVT; // Number of SVs tracked by Blackfin and that are ready for PVT
 } gnss_solution;
 
 int calc_PVT( gnss_solution *soln,
