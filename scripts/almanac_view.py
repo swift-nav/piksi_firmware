@@ -34,6 +34,8 @@ class AlmanacView(HasTraits):
   )
 
   def _warm_start_fired(self):
+    self.update_alamanc_view()
+
     acq_prn_t = struct.Struct('<hhB')
     buff = create_string_buffer(32*acq_prn_t.size)
     dopps = dict(self.alm.get_dopps())
