@@ -116,7 +116,6 @@ int main(void)
   wgsllh2xyz(WPR_llh, WPR_xyz);
   
   static ephemeris_t es[32];
-  static gnss_satellite_state sat_states[32];
   while(1)
   {
     for (u32 i = 0; i < 3000; i++)
@@ -148,26 +147,17 @@ int main(void)
         tracking_update_measurement(i, &meas[i]);
       calc_navigation_measurement(TRACK_N_CHANNELS, meas, nav_meas, (double)timing_count()/SAMPLE_FREQ, es);
 
-      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-        sat_states[i].prn = meas[i].prn;
-        sat_states[i].recv_idx = 0;
-        memcpy(sat_states[i].pos, nav_meas[i].sat_pos, sizeof(nav_meas[i].sat_pos));
-        memcpy(sat_states[i].vel, nav_meas[i].sat_vel, sizeof(nav_meas[i].sat_vel));
-        sat_states[i].pseudorange = nav_meas[i].pseudorange;
-        sat_states[i].pseudorange_rate = nav_meas[i].pseudorange_rate;
-        //ranges[i] = predict_range(WPR_xyz, TOTs[i], &es[sat_states[i].prn]);
-        //mean_range += ranges[i];
-      }
       gnss_solution soln;
       solution_plus plus;
       double W[32] = EQUAL_WEIGHTING;
-      calc_PVT(&soln, 4, 1, sat_states, W, &plus);
+      calc_PVT(&soln, 4, 1, nav_meas, W, &plus);
       double temp[3];
       vector_subtract(soln.pos_xyz, WPR_xyz, temp);
       double dist = vector_norm(temp);
       printf("======= SOLUTION ==============================\n");
       printf("Lat: %f, Lon: %f, Height: %f\n", R2D*soln.pos_llh[0], R2D*soln.pos_llh[1], soln.pos_llh[2]);
       printf("X: %f, Y: %f, Z: %f\n", soln.pos_xyz[0], soln.pos_xyz[1], soln.pos_xyz[2]);
+      printf("Vx: %f, Vy: %f, Vz: %f\n", soln.vel_xyz[0], soln.vel_xyz[1], soln.vel_xyz[2]);
       printf("Dist to WPR: %f\n", dist);
       printf("Err Cov: %f %f %f %f %f %f\n", soln.err_cov[0], soln.err_cov[1], soln.err_cov[2], soln.err_cov[3], soln.err_cov[4], soln.err_cov[5]);
       printf("PDOP: %f \n", plus.pdop);

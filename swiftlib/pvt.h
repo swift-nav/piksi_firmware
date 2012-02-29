@@ -8,6 +8,7 @@
 #define SWIFTLIB_PVT_H
 
 #include "common.h"
+#include "track.h"
 
 /* GPS constants */
 #define GPS_NUM_SATS  32
@@ -23,18 +24,6 @@
 
 #define GNSS_MAX_OBS GPS_NUM_SATS
 #define GNSS_MAX_RECEIVERS 1
-
-typedef struct {
-  double pos[3];
-  double vel[3];
-  double clock_err;
-  double clock_rate_err;
-  double clock_drift;
-  double pseudorange;
-  double pseudorange_rate;
-  int prn;
-  int recv_idx;
-} gnss_satellite_state;
 
 
 typedef struct {
@@ -84,13 +73,11 @@ typedef struct __attribute__((packed)) {
 int calc_PVT( gnss_solution *soln,
               unsigned int n_used,
               unsigned int n_recv,
-              gnss_satellite_state const sats[GPS_NUM_SATS],
+              navigation_measurement_t const nav_meas[GPS_NUM_SATS],
               const double W[GPS_NUM_SATS],
               //double rx_time[n_recv],
               //double rx_freq_bias[n_recv],
               solution_plus *plus);
-
-void init_sat(gnss_satellite_state *sat, unsigned int prn, int recv_idx);
 
 #define EQUAL_WEIGHTING {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 

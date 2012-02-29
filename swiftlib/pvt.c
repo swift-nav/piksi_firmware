@@ -11,17 +11,10 @@
 #include "coord_system.h"
 
 #include "pvt.h"
-
-void init_sat(gnss_satellite_state *sat, unsigned int prn, int recv_idx)
-{
-  sat->prn = prn;
-  sat->recv_idx = recv_idx;
-  // DBG("Initializing PRN %02u\n",prn+1);
-}
-
+#include "track.h"
 
 static double vel_solve(double rx_vel[],
-                        const gnss_satellite_state sats[GPS_NUM_SATS],
+                        const navigation_measurement_t nav_meas[GPS_NUM_SATS],
                         unsigned int n_used,
                         unsigned int n_recv,
                         const double G[GPS_NUM_SATS][n_recv+3],
@@ -43,12 +36,12 @@ static double vel_solve(double rx_vel[],
   double pdot_pred;
   unsigned int j, k;
   for (j = 0; j < n_used; j++) {
-    pdot[j] = sats[j].pseudorange_rate; 
+    pdot[j] = nav_meas[j].pseudorange_rate; 
 
     /* Predict satellite velocity and subtract known antenna movement
      * due to rotation rate */
     for (k=0; k<3; k++) {
-      Vs[j][k] = sats[j].vel[k];
+      Vs[j][k] = nav_meas[j].sat_vel[k];
     }
     Vs[j][3] = 0;
 
@@ -130,7 +123,7 @@ static void compute_dops(unsigned int n_recv,
 
 static double
 pvt_solve(double rx_state[],
-          const gnss_satellite_state sats[GPS_NUM_SATS],
+          const navigation_measurement_t nav_meas[GPS_NUM_SATS],
           unsigned int n_used,
           unsigned int n_recv,
           const double W[GPS_NUM_SATS],
@@ -174,7 +167,7 @@ pvt_solve(double rx_state[],
     /* The satellite positions need to be corrected for earth's
      * rotation during the transmission time.  We base this correction
      * on the range between our receiver and satellite k */
-    vector_subtract(rx_state, sats[j].pos, tempv); 
+    vector_subtract(rx_state, nav_meas[j].sat_pos, tempv); 
     x0xk_mag = vector_norm (tempv); // [m] magnitude of range vector
     tau = x0xk_mag / NAV_C; // [sec] Convert into an approximate time
     wEtau = NAV_OMEGAE_DOT * tau; // [rad] rotation of Earth during transit
@@ -192,7 +185,7 @@ pvt_solve(double rx_state[],
     rotm[2][2] = 1.0;
     // result in xk_new, position of satellite k in ECEF
     matrix_multiply(3, 3, 1, (double *) rotm, 
-                    (double *) sats[j].pos, 
+                    (double *) nav_meas[j].sat_pos, 
                     (double *) xk_new);
 
     // predicted range from satellite position and estimated Rx position
@@ -202,10 +195,10 @@ pvt_solve(double rx_state[],
     /* omp means "observed minus predicted" range -- this is E, the
      * prediction error vector (or innovation vector in Kalman/LS
      * filtering terms). */
-    omp[j] = sats[j].pseudorange - p_pred[j];
+    omp[j] = nav_meas[j].pseudorange - p_pred[j];
 
     // line of sight vector
-    vector_subtract (sats[j].pos, rx_state, los);
+    vector_subtract (nav_meas[j].sat_pos, rx_state, los);
 
     /* Construct a geometry matrix.  Each row (satellite) is
      * independently normalized into a unit vector.  */
@@ -219,7 +212,7 @@ pvt_solve(double rx_state[],
     for (i=0; i<n_recv; i++) {
       G[j][3+i] = 0;
     }
-    G[j][3+sats[j].recv_idx] = 1;
+    G[j][3+0] = 1;
 
   } // end of channel loop
 
@@ -277,7 +270,7 @@ pvt_solve(double rx_state[],
     plus->innovation[i] = omp[i];
   }
 
-  vel_solve(&rx_state[n], sats, n_used, n_recv, (const double (*)[n]) G, (const double (*)[GPS_NUM_SATS]) X);
+  vel_solve(&rx_state[n], nav_meas, n_used, n_recv, (const double (*)[n]) G, (const double (*)[GPS_NUM_SATS]) X);
   return tempd;
 }   
    
@@ -285,7 +278,7 @@ int
 calc_PVT(gnss_solution *soln, 
          unsigned int n_used,
          unsigned int n_recv,    
-         const gnss_satellite_state sats[GPS_NUM_SATS],
+         const navigation_measurement_t nav_meas[GPS_NUM_SATS],
          const double W[GPS_NUM_SATS],
          /*double rx_time[n_recv],*/
          /*double rx_freq_bias[n_recv],*/
@@ -317,7 +310,7 @@ calc_PVT(gnss_solution *soln,
   }
 
   for (i = 0; i < max_iterations; i++) {
-    if ((update = pvt_solve(rx_state, sats, n_used, n_recv, W, soln->err_cov, plus)) > 0) {
+    if ((update = pvt_solve(rx_state, nav_meas, n_used, n_recv, W, soln->err_cov, plus)) > 0) {
       break;
     }
   }
@@ -347,26 +340,7 @@ calc_PVT(gnss_solution *soln,
   /* Implicitly use the first receiver to calculate offset from GPS
    * TOW.  Maybe there's a better way to do this?  */
   soln->time -= rx_state[3] / NAV_C;
-  // Why yes, there is:
  
-  /* The question was unclear.  What I meant was: which time do we
-   * give to the autopilot as "the" solution time?  "soln->time"
-   * hasn't changed.  */
-  /*if (rx_time) {*/
-    /*for (int r = 0; r < (int)n_recv; r++)*/
-      /*for (i = 0; i < n_used; i++)*/
-        /*if (sats[i].recv_idx == r) {*/
-          /*rx_time[r]=sats[i].totc + sats[i].pseudorange/NAV_C - rx_state[3+r]/NAV_C;*/
-          /*break;*/
-        /*}*/
-  /*}*/
-  
-  /*if (rx_freq_bias) {*/
-    /*for (int r = 0; r < (int)n_recv; r++) {*/
-      /*rx_freq_bias[r]=(rx_state[n+3+r]/NAV_C)*GPS_L1_HZ;*/
-    /*}*/
-  /*}*/
-
   return 0;
 }
 
