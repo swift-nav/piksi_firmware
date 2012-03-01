@@ -218,6 +218,8 @@ void tracking_channel_update(u8 channel)
       chan->dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
 
       chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
+
+      chan->code_phase_rate = 0.1*chan->code_phase_rate + 0.9*1.023e6*(1+ chan->carrier_freq/L1_HZ);
    
       u32 timer_val = timing_count();
       static u32 max_timer_val = 0;
