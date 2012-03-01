@@ -288,7 +288,6 @@ u8 calc_PVT(const u8 n_used,
       break;
     }
   }
-  printf("%d iterations\n", iters);
 
   /* Compute various dilution of precision metrics. */
   compute_dops((const double(*)[4])H, rx_state, dops);
@@ -321,6 +320,7 @@ u8 calc_PVT(const u8 n_used,
 
   /* Convert to lat, lon, hgt. */
   wgsxyz2llh(rx_state, soln->pos_llh);
+
   /* Implicitly use the first receiver to calculate offset from GPS
    * TOW.  Maybe there's a better way to do this?  */
   /* TODO: what is this about? */

@@ -140,7 +140,6 @@ int main(void)
     }
     if (n_ready >= 4) {
       /* Got enough sats/ephemerides, do a solution. */
-      printf("Starting solution!\n");
       navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
       channel_measurement_t meas[TRACK_N_CHANNELS];
       for (u8 i=0; i<TRACK_N_CHANNELS; i++)
