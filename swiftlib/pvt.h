@@ -43,7 +43,6 @@ typedef struct __attribute__((packed)) {
    */
   double pos_llh[3]; // Receiver position latitude [deg], longitude [deg], altitude [m]
   double pos_xyz[3]; // Receiver position ECEF XYZ [m]
-  double pos_ned[3]; // Receiver position north [m], east [m], down [m]
 
   double vel_xyz[3]; // Receiver velocity in ECEF XYZ [m/s]
   double vel_ned[3]; // Receiver velocity in NED [m/s]
@@ -62,8 +61,7 @@ typedef struct __attribute__((packed)) {
 
   double time; // GPS time of week [sec]
   u8 gps_solution_valid; //0 = invalid, 1 = carrier phase, 2 = code phase
-  u8 num_channels; // Number of SVs tracked
-  u8 num_PVT; // Number of SVs tracked by Blackfin and that are ready for PVT
+  u8 n_used; // Number of channels used in the soluton.
 } gnss_solution;
 
 u8 calc_PVT(const u8 n_used,
