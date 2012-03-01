@@ -29,6 +29,7 @@ import struct
 from output_stream import OutputStream
 from tracking_view import TrackingView
 from almanac_view import AlmanacView
+from solution_view import SolutionView
 import flash
 
 class SwiftConsole(HasTraits):
@@ -39,10 +40,12 @@ class SwiftConsole(HasTraits):
   b = Int
   tracking_view = Instance(TrackingView)
   almanac_view = Instance(AlmanacView)
+  solution_view = Instance(SolutionView)
 
   view = View(
     VSplit(
       Tabbed(
+        Item('solution_view', style='custom', show_label=False),
         Item('tracking_view', style='custom', show_label=False),
         Item('tracking_view', style='custom', show_label=False, editor=InstanceEditor(view='snr_line_view')),
         Item('almanac_view', style='custom', show_label=False),
@@ -70,6 +73,7 @@ class SwiftConsole(HasTraits):
 
     self.tracking_view = TrackingView(self.link)
     self.almanac_view = AlmanacView(self.link)
+    self.solution_view = SolutionView(self.link)
 
     self.flash = flash.Flash(self.link)
     self.flash.start()
@@ -80,6 +84,7 @@ class SwiftConsole(HasTraits):
     }
     self.python_console_env.update(self.tracking_view.python_console_cmds)
     self.python_console_env.update(self.almanac_view.python_console_cmds)
+    self.python_console_env.update(self.solution_view.python_console_cmds)
 
   def stop(self):
     self.flash.stop()
