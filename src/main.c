@@ -149,18 +149,11 @@ int main(void)
       gnss_solution soln;
       dops_t dops;
       calc_PVT(4, nav_meas, &soln, &dops);
-      double temp[3];
-      vector_subtract(soln.pos_xyz, WPR_xyz, temp);
-      double dist = vector_norm(temp);
-      printf("======= SOLUTION ==============================\n");
-      printf("Lat: %f, Lon: %f, Height: %f\n", R2D*soln.pos_llh[0], R2D*soln.pos_llh[1], soln.pos_llh[2]);
-      printf("X: %f, Y: %f, Z: %f\n", soln.pos_xyz[0], soln.pos_xyz[1], soln.pos_xyz[2]);
-      printf("Vx: %f, Vy: %f, Vz: %f\n", soln.vel_xyz[0], soln.vel_xyz[1], soln.vel_xyz[2]);
-      printf("Dist to WPR: %f\n", dist);
-      printf("Err Cov: %f %f %f %f %f %f\n", soln.err_cov[0], soln.err_cov[1], soln.err_cov[2], soln.err_cov[3], soln.err_cov[4], soln.err_cov[5]);
-      printf("PDOP: %f \n", dops.pdop);
-      printf("===============================================\n");
-      while(1);
+      wgsxyz2ned_rt(soln.pos_xyz, WPR_xyz, soln.pos_ned);
+      DO_EVERY(10,
+        debug_send_msg(0x50, sizeof(gnss_solution), (u8 *) &soln);
+        debug_send_msg(0x51, sizeof(dops_t), (u8 *) &dops);
+      );
     }
     DO_EVERY(500,
       float snrs[TRACK_N_CHANNELS];

@@ -43,6 +43,7 @@ typedef struct __attribute__((packed)) {
    */
   double pos_llh[3]; // Receiver position latitude [deg], longitude [deg], altitude [m]
   double pos_xyz[3]; // Receiver position ECEF XYZ [m]
+  double pos_ned[3];
 
   double vel_xyz[3]; // Receiver velocity in ECEF XYZ [m/s]
   double vel_ned[3]; // Receiver velocity in NED [m/s]
