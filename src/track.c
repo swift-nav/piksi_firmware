@@ -268,7 +268,8 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   /* Update our channel measurement. */
   meas->prn = chan->prn;
   meas->code_phase_chips = (double)chan->code_phase_early / TRACK_CODE_PHASE_UNITS_PER_CHIP;
-  meas->code_phase_rate = (double)chan->code_phase_rate_fp_prev / TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  //meas->code_phase_rate = (double)chan->code_phase_rate_fp_prev / TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  meas->code_phase_rate = 1.023e6 * (1 + chan->carrier_freq/L1_HZ);
   meas->carrier_phase = 0;
   meas->carrier_freq = chan->carrier_freq;
   meas->time_of_week_ms = chan->TOW_ms;
