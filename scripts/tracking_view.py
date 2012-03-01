@@ -93,7 +93,7 @@ class TrackingView(HasTraits):
 
     plot = BarPlot(index=idxs, value=self.vals, 
                    index_mapper=index_mapper, value_mapper=value_mapper, 
-                   line_color='black', fill_color='lightgreen', bar_width=0.8)
+                   line_color='blue', fill_color='blue', bar_width=0.8)
 
     container = OverlayPlotContainer(bgcolor = "white")
     plot.padding = 10
