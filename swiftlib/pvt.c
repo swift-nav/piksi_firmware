@@ -14,76 +14,74 @@
 #include "track.h"
 
 static double vel_solve(double rx_vel[],
-                        const navigation_measurement_t nav_meas[GPS_NUM_SATS],
-                        unsigned int n_used,
-                        unsigned int n_recv,
-                        const double G[GPS_NUM_SATS][n_recv+3],
-                        const double X[n_recv+3][GPS_NUM_SATS])
+                        const navigation_measurement_t const nav_meas[GPS_NUM_SATS],
+                        const u8 n_used,
+                        const double const G[n_used][4],
+                        const double const X[4][n_used])
 {
   /* Velocity Solution 
    *
-   * G, Gtrans, X and H matrices already exist from the position
+   * G and X matrices already exist from the position
    * solution loop through valid measurements.  Here we form satellite
    * velocity and pseudorange rate vectors -- it's the same
    * prediction-error least-squares thing, but we do only one step.  
   */
 
-  unsigned int n = 3+n_recv;
-
-  double tempvX[GPS_NUM_SATS];
-  double Vs[GPS_NUM_SATS][n];
-  double pdot[GPS_NUM_SATS];
+  double tempvX[n_used];
   double pdot_pred;
-  unsigned int j, k;
-  for (j = 0; j < n_used; j++) {
-    pdot[j] = nav_meas[j].pseudorange_rate; 
 
-    /* Predict satellite velocity and subtract known antenna movement
-     * due to rotation rate */
-    for (k=0; k<3; k++) {
-      Vs[j][k] = nav_meas[j].sat_vel[k];
-    }
-    Vs[j][3] = 0;
+  for (u8 j = 0; j < n_used; j++) {
+    /* Calculate predicted pseudorange rates from the satellite velocity
+     * and the geometry matix G which contains normalised line-of-sight
+     * vectors to the satellites.
+     */
+    pdot_pred = -vector_dot_product(G[j], nav_meas[j].sat_vel);
 
-    pdot_pred = -(G[j][0] * Vs[j][0] + G[j][1] * Vs[j][1] + G[j][2] * Vs[j][2]);
-    tempvX[j] = pdot[j] - pdot_pred; /* The residual is due to the user's motion */
+    /* The residual is due to the user's motion. */
+    tempvX[j] = nav_meas[j].pseudorange_rate - pdot_pred;
   }
-  matrix_multiply(n, n_used, 1, (double *) X, (double *) tempvX, (double *) rx_vel);
 
-  /* Return just the bias of the first receiver */
+  /* Use X to map our pseudorange rate residuals onto the Jacobian update.
+   *
+   *   rx_vel[j] = X[j] . tempvX[j]
+   */
+  matrix_multiply(4, n_used, 1, (double *) X, (double *) tempvX, (double *) rx_vel);
+
+  /* Return just the receiver clock bias. */
   return rx_vel[3];
 }
 
-static void compute_dops(unsigned int n_recv,
-                         double H[3+n_recv][3+n_recv],
-                         double pos_xyz[3],
-                         solution_plus *plus)
+void compute_dops(const double const H[4][4],
+                  const double const pos_xyz[3],
+                  dops_t *dops)
 {
-  unsigned int n = n_recv+3, i;
-  double tr_H_pos[3], H_ned[3];
-  plus->gdop = plus->pdop = plus->tdop = plus->hdop = plus->vdop = 0;
+  double H_pos_diag[3];
+  double H_ned[3];
+
+  dops->gdop = dops->pdop = dops->tdop = dops->hdop = dops->vdop = 0;
 
   /* PDOP is the norm of the position elements of tr(H) */
-  plus->gdop = sqrt(plus->gdop);
-  for (i=0; i<3; i++) {
-    plus->pdop += H[i][i];
+  for (u8 i=0; i<3; i++) {
+    dops->pdop += H[i][i];
     /* Also get the trace of H position states for use in HDOP/VDOP
-     * calculations */
-    tr_H_pos[i] = H[i][i];
+     * calculations.
+     */
+    H_pos_diag[i] = H[i][i];
   }
-  plus->pdop = sqrt(plus->pdop);
-  /* TDOP is like PDOP but for time states. */
-  for (i=3; i<n; i++) {
-    plus->tdop += H[i][i];
-  }
-  plus->tdop = sqrt(plus->tdop);
-  /* calculate the GDOP -- ||tr(H)|| = sqrt(PDOP^2 + TDOP^2) */
-  plus->gdop = sqrt(plus->tdop + plus->pdop);
+  dops->pdop = sqrt(dops->pdop);
+
+  /* TDOP is like PDOP but for the time state. */
+  dops->tdop = sqrt(H[3][3]);
+
+  /* Calculate the GDOP -- ||tr(H)|| = sqrt(PDOP^2 + TDOP^2) */
+  dops->gdop = sqrt(dops->tdop*dops->tdop + dops->pdop*dops->pdop);
+
   /* HDOP and VDOP are Horizontal and Vertical; we need to rotate the
-   * PDOP into NED frame and then take the separate components.  */
-  wgsxyz2ned_r(tr_H_pos, pos_xyz, H_ned);
-  plus->vdop = sqrt(H_ned[2]*H_ned[2]);
-  plus->hdop = sqrt(H_ned[0]*H_ned[0] + H_ned[1]*H_ned[1]);
+   * PDOP into NED frame and then take the separate components.
+   */
+  wgsxyz2ned_r(H_pos_diag, pos_xyz, H_ned);
+  dops->vdop = sqrt(H_ned[2]*H_ned[2]);
+  dops->hdop = sqrt(H_ned[0]*H_ned[0] + H_ned[1]*H_ned[1]);
 }
 
 
@@ -120,60 +118,56 @@ static void compute_dops(unsigned int n_recv,
  *     vel_solve) and do some bookkeeping to pass the solution back
  *     out.
  */
-
-static double
-pvt_solve(double rx_state[],
-          const navigation_measurement_t nav_meas[GPS_NUM_SATS],
-          unsigned int n_used,
-          unsigned int n_recv,
-          const double W[GPS_NUM_SATS],
-          double err_cov[7],
-          solution_plus *plus)
+static double pvt_solve(double rx_state[],
+                        const u8 n_used,
+                        const navigation_measurement_t const nav_meas[n_used],
+                        double H[4][4])
 {
-  unsigned int n = 3+n_recv;
+  double p_pred[n_used];
 
-  unsigned int j;
-  unsigned int i;
-
-  double p_pred[GPS_NUM_SATS];
   /* Vector of prediction errors */
-  double omp[GPS_NUM_SATS];
-  double ompW[GPS_NUM_SATS];
+  double omp[n_used];
+
   /* G is a geometry matrix tells us how our pseudoranges relate to
    * our state estimates -- it's the Jacobian of d(p_i)/d(x_j) where
    * x_j are x, y, z, Δt. */
-  double G[GPS_NUM_SATS][n];
-  double Gtrans[n][GPS_NUM_SATS];
-  double GtG[n][n];
+  double G[n_used][4];
+  double Gtrans[4][n_used];
+  double GtG[4][4];
+
   /* H is the square of the Jacobian matrix; it tells us the shape of
      our error (or, if you prefer, the direction in which we need to
      move to get a better solution) in terms of the receiver state. */
-  double H[n][n];
+
   /* X is just H * Gtrans -- it maps our pseudoranges onto our
    * Jacobian update */
-  double X[n][GPS_NUM_SATS];
+  double X[4][n_used];
+
   double tempv[3];
-  double rotm[3][3];
   double los[3];
   double xk_new[3];
-  double tempd, x0xk_mag, tau, wEtau;
-  double correction[n];
+  double tempd;
+  double correction[4];
 
-  for (j=0; j<n; j++) {
+  for (u8 j=0; j<4; j++) {
     correction[j] = 0.0;
   }
 
-  for (j = 0; j < n_used; j++) {
+  for (u8 j = 0; j < n_used; j++) {
     /* The satellite positions need to be corrected for earth's
      * rotation during the transmission time.  We base this correction
      * on the range between our receiver and satellite k */
     vector_subtract(rx_state, nav_meas[j].sat_pos, tempv); 
-    x0xk_mag = vector_norm (tempv); // [m] magnitude of range vector
-    tau = x0xk_mag / NAV_C; // [sec] Convert into an approximate time
-    wEtau = NAV_OMEGAE_DOT * tau; // [rad] rotation of Earth during transit
+
+    /* Magnitude of range vector converted into an approximate time in secs. */
+    double tau = vector_norm(tempv) / NAV_C; 
+    /* Rotation of Earth during transit in radians. */
+    double wEtau = NAV_OMEGAE_DOT * tau;
 
     /* Form rotation matrix about Z-axis for Earth's motion which will
-     * adjust for the satellite's position at time (t-tau) */
+     * adjust for the satellite's position at time (t-tau).
+     */
+    double rotm[3][3];
     rotm[0][0] = cos(wEtau);
     rotm[0][1] = sin(wEtau);
     rotm[0][2] = 0.0;
@@ -183,162 +177,153 @@ pvt_solve(double rx_state[],
     rotm[2][0] = 0.0;
     rotm[2][1] = 0.0;
     rotm[2][2] = 1.0;
-    // result in xk_new, position of satellite k in ECEF
-    matrix_multiply(3, 3, 1, (double *) rotm, 
-                    (double *) nav_meas[j].sat_pos, 
-                    (double *) xk_new);
 
-    // predicted range from satellite position and estimated Rx position
+    /* Result in xk_new, position of satellite k in ECEF. */
+    matrix_multiply(3, 3, 1, (double *) rotm, 
+                             (double *) nav_meas[j].sat_pos, 
+                             (double *) xk_new);
+
+    /* Predicted range from satellite position and estimated Rx position. */
     vector_subtract(rx_state, xk_new, tempv);
     p_pred[j] = vector_norm(tempv);
 
     /* omp means "observed minus predicted" range -- this is E, the
      * prediction error vector (or innovation vector in Kalman/LS
-     * filtering terms). */
+     * filtering terms).
+     */
     omp[j] = nav_meas[j].pseudorange - p_pred[j];
 
-    // line of sight vector
-    vector_subtract (nav_meas[j].sat_pos, rx_state, los);
+    /* Line of sight vector. */
+    vector_subtract(nav_meas[j].sat_pos, rx_state, los);
 
     /* Construct a geometry matrix.  Each row (satellite) is
-     * independently normalized into a unit vector.  */
-    for (i=0; i<3; i++) {
+     * independently normalized into a unit vector.
+     */
+    for (u8 i=0; i<3; i++) {
       los[i] = los[i] / p_pred[j];
-      G[j][i] = -1 * los[i];
+      G[j][i] = -los[i];
     }
 
-    /* Set time covariance to 0 for other receivers and 1 for this
-     * receiver */
-    for (i=0; i<n_recv; i++) {
-      G[j][3+i] = 0;
-    }
-    G[j][3+0] = 1;
+    /* Set time covariance to 1. */
+    G[j][3] = 1;
 
-  } // end of channel loop
+  } /* End of channel loop. */
 
   /* Solve for position corrections using batch least-squares.  When
    * all-at-once least-squares estimation for a nonlinear problem is
    * mixed with numerical iteration (not time-series recursion, but
    * iteration on a single set of measurements), it's basically
    * Newton's method.  There's a reasonably clear explanation of this
-   * on Wikipedia's article about GPS.  */
+   * on Wikipedia's article about GPS.
+   */
 
-  /* ompW := W omp, W diagonal */
-  diag_matrix_vector_multiply(n_used, ompW, W, omp);
   /* Gt := G^{T} */
-  matrix_transpose(n_used, n, (double *) G, (double *) Gtrans);
+  matrix_transpose(n_used, 4, (double *) G, (double *) Gtrans);
   /* GtG := G^{T} G */
-  matrix_multiply(n, n_used, n, (double *) Gtrans, (double *) G, (double *) GtG);
-  /* H \elem \mathbb{R}^{3+n_recv \times 3+n_recv} := GtG^{-1} */
-  matrix_inverse(n, (const double *) GtG, (double *) H);
+  matrix_multiply(4, n_used, 4, (double *) Gtrans, (double *) G, (double *) GtG);
+  /* H \elem \mathbb{R}^{4 \times 4} := GtG^{-1} */
+  matrix_inverse(4, (const double *) GtG, (double *) H);
   /* X := H * G^{T} */
-  matrix_multiply(n, n, n_used, (double *) H, (double *) Gtrans, (double *) X);
+  matrix_multiply(4, 4, n_used, (double *) H, (double *) Gtrans, (double *) X);
   /* correction := X * E (= X * omp) */
-  matrix_multiply(n, n_used, 1, (double *) X, (double *) ompW, (double *) correction);
+  matrix_multiply(4, n_used, 1, (double *) X, (double *) omp, (double *) correction);
 
   /* Increment xyz estimate by the new corrections */
-  for (i=0; i<3; i++) {
+  for (u8 i=0; i<3; i++) {
     rx_state[i] += correction[i];
   }
   
   /* Set the Δt estimates according to this solution */
-  for (i=3; i<n; i++) {
+  for (u8 i=3; i<4; i++) {
     rx_state[i] = correction[i];
   }
 
+  /* Look at the magnintude of the correction to see if
+   * the solution has converged yet.
+   */
   tempd = vector_norm(correction);
   if(tempd > 0.001) {
+    /* The solution has not converged, return a negative value to
+     * indicate that we should continue iterating.
+     */
     return -tempd;
   }
 
-  /* Compute various dilution of precision metrics. */
-  compute_dops(n_recv, H, rx_state, plus);
-  err_cov[6] = plus->gdop;
+  /* The solution has converged! */
 
-  /* Populate error covariances according to layout in definition
-   * of gnss_solution struct (gnss_external.h) */
-  err_cov[0] = H[0][0];
-  err_cov[1] = H[0][1];
-  err_cov[2] = H[0][2];
-  err_cov[3] = H[1][1];
-  err_cov[4] = H[1][2];
-  err_cov[5] = H[2][2];
+  /* Perform the velocity solution. */
+  vel_solve(&rx_state[4], nav_meas, n_used, (const double (*)[4]) G, (const double (*)[n_used]) X);
 
-  plus->n_used = n_used;
-  plus->n_recv = n_recv;
-  for (i=0; i<n_used; i++) {
-    plus->innovation[i] = omp[i];
-  }
-
-  vel_solve(&rx_state[n], nav_meas, n_used, n_recv, (const double (*)[n]) G, (const double (*)[GPS_NUM_SATS]) X);
   return tempd;
-}   
+}
    
-int
-calc_PVT(gnss_solution *soln, 
-         unsigned int n_used,
-         unsigned int n_recv,    
-         const navigation_measurement_t nav_meas[GPS_NUM_SATS],
-         const double W[GPS_NUM_SATS],
-         /*double rx_time[n_recv],*/
-         /*double rx_freq_bias[n_recv],*/
-         solution_plus *plus)       
+u8 calc_PVT(const u8 n_used,
+            const navigation_measurement_t const nav_meas[n_used],
+            gnss_solution *soln,
+            dops_t *dops)
 {
-  unsigned int n = 3+n_recv;
-  unsigned int state_len = n*2;
-
-  /* Initial receiver state estimate is at Woodpecker with zero
-   * velocity.  This is a minor improvement over using ECEF (0, 0, 0)
-   * and shouldn't cause any problems until Joby Turkmenistan starts
-   * using this code (and even then, probably not).  
+  /* Initial state is the center of the Earth with zero velocity and zero
+   * clock error, if we have some a priori position estimate we could use
+   * that here to speed convergence a little on the first iteration.
+   *
+   *  rx_state format:
+   *    pos[3], clock error, vel[3], intermediate freq error
    */
+  static double rx_state[8]; 
 
-  // pos[3], clock err, vel[3], intermediate freq err
-  /*static double rx_state[6+2*GNSS_MAX_RECEIVERS] = {-2712219, -4316338, 3820996}; */
-  static double rx_state[6+2*GNSS_MAX_RECEIVERS] = {0, 0, 0}; 
-
-  unsigned int max_iterations, i;
-  double update;
+  double H[4][4];
 
   soln->num_PVT = n_used; // Keep track of number of working channels
 
-  /* Newton-Raphson iteration. */
-  max_iterations = 20;
-
-  for(i=n; i<state_len; i++) {
+  /* reset state to zero !? */
+  for(u8 i=4; i<8; i++) {
     rx_state[i] = 0;
   }
 
-  for (i = 0; i < max_iterations; i++) {
-    if ((update = pvt_solve(rx_state, nav_meas, n_used, n_recv, W, soln->err_cov, plus)) > 0) {
+  double update;
+  u8 iters;
+  /* Newton-Raphson iteration. */
+  for (iters=0; iters<PVT_MAX_ITERATIONS; iters++) {
+    if ((update = pvt_solve(rx_state, n_used, nav_meas, H)) > 0) {
       break;
     }
   }
-  printf("%d iterations\n", i);
+  printf("%d iterations\n", iters);
 
-  if (i >= max_iterations) {
-     printf("Position solution not available after %d iterations, giving up.\n", i);
-    // DBG("||correction|| was %lf\n", -update);
-    /* Reset state to woodpecker if solution fails */
-    /*rx_state[0] = -2712219;*/
-    /*rx_state[1] = -4316338;*/
-    /*rx_state[2] = 3820996;*/
+  /* Compute various dilution of precision metrics. */
+  compute_dops((const double(*)[4])H, rx_state, dops);
+  soln->err_cov[6] = dops->gdop;
+
+  /* Populate error covariances according to layout in definition
+   * of gnss_solution struct.
+   */
+  soln->err_cov[0] = H[0][0];
+  soln->err_cov[1] = H[0][1];
+  soln->err_cov[2] = H[0][2];
+  soln->err_cov[3] = H[1][1];
+  soln->err_cov[4] = H[1][2];
+  soln->err_cov[5] = H[2][2];
+
+  if (iters >= PVT_MAX_ITERATIONS) {
+    printf("Position solution not available after %d iterations, giving up.\n", iters);
+    /* Reset state if solution fails */
     rx_state[0] = 0;
     rx_state[1] = 0;
     rx_state[2] = 0;
     return -1;
   }
 
-  // save as x y z
-  for (i = 0; i < 3; i++) {
+  /* Save as x, y, z. */
+  for (u8 i=0; i<3; i++) {
     soln->pos_xyz[i] = rx_state[i];
-    soln->vel_xyz[i] = rx_state[n+i];
+    soln->vel_xyz[i] = rx_state[4+i];
   }
 
-  // convert to lat/lon/hgt
+  /* Convert to lat, lon, hgt. */
   wgsxyz2llh(rx_state, soln->pos_llh);
   /* Implicitly use the first receiver to calculate offset from GPS
    * TOW.  Maybe there's a better way to do this?  */
+  /* TODO: what is this about? */
   soln->time -= rx_state[3] / NAV_C;
  
   return 0;

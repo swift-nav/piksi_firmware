@@ -148,9 +148,8 @@ int main(void)
       calc_navigation_measurement(TRACK_N_CHANNELS, meas, nav_meas, (double)timing_count()/SAMPLE_FREQ, es);
 
       gnss_solution soln;
-      solution_plus plus;
-      double W[32] = EQUAL_WEIGHTING;
-      calc_PVT(&soln, 4, 1, nav_meas, W, &plus);
+      dops_t dops;
+      calc_PVT(4, nav_meas, &soln, &dops);
       double temp[3];
       vector_subtract(soln.pos_xyz, WPR_xyz, temp);
       double dist = vector_norm(temp);
@@ -160,7 +159,7 @@ int main(void)
       printf("Vx: %f, Vy: %f, Vz: %f\n", soln.vel_xyz[0], soln.vel_xyz[1], soln.vel_xyz[2]);
       printf("Dist to WPR: %f\n", dist);
       printf("Err Cov: %f %f %f %f %f %f\n", soln.err_cov[0], soln.err_cov[1], soln.err_cov[2], soln.err_cov[3], soln.err_cov[4], soln.err_cov[5]);
-      printf("PDOP: %f \n", plus.pdop);
+      printf("PDOP: %f \n", dops.pdop);
       printf("===============================================\n");
       while(1);
     }

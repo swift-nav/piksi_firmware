@@ -25,19 +25,15 @@
 #define GNSS_MAX_OBS GPS_NUM_SATS
 #define GNSS_MAX_RECEIVERS 1
 
+#define PVT_MAX_ITERATIONS 20
 
 typedef struct {
-  double innovation[GNSS_MAX_OBS];
-  unsigned int sv_excl[GNSS_MAX_OBS];
-  unsigned int n_excl;
-  unsigned int n_recv;
-  unsigned int n_used;
   double pdop;
   double gdop;
   double tdop;
   double hdop;
   double vdop;
-} solution_plus;
+} dops_t;
 
 typedef struct __attribute__((packed)) {
   /* 
@@ -70,16 +66,10 @@ typedef struct __attribute__((packed)) {
   u8 num_PVT; // Number of SVs tracked by Blackfin and that are ready for PVT
 } gnss_solution;
 
-int calc_PVT( gnss_solution *soln,
-              unsigned int n_used,
-              unsigned int n_recv,
-              navigation_measurement_t const nav_meas[GPS_NUM_SATS],
-              const double W[GPS_NUM_SATS],
-              //double rx_time[n_recv],
-              //double rx_freq_bias[n_recv],
-              solution_plus *plus);
-
-#define EQUAL_WEIGHTING {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+u8 calc_PVT(const u8 n_used,
+            const navigation_measurement_t const nav_meas[n_used],
+            gnss_solution *soln,
+            dops_t *dops);
 
 #endif
 
