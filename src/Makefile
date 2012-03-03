@@ -6,6 +6,7 @@ SWIFTLIB_OBJS = ../swiftlib/linear_algebra.o \
                 ../swiftlib/track.o \
                 ../swiftlib/nav_msg.o \
                 ../swiftlib/ephemeris.o \
+                ../swiftlib/tropo.o \
 
 OBJS = main.o \
        debug.o \
