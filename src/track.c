@@ -108,7 +108,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].dll_disc = 0;
 
   double tau1_carr, tau2_carr;
-  calc_loop_coeff(25, 0.3, 0.032, &tau1_carr, &tau2_carr);
+  calc_loop_coeff(30, 0.3, 0.07, &tau1_carr, &tau2_carr);
+  /*calc_loop_coeff(25, 0.3, 0.032, &tau1_carr, &tau2_carr);*/
   tracking_channel[channel].pll_pgain = tau2_carr/tau1_carr;
   tracking_channel[channel].pll_igain = 1e-3/tau1_carr; /* loop update rate = 1e-3 sec */
   tracking_channel[channel].pll_disc = 0;
@@ -229,6 +230,22 @@ void tracking_channel_update(u8 channel)
       chan->dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
 
       chan->code_phase_rate += chan->dll_pgain*(chan->dll_disc-dll_disc_prev) + chan->dll_igain*chan->dll_disc;
+      /*chan->code_phase_rate = 0.1*chan->code_phase_rate + 0.9*1.023e6*(1+ chan->carrier_freq/L1_HZ);*/
+
+#define TAU 1e-3 //0.5
+#define A 0.5 //(TAU / (TAU + 1e-3))
+
+      /*chan->code_phase_rate = (1-A)*chan->code_phase_rate + */
+                              /*(1-A)*(DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc) +*/
+                              /*A*1.023e6*(1+ chan->carrier_freq/L1_HZ);*/
+
+      /*if (chan->update_count > 3000) {*/
+        /*chan->code_phase_rate = A*chan->code_phase_rate + */
+                                /*A*(1.023e6/L1_HZ)*(PLL_PGAIN*(chan->pll_disc-pll_disc_prev) + PLL_IGAIN*chan->pll_disc) +*/
+                                /*(1-A)*(DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc);*/
+      /*} else {*/
+        /*chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;*/
+      /*}*/
    
       u32 timer_val = timing_count();
       static u32 max_timer_val = 0;
@@ -280,7 +297,8 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->prn = chan->prn;
   meas->code_phase_chips = (double)chan->code_phase_early / TRACK_CODE_PHASE_UNITS_PER_CHIP;
   //meas->code_phase_rate = (double)chan->code_phase_rate_fp_prev / TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  meas->code_phase_rate = 1.023e6 * (1 + chan->carrier_freq/L1_HZ);
+  //meas->code_phase_rate = 1.023e6 * (1 + chan->carrier_freq/L1_HZ);
+  meas->code_phase_rate = chan->code_phase_rate;
   meas->carrier_phase = 0;
   meas->carrier_freq = chan->carrier_freq;
   meas->time_of_week_ms = chan->TOW_ms;
