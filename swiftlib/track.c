@@ -1,6 +1,8 @@
 #include "pvt.h"
 #include "track.h"
 #include "ephemeris.h"
+#include "tropo.h"
+#include "coord_system.h"
 
 void calc_loop_coeff(double BW, double zeta, double k, double *tau1, double *tau2)
 {
@@ -30,9 +32,19 @@ void calc_navigation_measurement(u8 n_channels, channel_measurement_t meas[], na
 
   double clock_err, clock_rate_err;
 
+  double az, el;
+
+  const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
+  double WPR_xyz[3];
+  wgsllh2xyz(WPR_llh, WPR_xyz);
+
   for (u8 i=0; i<n_channels; i++) {
-    calc_sat_pos(nav_meas[i].sat_pos, nav_meas[i].sat_vel, &clock_err, &clock_rate_err, &ephemerides[meas[i].prn], TOTs[i]);
     nav_meas[i].pseudorange = (mean_TOT - TOTs[i])*NAV_C + NOMINAL_RANGE;
+
+    calc_sat_pos(nav_meas[i].sat_pos, nav_meas[i].sat_vel, &clock_err, &clock_rate_err, &ephemerides[meas[i].prn], TOTs[i]);
+    satxyz2azel(nav_meas[i].sat_pos, WPR_xyz, &az, &el);
+
+    nav_meas[i].pseudorange -= tropo_correction(el);
     nav_meas[i].pseudorange += clock_err*NAV_C;
     nav_meas[i].pseudorange_rate -= clock_rate_err*NAV_C;
   }
