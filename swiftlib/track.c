@@ -21,6 +21,7 @@ void calc_navigation_measurement(u8 n_channels, channel_measurement_t meas[], na
     TOTs[i] += meas[i].code_phase_chips / 1.023e6;
     TOTs[i] += (nav_time - meas[i].receiver_time) * meas[i].code_phase_rate / 1.023e6;
 
+    nav_meas[i].TOT = TOTs[i];
     mean_TOT += TOTs[i];
     nav_meas[i].pseudorange_rate = NAV_C * -meas[i].carrier_freq / GPS_L1_HZ;
   }
