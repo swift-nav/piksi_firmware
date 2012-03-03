@@ -48,6 +48,7 @@ class SwiftConsole(HasTraits):
         Item('solution_view', style='custom', show_label=False),
         Item('tracking_view', style='custom', show_label=False),
         Item('tracking_view', style='custom', show_label=False, editor=InstanceEditor(view='snr_line_view')),
+        Item('solution_view', style='custom', show_label=False, editor=InstanceEditor(view='prs_view')),
         Item('almanac_view', style='custom', show_label=False),
       ),
       HSplit(
@@ -63,7 +64,10 @@ class SwiftConsole(HasTraits):
   )
 
   def print_message_callback(self, data):
-    self.console_output.write(data.encode('ascii', 'ignore'))
+    try:
+      self.console_output.write(data.encode('ascii', 'ignore'))
+    except UnicodeDecodeError:
+      print "Oh crap!"
 
   def __init__(self, port=serial_link.DEFAULT_PORT):
     self.console_output = OutputStream()

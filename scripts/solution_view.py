@@ -6,9 +6,16 @@ from enthought.enable.api import ComponentEditor, Component
 
 import struct
 import math
+import numpy as np
+
+TRACK_N_CHANNELS = 5
 
 MSG_SOLUTION = 0x50
 MSG_SOLUTION_DOPS = 0x51
+MSG_SOLUTION_PRS = 0x52
+MSG_SOLUTION_PRED_PRS = 0x53
+
+colours_list = ['red', 'blue']
 
 class SolutionView(HasTraits):
   python_console_cmds = Dict()
@@ -28,6 +35,11 @@ class SolutionView(HasTraits):
   plot = Instance(Plot)
   plot_data = Instance(ArrayPlotData)
   clear = Button()
+
+  pr_plot = Instance(Plot)
+  pr_plot_data = Instance(ArrayPlotData)
+  prs = List()
+  pred_prs = List()
 
   traits_view = View(
     HGroup(
@@ -49,10 +61,39 @@ class SolutionView(HasTraits):
     )
   )
 
+  prs_view = View(
+    Item(
+      'pr_plot',
+      editor = ComponentEditor(bgcolor = (0.8,0.8,0.8)),
+      show_label = False,
+    )
+  )
+
+
   def _clear_fired(self):
     self.ns = []
     self.es = []
     self.ds = []
+
+  def prs_callback(self, data):
+    fmt = '<' + str(TRACK_N_CHANNELS) + 'd'
+    self.prs.append(struct.unpack(fmt, data))
+    prs = np.transpose(self.prs[-500:])
+    t = range(len(prs[0]))
+    self.pr_plot_data.set_data('t', t)
+    for n in range(TRACK_N_CHANNELS):
+      self.pr_plot_data.set_data('prs'+str(n), prs[n])
+
+  def pred_prs_callback(self, data):
+    return
+    fmt = '<' + str(TRACK_N_CHANNELS) + 'd'
+    self.pred_prs.append(struct.unpack(fmt, data))
+    pred_prs = np.array(np.transpose(self.pred_prs[-500:]))
+    prs = np.array(np.transpose(self.prs[-500:]))
+    t = range(len(pred_prs[0]))
+    self.pr_plot_data.set_data('t', t)
+    for n in range(TRACK_N_CHANNELS):
+      self.pr_plot_data.set_data('pred_prs'+str(n), prs[n]-pred_prs[n])
 
   def solution_callback(self, data):
     soln = struct.unpack('<3d3d3d3d3d7ddBB', data)
@@ -90,10 +131,23 @@ class SolutionView(HasTraits):
     self.link = link
     self.link.add_callback(MSG_SOLUTION, self.solution_callback)
     self.link.add_callback(MSG_SOLUTION_DOPS, self.dops_callback)
+    self.link.add_callback(MSG_SOLUTION_PRS, self.prs_callback)
+    self.link.add_callback(MSG_SOLUTION_PRED_PRS, self.pred_prs_callback)
 
     self.plot_data = ArrayPlotData(n=[0.0], e=[0.0], h=[0.0], t=[0.0])
     self.plot = Plot(self.plot_data) #, auto_colors=colours_list)
     self.plot.plot(('n', 'e'), type='line', color='blue')
+    #self.plot.plot(('h', 'e'), type='line', color='red')
+
+    self.pr_plot_data = ArrayPlotData(t=[0.0])
+    self.pr_plot = Plot(self.pr_plot_data, auto_colors=colours_list)
+    self.pr_plot.value_range.tight_bounds = False
+    #self.pr_plot.value_range.low_setting = 0.0
+    for n in range(TRACK_N_CHANNELS):
+      self.pr_plot_data.set_data('prs'+str(n), [0.0])
+      self.pr_plot.plot(('t', 'prs'+str(n)), type='scatter', color='auto')
+      #self.pr_plot_data.set_data('pred_prs'+str(n), [0.0])
+      #self.pr_plot.plot(('t', 'pred_prs'+str(n)), type='line', color='auto')
 
     self.python_console_cmds = {
       'solution': self
