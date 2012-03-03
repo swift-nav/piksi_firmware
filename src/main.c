@@ -114,6 +114,9 @@ int main(void)
 
   double WPR_xyz[3];
   wgsllh2xyz(WPR_llh, WPR_xyz);
+
+  channel_measurement_t meas[TRACK_N_CHANNELS];
+  navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
   
   static ephemeris_t es[32];
   while(1)
@@ -135,27 +138,46 @@ int main(void)
 
     u8 n_ready = 0;
     for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-      if (es[tracking_channel[i].prn].valid == 1 && es[tracking_channel[i].prn].healthy == 1 && tracking_channel[i].state == TRACKING_RUNNING)
+      if (es[tracking_channel[i].prn].valid == 1 && es[tracking_channel[i].prn].healthy == 1 && tracking_channel[i].state == TRACKING_RUNNING) {
+        __asm__("CPSID i;");
+        tracking_update_measurement(i, &meas[n_ready]);
+        __asm__("CPSIE i;");
         n_ready++;
+      }
     }
     if (n_ready >= 4) {
       /* Got enough sats/ephemerides, do a solution. */
-      navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
-      channel_measurement_t meas[TRACK_N_CHANNELS];
-      for (u8 i=0; i<TRACK_N_CHANNELS; i++)
-        tracking_update_measurement(i, &meas[i]);
-      calc_navigation_measurement(TRACK_N_CHANNELS, meas, nav_meas, (double)timing_count()/SAMPLE_FREQ, es);
+      calc_navigation_measurement(n_ready, meas, nav_meas, (double)timing_count()/SAMPLE_FREQ, es);
 
       gnss_solution soln;
       dops_t dops;
-      calc_PVT(4, nav_meas, &soln, &dops);
+      calc_PVT(n_ready, nav_meas, &soln, &dops);
+
+      double mean_range = 0;
+      double ranges[n_ready];
+      for (u8 i=0; i<n_ready; i++) {
+        ranges[i] = predict_range(WPR_xyz, nav_meas[i].TOT, &es[meas[i].prn]);
+        mean_range += ranges[i];
+      }
+      mean_range /= n_ready;
+      double pr_errs[TRACK_N_CHANNELS];
+      for (u8 i=0; i<n_ready; i++) {
+        pr_errs[i] = nav_meas[i].pseudorange - (ranges[i] - mean_range + NOMINAL_RANGE);
+      }
+      for (u8 i=n_ready; i<TRACK_N_CHANNELS; i++) {
+        pr_errs[i] = 0;
+      }
+
       wgsxyz2ned_rt(soln.pos_xyz, WPR_xyz, soln.pos_ned);
-      DO_EVERY(10,
+      DO_EVERY_COUNTS(SAMPLE_FREQ/4,
         debug_send_msg(0x50, sizeof(gnss_solution), (u8 *) &soln);
         debug_send_msg(0x51, sizeof(dops_t), (u8 *) &dops);
+
+        debug_send_msg(0x52, sizeof(pr_errs), (u8 *) pr_errs);
       );
     }
-    DO_EVERY(500,
+
+    DO_EVERY_COUNTS(SAMPLE_FREQ/5, // 10 Hz update
       float snrs[TRACK_N_CHANNELS];
       for (u8 i=0; i<TRACK_N_CHANNELS; i++)
         if (tracking_channel[i].state == TRACKING_RUNNING)
@@ -164,6 +186,7 @@ int main(void)
           snrs[i] = -1.0;
       debug_send_msg(0x22, sizeof(snrs), (u8*)snrs);
     );
+
     u32 err = swift_nap_read_error_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);
