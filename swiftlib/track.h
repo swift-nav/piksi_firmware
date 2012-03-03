@@ -23,6 +23,8 @@ typedef struct {
   double sat_vel[3];
 } navigation_measurement_t;
 
+void calc_loop_coeff(double BW, double zeta, double k, double *tau1, double *tau2);
+
 void calc_navigation_measurement(u8 n_channels, channel_measurement_t meas[], navigation_measurement_t nav_meas[], double nav_time, ephemeris_t ephemerides[]);
 
 #endif

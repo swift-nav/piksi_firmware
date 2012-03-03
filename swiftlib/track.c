@@ -2,6 +2,15 @@
 #include "track.h"
 #include "ephemeris.h"
 
+void calc_loop_coeff(double BW, double zeta, double k, double *tau1, double *tau2)
+{
+  /* Solve for the natural frequency. */
+  double omega_n = BW*8*zeta / (4*zeta*zeta + 1);
+
+  *tau1 = k / (omega_n*omega_n);
+  *tau2 = 2*zeta/omega_n;
+}
+
 void calc_navigation_measurement(u8 n_channels, channel_measurement_t meas[], navigation_measurement_t nav_meas[], double nav_time, ephemeris_t ephemerides[])
 {
   double TOTs[n_channels];
