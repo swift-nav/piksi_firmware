@@ -100,8 +100,19 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].update_count = 0;
   tracking_channel[channel].TOW_ms = 0;
   tracking_channel[channel].snr_threshold_count = 0;
+
+  double tau1_code, tau2_code;
+  calc_loop_coeff(2, 0.7, 1, &tau1_code, &tau2_code);
+  tracking_channel[channel].dll_pgain = tau2_code/tau1_code;
+  tracking_channel[channel].dll_igain = 1e-3/tau1_code; /* loop update rate = 1e-3 sec */
   tracking_channel[channel].dll_disc = 0;
+
+  double tau1_carr, tau2_carr;
+  calc_loop_coeff(25, 0.3, 0.032, &tau1_carr, &tau2_carr);
+  tracking_channel[channel].pll_pgain = tau2_carr/tau1_carr;
+  tracking_channel[channel].pll_igain = 1e-3/tau1_carr; /* loop update rate = 1e-3 sec */
   tracking_channel[channel].pll_disc = 0;
+
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
   tracking_channel[channel].code_phase_early = 0;
@@ -210,16 +221,14 @@ void tracking_channel_update(u8 channel)
       chan->pll_disc = atan((double)cs[1].Q/cs[1].I)/(2*PI);
       gpio_toggle(GPIOC, GPIO11);
 
-      chan->carrier_freq += PLL_PGAIN*(chan->pll_disc-pll_disc_prev) + PLL_IGAIN*chan->pll_disc;
+      chan->carrier_freq += chan->pll_pgain*(chan->pll_disc-pll_disc_prev) + chan->pll_igain*chan->pll_disc;
 
       double early_mag = sqrt((double)cs[0].I*cs[0].I + (double)cs[0].Q*cs[0].Q);
       double late_mag = sqrt((double)cs[2].I*cs[2].I + (double)cs[2].Q*cs[2].Q);
 
       chan->dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
 
-      chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;
-
-      chan->code_phase_rate = 0.1*chan->code_phase_rate + 0.9*1.023e6*(1+ chan->carrier_freq/L1_HZ);
+      chan->code_phase_rate += chan->dll_pgain*(chan->dll_disc-dll_disc_prev) + chan->dll_igain*chan->dll_disc;
    
       u32 timer_val = timing_count();
       static u32 max_timer_val = 0;
