@@ -229,11 +229,14 @@ void tracking_channel_update(u8 channel)
 
       chan->dll_disc = (early_mag - late_mag) / (early_mag + late_mag);
 
-      chan->code_phase_rate += chan->dll_pgain*(chan->dll_disc-dll_disc_prev) + chan->dll_igain*chan->dll_disc;
+      //chan->code_phase_rate += chan->dll_pgain*(chan->dll_disc-dll_disc_prev) + chan->dll_igain*chan->dll_disc;
+
       /*chan->code_phase_rate = 0.1*chan->code_phase_rate + 0.9*1.023e6*(1+ chan->carrier_freq/L1_HZ);*/
 
-#define TAU 1e-3 //0.5
-#define A 0.5 //(TAU / (TAU + 1e-3))
+#define TAU_CROSSOVER 0.5
+#define TAU_BIAS (TAU_CROSSOVER/10)
+#define A (1e-3/TAU_CROSSOVER)
+#define B (1e-3/TAU_BIAS)
 
       /*chan->code_phase_rate = (1-A)*chan->code_phase_rate + */
                               /*(1-A)*(DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc) +*/
@@ -246,7 +249,23 @@ void tracking_channel_update(u8 channel)
       /*} else {*/
         /*chan->code_phase_rate += DLL_PGAIN*(chan->dll_disc-dll_disc_prev) + DLL_IGAIN*chan->dll_disc;*/
       /*}*/
+
+      /* Comp filter take one. */
+      chan->code_phase_rate += (1.023e6/L1_HZ)*(chan->pll_pgain*(chan->pll_disc-pll_disc_prev) + chan->pll_igain*chan->pll_disc)/1e-3 +
+                               A*(chan->dll_pgain*(chan->dll_disc-dll_disc_prev) + chan->dll_igain*chan->dll_disc) +
+                               -A*chan->code_phase_rate;
    
+      /* Comp filter take two (with bias estimation). */
+/*
+      static double bias = 0;
+      err = (chan->dll_pgain*(chan->dll_disc-dll_disc_prev) + chan->dll_igain*chan->dll_disc)
+            - chan->code_phase_rate;
+
+      chan->code_phase_rate += (1.023e6/L1_HZ)*(chan->pll_pgain*(chan->pll_disc-pll_disc_prev) + chan->pll_igain*chan->pll_disc)/1e-3 +
+                               A*err - bias;
+
+      bias += B * (err - bias);
+*/
       u32 timer_val = timing_count();
       static u32 max_timer_val = 0;
 
