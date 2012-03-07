@@ -55,7 +55,7 @@ class TrackingView(HasTraits):
     self.snrs_avg = np.sum(s, axis=0) / 100
     # Filter out channels that are not tracking.
     #self.snrs_avg = map(lambda n, x: x if self.snrs[n] != -1 else -1, self.snrs_avg)
-    self.vals.set_data(self.snrs_avg)
+    self.vals.set_data(self.snrs)
 
     chans = np.transpose(self.snrs_history[-500:])
     t = range(len(chans[0]))
