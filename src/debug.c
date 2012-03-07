@@ -19,6 +19,7 @@
 #include <libopencm3/stm32/nvic.h>
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f2/dma.h>
 #include <stdio.h>
 #include <errno.h>
 
@@ -160,8 +161,12 @@ void debug_process_messages()
           /* Message complete, process it. */
           printf("msg: %02X, len %d\n", msg_type, msg_len);
           msg_callback_t cb = debug_find_callback(msg_type);
-          if (cb)
+          if (cb) {
             (*cb)(msg_buff);
+            
+            nvic_disable_irq(NVIC_DMA2_STREAM5_IRQ);
+            DMA2_S5CR &= ~DMA_SxCR_EN;
+          }
           else
             printf("no callback registered for msg type %02X\n", msg_type);
           state = WAITING_1;
