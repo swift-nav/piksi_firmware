@@ -126,7 +126,8 @@ void manage_acq()
       if (!acq_get_load_done())
         break;
       /* Done loading, now lets set that coarse acquisition going. */
-      acq_start(acq_manage.prn, 0, 1023, 
+      acq_write_code_blocking(acq_manage.prn);
+      acq_start(acq_manage.prn, 0, 1023,
           acq_prn_param[acq_manage.prn].carrier_freq_min,
           acq_prn_param[acq_manage.prn].carrier_freq_max,
           ACQ_FULL_CF_STEP);

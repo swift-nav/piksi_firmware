@@ -128,14 +128,13 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
 
   nav_msg_init(&tracking_channel[channel].nav_msg);
 
-  /* TODO: Write PRN into tracking channel when the FPGA code supports this. */
-
-  /* Starting carrier phase is set to zero as we don't 
+  /* Starting carrier phase is set to zero as we don't
    * know the carrier freq well enough to calculate it.
    */
   /* Start with code phase of zero as we have conspired for the
    * channel to be initialised on an EARLY code phase rollover.
    */
+  track_write_code_blocking(channel, prn);
   track_write_init_blocking(channel, prn, 0, 0);
   track_write_update_blocking(channel, \
                      carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
