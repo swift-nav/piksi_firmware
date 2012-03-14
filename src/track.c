@@ -102,7 +102,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].snr_threshold_count = 0;
 
   double tau1_code, tau2_code;
-  calc_loop_coeff(0.05, 0.7, 1, &tau1_code, &tau2_code);
+  calc_loop_coeff(2, 0.7, 1, &tau1_code, &tau2_code);
+  /*calc_loop_coeff(0.05, 0.7, 1, &tau1_code, &tau2_code);*/
   tracking_channel[channel].dll_pgain = tau2_code/tau1_code;
   tracking_channel[channel].dll_igain = 1e-3/tau1_code; /* loop update rate = 1e-3 sec */
   tracking_channel[channel].dll_pgain = 1;
