@@ -30,6 +30,8 @@
 #include "swift_nap_io.h"
 #include "track.h"
 #include "acq.h"
+#include "ca_codes.h"
+#include "cw.h"
 #include "debug.h"
 #include "hw/spi.h"
 #include "hw/max2769.h"
@@ -343,6 +345,10 @@ void acq_read_corr_blocking(corr_t corrs[]) {
   }
 }
 
+void acq_write_code_blocking(u8 prn) {
+  swift_nap_xfer_blocking(SPI_ID_ACQ_CODE, 128, 0, get_ca_code(prn));
+}
+
 void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
   /* for length(prn) = 5,
    *     length(carrier_phase) = 24,
@@ -521,3 +527,59 @@ void track_unpack_corr_dma(corr_t corrs[])
   }
 }
 
+void track_write_code_blocking(u8 channel,u8 prn) {
+  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CODE_OFFSET, 128, 0, get_ca_code(prn));
+}
+
+void cw_set_load_enable_blocking()
+{
+  u8 temp[1] = {0xFF};
+  swift_nap_xfer_blocking(SPI_ID_CW_LOAD_ENABLE, 1, 0, temp); 
+}
+
+void cw_clear_load_enable_blocking()
+{
+  u8 temp[1] = {0x00};
+  swift_nap_xfer_blocking(SPI_ID_CW_LOAD_ENABLE, 1, 0, temp); 
+}
+
+void cw_write_init_blocking(s32 carrier_freq)
+{
+  u8 temp[3];
+
+  temp[0] = (1<<3) |                        // cw enabled
+            ((carrier_freq >> 30) & 0x04) | // carrier freq [sign]
+            ((carrier_freq >> 16) & 0x03);  // carrier freq [17:16]
+
+  temp[1] = (carrier_freq >> 8) & 0xFF;     // carrier freq [15:8]
+  temp[2] = carrier_freq & 0xFF;            // carrier freq [7:0]
+
+  swift_nap_xfer_blocking(SPI_ID_CW_INIT, 3, 0, temp);
+}
+
+void cw_disable_blocking()
+{
+  u8 temp[3] = {0,0,0};
+  swift_nap_xfer_blocking(SPI_ID_CW_INIT, 3, 0, temp);
+}
+
+void cw_read_corr_blocking(corr_t* corrs) {
+  u8 temp[6]; //6 u8 = 48 bits = 2*(24 bits)
+
+  swift_nap_xfer_blocking(SPI_ID_CW_CORR, 6, temp, temp);
+
+	//should 24 instead be a macro constant?
+  struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
+
+  sign.xtend  = (temp[0] << 16)    // MSB
+              | (temp[1] << 8)     // Middle byte
+              | (temp[2]);         // LSB
+
+  corrs->Q = sign.xtend; /* Sign extend! */
+
+  sign.xtend  = (temp[3] << 16)    // MSB
+              | (temp[4] << 8)     // Middle byte
+              | (temp[5]);         // LSB
+
+  corrs->I = sign.xtend; /* Sign extend! */
+}
