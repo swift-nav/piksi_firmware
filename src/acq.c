@@ -34,6 +34,7 @@ void acq_schedule_load(u32 count)
 
 void acq_service_load_done()
 {
+  printf("Load done IRQ\n");
   acq_clear_load_enable_blocking();
   acq_state.state = ACQ_LOADING_DONE;
 }
@@ -84,7 +85,14 @@ void acq_service_irq()
        * disable the acq channel which helpfully also
        * clears the IRQ.
        */
+      printf("!!! Acq state error? %d\n", acq_state.state);
       acq_disable_blocking();
+      break;
+
+    case ACQ_RUNNING_FINISHING:
+      printf("Acq finishing\n");
+      acq_disable_blocking();
+      acq_state.state = ACQ_RUNNING_DONE;
       break;
 
     case ACQ_RUNNING:
@@ -109,7 +117,7 @@ void acq_service_irq()
         if (acq_state.carrier_freq >= acq_state.cf_max && \
             acq_state.code_phase >= (acq_state.cp_max-2*ACQ_N_TAPS)) {
           acq_disable_blocking();
-          acq_state.state = ACQ_RUNNING_DONE;
+          acq_state.state = ACQ_RUNNING_FINISHING;
         } else {
           acq_write_init_blocking(acq_state.prn, \
             acq_state.cp_min + acq_state.code_phase - acq_state.cp_max + 2*ACQ_N_TAPS, \

@@ -28,6 +28,7 @@ typedef enum {
   ACQ_LOADING,
   ACQ_LOADING_DONE,
   ACQ_RUNNING,
+  ACQ_RUNNING_FINISHING,
   ACQ_RUNNING_DONE
 } acq_status_t;
 
