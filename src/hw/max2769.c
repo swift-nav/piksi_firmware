@@ -36,7 +36,9 @@ void max2769_write(u8 addr, u32 data)
 void max2769_setup()
 {
   /* Register settings from Colin "max_regs_defaults.vhd" */
-  max2769_write(MAX2769_CONF1, 0xA2939A3);
+//  max2769_write(MAX2769_CONF1, 0xA2959A3); //LNA1 selected
+  max2769_write(MAX2769_CONF1, 0xA2939A3); //LNA2 selected
+//  max2769_write(MAX2769_CONF1, 0xA2919A3); //LNA1|LNA2: current gated
   max2769_write(MAX2769_CONF2, 0x8550308);
   max2769_write(MAX2769_CONF3, 0xEAFE1DC);
   max2769_write(MAX2769_PLLCONF, 0x9EC0008);
