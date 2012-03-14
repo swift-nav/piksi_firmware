@@ -11,6 +11,8 @@ SWIFTLIB_OBJS = ../swiftlib/linear_algebra.o \
 OBJS = main.o \
        debug.o \
        swift_nap_io.o \
+       ca_codes.o \
+       cw.o \
        track.o \
        acq.o \
        manage.o \
