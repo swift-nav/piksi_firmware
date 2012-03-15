@@ -130,6 +130,14 @@ void exti9_5_isr()
     acq_service_load_done();
   }
 
+  if (irq & IRQ_CW_DONE) {
+    cw_service_irq();
+  }
+
+  if (irq & IRQ_CW_LOAD_DONE) {
+    cw_service_load_done();
+  }
+
   /* Mask off everything but tracking irqs. */
   irq &= IRQ_TRACK_MASK;
 
