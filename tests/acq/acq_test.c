@@ -24,6 +24,7 @@
 #include "debug.h"
 #include "swift_nap_io.h"
 #include "acq.h"
+#include "ca_codes.h"
 #include "hw/leds.h"
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
@@ -56,24 +57,32 @@ int main(void)
 
   swift_nap_setup();
   swift_nap_reset();
+
+  led_toggle(LED_GREEN);
+  led_toggle(LED_RED);
  
   float code_phase;
   float carrier_freq;
   float snr;
 
-  acq_set_load_enable_blocking();
-  timing_strobe(timing_count() + 1000);
-  wait_for_exti();
-  acq_clear_load_enable_blocking();
+  acq_schedule_load(timing_count() + 1000);
+  while(!(acq_get_load_done()));
+  led_toggle(LED_GREEN);
+  led_toggle(LED_RED);
 
-  for (u8 prn=0; prn<32; prn++) {
-    do_acq(prn, 0, 1023, -7000, 7000, 300, &code_phase, &carrier_freq, &snr);
+  for (u8 prn=17; prn<19; prn++) {
+    acq_write_code_blocking(prn);
+    acq_start(prn, 0, 1023, -7000, 7000, 300);
+    while(!(acq_get_done()));
+    acq_get_results(&code_phase, &carrier_freq, &snr);
 
     printf("PRN %2u - Code phase: %7.2f, Carrier freq: % 7.1f, SNR: %5.2f", prn+1, code_phase, carrier_freq, snr);
-    if (snr > 8.0)
+    if (snr > 50.0)
       printf("   :D\n");
     else
       printf("\n");
+    led_toggle(LED_GREEN);
+    led_toggle(LED_RED);
   }
 
   printf("DONE!\n");
