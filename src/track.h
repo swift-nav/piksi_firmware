@@ -19,8 +19,8 @@
 #define SWIFTNAV_TRACK_H
 
 #include <libopencm3/cm3/common.h>
-#include <swiftlib/nav_msg.h>
-#include <swiftlib/track.h>
+#include <libswiftnav/nav_msg.h>
+#include <libswiftnav/track.h>
 
 #include "swift_nap_io.h"
 

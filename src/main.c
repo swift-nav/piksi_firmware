@@ -33,11 +33,11 @@
 #include "hw/spi.h"
 #include "hw/m25_flash.h"
 
-#include <swiftlib/pvt.h>
-#include <swiftlib/track.h>
-#include <swiftlib/ephemeris.h>
-#include <swiftlib/coord_system.h>
-#include <swiftlib/linear_algebra.h>
+#include <libswiftnav/pvt.h>
+#include <libswiftnav/track.h>
+#include <libswiftnav/ephemeris.h>
+#include <libswiftnav/coord_system.h>
+#include <libswiftnav/linear_algebra.h>
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */

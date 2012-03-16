@@ -27,7 +27,7 @@
 #include "swift_nap_io.h"
 #include "track.h"
 
-#include <swiftlib/pvt.h>
+#include <libswiftnav/pvt.h>
 
 /* Initialiser using GNU extension, see
  * http://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html 
