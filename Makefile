@@ -14,15 +14,19 @@ else
 	MAKEFLAGS += PRN=$(PRN)
 endif
 
-.PHONY: all tests firmware docs
+.PHONY: all tests firmware docs libswiftnav
 
-all: firmware tests
+all: libswiftnav firmware tests
 
-firmware:
+libswiftnav:
+	@printf "BUILD   libswiftnav\n"; \
+	$(MAKE) -C libswiftnav $(MAKEFLAGS)
+
+firmware: libswiftnav
 	@printf "BUILD   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS)
 
-tests:
+tests: libswiftnav
 	$(Q)for i in tests/*; do \
 		if [ -d $$i ]; then \
 			printf "BUILD   $$i\n"; \
@@ -31,6 +35,8 @@ tests:
 	done
 
 clean:
+	@printf "CLEAN   libswiftnav\n"; \
+	$(MAKE) -C libswiftnav $(MAKEFLAGS) clean
 	@printf "CLEAN   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS) clean
 	$(Q)for i in tests/*; do \

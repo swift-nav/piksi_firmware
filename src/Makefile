@@ -1,13 +1,5 @@
 BINARY = swiftnav-firmware
 
-SWIFTLIB_OBJS = ../swiftlib/linear_algebra.o \
-                ../swiftlib/coord_system.o \
-                ../swiftlib/pvt.o \
-                ../swiftlib/track.o \
-                ../swiftlib/nav_msg.o \
-                ../swiftlib/ephemeris.o \
-                ../swiftlib/tropo.o \
-
 OBJS = main.o \
        debug.o \
        swift_nap_io.o \
@@ -21,7 +13,6 @@ OBJS = main.o \
        hw/leds.o \
        hw/spi.o \
        hw/usart.o \
-       $(SWIFTLIB_OBJS)
 
 include ../stm32/Makefile.include
 
