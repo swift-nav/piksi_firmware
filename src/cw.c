@@ -19,25 +19,22 @@
 #include <stdio.h>
 
 #include "swift_nap_io.h"
+#include "debug.h"
 #include "cw.h"
 
 cw_state_t cw_state;
 
-void do_one_cw(s32 carrier_freq, corr_t* corrs)
+void cw_start_callback(u8 msg[])
 {
-  cw_write_init_blocking(carrier_freq); 
+  cw_start_msg_t* start_msg = (cw_start_msg_t*)msg;
+  printf("starting CW run %f %f %f\n", start_msg->cf_min, start_msg->cf_max, start_msg->cf_step);
+  cw_start(start_msg->cf_min, start_msg->cf_max, start_msg->cf_step);
+}
 
-  /* Disable cw on next cycle, after this one has finished. */
-  cw_disable_blocking();
-
-  /* Wait for cw done IRQ. */
-  wait_for_exti();
-
-  /* Write to clear IRQ. */
-  cw_disable_blocking();
-
-  /* Read in correlations. */
-  cw_read_corr_blocking(corrs);
+void cw_setup()
+{
+  static msg_callbacks_node_t cw_start_callback_node;
+  debug_register_callback(0xC1, &cw_start_callback, &cw_start_callback_node);
 }
 
 void cw_schedule_load(u32 count)
@@ -79,9 +76,6 @@ void cw_start(float cf_min, float cf_max, float cf_bin_width)
 
   /* Initialise our cw state struct. */
   cw_state.state = CW_RUNNING;
-  cw_state.power_acc = 0;
-  cw_state.best_power = 0;
-  cw_state.best_freq = 0;
   cw_state.count = 0;
   cw_state.carrier_freq = cw_state.cf_min;
 
@@ -111,17 +105,10 @@ void cw_service_irq()
       cw_read_corr_blocking(&cs);
 
       power = (u64)cs.I*(u64)cs.I + (u64)cs.Q*(u64)cs.Q;
-      cw_state.power_acc += power;
-      if (power > cw_state.best_power) {
-        cw_state.best_power = power;
-        cw_state.best_freq = cw_state.carrier_freq;
-      }
-
-//			printf("%d %d %d\n",(unsigned int)power,(unsigned int)cw_state.carrier_freq,(unsigned int)cw_state.count);
 
       if (cw_state.count < SPECTRUM_LEN) {
         cw_state.spectrum_power[cw_state.count] = power;
-        cw_state.spectrum_freq[cw_state.count] = cw_state.carrier_freq;
+        cw_send_result(cw_state.carrier_freq, power);
       }
       cw_state.count++;
 
@@ -146,17 +133,23 @@ void cw_service_irq()
   }
 }
 
-void cw_get_results(float* cf, float* snr)
+void cw_send_result(float carrier_freq, u64 power)
 {
-  *cf = (float)cw_state.best_freq / CW_CARRIER_FREQ_UNITS_PER_HZ;
-  /* "SNR" estimated by peak power over mean power. */
-  *snr = (float)cw_state.best_power / (cw_state.power_acc / cw_state.count);
+  static struct {
+    float cf;
+    u64 power;
+  } msg;
+
+  msg.cf = carrier_freq;
+  msg.power = power;
+
+  debug_send_msg(0xC0, sizeof(msg), (u8*)&msg);
 }
 
 void cw_get_spectrum_point(float* freq, u64* power, u16 index)
 //void cw_get_spectrum_point(float* freq, float* power, u16 index)
 {
-	*freq = (float)cw_state.spectrum_freq[index] / CW_CARRIER_FREQ_UNITS_PER_HZ;
+	*freq = 0; //(float)cw_state.spectrum_freq[index] / CW_CARRIER_FREQ_UNITS_PER_HZ;
 	*power = cw_state.spectrum_power[index];
 //	*power = (float)cw_state.spectrum_power[index];
 }

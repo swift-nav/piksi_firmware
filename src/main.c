@@ -24,6 +24,7 @@
 #include <libopencm3/stm32/f2/gpio.h>
 
 #include "main.h"
+#include "cw.h"
 #include "debug.h"
 #include "swift_nap_io.h"
 #include "track.h"
@@ -107,6 +108,7 @@ int main(void)
   m25_setup();
 
   manage_acq_setup();
+  cw_setup();
  
   led_toggle(LED_RED);
 
