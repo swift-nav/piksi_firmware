@@ -3,7 +3,7 @@
 
 /* Simple Black model, taken from GPSTk SimpleTropModel class. */
 
-double dry_zenith_delay()
+double dry_zenith_delay(void)
 {
   return 2.235486646978727;
 }
@@ -15,7 +15,7 @@ double dry_mapping_function(double elevation)
   return (1.0 / sqrt(1.0 - d*d));
 }
 
-double wet_zenith_delay()
+double wet_zenith_delay(void)
 {
   return 0.122382715318184;
 }
