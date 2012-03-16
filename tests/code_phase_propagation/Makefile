@@ -7,7 +7,6 @@ OBJS = code_phase_propagation_test.o \
        ../../src/cw.o \
        ../../src/acq.o \
        ../../src/track.o \
-       ../../src/nav_msg.o \
        ../../src/hw/max2769.o \
        ../../src/hw/m25_flash.o \
        ../../src/hw/leds.o \
