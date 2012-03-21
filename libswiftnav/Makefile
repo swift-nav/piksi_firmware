@@ -24,10 +24,11 @@ LIBNAME		= libswiftnav
 MAKEFLAGS += --no-print-directory
 
 CC = gcc
-CFLAGS += -O3 -g -Wall -Wextra -Werror \
+COMMON_CFLAGS += -O3 -g -Wall -Wextra -Werror \
 		   -ffunction-sections -fdata-sections -MD \
 		   -Wstrict-prototypes -fno-common \
 		   -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99
+CFLAGS += $(COMMON_CFLAGS) -fprofile-arcs -ftest-coverage
 ARFLAGS	= rcs
 SRCS = linear_algebra.c \
 			 coord_system.c \
@@ -42,7 +43,7 @@ OBJS = $(SRCS:.c=.o)
 ARM_PREFIX	?= arm-none-eabi
 ARM_CC		= $(ARM_PREFIX)-gcc
 ARM_AR		= $(ARM_PREFIX)-ar
-ARM_CFLAGS += $(CFLAGS) -mcpu=cortex-m3 -mthumb -msoft-float
+ARM_CFLAGS += $(COMMON_CFLAGS) -mcpu=cortex-m3 -mthumb -msoft-float
 ARM_OBJS = $(SRCS:.c=.arm.o)
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
@@ -68,16 +69,25 @@ $(LIBNAME)-x86.a: $(OBJS)
 	@printf "  x86 CC   $(subst $(shell pwd)/,,$(@))\n"
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
 
-check:
+check: $(LIBNAME)-x86.a
 	@printf "  CHECK    libswiftnav\n"; \
 	$(MAKE) -C tests $(MAKEFLAGS) check
 
+lcov:
+	mkdir -p lcov
+	lcov -d ./ -z
+	make check
+	lcov -d ./ -c --output-file lcov/coverage.info
+	cd lcov && genhtml --legend coverage.info
+
 clean:
 	$(Q)rm -f *.arm.o *.o *.d *.a
+	$(Q)rm -f *.gcda *.gcno
+	$(Q)rm -rf lcov/
 	@printf "  CLEAN    tests\n"; \
 	$(MAKE) -C tests $(MAKEFLAGS) clean
 
-.PHONY: clean check
+.PHONY: clean check lcov
 
 -include $(SRCS:.c=.d)
 

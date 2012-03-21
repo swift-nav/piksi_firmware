@@ -9,5 +9,8 @@ docs/html
 *.bin
 *.map
 *.pyc
+*.gcno
+*.gcda
+libswiftnav/lcov
 /tags
 /libopencm3_for_ctags

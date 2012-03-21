@@ -5,7 +5,7 @@ CFLAGS += -O3 -g -Wall -Wextra -Werror \
 		   -Wstrict-prototypes -fno-common \
 		   -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99 \
 			 -I../
-LDFLAGS += -lm -L../
+LDFLAGS += -lm -L../ -fprofile-arcs
 
 SRCS = check_main.c \
 			 check_coord_system.c \
@@ -26,15 +26,13 @@ check_libswiftnav: $(OBJS)
 	$(Q)$(CC) -o $@ $(OBJS) -lcheck -lswiftnav-x86 $(LDFLAGS)
 
 check: check_libswiftnav
-	@echo "    RUNNING TESTS"
-	@echo
+	@echo "    RUNNING UNIT TESTS"
 	@echo "-------------------------------------------------------"
 	@./check_libswiftnav
 	@echo "-------------------------------------------------------"
-	@echo
 
 clean:
-	$(Q)rm -f *.o *.d tests
+	$(Q)rm -f *.o *.d check_libswiftnav
 
 .PHONY: clean check
 
