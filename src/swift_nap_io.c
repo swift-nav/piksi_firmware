@@ -30,11 +30,12 @@
 #include "swift_nap_io.h"
 #include "track.h"
 #include "acq.h"
-#include "ca_codes.h"
 #include "cw.h"
 #include "debug.h"
 #include "hw/spi.h"
 #include "hw/max2769.h"
+
+#include <libswiftnav/ca_codes.h>
 
 u32 exti_count = 0;
 

@@ -18,7 +18,7 @@
 #ifndef SWIFTNAV_CA_CODES_H
 #define SWIFTNAV_CA_CODES_H
 
-#include <libopencm3/cm3/common.h>
+#include "common.h"
 
 u8* get_ca_code(u8 prn);
 

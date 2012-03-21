@@ -37,6 +37,7 @@ OBJS = linear_algebra.o \
 			 nav_msg.o \
 			 ephemeris.o \
 			 tropo.o \
+			 ca_codes.o \
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
 ifneq ($(V),1)

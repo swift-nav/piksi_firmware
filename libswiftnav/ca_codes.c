@@ -15,7 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopencm3/cm3/common.h>
 #include "ca_codes.h"
 
 //{ { prn0[0-7] , ... , prn0[117-1024] }, ... , { prn31[0-7] , ... , prn31[117-1024] } } where 1024'th index is 0 for all

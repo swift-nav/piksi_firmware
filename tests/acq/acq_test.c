@@ -24,8 +24,9 @@
 #include "debug.h"
 #include "swift_nap_io.h"
 #include "acq.h"
-#include "ca_codes.h"
 #include "hw/leds.h"
+
+#include <libswiftnav/ca_codes.h>
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */

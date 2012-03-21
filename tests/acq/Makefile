@@ -4,7 +4,6 @@ OBJS = acq_test.o \
        ../../src/debug.o \
        ../../src/swift_nap_io.o \
        ../../src/cw.o \
-       ../../src/ca_codes.o \
        ../../src/acq.o \
        ../../src/track.o \
        ../../src/hw/max2769.o \
