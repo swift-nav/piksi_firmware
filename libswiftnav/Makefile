@@ -20,6 +20,9 @@
 
 LIBNAME		= libswiftnav
 
+# Do not print "Entering directory ...".
+MAKEFLAGS += --no-print-directory
+
 CC = gcc
 CFLAGS += -O3 -g -Wall -Wextra -Werror \
 		   -ffunction-sections -fdata-sections -MD \
@@ -47,7 +50,7 @@ ifneq ($(V),1)
 Q := @
 endif
 
-all: $(LIBNAME)-x86.a $(LIBNAME)-arm.a
+all: $(LIBNAME)-x86.a $(LIBNAME)-arm.a check
 
 $(LIBNAME)-arm.a: $(ARM_OBJS)
 	@printf "  ARM AR   $(subst $(shell pwd)/,,$(@))\n"
@@ -65,10 +68,16 @@ $(LIBNAME)-x86.a: $(OBJS)
 	@printf "  x86 CC   $(subst $(shell pwd)/,,$(@))\n"
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
 
+check:
+	@printf "  CHECK    libswiftnav\n"; \
+	$(MAKE) -C tests $(MAKEFLAGS) check
+
 clean:
 	$(Q)rm -f *.arm.o *.o *.d *.a
+	@printf "  CLEAN    tests\n"; \
+	$(MAKE) -C tests $(MAKEFLAGS) clean
 
-.PHONY: clean
+.PHONY: clean check
 
 -include $(SRCS:.c=.d)
 
