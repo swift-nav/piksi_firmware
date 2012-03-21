@@ -18,15 +18,20 @@ Q := @
 endif
 
 %.o: %.c
-	@printf "    CC    $(subst $(shell pwd)/,,$(@))\n"
+	@printf "    CC     $(subst $(shell pwd)/,,$(@))\n"
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
 
 check_libswiftnav: $(OBJS)
-	@printf "    LD    $@\n"
+	@printf "    LD     $@\n"
 	$(Q)$(CC) -o $@ $(OBJS) -lcheck -lswiftnav-x86 $(LDFLAGS)
 
 check: check_libswiftnav
+	@echo "    RUNNING TESTS"
+	@echo
+	@echo "-------------------------------------------------------"
 	@./check_libswiftnav
+	@echo "-------------------------------------------------------"
+	@echo
 
 clean:
 	$(Q)rm -f *.o *.d tests
