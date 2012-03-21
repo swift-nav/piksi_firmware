@@ -18,47 +18,57 @@
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-LIBNAME		= libswiftnav-arm
+LIBNAME		= libswiftnav
 
-PREFIX	?= arm-none-eabi
-CC		= $(PREFIX)-gcc
-AR		= $(PREFIX)-ar
+CC = gcc
 CFLAGS += -O3 -g -Wall -Wextra -Werror \
-		   -mcpu=cortex-m3 -mthumb -Wstrict-prototypes \
 		   -ffunction-sections -fdata-sections -MD \
-		   -fno-common -msoft-float \
+		   -Wstrict-prototypes -fno-common \
 		   -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99
-# ARFLAGS	= rcsv
 ARFLAGS	= rcs
-OBJS = linear_algebra.o \
-			 coord_system.o \
-			 pvt.o \
-			 track.o \
-			 nav_msg.o \
-			 ephemeris.o \
-			 tropo.o \
-			 ca_codes.o \
+SRCS = linear_algebra.c \
+			 coord_system.c \
+			 pvt.c \
+			 track.c \
+			 nav_msg.c \
+			 ephemeris.c \
+			 tropo.c \
+			 ca_codes.c
+OBJS = $(SRCS:.c=.o)
+
+ARM_PREFIX	?= arm-none-eabi
+ARM_CC		= $(ARM_PREFIX)-gcc
+ARM_AR		= $(ARM_PREFIX)-ar
+ARM_CFLAGS += $(CFLAGS) -mcpu=cortex-m3 -mthumb -msoft-float
+ARM_OBJS = $(SRCS:.c=.arm.o)
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
 ifneq ($(V),1)
 Q := @
 endif
 
-all: $(LIBNAME).a
+all: $(LIBNAME)-x86.a $(LIBNAME)-arm.a
 
-$(LIBNAME).a: $(OBJS)
-	@printf "  AR      $(subst $(shell pwd)/,,$(@))\n"
+$(LIBNAME)-arm.a: $(ARM_OBJS)
+	@printf "  ARM AR   $(subst $(shell pwd)/,,$(@))\n"
+	$(Q)$(ARM_AR) $(ARFLAGS) $@ $^
+
+$(LIBNAME)-x86.a: $(OBJS)
+	@printf "  x86 AR   $(subst $(shell pwd)/,,$(@))\n"
 	$(Q)$(AR) $(ARFLAGS) $@ $^
 
+%.arm.o: %.c
+	@printf "  ARM CC   $(subst $(shell pwd)/,,$(@))\n"
+	$(Q)$(ARM_CC) $(ARM_CFLAGS) -o $@ -c $<
+
 %.o: %.c
-	@printf "  CC      $(subst $(shell pwd)/,,$(@))\n"
+	@printf "  x86 CC   $(subst $(shell pwd)/,,$(@))\n"
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
 
 clean:
-	$(Q)rm -f *.o *.d
-	$(Q)rm -f $(LIBNAME).a
+	$(Q)rm -f *.arm.o *.o *.d *.a
 
 .PHONY: clean
 
--include $(OBJS:.o=.d)
+-include $(SRCS:.c=.d)
 
