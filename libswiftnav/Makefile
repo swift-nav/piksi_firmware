@@ -18,7 +18,7 @@
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ##
 
-LIBNAME		= libswiftnav
+LIBNAME		= libswiftnav-arm
 
 PREFIX	?= arm-none-eabi
 CC		= $(PREFIX)-gcc

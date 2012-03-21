@@ -81,7 +81,7 @@ flash: $(BINARY).flash
 
 %.elf: $(OBJS)
 	@printf "  LD      $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(LD) -o $(*).elf $(OBJS) -lopencm3_stm32f2 -lswiftnav -Xlinker -Map=$(*).map $(LDFLAGS)
+	$(Q)$(LD) -o $(*).elf $(OBJS) -lopencm3_stm32f2 -lswiftnav-arm -Xlinker -Map=$(*).map $(LDFLAGS)
 
 %.o: %.c Makefile
 	@printf "  CC      $(subst $(shell pwd)/,,$(@))\n"
