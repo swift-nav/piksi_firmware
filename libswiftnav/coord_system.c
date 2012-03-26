@@ -31,9 +31,26 @@
 #include "linear_algebra.h"
 #include "coord_system.h"
 
-#define A 6378137.0         /* semi-major axis */
-#define B 6356752.3142      /* semi-minor axis */
-#define E 0.0818191908426   /* eccentricity */
+/** \defgroup WGS84_params WGS84 Parameters
+ * Parameters defining the WGS84 ellipsoid. The ellipsoid is defined in terms
+ * of the semi-major axis and the inverse flattening. We also calculate some
+ * derived parameters which are useful for the implementation of the coordinate
+ * transform functions.
+ * \{ */
+/** Semi-major axis of the Earth, \f$ a \f$, in meters. 
+ * This is a defining parameter of the WGS84 ellipsoid. */
+#define A 6378137.0
+/** Inverse flattening of the Earth, \f$ 1/f \f$.
+ * This is a defining parameter of the WGS84 ellipsoid. */
+#define IF 298.257223563
+/** The flattening of the Earth, \f$ f \f$. */
+#define F (1/IF)
+/** Semi-minor axis of the Earth in meters, \f$ b = a(1-f) \f$. */
+#define B (A*(1-F))
+/** Eccentricity of the Earth, \f$ e \f$ where \f$ e^2 = 2f - f^2 \f$ */
+#define E (sqrt(2*F - F*F))
+/* \} */
+
 #define TOL 1.0E-13
 #define DPI2 1.570796326794897
 
