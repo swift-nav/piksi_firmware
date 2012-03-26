@@ -76,23 +76,36 @@
 #define TOL 1.0E-13
 #define DPI2 1.570796326794897
 
-/*
- * Converts from WGS84 latitude, longitude and height into WGS X, Y and Z
- * From: Simo H. Laurila, "Electronic Surveying and Navigation", John Wiley & Sons (1976).
- * llh in [radians, radians, meters]
+/** Converts from WGS84 geodetic coordinates (latitude, longitude and height)
+ * into WGS84 Earth centered, Earth fixed Cartesian coordinates (X, Y and Z).
+ *
+ * Conversion from geodetic coordinates latitude, longitude and height
+ * \f$(\phi, \lambda, h)\f$ into Cartesian coordinates \f$(X, Y, Z)\f$ can be
+ * achieved with the following formulae:
+ *
+ * \f[ X = (N(\phi) + h) \cos{\phi}\cos{\lambda} \f]
+ * \f[ Y = (N(\phi) + h) \cos{\phi}\sin{\lambda} \f]
+ * \f[ Z = \left[(1-e^2)N(\phi) + h\right] \sin{\phi} \f]
+ *
+ * Where the 'radius of curvature', \f$ N(\phi) \f$, is defined as:
+ *
+ * \f[ N(\phi) = \frac{a}{\sqrt{1-e^2\sin^2 \phi}} \f]
+ *
+ * and \f$ a \f$ is the WGS84 semi-major axis and \f$ e \f$ is the WGS84
+ * eccentricity. See \ref WGS84_params.
+ *
+ * \param llh Geodetic coordinates to be converted, passed as
+ *            [lat, lon, height] in [radians, radians, meters].
+ * \param xyz Converted Cartesian coordinates are written into this array
+ *            as [X, Y, Z], all in meters.
  */
-void wgsllh2xyz(const double *llh, double *xyz)
-{
-  double n, d, nph, tempd;
+void wgsllh2xyz(const double const llh[3], double xyz[3]) {
+  double d = E * sin(llh[0]);
+  double N = A / sqrt(1. - d*d);
 
-  d = E * sin(llh[0]);
-  n = A / sqrt(1. - d*d);
-  nph = n + llh[2];
-
-  tempd = nph * cos(llh[0]);
-  xyz[0] = tempd * cos(llh[1]);
-  xyz[1] = tempd * sin(llh[1]);
-  xyz[2] = ((1 - E*E)*n + llh[2]) * sin(llh[0]);
+  xyz[0] = (N + llh[2]) * cos(llh[0]) * cos(llh[1]);
+  xyz[1] = (N + llh[2]) * cos(llh[0]) * sin(llh[1]);
+  xyz[2] = ((1 - E*E)*N + llh[2]) * sin(llh[0]);
 }
 
 /*
