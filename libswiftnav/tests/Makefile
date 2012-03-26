@@ -21,7 +21,7 @@ endif
 	@printf "    CC     $(subst $(shell pwd)/,,$(@))\n"
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
 
-check_libswiftnav: $(OBJS)
+check_libswiftnav: $(OBJS) ../libswiftnav-x86.a
 	@printf "    LD     $@\n"
 	$(Q)$(CC) -o $@ $(OBJS) -lcheck -lswiftnav-x86 $(LDFLAGS)
 
