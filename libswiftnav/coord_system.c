@@ -31,6 +31,28 @@
 #include "linear_algebra.h"
 #include "coord_system.h"
 
+/** \defgroup coord_system Coordinate systems
+ * Functions used for converting between various coordinate systems.
+ * References:
+ *   -# <a href="http://bit.ly/H3HY4t">NIMA Technical Report TR8350.2</a>,
+ *      "Department of Defense World Geodetic System 1984, Its Definition and
+ *      Relationships With Local Geodetic Systems", Third Edition
+ *   -# <a href="http://bit.ly/GShyW1">WGS84 Implementation Manual</a>,
+ *      Eurocontrol, Version 2.4.
+ *   -# <a href="http://bit.ly/GP1XFJ">
+ *      Datum Transformations of GPS Positions</a>, Application Note, u-blox ag.
+ *   -# <a href="http://en.wikipedia.org/wiki/Geodetic_system">
+ *      Geodetic system</a>. In Wikipedia, The Free Encyclopedia.
+ *      Retrieved 00:47, March 26, 2012.
+ *   -# "Electronic Surveying and Navigation", Simo H. Laurila,
+ *      John Wiley & Sons (1976).
+ *   -# "A comparison of methods used in rectangular to Geodetic Coordinates
+ *      Transformations", Burtch R. R. (2006), American Congress for Surveying
+ *      and Mapping Annual Conference. Orlando, Florida.
+ *   -# "Transformation from Cartesian to Geodetic Coordinates Accelerated by
+ *      Halley’s Method", T. Fukushima (2006), Journal of Geodesy.
+ * \{ */
+
 /** \defgroup WGS84_params WGS84 Parameters
  * Parameters defining the WGS84 ellipsoid. The ellipsoid is defined in terms
  * of the semi-major axis and the inverse flattening. We also calculate some
@@ -182,4 +204,6 @@ void satxyz2azel(const double satecef[3], const double rxecef[3], double* azimut
   *azimuth = atan2(NED[1], NED[0]);
   *elevation = asin(-NED[2]/vector_norm(NED));
 }
+
+/* \} */
 
