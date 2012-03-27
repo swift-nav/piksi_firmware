@@ -44,13 +44,6 @@
  *   -# <a href="http://en.wikipedia.org/wiki/Geodetic_system">
  *      Geodetic system</a>. In Wikipedia, The Free Encyclopedia.
  *      Retrieved 00:47, March 26, 2012.
- *   -# "Electronic Surveying and Navigation", Simo H. Laurila,
- *      John Wiley & Sons (1976).
- *   -# "A comparison of methods used in rectangular to Geodetic Coordinates
- *      Transformations", Burtch R. R. (2006), American Congress for Surveying
- *      and Mapping Annual Conference. Orlando, Florida.
- *   -# "Transformation from Cartesian to Geodetic Coordinates Accelerated by
- *      Halley’s Method", T. Fukushima (2006), Journal of Geodesy.
  * \{ */
 
 /** \defgroup WGS84_params WGS84 Parameters
@@ -108,50 +101,121 @@ void wgsllh2xyz(const double const llh[3], double xyz[3]) {
   xyz[2] = ((1 - E*E)*N + llh[2]) * sin(llh[0]);
 }
 
-/*
- * Converts from WGS84 X,Y Z to lat, lon, hgt
- * From: Simo H. Laurila, "Electronic Surveying and Navigation", John Wiley & Sons (1976).
+/** Converts from WGS84 Earth centered, Earth fixed Cartesian coordinates (X, Y
+ * and Z) into WGS84 geodetic coordinates (latitude, longitude and height).
+ *
+ * Conversion from Cartesian to geodetic coordinates is a much harder problem
+ * than conversion from geodetic to Cartesian. There is no satisfactory closed
+ * form solution but many different iterative approaches exist.
+ *
+ * Here we implement a relatively new algorithm due to Fukushima (2006) that is
+ * very computationally efficient, not requiring any transcendental function
+ * calls during iteration and very few divisions. It also exhibits cubic
+ * convergence rates compared to the quadratic rate of convergence seen with
+ * the more common algortihms based on the Newton-Raphson method.
+ *
+ * References:
+ *   -# "A comparison of methods used in rectangular to Geodetic Coordinates
+ *      Transformations", Burtch R. R. (2006), American Congress for Surveying
+ *      and Mapping Annual Conference. Orlando, Florida.
+ *   -# "Transformation from Cartesian to Geodetic Coordinates Accelerated by
+ *      Halley’s Method", T. Fukushima (2006), Journal of Geodesy.
+ *
+ * \param xyz Cartesian coordinates to be converted, passed as [X, Y, Z],
+ *            all in meters.
+ * \param llh Converted geodetic coordinates are written into this array as
+ *            [lat, lon, height] in [radians, radians, meters].
  */
-void wgsxyz2llh(double *xyz, double *llh)
-{
-  double n, d, nph, tempd, latx, hgtx;
+void wgsxyz2llh(const double const xyz[3], double llh[3]) {
+  /* Distance from polar axis. */
+  const double p = sqrt(xyz[0]*xyz[0] + xyz[1]*xyz[1]);
 
-  /* see if we are close to the Z axis */
-  tempd = sqrt(xyz[0]*xyz[0] + xyz[1]*xyz[1]);
-  if (tempd <= TOL)
-  {
-    /* we are very close to the Z axis */
-    llh[0] = DPI2;
-    if(xyz[2] < 0.0)
-      llh[0] = -llh[0];
-      
-    llh[1] = 0.0;
-    /* height at poles */
-    llh[1] = fabs(xyz[2]) - B;
-    
+  /* Compute longitude first, this can be done exactly. */
+  if (p != 0)
+    llh[1] = atan2(xyz[1], xyz[0]);
+  else
+    llh[1] = 0;
+
+  /* If we are close to the pole then convergence is very slow, treat this is a
+   * special case. */
+  if (p < A*1e-16) {
+    llh[0] = copysign(DPI2, xyz[2]);
+    llh[2] = xyz[2] - copysign(B, xyz[2]);
     return;
   }
 
-  /* for all other cases */
-  llh[0] = atan2(xyz[2], tempd);
-  llh[1] = atan2(xyz[1], xyz[0]);
+  /* Caluclate some other constants as defined in the Fukushima paper. */
+  const double P = p / A;
+  const double e_c = sqrt(1. - E*E);
+  const double Z = fabs(xyz[2]) * e_c / A;
 
-  /* height needs to be iterated */
-  llh[2] = tempd / cos(llh[0]);
-  latx = llh[0] + 1.0;
-  hgtx = llh[2] + 1.0;
+  /* Initial values for S and C correspond to a zero height solution. */
+  double S = Z;
+  double C = e_c * P;
 
-  while(fabs(llh[0] - latx) >= TOL || fabs(llh[2] - hgtx) >= 0.01)
+  /* Neither S nor C can be negative on the first iteration so
+   * starting prev = -1 will not cause and early exit. */
+  double prev_C = -1;
+  double prev_S = -1;
+
+  double A_n, B_n, D_n, F_n;
+
+  /* Iterate a maximum of 10 times. This should be way more than enough for all
+   * sane inputs */
+  for (int i=0; i<10; i++)
   {
-    latx = llh[0];
-    hgtx = llh[2];
-    d = E * sin(latx);
-    n = A / sqrt(1.0 - d*d);
-    llh[2] = tempd/cos(latx) - n;
-    nph = n + llh[2];
-    d = 1.0 - E*E*(n/nph);
-    llh[0] = atan2(xyz[2], tempd*d);
+    /* Calculate some intermmediate variables used in the update step based on
+     * the current state. */
+    A_n = sqrt(S*S + C*C);
+    D_n = Z*A_n*A_n*A_n + E*E*S*S*S;
+    F_n = P*A_n*A_n*A_n - E*E*C*C*C;
+    B_n = 1.5*E*S*C*C*(A_n*(P*S - Z*C) - E*S*C);
+
+    /* Update step. */
+    S = D_n*F_n - B_n*S;
+    C = F_n*F_n - B_n*C;
+
+    /* The original algorithm as presented in the paper by Fukushima has a
+     * problem with numerical stability. S and C can grow very large or small
+     * and over or underflow a double. In the paper this is acknowledged and
+     * the proposed resolution is to non-dimensionalise the equations for S and
+     * C. However, this does not completely solve the problem. The author caps
+     * the solution to only a couple of iterations and in this period over or
+     * underflow is unlikely but as we require a bit more precision and hence
+     * more iterations so this is still a concern for us.
+     *
+     * As the only thing that is important is the ratio T = S/C, my solution is
+     * to divide both S and C by either S or C. The scaling is chosen such that
+     * one of S or C is scaled to unity whilst the other is scaled to a value
+     * less than one. By dividing by the larger of S or C we ensure that we do
+     * not divide by zero as only one of S or C should ever be zero.
+     *
+     * This incurs an extra division each iteration which the author was
+     * explicityl trying to avoid and it may be that this solution is just
+     * reverting back to the method of iterating on T directly, perhaps this
+     * bears more thought?
+     */
+
+    if (S > C) {
+      C = C / S;
+      S = 1;
+    } else {
+      S = S / C;
+      C = 1;
+    }
+
+    /* Check for convergence and exit early if we have converged. */
+    if (fabs(S - prev_S) < TOL && fabs(C - prev_C) < TOL) {
+      break;
+    } else {
+      prev_S = S;
+      prev_C = C;
+    }
   }
+
+  A_n = sqrt(S*S + C*C);
+  llh[0] = copysign(1.0, xyz[2]) * atan(S / (e_c*C));
+  llh[2] = (p*e_c*C + fabs(xyz[2])*S - A*e_c*A_n) / sqrt(e_c*e_c*C*C + S*S);
 }
 
 /*

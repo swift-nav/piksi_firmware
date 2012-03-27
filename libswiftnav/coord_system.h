@@ -31,7 +31,7 @@
 #define SWIFTLIB_COORD_SYSTEM_H
 
 void wgsllh2xyz(const double *llh, double *xyz);
-void wgsxyz2llh(double *xyz, double *llh);
+void wgsxyz2llh(const double const xyz[3], double llh[3]);
 
 /*
  * Be careful in choosing which of these two functions you need, wgsxyz2ned_rt
