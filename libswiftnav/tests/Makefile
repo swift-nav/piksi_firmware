@@ -1,11 +1,11 @@
 
 CC = gcc
-CFLAGS += -O3 -g -Wall -Wextra -Werror \
+CFLAGS += -O0 -g -Wall -Wextra -Werror -fPIE -ftrapv -D_FORTIFY_SOURCE=2 -fstack-protector \
 		   -ffunction-sections -fdata-sections -MD \
 		   -Wstrict-prototypes -fno-common \
 		   -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99 \
 			 -I../
-LDFLAGS += -lm -L../ -fprofile-arcs
+LDFLAGS += -lm -L../ -fprofile-arcs -pie -Wl,-z,relro -Wl,-z,now
 
 SRCS = check_main.c \
 			 check_utils.c \
