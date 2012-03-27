@@ -8,6 +8,7 @@ CFLAGS += -O3 -g -Wall -Wextra -Werror \
 LDFLAGS += -lm -L../ -fprofile-arcs
 
 SRCS = check_main.c \
+			 check_utils.c \
 			 check_coord_system.c \
 
 OBJS = $(SRCS:.c=.o)
