@@ -31,6 +31,8 @@
 #include "linear_algebra.h"
 #include "coord_system.h"
 
+/** \addtogroup lib
+ * \{ */
 /** \defgroup coord_system Coordinate systems
  * Functions used for converting between various coordinate systems.
  * References:
@@ -279,5 +281,6 @@ void satxyz2azel(const double satecef[3], const double rxecef[3], double* azimut
   *elevation = asin(-NED[2]/vector_norm(NED));
 }
 
-/* \} */
+/** \} */
+/** \} */
 
