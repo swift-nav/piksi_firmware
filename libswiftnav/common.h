@@ -19,6 +19,15 @@
 #ifndef SWIFTLIB_COMMON_H
 #define SWIFTLIB_COMMON_H
 
+/** \defgroup lib SwiftNav Library
+ *
+ * Platform independent library of GNSS related functions used by the receiver.
+ * This library implements GNSS related functions and algorithms for use by the
+ * receiver and other software.
+ *
+ * It is intended to be as portable as possible and is written in standards
+ * compliant C with no dependancies other than the standard C libraries. */
+
 #ifndef LIBOPENCM3_CM3_COMMON_H
   /* Type definitions for shorter and nicer code */
   #include <stdint.h>
