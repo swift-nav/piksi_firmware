@@ -137,7 +137,7 @@ void wgsxyz2llh(const double const xyz[3], double llh[3]) {
    * special case. */
   if (p < A*1e-16) {
     llh[0] = copysign(M_PI_2, xyz[2]);
-    llh[2] = xyz[2] - copysign(B, xyz[2]);
+    llh[2] = fabs(xyz[2]) - B;
     return;
   }
 

@@ -18,18 +18,30 @@
 /* Semi-minor axis. */
 #define EARTH_B 6356752.31424517929553985595703125
 
-#define NUM_COORDS 4
+#define NUM_COORDS 10
 const double const llhs[NUM_COORDS][3] = {
-  {0, 0, 0},       /* On the Equator and Prime Meridian. */
-  {0, 180*D2R, 0}, /* On the Equator. */
-  {90*D2R, 0, 0},  /* North pole. */
-  {-90*D2R, 0, 0}, /* South pole. */
+  {0, 0, 0},        /* On the Equator and Prime Meridian. */
+  {0, 180*D2R, 0},  /* On the Equator. */
+  {0, 90*D2R, 0},   /* On the Equator. */
+  {0, -90*D2R, 0},  /* On the Equator. */
+  {90*D2R, 0, 0},   /* North pole. */
+  {-90*D2R, 0, 0},  /* South pole. */
+  {90*D2R, 0, 22},  /* 22m above the north pole. */
+  {-90*D2R, 0, 22}, /* 22m above the south pole. */
+  {0, 0, 22},       /* 22m above the Equator and Prime Meridian. */
+  {0, 180*D2R, 22}, /* 22m above the Equator. */
 };
 const double const xyzs[NUM_COORDS][3] = {
   {EARTH_A, 0, 0},
   {-EARTH_A, 0, 0},
+  {0, EARTH_A, 0},
+  {0, -EARTH_A, 0},
   {0, 0, EARTH_B},
   {0, 0, -EARTH_B},
+  {0, 0, (EARTH_B+22)},
+  {0, 0, -(EARTH_B+22)},
+  {(22+EARTH_A), 0, 0},
+  {-(22+EARTH_A), 0, 0},
 };
 
 START_TEST(test_wgsllh2xyz)
