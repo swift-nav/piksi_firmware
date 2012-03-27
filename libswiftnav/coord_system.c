@@ -67,7 +67,6 @@
 /* \} */
 
 #define TOL 1.0E-13
-#define DPI2 1.570796326794897
 
 /** Converts from WGS84 geodetic coordinates (latitude, longitude and height)
  * into WGS84 Earth centered, Earth fixed Cartesian coordinates (X, Y and Z).
@@ -139,7 +138,7 @@ void wgsxyz2llh(const double const xyz[3], double llh[3]) {
   /* If we are close to the pole then convergence is very slow, treat this is a
    * special case. */
   if (p < A*1e-16) {
-    llh[0] = copysign(DPI2, xyz[2]);
+    llh[0] = copysign(M_PI_2, xyz[2]);
     llh[2] = xyz[2] - copysign(B, xyz[2]);
     return;
   }
