@@ -66,8 +66,6 @@
 #define E (sqrt(2*F - F*F))
 /* \} */
 
-#define TOL 1.0E-13
-
 /** Converts from WGS84 geodetic coordinates (latitude, longitude and height)
  * into WGS84 Earth centered, Earth fixed Cartesian coordinates (X, Y and Z).
  *
@@ -204,7 +202,7 @@ void wgsxyz2llh(const double const xyz[3], double llh[3]) {
     }
 
     /* Check for convergence and exit early if we have converged. */
-    if (fabs(S - prev_S) < TOL && fabs(C - prev_C) < TOL) {
+    if (fabs(S - prev_S) < 1e-16 && fabs(C - prev_C) < 1e-16) {
       break;
     } else {
       prev_S = S;
