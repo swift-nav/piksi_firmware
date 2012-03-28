@@ -52,7 +52,7 @@ static double vel_solve(double rx_vel[],
 }
 
 void compute_dops(const double const H[4][4],
-                  const double const pos_xyz[3],
+                  const double const pos_ecef[3],
                   dops_t *dops)
 {
   double H_pos_diag[3];
@@ -79,7 +79,7 @@ void compute_dops(const double const H[4][4],
   /* HDOP and VDOP are Horizontal and Vertical; we need to rotate the
    * PDOP into NED frame and then take the separate components.
    */
-  wgsxyz2ned_r(H_pos_diag, pos_xyz, H_ned);
+  wgsecef2ned_r(H_pos_diag, pos_ecef, H_ned);
   dops->vdop = sqrt(H_ned[2]*H_ned[2]);
   dops->hdop = sqrt(H_ned[0]*H_ned[0] + H_ned[1]*H_ned[1]);
 }
@@ -228,7 +228,7 @@ static double pvt_solve(double rx_state[],
   /* correction := X * E (= X * omp) */
   matrix_multiply(4, n_used, 1, (double *) X, (double *) omp, (double *) correction);
 
-  /* Increment xyz estimate by the new corrections */
+  /* Increment ecef estimate by the new corrections */
   for (u8 i=0; i<3; i++) {
     rx_state[i] += correction[i];
   }
@@ -314,12 +314,12 @@ u8 calc_PVT(const u8 n_used,
 
   /* Save as x, y, z. */
   for (u8 i=0; i<3; i++) {
-    soln->pos_xyz[i] = rx_state[i];
-    soln->vel_xyz[i] = rx_state[4+i];
+    soln->pos_ecef[i] = rx_state[i];
+    soln->vel_ecef[i] = rx_state[4+i];
   }
 
   /* Convert to lat, lon, hgt. */
-  wgsxyz2llh(rx_state, soln->pos_llh);
+  wgsecef2llh(rx_state, soln->pos_llh);
 
   /* Implicitly use the first receiver to calculate offset from GPS
    * TOW.  Maybe there's a better way to do this?  */

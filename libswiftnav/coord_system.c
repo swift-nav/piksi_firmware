@@ -69,7 +69,7 @@
 /* \} */
 
 /** Converts from WGS84 geodetic coordinates (latitude, longitude and height)
- * into WGS84 Earth centered, Earth fixed Cartesian coordinates (X, Y and Z).
+ * into WGS84 Earth Centered, Earth Fixed Cartesian coordinates (X, Y and Z).
  *
  * Conversion from geodetic coordinates latitude, longitude and height
  * \f$(\phi, \lambda, h)\f$ into Cartesian coordinates \f$(X, Y, Z)\f$ can be
@@ -86,21 +86,21 @@
  * and \f$ a \f$ is the WGS84 semi-major axis and \f$ e \f$ is the WGS84
  * eccentricity. See \ref WGS84_params.
  *
- * \param llh Geodetic coordinates to be converted, passed as
- *            [lat, lon, height] in [radians, radians, meters].
- * \param xyz Converted Cartesian coordinates are written into this array
- *            as [X, Y, Z], all in meters.
+ * \param llh  Geodetic coordinates to be converted, passed as
+ *             [lat, lon, height] in [radians, radians, meters].
+ * \param ecef Converted Cartesian coordinates are written into this array
+ *             as [X, Y, Z], all in meters.
  */
-void wgsllh2xyz(const double const llh[3], double xyz[3]) {
+void wgsllh2ecef(const double const llh[3], double ecef[3]) {
   double d = E * sin(llh[0]);
   double N = A / sqrt(1. - d*d);
 
-  xyz[0] = (N + llh[2]) * cos(llh[0]) * cos(llh[1]);
-  xyz[1] = (N + llh[2]) * cos(llh[0]) * sin(llh[1]);
-  xyz[2] = ((1 - E*E)*N + llh[2]) * sin(llh[0]);
+  ecef[0] = (N + llh[2]) * cos(llh[0]) * cos(llh[1]);
+  ecef[1] = (N + llh[2]) * cos(llh[0]) * sin(llh[1]);
+  ecef[2] = ((1 - E*E)*N + llh[2]) * sin(llh[0]);
 }
 
-/** Converts from WGS84 Earth centered, Earth fixed Cartesian coordinates (X, Y
+/** Converts from WGS84 Earth Centered, Earth Fixed Cartesian coordinates (X, Y
  * and Z) into WGS84 geodetic coordinates (latitude, longitude and height).
  *
  * Conversion from Cartesian to geodetic coordinates is a much harder problem
@@ -120,33 +120,33 @@ void wgsllh2xyz(const double const llh[3], double xyz[3]) {
  *   -# "Transformation from Cartesian to Geodetic Coordinates Accelerated by
  *      Halley’s Method", T. Fukushima (2006), Journal of Geodesy.
  *
- * \param xyz Cartesian coordinates to be converted, passed as [X, Y, Z],
- *            all in meters.
- * \param llh Converted geodetic coordinates are written into this array as
- *            [lat, lon, height] in [radians, radians, meters].
+ * \param ecef Cartesian coordinates to be converted, passed as [X, Y, Z],
+ *             all in meters.
+ * \param llh  Converted geodetic coordinates are written into this array as
+ *             [lat, lon, height] in [radians, radians, meters].
  */
-void wgsxyz2llh(const double const xyz[3], double llh[3]) {
+void wgsecef2llh(const double const ecef[3], double llh[3]) {
   /* Distance from polar axis. */
-  const double p = sqrt(xyz[0]*xyz[0] + xyz[1]*xyz[1]);
+  const double p = sqrt(ecef[0]*ecef[0] + ecef[1]*ecef[1]);
 
   /* Compute longitude first, this can be done exactly. */
   if (p != 0)
-    llh[1] = atan2(xyz[1], xyz[0]);
+    llh[1] = atan2(ecef[1], ecef[0]);
   else
     llh[1] = 0;
 
   /* If we are close to the pole then convergence is very slow, treat this is a
    * special case. */
   if (p < A*1e-16) {
-    llh[0] = copysign(M_PI_2, xyz[2]);
-    llh[2] = fabs(xyz[2]) - B;
+    llh[0] = copysign(M_PI_2, ecef[2]);
+    llh[2] = fabs(ecef[2]) - B;
     return;
   }
 
   /* Caluclate some other constants as defined in the Fukushima paper. */
   const double P = p / A;
   const double e_c = sqrt(1. - E*E);
-  const double Z = fabs(xyz[2]) * e_c / A;
+  const double Z = fabs(ecef[2]) * e_c / A;
 
   /* Initial values for S and C correspond to a zero height solution. */
   double S = Z;
@@ -213,8 +213,8 @@ void wgsxyz2llh(const double const xyz[3], double llh[3]) {
   }
 
   A_n = sqrt(S*S + C*C);
-  llh[0] = copysign(1.0, xyz[2]) * atan(S / (e_c*C));
-  llh[2] = (p*e_c*C + fabs(xyz[2])*S - A*e_c*A_n) / sqrt(e_c*e_c*C*C + S*S);
+  llh[0] = copysign(1.0, ecef[2]) * atan(S / (e_c*C));
+  llh[2] = (p*e_c*C + fabs(ecef[2])*S - A*e_c*A_n) / sqrt(e_c*e_c*C*C + S*S);
 }
 
 /*
@@ -225,7 +225,7 @@ void wgsxyz2llh(const double const xyz[3], double llh[3]) {
  * Earth__ (so it is useful for velocities which do not need to be translated).
  * i.e. rotate but do NOT translate.
  */
-void wgsxyz2ned_r(const double ecef[3], const double ref_ecef[3], double NED[3])
+void wgsecef2ned_r(const double ecef[3], const double ref_ecef[3], double NED[3])
 {
   double M[3][3];
   double ref_el, ref_az;
@@ -259,9 +259,9 @@ void wgsxyz2ned_r(const double ecef[3], const double ref_ecef[3], double NED[3])
  * NOTE: This returns the down coordinate referenced to the ref point altitude 
  * which is what you want for position but NOT for velocities!
  */
-void wgsxyz2ned_rt(const double ecef[3], const double ref_ecef[3], double NED[3])
+void wgsecef2ned_rt(const double ecef[3], const double ref_ecef[3], double NED[3])
 {
-  wgsxyz2ned_r(ecef, ref_ecef, NED);
+  wgsecef2ned_r(ecef, ref_ecef, NED);
   NED[2] = NED[2] + vector_norm(ref_ecef);
 }
 
@@ -269,14 +269,14 @@ void wgsxyz2ned_rt(const double ecef[3], const double ref_ecef[3], double NED[3]
  * Converts ECEF satellite coordinates into azimuth and elevation
  * around the reference WGS84 ECEF position
  */
-void satxyz2azel(const double satecef[3], const double rxecef[3], double* azimuth, double* elevation)
+void satecef2azel(const double satecef[3], const double rxecef[3], double* azimuth, double* elevation)
 {
   double NED[3];
   double tempv[3];
 
   vector_subtract(satecef, rxecef, tempv);
 
-  wgsxyz2ned_r(tempv, rxecef, NED);
+  wgsecef2ned_r(tempv, rxecef, NED);
   *azimuth = atan2(NED[1], NED[0]);
   *elevation = asin(-NED[2]/vector_norm(NED));
 }

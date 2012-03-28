@@ -30,19 +30,19 @@
 #ifndef SWIFTLIB_COORD_SYSTEM_H
 #define SWIFTLIB_COORD_SYSTEM_H
 
-void wgsllh2xyz(const double *llh, double *xyz);
-void wgsxyz2llh(const double const xyz[3], double llh[3]);
+void wgsllh2ecef(const double *llh, double *ecef);
+void wgsecef2llh(const double const ecef[3], double llh[3]);
 
 /*
- * Be careful in choosing which of these two functions you need, wgsxyz2ned_rt
+ * Be careful in choosing which of these two functions you need, wgsecef2ned_rt
  * references from the ref pos altitude, i.e. translates the position as well
  * as rotating. This is _not_ what you want e.g. for velocities which should
- * only be rotated using the wgsxyz2ned_r.
+ * only be rotated using the wgsecef2ned_r.
  */
-void wgsxyz2ned_rt(const double ecef[3], const double ref_ecef[3], double NED[3]);
-void wgsxyz2ned_r(const double ecef[3], const double ref_ecef[3], double NED[3]);
+void wgsecef2ned_rt(const double ecef[3], const double ref_ecef[3], double NED[3]);
+void wgsecef2ned_r(const double ecef[3], const double ref_ecef[3], double NED[3]);
 
-void satxyz2azel(const double satecef[3], const double ref_ecef[3], double* azimuth, double* elevation);
+void satecef2azel(const double satecef[3], const double ref_ecef[3], double* azimuth, double* elevation);
 
 #endif
 

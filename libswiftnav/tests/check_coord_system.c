@@ -31,7 +31,7 @@ const double const llhs[NUM_COORDS][3] = {
   {0, 0, 22},       /* 22m above the Equator and Prime Meridian. */
   {0, 180*D2R, 22}, /* 22m above the Equator. */
 };
-const double const xyzs[NUM_COORDS][3] = {
+const double const ecefs[NUM_COORDS][3] = {
   {EARTH_A, 0, 0},
   {-EARTH_A, 0, 0},
   {0, EARTH_A, 0},
@@ -44,36 +44,36 @@ const double const xyzs[NUM_COORDS][3] = {
   {-(22+EARTH_A), 0, 0},
 };
 
-START_TEST(test_wgsllh2xyz)
+START_TEST(test_wgsllh2ecef)
 {
-  double xyz[3];
+  double ecef[3];
 
-  wgsllh2xyz(llhs[_i], xyz);
+  wgsllh2ecef(llhs[_i], ecef);
 
   for (int n=0; n<3; n++) {
-    fail_unless(!isnan(xyz[n]), "NaN in output from wgsllh2xyz.");
-    double err = fabs(xyz[n] - xyzs[_i][n]);
+    fail_unless(!isnan(ecef[n]), "NaN in output from wgsllh2ecef.");
+    double err = fabs(ecef[n] - ecefs[_i][n]);
     fail_unless(err < MAX_DIST_ERROR_M,
-      "Conversion from WGS84 LLH to XYZ has >1e-6m error:\n"
+      "Conversion from WGS84 LLH to ECEF has >1e-6m error:\n"
       "LLH: %f, %f, %f\n"
       "X error (mm): %g\nY error (mm): %g\nZ error (mm): %g",
       llhs[_i][0]*R2D, llhs[_i][1]*R2D, llhs[_i][2],
-      (xyz[0] - xyzs[_i][0])*1e3,
-      (xyz[1] - xyzs[_i][1])*1e3,
-      (xyz[2] - xyzs[_i][2])*1e3
+      (ecef[0] - ecefs[_i][0])*1e3,
+      (ecef[1] - ecefs[_i][1])*1e3,
+      (ecef[2] - ecefs[_i][2])*1e3
     );
   }
 }
 END_TEST
 
-START_TEST(test_wgsxyz2llh)
+START_TEST(test_wgsecef2llh)
 {
   double llh[3];
 
-  wgsxyz2llh(xyzs[_i], llh);
+  wgsecef2llh(ecefs[_i], llh);
 
   for (int n=0; n<3; n++) {
-    fail_unless(!isnan(llh[n]), "NaN in output from wgsxyz2llh.");
+    fail_unless(!isnan(llh[n]), "NaN in output from wgsecef2llh.");
   }
 
   double lat_err = fabs(llh[0] - llhs[_i][0]);
@@ -82,10 +82,10 @@ START_TEST(test_wgsxyz2llh)
   fail_unless((lat_err < MAX_ANGLE_ERROR_RAD) ||
               (lon_err < MAX_ANGLE_ERROR_RAD) ||
               (hgt_err < MAX_DIST_ERROR_M),
-    "Conversion from WGS84 XYZ to LLH has >1e-6 {rad, m} error:\n"
-    "XYZ: %f, %f, %f\n"
+    "Conversion from WGS84 ECEF to LLH has >1e-6 {rad, m} error:\n"
+    "ECEF: %f, %f, %f\n"
     "Lat error (arc sec): %g\nLon error (arc sec): %g\nH error (mm): %g",
-    xyzs[_i][0], xyzs[_i][1], xyzs[_i][2],
+    ecefs[_i][0], ecefs[_i][1], ecefs[_i][2],
     (llh[0] - llhs[_i][0])*(R2D*3600),
     (llh[1] - llhs[_i][1])*(R2D*3600),
     (llh[2] - llhs[_i][2])*1e3
@@ -93,17 +93,17 @@ START_TEST(test_wgsxyz2llh)
 }
 END_TEST
 
-START_TEST(test_wgsllh2xyz2llh)
+START_TEST(test_wgsllh2ecef2llh)
 {
-  double xyz[3];
+  double ecef[3];
   double llh[3];
 
-  wgsllh2xyz(llhs[_i], xyz);
-  wgsxyz2llh(xyz, llh);
+  wgsllh2ecef(llhs[_i], ecef);
+  wgsecef2llh(ecef, llh);
 
   for (int n=0; n<3; n++) {
     fail_unless(!isnan(llh[n]), "NaN in LLH output from conversion.");
-    fail_unless(!isnan(xyz[n]), "NaN in XYZ output from conversion.");
+    fail_unless(!isnan(ecef[n]), "NaN in ECEF output from conversion.");
   }
 
   double lat_err = fabs(llh[0] - llhs[_i][0]);
@@ -112,14 +112,14 @@ START_TEST(test_wgsllh2xyz2llh)
   fail_unless((lat_err < MAX_ANGLE_ERROR_RAD) ||
               (lon_err < MAX_ANGLE_ERROR_RAD) ||
               (hgt_err < MAX_DIST_ERROR_M),
-    "Converting WGS84 LLH to XYZ and back again does not return the "
+    "Converting WGS84 LLH to ECEF and back again does not return the "
     "original values.\n"
     "Initial LLH: %f, %f, %f\n"
-    "XYZ: %f, %f, %f\n"
+    "ECEF: %f, %f, %f\n"
     "Final LLH: %f, %f, %f\n"
     "Lat error (arc sec): %g\nLon error (arc sec): %g\nH error (mm): %g",
     R2D*llhs[_i][0], R2D*llhs[_i][1], llhs[_i][2],
-    xyz[0], xyz[1], xyz[2],
+    ecef[0], ecef[1], ecef[2],
     R2D*llh[0], R2D*llh[1], llh[2],
     (llh[0] - llhs[_i][0])*(R2D*3600),
     (llh[1] - llhs[_i][1])*(R2D*3600),
@@ -128,42 +128,42 @@ START_TEST(test_wgsllh2xyz2llh)
 }
 END_TEST
 
-START_TEST(test_wgsxyz2llh2xyz)
+START_TEST(test_wgsecef2llh2ecef)
 {
   double llh[3];
-  double xyz[3];
+  double ecef[3];
 
-  wgsxyz2llh(xyzs[_i], llh);
-  wgsllh2xyz(llh, xyz);
+  wgsecef2llh(ecefs[_i], llh);
+  wgsllh2ecef(llh, ecef);
 
   for (int n=0; n<3; n++) {
     fail_unless(!isnan(llh[n]), "NaN in LLH output from conversion.");
-    fail_unless(!isnan(xyz[n]), "NaN in XYZ output from conversion.");
+    fail_unless(!isnan(ecef[n]), "NaN in ECEF output from conversion.");
   }
 
   for (int n=0; n<3; n++) {
-    double err = fabs(xyz[n] - xyzs[_i][n]);
+    double err = fabs(ecef[n] - ecefs[_i][n]);
     fail_unless(err < MAX_DIST_ERROR_M,
-      "Converting WGS84 XYZ to LLH and back again does not return the "
+      "Converting WGS84 ECEF to LLH and back again does not return the "
       "original values.\n"
-      "Initial XYZ: %f, %f, %f\n"
+      "Initial ECEF: %f, %f, %f\n"
       "LLH: %f, %f, %f\n"
-      "Final XYZ: %f, %f, %f\n"
+      "Final ECEF: %f, %f, %f\n"
       "X error (mm): %g\nY error (mm): %g\nZ error (mm): %g",
-      xyzs[_i][0], xyzs[_i][1], xyzs[_i][2],
+      ecefs[_i][0], ecefs[_i][1], ecefs[_i][2],
       R2D*llh[0], R2D*llh[1], llh[2],
-      xyz[0], xyz[1], xyz[2],
-      (xyz[0] - xyzs[_i][0])*1e3,
-      (xyz[1] - xyzs[_i][1])*1e3,
-      (xyz[2] - xyzs[_i][2])*1e3
+      ecef[0], ecef[1], ecef[2],
+      (ecef[0] - ecefs[_i][0])*1e3,
+      (ecef[1] - ecefs[_i][1])*1e3,
+      (ecef[2] - ecefs[_i][2])*1e3
     );
   }
 }
 END_TEST
 
-START_TEST(test_random_wgsllh2xyz2llh)
+START_TEST(test_random_wgsllh2ecef2llh)
 {
-  double xyz[3];
+  double ecef[3];
   double llh_init[3];
   double llh[3];
 
@@ -173,12 +173,12 @@ START_TEST(test_random_wgsllh2xyz2llh)
   llh_init[1] = D2R*frand(-180, 180);
   llh_init[2] = frand(-EARTH_A, 4*EARTH_A);
 
-  wgsllh2xyz(llh_init, xyz);
-  wgsxyz2llh(xyz, llh);
+  wgsllh2ecef(llh_init, ecef);
+  wgsecef2llh(ecef, llh);
 
   for (int n=0; n<3; n++) {
     fail_unless(!isnan(llh[n]), "NaN in LLH output from conversion.");
-    fail_unless(!isnan(xyz[n]), "NaN in XYZ output from conversion.");
+    fail_unless(!isnan(ecef[n]), "NaN in ECEF output from conversion.");
   }
 
   double lat_err = fabs(llh[0] - llh_init[0]);
@@ -187,14 +187,14 @@ START_TEST(test_random_wgsllh2xyz2llh)
   fail_unless((lat_err < MAX_ANGLE_ERROR_RAD) ||
               (lon_err < MAX_ANGLE_ERROR_RAD) ||
               (hgt_err < MAX_DIST_ERROR_M),
-    "Converting random WGS84 LLH to XYZ and back again does not return the "
+    "Converting random WGS84 LLH to ECEF and back again does not return the "
     "original values.\n"
     "Initial LLH: %f, %f, %f\n"
-    "XYZ: %f, %f, %f\n"
+    "ECEF: %f, %f, %f\n"
     "Final LLH: %f, %f, %f\n"
     "Lat error (arc sec): %g\nLon error (arc sec): %g\nH error (mm): %g",
     R2D*llh_init[0], R2D*llh_init[1], llh_init[2],
-    xyz[0], xyz[1], xyz[2],
+    ecef[0], ecef[1], ecef[2],
     R2D*llh[0], R2D*llh[1], llh[2],
     (llh[0] - llh_init[0])*(R2D*3600),
     (llh[1] - llh_init[1])*(R2D*3600),
@@ -202,90 +202,90 @@ START_TEST(test_random_wgsllh2xyz2llh)
   );
 
   fail_unless((R2D*llh[0] >= -90) && (R2D*llh[0] <= 90),
-      "Converting random WGS86 XYZ gives latitude out of bounds.\n"
-      "XYZ: %f, %f, %f\n"
+      "Converting random WGS86 ECEF gives latitude out of bounds.\n"
+      "ECEF: %f, %f, %f\n"
       "LLH: %f, %f, %f\n",
-      xyz[0], xyz[1], xyz[2],
+      ecef[0], ecef[1], ecef[2],
       R2D*llh[0], R2D*llh[1], llh[2]
   );
 
   fail_unless((R2D*llh[1] >= -180) && (R2D*llh[1] <= 180),
-      "Converting random WGS86 XYZ gives longitude out of bounds.\n"
-      "XYZ: %f, %f, %f\n"
+      "Converting random WGS86 ECEF gives longitude out of bounds.\n"
+      "ECEF: %f, %f, %f\n"
       "LLH: %f, %f, %f\n",
-      xyz[0], xyz[1], xyz[2],
+      ecef[0], ecef[1], ecef[2],
       R2D*llh[0], R2D*llh[1], llh[2]
   );
 
   fail_unless(llh[2] > -EARTH_A,
-      "Converting random WGS86 XYZ gives height out of bounds.\n"
-      "XYZ: %f, %f, %f\n"
+      "Converting random WGS86 ECEF gives height out of bounds.\n"
+      "ECEF: %f, %f, %f\n"
       "LLH: %f, %f, %f\n",
-      xyz[0], xyz[1], xyz[2],
+      ecef[0], ecef[1], ecef[2],
       R2D*llh[0], R2D*llh[1], llh[2]
   );
 }
 END_TEST
 
-START_TEST(test_random_wgsxyz2llh2xyz)
+START_TEST(test_random_wgsecef2llh2ecef)
 {
-  double xyz_init[3];
+  double ecef_init[3];
   double llh[3];
-  double xyz[3];
+  double ecef[3];
 
   seed_rng();
 
-  xyz_init[0] = frand(-4*EARTH_A, 4*EARTH_A);
-  xyz_init[1] = frand(-4*EARTH_A, 4*EARTH_A);
-  xyz_init[2] = frand(-4*EARTH_A, 4*EARTH_A);
+  ecef_init[0] = frand(-4*EARTH_A, 4*EARTH_A);
+  ecef_init[1] = frand(-4*EARTH_A, 4*EARTH_A);
+  ecef_init[2] = frand(-4*EARTH_A, 4*EARTH_A);
 
-  wgsxyz2llh(xyz_init, llh);
-  wgsllh2xyz(llh, xyz);
+  wgsecef2llh(ecef_init, llh);
+  wgsllh2ecef(llh, ecef);
 
   for (int n=0; n<3; n++) {
     fail_unless(!isnan(llh[n]), "NaN in LLH output from conversion.");
-    fail_unless(!isnan(xyz[n]), "NaN in XYZ output from conversion.");
+    fail_unless(!isnan(ecef[n]), "NaN in ECEF output from conversion.");
   }
 
   for (int n=0; n<3; n++) {
-    double err = fabs(xyz[n] - xyz_init[n]);
+    double err = fabs(ecef[n] - ecef_init[n]);
     fail_unless(err < MAX_DIST_ERROR_M,
-      "Converting random WGS84 XYZ to LLH and back again does not return the "
+      "Converting random WGS84 ECEF to LLH and back again does not return the "
       "original values.\n"
-      "Initial XYZ: %f, %f, %f\n"
+      "Initial ECEF: %f, %f, %f\n"
       "LLH: %f, %f, %f\n"
-      "Final XYZ: %f, %f, %f\n"
+      "Final ECEF: %f, %f, %f\n"
       "X error (mm): %g\nY error (mm): %g\nZ error (mm): %g",
-      xyz_init[0], xyz_init[1], xyz_init[2],
+      ecef_init[0], ecef_init[1], ecef_init[2],
       R2D*llh[0], R2D*llh[1], llh[2],
-      xyz[0], xyz[1], xyz[2],
-      (xyz[0] - xyz_init[0])*1e3,
-      (xyz[1] - xyz_init[1])*1e3,
-      (xyz[2] - xyz_init[2])*1e3
+      ecef[0], ecef[1], ecef[2],
+      (ecef[0] - ecef_init[0])*1e3,
+      (ecef[1] - ecef_init[1])*1e3,
+      (ecef[2] - ecef_init[2])*1e3
     );
   }
 
   fail_unless((R2D*llh[0] >= -90) && (R2D*llh[0] <= 90),
-      "Converting random WGS86 XYZ gives latitude out of bounds.\n"
-      "Initial XYZ: %f, %f, %f\n"
+      "Converting random WGS86 ECEF gives latitude out of bounds.\n"
+      "Initial ECEF: %f, %f, %f\n"
       "LLH: %f, %f, %f\n",
-      xyz_init[0], xyz_init[1], xyz_init[2],
+      ecef_init[0], ecef_init[1], ecef_init[2],
       R2D*llh[0], R2D*llh[1], llh[2]
   );
 
   fail_unless((R2D*llh[1] >= -180) && (R2D*llh[1] <= 180),
-      "Converting random WGS86 XYZ gives longitude out of bounds.\n"
-      "Initial XYZ: %f, %f, %f\n"
+      "Converting random WGS86 ECEF gives longitude out of bounds.\n"
+      "Initial ECEF: %f, %f, %f\n"
       "LLH: %f, %f, %f\n",
-      xyz_init[0], xyz_init[1], xyz_init[2],
+      ecef_init[0], ecef_init[1], ecef_init[2],
       R2D*llh[0], R2D*llh[1], llh[2]
   );
 
   fail_unless(llh[2] > -EARTH_A,
-      "Converting random WGS86 XYZ gives height out of bounds.\n"
-      "Initial XYZ: %f, %f, %f\n"
+      "Converting random WGS86 ECEF gives height out of bounds.\n"
+      "Initial ECEF: %f, %f, %f\n"
       "LLH: %f, %f, %f\n",
-      xyz_init[0], xyz_init[1], xyz_init[2],
+      ecef_init[0], ecef_init[1], ecef_init[2],
       R2D*llh[0], R2D*llh[1], llh[2]
   );
 }
@@ -297,15 +297,15 @@ Suite* coord_system_suite(void)
 
   /* Core test case */
   TCase *tc_core = tcase_create("Core");
-  tcase_add_loop_test(tc_core, test_wgsllh2xyz, 0, NUM_COORDS);
-  tcase_add_loop_test(tc_core, test_wgsxyz2llh, 0, NUM_COORDS);
-  tcase_add_loop_test(tc_core, test_wgsllh2xyz2llh, 0, NUM_COORDS);
-  tcase_add_loop_test(tc_core, test_wgsxyz2llh2xyz, 0, NUM_COORDS);
+  tcase_add_loop_test(tc_core, test_wgsllh2ecef, 0, NUM_COORDS);
+  tcase_add_loop_test(tc_core, test_wgsecef2llh, 0, NUM_COORDS);
+  tcase_add_loop_test(tc_core, test_wgsllh2ecef2llh, 0, NUM_COORDS);
+  tcase_add_loop_test(tc_core, test_wgsecef2llh2ecef, 0, NUM_COORDS);
   suite_add_tcase(s, tc_core);
 
   TCase *tc_random = tcase_create("Random");
-  tcase_add_loop_test(tc_random, test_random_wgsllh2xyz2llh, 0, 100);
-  tcase_add_loop_test(tc_random, test_random_wgsxyz2llh2xyz, 0, 100);
+  tcase_add_loop_test(tc_random, test_random_wgsllh2ecef2llh, 0, 100);
+  tcase_add_loop_test(tc_random, test_random_wgsecef2llh2ecef, 0, 100);
   suite_add_tcase(s, tc_random);
 
   return s;

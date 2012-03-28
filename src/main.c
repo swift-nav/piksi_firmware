@@ -114,8 +114,8 @@ int main(void)
 
   const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
 
-  double WPR_xyz[3];
-  wgsllh2xyz(WPR_llh, WPR_xyz);
+  double WPR_ecef[3];
+  wgsllh2ecef(WPR_llh, WPR_ecef);
 
   channel_measurement_t meas[TRACK_N_CHANNELS];
   navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
@@ -158,7 +158,7 @@ int main(void)
       double mean_range = 0;
       double ranges[n_ready];
       for (u8 i=0; i<n_ready; i++) {
-        ranges[i] = predict_range(WPR_xyz, nav_meas[i].TOT, &es[meas[i].prn]);
+        ranges[i] = predict_range(WPR_ecef, nav_meas[i].TOT, &es[meas[i].prn]);
         mean_range += ranges[i];
       }
       mean_range /= n_ready;
@@ -170,7 +170,7 @@ int main(void)
         pr_errs[i] = 0;
       }
 
-      wgsxyz2ned_rt(soln.pos_xyz, WPR_xyz, soln.pos_ned);
+      wgsecef2ned_rt(soln.pos_ecef, WPR_ecef, soln.pos_ned);
       DO_EVERY_COUNTS(SAMPLE_FREQ/4,
         debug_send_msg(0x50, sizeof(gnss_solution), (u8 *) &soln);
         debug_send_msg(0x51, sizeof(dops_t), (u8 *) &dops);

@@ -36,16 +36,16 @@ typedef struct {
 } dops_t;
 
 typedef struct __attribute__((packed)) {
-  /* 
+  /*
    * Be careful of stuct packing to avoid (very mild) slowness,
-   * try to keep all the types aligned i.e. put the 64bit 
+   * try to keep all the types aligned i.e. put the 64bit
    * things together at the top, then the 32bit ones etc.
    */
   double pos_llh[3]; // Receiver position latitude [deg], longitude [deg], altitude [m]
-  double pos_xyz[3]; // Receiver position ECEF XYZ [m]
+  double pos_ecef[3]; // Receiver position ECEF XYZ [m]
   double pos_ned[3];
 
-  double vel_xyz[3]; // Receiver velocity in ECEF XYZ [m/s]
+  double vel_ecef[3]; // Receiver velocity in ECEF XYZ [m/s]
   double vel_ned[3]; // Receiver velocity in NED [m/s]
 
   /* This is the row-first upper diagonal matrix of error covariances
