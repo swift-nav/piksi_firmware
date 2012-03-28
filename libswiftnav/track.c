@@ -42,7 +42,7 @@ void calc_navigation_measurement(u8 n_channels, channel_measurement_t meas[], na
     nav_meas[i].pseudorange = (mean_TOT - TOTs[i])*NAV_C + NOMINAL_RANGE;
 
     calc_sat_pos(nav_meas[i].sat_pos, nav_meas[i].sat_vel, &clock_err, &clock_rate_err, &ephemerides[meas[i].prn], TOTs[i]);
-    satecef2azel(nav_meas[i].sat_pos, WPR_ecef, &az, &el);
+    wgsecef2azel(nav_meas[i].sat_pos, WPR_ecef, &az, &el);
 
     nav_meas[i].pseudorange -= tropo_correction(el);
     nav_meas[i].pseudorange += clock_err*NAV_C;

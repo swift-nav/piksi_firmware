@@ -265,20 +265,37 @@ void wgsecef2ned_rt(const double ecef[3], const double ref_ecef[3], double NED[3
   NED[2] = NED[2] + vector_norm(ref_ecef);
 }
 
-/*
- * Converts ECEF satellite coordinates into azimuth and elevation
- * around the reference WGS84 ECEF position
+/** Determine the azimuth and elevation of a point in WGS84 Earth Centered,
+ * Earth Fixed (ECEF) Cartesian coordinates from a reference point given in
+ * WGS84 ECEF coordinates.
+ *
+ * First the vector between the points is converted into the local North, East,
+ * Down frame of the reference point. Then we can directly calculate the
+ * azimuth and elevation.
+ *
+ * \param ecef      Cartesian coordinates of the point, passed as [X, Y, Z],
+ *                  all in meters.
+ * \param ref_ecef  Cartesian coordinates of the reference point from which the
+ *                  azimuth and elevation is to be determined, passed as
+ *                  [X, Y, Z], all in meters.
+ * \param azimuth   Pointer to where to store the calculated azimuth output.
+ * \param elevation Pointer to where to store the calculated elevation output.
  */
-void satecef2azel(const double satecef[3], const double rxecef[3], double* azimuth, double* elevation)
-{
-  double NED[3];
-  double tempv[3];
+void wgsecef2azel(const double ecef[3], const double ref_ecef[3],
+                  double* azimuth, double* elevation) {
+  double ned[3];
 
-  vector_subtract(satecef, rxecef, tempv);
+  /* Calculate the vector from the reference point in the local North, East,
+   * Down frame of the reference point. */
+  wgsecef2ned_rt(ecef, ref_ecef, ned);
 
-  wgsecef2ned_r(tempv, rxecef, NED);
-  *azimuth = atan2(NED[1], NED[0]);
-  *elevation = asin(-NED[2]/vector_norm(NED));
+  *azimuth = atan2(ned[1], ned[0]);
+  /* atan2 returns angle in range [-pi, pi], usually azimuth is defined in the
+   * range [0, 2pi]. */
+  if (*azimuth < 0)
+    *azimuth += 2*M_PI;
+
+  *elevation = asin(-ned[2]/vector_norm(ned));
 }
 
 /** \} */
