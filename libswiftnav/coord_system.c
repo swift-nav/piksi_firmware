@@ -69,7 +69,8 @@
 /* \} */
 
 /** Converts from WGS84 geodetic coordinates (latitude, longitude and height)
- * into WGS84 Earth Centered, Earth Fixed Cartesian coordinates (X, Y and Z).
+ * into WGS84 Earth Centered, Earth Fixed Cartesian (ECEF) coordinates
+ * (X, Y and Z).
  *
  * Conversion from geodetic coordinates latitude, longitude and height
  * \f$(\phi, \lambda, h)\f$ into Cartesian coordinates \f$(X, Y, Z)\f$ can be
@@ -100,8 +101,9 @@ void wgsllh2ecef(const double const llh[3], double ecef[3]) {
   ecef[2] = ((1 - E*E)*N + llh[2]) * sin(llh[0]);
 }
 
-/** Converts from WGS84 Earth Centered, Earth Fixed Cartesian coordinates (X, Y
- * and Z) into WGS84 geodetic coordinates (latitude, longitude and height).
+/** Converts from WGS84 Earth Centered, Earth Fixed (ECEF) Cartesian
+ * coordinates (X, Y and Z) into WGS84 geodetic coordinates (latitude,
+ * longitude and height).
  *
  * Conversion from Cartesian to geodetic coordinates is a much harder problem
  * than conversion from geodetic to Cartesian. There is no satisfactory closed

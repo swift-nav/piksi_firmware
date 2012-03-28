@@ -32,13 +32,6 @@
 
 void wgsllh2ecef(const double *llh, double *ecef);
 void wgsecef2llh(const double const ecef[3], double llh[3]);
-
-/*
- * Be careful in choosing which of these two functions you need, wgsecef2ned_rt
- * references from the ref pos altitude, i.e. translates the position as well
- * as rotating. This is _not_ what you want e.g. for velocities which should
- * only be rotated using the wgsecef2ned_r.
- */
 void wgsecef2ned_rt(const double ecef[3], const double ref_ecef[3], double NED[3]);
 void wgsecef2ned_r(const double ecef[3], const double ref_ecef[3], double NED[3]);
 void wgsecef2azel(const double ecef[3], const double ref_ecef[3],
