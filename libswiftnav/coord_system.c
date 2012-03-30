@@ -54,7 +54,7 @@
  * derived parameters which are useful for the implementation of the coordinate
  * transform functions.
  * \{ */
-/** Semi-major axis of the Earth, \f$ a \f$, in meters. 
+/** Semi-major axis of the Earth, \f$ a \f$, in meters.
  * This is a defining parameter of the WGS84 ellipsoid. */
 #define A 6378137.0
 /** Inverse flattening of the Earth, \f$ 1/f \f$.
@@ -219,16 +219,26 @@ void wgsecef2llh(const double const ecef[3], double llh[3]) {
   llh[2] = (p*e_c*C + fabs(ecef[2])*S - A*e_c*A_n) / sqrt(e_c*e_c*C*C + S*S);
 }
 
-/*
- * Converts WGS84 ECEF coordinated into a local north, east, down frame
- * rotated around the reference WGS84 ECEF position. 
+/** Converts a vector in WGS84 Earth Centered, Earth Fixed (ECEF) Cartesian
+ * coordinates to the local North, East, Down (NED) frame of a reference point,
+ * also given in WGS84 ECEF coordinates.
  *
- * NOTE: This returns the down coordinate __referenced to the centre of the 
- * Earth__ (so it is useful for velocities which do not need to be translated).
- * i.e. rotate but do NOT translate.
+ * Note, this function only *rotates* the ECEF vector into the NED frame of
+ * the reference point, as would be appropriate for e.g. a velocity vector. To
+ * determine the distance between the point and the reference point in the NED
+ * frame of the reference point, see \ref wgsecef2ned_d.
+ *
+ * \see wgsecef2ned_d.
+ *
+ * \param ecef      Cartesian coordinates of the point, passed as [X, Y, Z],
+ *                  all in meters.
+ * \param ref_ecef  Cartesian coordinates of the reference point, passed as
+ *                  [X, Y, Z], all in meters.
+ * \param ned       The North, East, Down vector is written into this array as
+ *                  [N, E, D], all in meters.
  */
-void wgsecef2ned_r(const double ecef[3], const double ref_ecef[3], double NED[3])
-{
+void wgsecef2ned(const double ecef[3], const double ref_ecef[3],
+                 double ned[3]) {
   double M[3][3];
   double ref_el, ref_az;
   double tempd;
@@ -248,23 +258,30 @@ void wgsecef2ned_r(const double ecef[3], const double ref_ecef[3], double NED[3]
   M[2][1] = cos(ref_el) * sin(ref_az);
   M[2][2] = sin(ref_el);
 
-  NED[0] = M[0][0]*ecef[0] + M[0][1]*ecef[1] + M[0][2]*ecef[2];
-  NED[1] = M[1][0]*ecef[0] + M[1][1]*ecef[1] + M[1][2]*ecef[2];
-  NED[2] = -(M[2][0]*ecef[0] + M[2][1]*ecef[1] + M[2][2]*ecef[2]);
+  ned[0] = M[0][0]*ecef[0] + M[0][1]*ecef[1] + M[0][2]*ecef[2];
+  ned[1] = M[1][0]*ecef[0] + M[1][1]*ecef[1] + M[1][2]*ecef[2];
+  ned[2] = -(M[2][0]*ecef[0] + M[2][1]*ecef[1] + M[2][2]*ecef[2]);
 }
 
-/*
- * Converts WGS84 ECEF coordinated into a local north, east, down frame
- * rotated around the reference WGS84 ECEF position referenced to the reference point
- * altitude, i.e. rotate AND translate.
+/** Returns the vector *to* a point given in WGS84 Earth Centered, Earth Fixed
+ * (ECEF) Cartesian coordinates *from* a reference point, also given in WGS84
+ * ECEF coordinates, in the local North, East, Down (NED) frame of the
+ * reference point.
  *
- * NOTE: This returns the down coordinate referenced to the ref point altitude 
- * which is what you want for position but NOT for velocities!
+ * \see wgsecef2ned.
+ *
+ * \param ecef      Cartesian coordinates of the point, passed as [X, Y, Z],
+ *                  all in meters.
+ * \param ref_ecef  Cartesian coordinates of the reference point, passed as
+ *                  [X, Y, Z], all in meters.
+ * \param ned       The North, East, Down vector is written into this array as
+ *                  [N, E, D], all in meters.
  */
-void wgsecef2ned_rt(const double ecef[3], const double ref_ecef[3], double NED[3])
-{
-  wgsecef2ned_r(ecef, ref_ecef, NED);
-  NED[2] = NED[2] + vector_norm(ref_ecef);
+void wgsecef2ned_d(const double ecef[3], const double ref_ecef[3],
+                   double ned[3]) {
+  double tempv[3];
+  vector_subtract(ecef, ref_ecef, tempv);
+  wgsecef2ned(tempv, ref_ecef, ned);
 }
 
 /** Determine the azimuth and elevation of a point in WGS84 Earth Centered,
@@ -289,7 +306,7 @@ void wgsecef2azel(const double ecef[3], const double ref_ecef[3],
 
   /* Calculate the vector from the reference point in the local North, East,
    * Down frame of the reference point. */
-  wgsecef2ned_rt(ecef, ref_ecef, ned);
+  wgsecef2ned_d(ecef, ref_ecef, ned);
 
   *azimuth = atan2(ned[1], ned[0]);
   /* atan2 returns angle in range [-pi, pi], usually azimuth is defined in the

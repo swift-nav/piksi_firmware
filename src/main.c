@@ -109,7 +109,7 @@ int main(void)
 
   manage_acq_setup();
   cw_setup();
- 
+
   led_toggle(LED_RED);
 
   const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
@@ -119,7 +119,7 @@ int main(void)
 
   channel_measurement_t meas[TRACK_N_CHANNELS];
   navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
-  
+
   static ephemeris_t es[32];
   while(1)
   {
@@ -131,7 +131,7 @@ int main(void)
 
     // Check if there is a new nav msg subframe to process.
     // TODO: move this into a function
-    
+
     for (u8 i=0; i<TRACK_N_CHANNELS; i++)
       if (tracking_channel[i].state == TRACKING_RUNNING && tracking_channel[i].nav_msg.subframe_start_index) {
         printf(" PRN %d",tracking_channel[i].prn + 1);
@@ -170,7 +170,7 @@ int main(void)
         pr_errs[i] = 0;
       }
 
-      wgsecef2ned_rt(soln.pos_ecef, WPR_ecef, soln.pos_ned);
+      wgsecef2ned_d(soln.pos_ecef, WPR_ecef, soln.pos_ned);
       DO_EVERY_COUNTS(SAMPLE_FREQ/4,
         debug_send_msg(0x50, sizeof(gnss_solution), (u8 *) &soln);
         debug_send_msg(0x51, sizeof(dops_t), (u8 *) &dops);
@@ -195,7 +195,7 @@ int main(void)
   }
 
   while (1);
-  
+
 	return 0;
 }
 

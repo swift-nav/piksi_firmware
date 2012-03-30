@@ -1,4 +1,4 @@
-/* 
+/*
  *  pvt.c
  *  Copyright 2010 Joby Energy, Inc.
  *  Henry Hallam, Matt Peddie
@@ -19,12 +19,12 @@ static double vel_solve(double rx_vel[],
                         const double const G[n_used][4],
                         const double const X[4][n_used])
 {
-  /* Velocity Solution 
+  /* Velocity Solution
    *
    * G and X matrices already exist from the position
    * solution loop through valid measurements.  Here we form satellite
    * velocity and pseudorange rate vectors -- it's the same
-   * prediction-error least-squares thing, but we do only one step.  
+   * prediction-error least-squares thing, but we do only one step.
   */
 
   double tempvX[n_used];
@@ -79,7 +79,7 @@ void compute_dops(const double const H[4][4],
   /* HDOP and VDOP are Horizontal and Vertical; we need to rotate the
    * PDOP into NED frame and then take the separate components.
    */
-  wgsecef2ned_r(H_pos_diag, pos_ecef, H_ned);
+  wgsecef2ned(H_pos_diag, pos_ecef, H_ned);
   dops->vdop = sqrt(H_ned[2]*H_ned[2]);
   dops->hdop = sqrt(H_ned[0]*H_ned[0] + H_ned[1]*H_ned[1]);
 }
@@ -94,16 +94,16 @@ void compute_dops(const double const H[4][4],
  *     1. account for the Earth's rotation during transmission
  *
  *     2. Estimate the ECEF position for each satellite measured using
- *     the downloaded ephemeris 
+ *     the downloaded ephemeris
  *
  *     3. Compute the Jacobian of pseudorange versus estimated state.
  *     There's no explicit differentiation; it's done symbolically
  *     first and just coded as a "line of sight" vector.
- *     
+ *
  *     4. Get the inverse of the Jacobian times its transpose.  This
  *     matrix is normalized to one, but it tells us the direction we
  *     must move the state estimate during this step.
- *     
+ *
  *     5. Multiply this inverse matrix (H) by the transpose of the
  *     Jacobian (to yield X).  This maps the direction of our state
  *     error into a direction of pseudorange error.
@@ -112,7 +112,7 @@ void compute_dops(const double const H[4][4],
  *     (ephemeris) position and the measured pseudoranges.  This
  *     yields a vector of corrections to our state estimate.  We apply
  *     these to our current estimate and recurse to the next step.
- *     
+ *
  *     7. If our corrections are very small, we've arrived at a good
  *     enough solution.  Solve for the receiver's velocity (with
  *     vel_solve) and do some bookkeeping to pass the solution back
@@ -157,10 +157,10 @@ static double pvt_solve(double rx_state[],
     /* The satellite positions need to be corrected for earth's
      * rotation during the transmission time.  We base this correction
      * on the range between our receiver and satellite k */
-    vector_subtract(rx_state, nav_meas[j].sat_pos, tempv); 
+    vector_subtract(rx_state, nav_meas[j].sat_pos, tempv);
 
     /* Magnitude of range vector converted into an approximate time in secs. */
-    double tau = vector_norm(tempv) / NAV_C; 
+    double tau = vector_norm(tempv) / NAV_C;
     /* Rotation of Earth during transit in radians. */
     double wEtau = NAV_OMEGAE_DOT * tau;
 
@@ -179,8 +179,8 @@ static double pvt_solve(double rx_state[],
     rotm[2][2] = 1.0;
 
     /* Result in xk_new, position of satellite k in ECEF. */
-    matrix_multiply(3, 3, 1, (double *) rotm, 
-                             (double *) nav_meas[j].sat_pos, 
+    matrix_multiply(3, 3, 1, (double *) rotm,
+                             (double *) nav_meas[j].sat_pos,
                              (double *) xk_new);
 
     /* Predicted range from satellite position and estimated Rx position. */
@@ -232,7 +232,7 @@ static double pvt_solve(double rx_state[],
   for (u8 i=0; i<3; i++) {
     rx_state[i] += correction[i];
   }
-  
+
   /* Set the Δt estimates according to this solution */
   for (u8 i=3; i<4; i++) {
     rx_state[i] = correction[i];
@@ -256,7 +256,7 @@ static double pvt_solve(double rx_state[],
 
   return tempd;
 }
-   
+
 u8 calc_PVT(const u8 n_used,
             const navigation_measurement_t const nav_meas[n_used],
             gnss_solution *soln,
@@ -269,7 +269,7 @@ u8 calc_PVT(const u8 n_used,
    *  rx_state format:
    *    pos[3], clock error, vel[3], intermediate freq error
    */
-  static double rx_state[8]; 
+  static double rx_state[8];
 
   double H[4][4];
 
@@ -325,7 +325,7 @@ u8 calc_PVT(const u8 n_used,
    * TOW.  Maybe there's a better way to do this?  */
   /* TODO: what is this about? */
   soln->time -= rx_state[3] / NAV_C;
- 
+
   return 0;
 }
 
