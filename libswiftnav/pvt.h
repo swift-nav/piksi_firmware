@@ -1,7 +1,13 @@
-/* 
- *  pvt.h
- *  Copyright 2010 Joby Energy, Inc.
- *  Henry Hallam, Matt Peddie
+/*
+ * Copyright (C) 2010 Henry Hallam <henry@swift-nav.com>
+ * Copyright (C) 2010 Matt Peddie <peddie@alum.mit.edu>
+ *
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
+ *
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 #ifndef SWIFTLIB_PVT_H
@@ -56,7 +62,7 @@ typedef struct __attribute__((packed)) {
    *    _  3  4
    *    _  _  5
    *
-   *    Index 6 is the GDOP.  
+   *    Index 6 is the GDOP.
    */
   double err_cov[7];
 
@@ -70,5 +76,5 @@ u8 calc_PVT(const u8 n_used,
             gnss_solution *soln,
             dops_t *dops);
 
-#endif
+#endif /* SWIFTLIB_PVT_H */
 

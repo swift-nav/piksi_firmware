@@ -1,3 +1,14 @@
+/*
+ * Copyright (C) 2010 Henry Hallam <henry@swift-nav.com>
+ *
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
+ *
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
 #include "linear_algebra.h"
 #include "ephemeris.h"
 #include <math.h>
@@ -7,7 +18,7 @@
 #define NAV_OMEGAE_DOT 7.2921151467e-005
 #define NAV_GM 3.986005e14
 
-int calc_sat_pos(double pos[3], double vel[3], 
+int calc_sat_pos(double pos[3], double vel[3],
              double *clock_err, double *clock_rate_err,
              const ephemeris_t *ephemeris,
              double time_of_transmit)
@@ -38,14 +49,14 @@ int calc_sat_pos(double pos[3], double vel[3],
   double om, om_dot;    // omega and first derivatives
 
 
-  // Satellite clock terms 
+  // Satellite clock terms
   // Seconds from clock data reference time (toc)
   tdiff = time_of_transmit - ephemeris->toc;
 
   // Correct time for beginning or end of week crossovers and limit to +/- 302400
   if (tdiff > 302400.0) tdiff -= 604800.0;
     else if (tdiff < -302400.0) tdiff += 604800.0;
-  
+
   *clock_err = ephemeris->af0 + tdiff * (ephemeris->af1 + tdiff * ephemeris->af2) - ephemeris->tgd;
   *clock_rate_err = ephemeris->af1 + 2.0 * tdiff * ephemeris->af2;
 
@@ -55,7 +66,7 @@ int calc_sat_pos(double pos[3], double vel[3],
 
   if (tdiff > 302400.0) tdiff -= 604800.0;
     else if (tdiff < -302400.0) tdiff += 604800.0;
-    
+
   // If tdiff is too large our ephemeris isn't valid, maybe we want to wait until we get a
   // new one? At least let's warn the user.
   // TODO: this doesn't exclude ephemerides older than a week so could be made better.
@@ -134,7 +145,7 @@ int calc_sat_pos(double pos[3], double vel[3],
   vel[2] = y * cos (inc) * inc_dot + y_dot * sin (inc);
 
   *clock_err += einstein;
-  
+
   return 0;
 }
 

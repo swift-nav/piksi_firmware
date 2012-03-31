@@ -1,5 +1,16 @@
-#ifndef SWIFTNAV_EPHEMERIS_H
-#define SWIFTNAV_EPHEMERIS_H
+/*
+ * Copyright (C) 2010 Henry Hallam <henry@swift-nav.com>
+ *
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
+ *
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
+#ifndef SWIFTLIB_EPHEMERIS_H
+#define SWIFTLIB_EPHEMERIS_H
 
 #include <stdint.h>
 
@@ -15,7 +26,7 @@ typedef struct {
 
 } ephemeris_t;
 
-int calc_sat_pos(double pos[3], double vel[3], 
+int calc_sat_pos(double pos[3], double vel[3],
              double *clock_err, double *clock_rate_err,
              const ephemeris_t *ephemeris,
              double time_of_transmit);
@@ -24,4 +35,4 @@ double predict_range(double rx_pos[3],
                      double time_of_transmit,
                      ephemeris_t *ephemeris);
 
-#endif
+#endif /* SWIFTLIB_EPHEMERIS_H */

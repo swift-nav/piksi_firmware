@@ -1,7 +1,20 @@
+/*
+ * Copyright (C) 2012 Fergus Noble <fergus@swift-nav.com>
+ *
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
+ *
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
+#ifndef SWIFTLIB_TROPO_H
+#define SWIFTLIB_TROPO_H
 
 #include <math.h>
 
-/* Simple Black model, taken from GPSTk SimpleTropModel class. */
+/* Simple Black model, inspired by GPSTk SimpleTropModel class. */
 
 double dry_zenith_delay(void)
 {
@@ -35,3 +48,6 @@ double tropo_correction(double elevation)
   return (dry_zenith_delay() * dry_mapping_function(elevation)
         + wet_zenith_delay() * wet_mapping_function(elevation));
 }
+
+#endif /* SWIFTLIB_TROPO_H */
+
