@@ -9,11 +9,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTLIB_CA_CODES_H
-#define SWIFTLIB_CA_CODES_H
+#ifndef SWIFTLIB_PRNS_H
+#define SWIFTLIB_PRNS_H
 
 #include "common.h"
 
-u8* get_ca_code(u8 prn);
+const u8* ca_code(u8 prn);
 
-#endif /* SWIFTLIB_CA_CODES_H */
+#endif /* SWIFTLIB_PRNS_H */

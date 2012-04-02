@@ -26,8 +26,6 @@
 #include "acq.h"
 #include "hw/leds.h"
 
-#include <libswiftnav/ca_codes.h>
-
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
   .pllm = 16,
@@ -61,7 +59,7 @@ int main(void)
 
   led_toggle(LED_GREEN);
   led_toggle(LED_RED);
- 
+
   float code_phase;
   float carrier_freq;
   float snr;
@@ -89,7 +87,7 @@ int main(void)
   printf("DONE!\n");
   led_on(LED_GREEN);
   while (1);
-  
+
 	return 0;
 }
 

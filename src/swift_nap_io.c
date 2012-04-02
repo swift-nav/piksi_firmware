@@ -35,7 +35,7 @@
 #include "hw/spi.h"
 #include "hw/max2769.h"
 
-#include <libswiftnav/ca_codes.h>
+#include <libswiftnav/prns.h>
 
 u32 exti_count = 0;
 
@@ -47,7 +47,7 @@ void swift_nap_setup()
   /* Initialise the SPI peripheral. */
   spi_setup();
 //  spi_dma_setup();
-  
+
   /* Setup the front end. */
   max2769_setup();
 
@@ -71,7 +71,7 @@ void swift_nap_reset()
   gpio_clear(GPIOB, GPIO6);
 }
 
-void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], u8 data_out[])
+void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_out[])
 {
 
   // Check that there's no DMA transfer in progress
@@ -157,7 +157,7 @@ void exti9_5_isr()
       tracking_channel_update(n);
     }
   }
-  
+
   exti_count++;
 
   /* We need a level (not edge) sensitive interrupt -
@@ -202,7 +202,7 @@ void timing_strobe(u32 falling_edge_count)
   /* TODO: find out why the above isn't working,
    * in the mean time this will work.
    */
-  while(TIM2_CNT <= TIM2_CCR1); 
+  while(TIM2_CNT <= TIM2_CCR1);
   /* Add a little bit of delay before the next
    * timing strobe.
    */
@@ -222,7 +222,7 @@ void timing_strobe_setup()
   /* Set timer prescale to divide APB bus back to the sample
    * clock frequency.
    *
-   * NOTE: This will only work for ppre1_freq that is an integer 
+   * NOTE: This will only work for ppre1_freq that is an integer
    *       multiple of the sample clock.
    * NOTE: Assumes APB1 prescale != 1, see Ref Man pg. 84
    */
@@ -259,13 +259,13 @@ u32 swift_nap_read_error_blocking()
 void acq_set_load_enable_blocking()
 {
   u8 temp[1] = {0xFF};
-  swift_nap_xfer_blocking(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
+  swift_nap_xfer_blocking(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp);
 }
 
 void acq_clear_load_enable_blocking()
 {
   u8 temp[1] = {0x00};
-  swift_nap_xfer_blocking(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp); 
+  swift_nap_xfer_blocking(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp);
 }
 
 /** Write initialisation parameters to the Swift NAP acquisition channel.
@@ -311,7 +311,7 @@ void acq_write_init_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
 
   temp[1] = (carrier_freq << 1) |            // carrier freq [6:0]
             (code_phase_reg_value >> 11);     // code phase [11]
- 
+
   temp[2] = code_phase_reg_value >> 3;        // code phase [10:3]
 
   temp[3] = (code_phase_reg_value << 5) |     // code phase [2:0]
@@ -333,17 +333,17 @@ void acq_disable_blocking()
 
 void acq_read_corr_blocking(corr_t corrs[]) {
   u8 temp[2*ACQ_N_TAPS * 3];
-  
+
   swift_nap_xfer_blocking(SPI_ID_ACQ_CORR, 2*ACQ_N_TAPS*3, temp, temp);
 
   struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
 
   for (u8 i=0; i<ACQ_N_TAPS; i++) {
-    
+
     sign.xtend  = (temp[6*i]   << 16)    // MSB
                 | (temp[6*i+1] << 8)     // Middle byte
                 | (temp[6*i+2]);         // LSB
-   
+
     corrs[i].Q = sign.xtend; /* Sign extend! */
 
     sign.xtend  = (temp[6*i+3] << 16)    // MSB
@@ -355,7 +355,7 @@ void acq_read_corr_blocking(corr_t corrs[]) {
 }
 
 void acq_write_code_blocking(u8 prn) {
-  swift_nap_xfer_blocking(SPI_ID_ACQ_CODE, 128, 0, get_ca_code(prn));
+  swift_nap_xfer_blocking(SPI_ID_ACQ_CODE, 128, 0, ca_code(prn));
 }
 
 void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
@@ -399,7 +399,7 @@ void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]) {
    * + 16 bits sample count.
    */
   u8 temp[2*3*3+2];
-  
+
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
 
   struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
@@ -407,11 +407,11 @@ void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]) {
   *sample_count = (temp[0]<<8) | temp[1];
 
   for (u8 i=0; i<3; i++) {
-    
+
     sign.xtend  = (temp[6*(3-i-1)+2] << 16)    // MSB
                 | (temp[6*(3-i-1)+3] << 8)     // Middle byte
                 | (temp[6*(3-i-1)+4]);         // LSB
-   
+
     corrs[i].Q = sign.xtend; /* Sign extend! */
 
     sign.xtend  = (temp[6*(3-i-1)+5] << 16)    // MSB
@@ -510,7 +510,7 @@ void swift_nap_xfer_dma(u8 n_bytes) {
 void track_read_corr_dma(u8 channel)
 {
   spi_dma_buffer[0] = SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET; // Select correlation result register
-  
+
   /* Start 18 byte DMA xfer i.e. 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8) */
   swift_nap_xfer_dma(2*3*3);
 }
@@ -537,19 +537,19 @@ void track_unpack_corr_dma(corr_t corrs[])
 }
 
 void track_write_code_blocking(u8 channel,u8 prn) {
-  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CODE_OFFSET, 128, 0, get_ca_code(prn));
+  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CODE_OFFSET, 128, 0, ca_code(prn));
 }
 
 void cw_set_load_enable_blocking()
 {
   u8 temp[1] = {0xFF};
-  swift_nap_xfer_blocking(SPI_ID_CW_LOAD_ENABLE, 1, 0, temp); 
+  swift_nap_xfer_blocking(SPI_ID_CW_LOAD_ENABLE, 1, 0, temp);
 }
 
 void cw_clear_load_enable_blocking()
 {
   u8 temp[1] = {0x00};
-  swift_nap_xfer_blocking(SPI_ID_CW_LOAD_ENABLE, 1, 0, temp); 
+  swift_nap_xfer_blocking(SPI_ID_CW_LOAD_ENABLE, 1, 0, temp);
 }
 
 void cw_write_init_blocking(s32 carrier_freq)

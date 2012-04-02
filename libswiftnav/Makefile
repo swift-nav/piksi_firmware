@@ -37,7 +37,7 @@ SRCS = linear_algebra.c \
 			 nav_msg.c \
 			 ephemeris.c \
 			 tropo.c \
-			 ca_codes.c
+			 prns.c
 OBJS = $(SRCS:.c=.o)
 
 ARM_PREFIX	?= arm-none-eabi
