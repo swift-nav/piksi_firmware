@@ -1,16 +1,16 @@
 
 CC = gcc
 CFLAGS += -O0 -g -Wall -Wextra -Werror \
-		   -ffunction-sections -fdata-sections -MD \
-		   -Wstrict-prototypes -fno-common \
-		   -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99 \
+			 -ffunction-sections -fdata-sections -MD \
+			 -Wstrict-prototypes -fno-common \
+			 -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99 \
 			 -I../
 LDFLAGS += -lm -L../ -fprofile-arcs
 
 SRCS = check_main.c \
 			 check_utils.c \
 			 check_coord_system.c \
-	check_linear_algebra.c \
+			 check_linear_algebra.c \
 
 
 OBJS = $(SRCS:.c=.o)
