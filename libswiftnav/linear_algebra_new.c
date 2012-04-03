@@ -164,10 +164,6 @@ static int rref(u32 order, u32 cols, double *m) {
   for (i=order-1; i>=0; i--) {
     /* Back-substitution */
     tmp = m[i*cols+i];
-    if (tmp == 0) {
-      /*WARNING("Solution is going to go bonkers; tmp = 0 line 237 of lin_alg.c; make Matt fix it.\n");*/
-      return -1;
-    }
     for (j=0; j<i; j++) {
       for (k=cols-1; k>i-1; k--) {
         m[j*cols+k] -= m[i*cols+k] * m[j*cols+i] / tmp;
