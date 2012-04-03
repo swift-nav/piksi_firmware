@@ -19,8 +19,8 @@
 START_TEST(test_matrix_transpose)
 {
   unsigned int i, j, t;
-  u32 n = rand() / RAND_MAX * MSIZE_MAX;
-  u32 m = rand() / RAND_MAX * MSIZE_MAX;
+  u32 n = random() / RAND_MAX * MSIZE_MAX;
+  u32 m = random() / RAND_MAX * MSIZE_MAX;
   double A[n*m];
   double B[m*n];
   double C[n*m];
