@@ -196,7 +196,7 @@ static int rref(u32 order, u32 cols, double *m) {
  *
  *  \return     -1 if a is singular; 0 otherwise.
  */
-int matrix_inverse_new(u32 n, const double const *a, double *b) {
+int matrix_inverse(u32 n, const double const *a, double *b) {
   /* This function is currently only used to do a linear least-squares
    * solve for x, y, z and t in the navigation filter.  Gauss-Jordan
    * elimination is not the most efficient way to do this.  In the
@@ -265,8 +265,8 @@ int matrix_inverse_new(u32 n, const double const *a, double *b) {
  *  \param b            Second matrix to multiply
  *  \param c            Output matrix
  */
-void matrix_multiply_new(u32 n, u32 m, u32 p, const double *a,
-                         const double *b, double *c) {
+void matrix_multiply(u32 n, u32 m, u32 p, const double *a,
+                     const double *b, double *c) {
   u32 i, j, k;
   for (i = 0; i < n; i++) 
     for (j = 0; j < p; j++) {
@@ -306,8 +306,8 @@ void matrix_add_sc(u32 n, u32 m, const double *a,
  *  \param a            Matrix to transpose
  *  \param b            Transposed (output) matrix
  */
-void matrix_transpose_new(u32 n, u32 m,
-                          const double *a, double *b) {
+void matrix_transpose(u32 n, u32 m,
+                      const double *a, double *b) {
   u32 i, j;
   for (i = 0; i < n; i++) 
     for (j = 0; j < m; j++)
@@ -323,8 +323,8 @@ void matrix_transpose_new(u32 n, u32 m,
  *  \param a            Matrix to copy
  *  \param b            Copied (output) matrix
  */
-void matrix_copy_new(u32 n, u32 m, const double *a,
-                     double *b) {
+void matrix_copy(u32 n, u32 m, const double *a,
+                 double *b) {
   u32 i, j;
   for (i = 0; i < n; i++) 
     for (j = 0; j < m; j++)
@@ -348,8 +348,8 @@ void matrix_copy_new(u32 n, u32 m, const double *a,
  *
  *  \return     The dot product.
  */
-double vector_dot_new(u32 n, const double *a,
-                      const double *b) {
+double vector_dot(u32 n, const double *a,
+                  const double *b) {
   u32 i;
   double out = 0;
   for (i = 0; i < n; i++)
@@ -366,7 +366,7 @@ double vector_dot_new(u32 n, const double *a,
  *
  *  \return     The 2-norm of a
  */
-inline double vector_norm_new(u32 n, const double *a) {
+inline double vector_norm(u32 n, const double *a) {
   u32 i;
   double out = 0;
   for (i = 0; i < n; i++)
@@ -382,7 +382,7 @@ inline double vector_norm_new(u32 n, const double *a) {
  *
  *  \return     The mean of \f$\vec{a}\f$
  */
-double vector_mean_new(u32 n, const double *a) {
+double vector_mean(u32 n, const double *a) {
   u32 i;
   double out = 0;
   for (i = 0; i < n; i++)
@@ -397,9 +397,9 @@ double vector_mean_new(u32 n, const double *a) {
  *  \param n            Length of a
  *  \param a            Vector to normalize
  */
-void vector_normalize_new(u32 n, double *a) {
+void vector_normalize(u32 n, double *a) {
   u32 i;
-  double norm = vector_norm_new(n, a);
+  double norm = vector_norm(n, a);
   for (i = 0; i < n; i++)
     a[i] /= norm;
 }
@@ -432,8 +432,8 @@ inline void vector_add_sc(u32 n, const double *a,
  *  \param b            Second input vector 
  *  \param c            Output vector
  */
-void vector_add_new(u32 n, const double *a,
-                    const double *b, double *c) {
+void vector_add(u32 n, const double *a,
+                const double *b, double *c) {
   vector_add_sc(n, a, b, 1, c);
 }
 
@@ -446,8 +446,8 @@ void vector_add_new(u32 n, const double *a,
  *  \param b            Second input vector 
  *  \param c            Output vector
  */
-void vector_subtract_new(u32 n, const double *a,
-                         const double *b, double *c) {
+void vector_subtract(u32 n, const double *a,
+                     const double *b, double *c) {
   vector_add_sc(n, a, b, -1, c);
 }
 
@@ -460,8 +460,8 @@ void vector_subtract_new(u32 n, const double *a,
  *  \param b            Second input vector 
  *  \param c            Output vector
  */
-void vector_cross_new(const double a[3], const double b[3],
-                      double c[3]) {
+void vector_cross(const double a[3], const double b[3],
+                  double c[3]) {
   c[0] = a[1]*b[2] - a[2]*b[1];
   c[1] = a[2]*b[0] - a[0]*b[2];
   c[2] = a[0]*b[1] - a[1]*b[0];

@@ -30,8 +30,8 @@ START_TEST(test_matrix_transpose)
     for (i = 0; i < n; i++)
       for (j = 0; j < m; j++)
         A[n*i + j] = mrand;
-    matrix_transpose_new(n, m, A, B);
-    matrix_transpose_new(m, n, B, C);
+    matrix_transpose(n, m, A, B);
+    matrix_transpose(m, n, B, C);
     for (i = 0; i < n; i++)
       for (j = 0; j < m; j++)
         fail_unless(fabs(A[n*i + j] - C[n*i + j]) < LINALG_TOL);
@@ -53,8 +53,8 @@ START_TEST(test_matrix_inverse_2x2)
       for (i = 0; i < 2; i++)
         for (j = 0; j < 2; j++)
           A[2*i + j] = mrand;
-    } while (matrix_inverse_new(2, A, B) < 0);
-    matrix_multiply_new(2, 2, 2, A, B, I);
+    } while (matrix_inverse(2, A, B) < 0);
+    matrix_multiply(2, 2, 2, A, B, I);
     fail_unless(fabs(I[0] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[0]);
     fail_unless(fabs(I[3] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[3]);
   }
@@ -75,8 +75,8 @@ START_TEST(test_matrix_inverse_3x3)
       for (i = 0; i < 3; i++)
         for (j = 0; j < 3; j++)
           A[3*i + j] = mrand;
-    } while (matrix_inverse_new(3, A, B) < 0);
-    matrix_multiply_new(3, 3, 3, A, B, I);
+    } while (matrix_inverse(3, A, B) < 0);
+    matrix_multiply(3, 3, 3, A, B, I);
     fail_unless(fabs(I[0] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[0]);
     fail_unless(fabs(I[4] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[4]);
     fail_unless(fabs(I[8] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[8]);
@@ -98,8 +98,8 @@ START_TEST(test_matrix_inverse_4x4)
       for (i = 0; i < 4; i++)
         for (j = 0; j < 4; j++)
           A[4*i + j] = mrand;
-    } while (matrix_inverse_new(4, A, B) < 0);
-    matrix_multiply_new(4, 4, 4, A, B, I);
+    } while (matrix_inverse(4, A, B) < 0);
+    matrix_multiply(4, 4, 4, A, B, I);
     fail_unless(fabs(I[0] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[0]);
     fail_unless(fabs(I[5] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[5]);
     fail_unless(fabs(I[10] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[10]);
@@ -122,8 +122,8 @@ START_TEST(test_matrix_inverse_5x5)
       for (i = 0; i < 5; i++)
         for (j = 0; j < 5; j++)
           A[5*i + j] = mrand;
-    } while (matrix_inverse_new(5, A, B) < 0);
-    matrix_multiply_new(5, 5, 5, A, B, I);
+    } while (matrix_inverse(5, A, B) < 0);
+    matrix_multiply(5, 5, 5, A, B, I);
     fail_unless(fabs(I[0] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[0]);
     fail_unless(fabs(I[6] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[6]);
     fail_unless(fabs(I[12] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[12]);
