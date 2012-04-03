@@ -32,7 +32,6 @@ CFLAGS += $(COMMON_CFLAGS) -fprofile-arcs -ftest-coverage
 ARFLAGS	= rcs
 SRCS = linear_algebra.c \
 			 coord_system.c \
-			 linear_algebra_new.c \
 			 pvt.c \
 			 track.c \
 			 nav_msg.c \

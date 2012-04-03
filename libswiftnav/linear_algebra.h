@@ -1,30 +1,12 @@
 /*
- * Copyright (c) 2008, Morgan Quigley, Pieter Abbeel and Scott Gleason
- * Copyright (c) 2010, C.O. Lee Boyce Jr.
- * Copyright (c) 2010, Matt Peddie
- * All rights reserved.
+ * Copyright (C) 2012 Matt Peddie <peddie@alum.mit.edu>
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above copyright
- *       notice, this list of conditions and the following disclaimer in the
- *       documentation and/or other materials provided with the distribution.
- *     * Neither the authors' names nor the
- *       names of its contributors may be used to endorse or promote products
- *       derived from this software without specific prior written permission.
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHORS ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 #ifndef SWIFTLIB_LINEAR_ALGEBRA_H
@@ -32,23 +14,23 @@
 
 #include "common.h"
 
-double vector_dot_product (const double const *a, const double const *b);
-void vector_cross(const double const a[3], const double const b[3], double c[3]);
-double vector_norm(const double const v[3]);
-double vector_norm_n(u32 n, const double const v[]);
-double vector_mean_n(u32 n, const double const v[]);
-void vector_normalise(double v[]);
-void vector_subtract(const double const a[3], const double const b[3], double c[3]); // c = a - b
-void vector_add(const double const a[3], const double const b[3], double c[3]);
-void vector_add_n(const double const a[], const double const b[], double c[], u32 n);
+int matrix_inverse(u32 n, const double const *a, double *b);
+void matrix_multiply(u32 n, u32 m, u32 p, const double *a,
+                     const double *b, double *c);
+void matrix_add_sc(u32 n, u32 m, const double *a,
+                   const double *b, double gamma, double *c);
+void matrix_transpose(u32 n, u32 m, const double *a, double *b);
+void matrix_copy(u32 n, u32 m, const double *a, double *b);
 
-void invert4x4(const double const A[4][4], double Ainv[4][4]);
-void matrix_multiply(unsigned N, unsigned M, unsigned L, const double* const a, const double* const b, double *c);
-void matrix_transpose(unsigned rows, unsigned columns, const double* const A, double *B);
-void matrix_copy(double *A, unsigned rows, unsigned columns, const double const *B);
-void diag_matrix_multiply(unsigned rowsA, unsigned columnsB, const double* const A, const double* const B, double *C);
-void diag_matrix_vector_multiply(u32 n, double c[n], const double const D[n], const double const v[n]);
+double vector_dot(u32 n, const double *a, const double *b);
+double vector_norm(u32 n, const double *a);
+double vector_mean(u32 n, const double *a);
+void vector_normalize(u32 n, double *a);
+void vector_add_sc(u32 n, const double *a, const double *b,
+                   double gamma, double *c);
+void vector_add(u32 n, const double *a, const double *b, double *c);
+void vector_subtract(u32 n, const double *a,
+                     const double *b, double *c);
+void vector_cross(const double a[3], const double b[3], double c[3]);
 
-int matrix_inverse(u32 order, const double const *a, double *b);
-
-#endif
+#endif  /* SWIFTLIB_LINEAR_ALGEBRA_H */

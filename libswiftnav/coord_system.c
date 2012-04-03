@@ -263,7 +263,7 @@ void wgsecef2ned(const double ecef[3], const double ref_ecef[3],
 void wgsecef2ned_d(const double ecef[3], const double ref_ecef[3],
                    double ned[3]) {
   double tempv[3];
-  vector_subtract(ecef, ref_ecef, tempv);
+  vector_subtract(3, ecef, ref_ecef, tempv);
   wgsecef2ned(tempv, ref_ecef, ned);
 }
 
@@ -297,7 +297,7 @@ void wgsecef2azel(const double ecef[3], const double ref_ecef[3],
   if (*azimuth < 0)
     *azimuth += 2*M_PI;
 
-  *elevation = asin(-ned[2]/vector_norm(ned));
+  *elevation = asin(-ned[2]/vector_norm(3, ned));
 }
 
 /** \} */

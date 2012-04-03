@@ -160,8 +160,8 @@ double predict_range(double rx_pos[3],
 
   calc_sat_pos(sat_pos, sat_vel, &clock_err, &clock_rate_err, ephemeris, time_of_transmit);
 
-  vector_subtract(sat_pos, rx_pos, temp); // temp = sat_pos - rx_pos
-  return vector_norm(temp);
+  vector_subtract(3, sat_pos, rx_pos, temp); // temp = sat_pos - rx_pos
+  return vector_norm(3, temp);
 }
 
 

@@ -41,7 +41,7 @@ static double vel_solve(double rx_vel[],
      * and the geometry matix G which contains normalised line-of-sight
      * vectors to the satellites.
      */
-    pdot_pred = -vector_dot_product(G[j], nav_meas[j].sat_vel);
+    pdot_pred = -vector_dot(3, G[j], nav_meas[j].sat_vel);
 
     /* The residual is due to the user's motion. */
     tempvX[j] = nav_meas[j].pseudorange_rate - pdot_pred;
@@ -163,10 +163,10 @@ static double pvt_solve(double rx_state[],
     /* The satellite positions need to be corrected for earth's
      * rotation during the transmission time.  We base this correction
      * on the range between our receiver and satellite k */
-    vector_subtract(rx_state, nav_meas[j].sat_pos, tempv);
+    vector_subtract(3, rx_state, nav_meas[j].sat_pos, tempv);
 
     /* Magnitude of range vector converted into an approximate time in secs. */
-    double tau = vector_norm(tempv) / NAV_C;
+    double tau = vector_norm(3, tempv) / NAV_C;
     /* Rotation of Earth during transit in radians. */
     double wEtau = NAV_OMEGAE_DOT * tau;
 
@@ -190,8 +190,8 @@ static double pvt_solve(double rx_state[],
                              (double *) xk_new);
 
     /* Predicted range from satellite position and estimated Rx position. */
-    vector_subtract(rx_state, xk_new, tempv);
-    p_pred[j] = vector_norm(tempv);
+    vector_subtract(3, rx_state, xk_new, tempv);
+    p_pred[j] = vector_norm(3, tempv);
 
     /* omp means "observed minus predicted" range -- this is E, the
      * prediction error vector (or innovation vector in Kalman/LS
@@ -200,7 +200,7 @@ static double pvt_solve(double rx_state[],
     omp[j] = nav_meas[j].pseudorange - p_pred[j];
 
     /* Line of sight vector. */
-    vector_subtract(nav_meas[j].sat_pos, rx_state, los);
+    vector_subtract(3, nav_meas[j].sat_pos, rx_state, los);
 
     /* Construct a geometry matrix.  Each row (satellite) is
      * independently normalized into a unit vector.
@@ -247,7 +247,7 @@ static double pvt_solve(double rx_state[],
   /* Look at the magnintude of the correction to see if
    * the solution has converged yet.
    */
-  tempd = vector_norm(correction);
+  tempd = vector_norm(3, correction);
   if(tempd > 0.001) {
     /* The solution has not converged, return a negative value to
      * indicate that we should continue iterating.

@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include "check_utils.h"
 
-#include "../linear_algebra_new.h"
+#include "../linear_algebra.h"
 
 #define LINALG_TOL 1e-10
 #define LINALG_NUM 222
