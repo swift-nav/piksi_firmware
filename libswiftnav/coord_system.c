@@ -206,7 +206,7 @@ void wgsecef2llh(const double const ecef[3], double llh[3]) {
  * coordinates to the local North, East, Down (NED) frame of a reference point,
  * also given in WGS84 ECEF coordinates.
  *
- * Note, this function only *rotates* the ECEF vector into the NED frame of
+ * Note, this function only \e rotates the ECEF vector into the NED frame of
  * the reference point, as would be appropriate for e.g. a velocity vector. To
  * determine the distance between the point and the reference point in the NED
  * frame of the reference point, see \ref wgsecef2ned_d.
@@ -246,8 +246,8 @@ void wgsecef2ned(const double ecef[3], const double ref_ecef[3],
   ned[2] = -(M[2][0]*ecef[0] + M[2][1]*ecef[1] + M[2][2]*ecef[2]);
 }
 
-/** Returns the vector *to* a point given in WGS84 Earth Centered, Earth Fixed
- * (ECEF) Cartesian coordinates *from* a reference point, also given in WGS84
+/** Returns the vector \e to a point given in WGS84 Earth Centered, Earth Fixed
+ * (ECEF) Cartesian coordinates \e from a reference point, also given in WGS84
  * ECEF coordinates, in the local North, East, Down (NED) frame of the
  * reference point.
  *
