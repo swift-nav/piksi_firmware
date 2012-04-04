@@ -1,0 +1,37 @@
+\documentclass{article}
+\pagestyle{empty}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes,shapes.geometric,arrows}
+\begin{document}
+
+\input{tikz_styles.tex}
+
+\tikzstyle{mix} = [draw, circle, node distance=1cm, minimum size=0.7cm]
+\tikzstyle{input} = [coordinate]
+
+\begin{tikzpicture}[auto, thick, node distance=1.5cm, >=stealth']
+
+  \node [input, name=input] {};
+  \node [sum, right of=input] (sum) {};
+  \node [simpleblock, right of=sum] (kd) {$K_d$};
+  \node [block, right of=kd] (F) {$F[z]$};
+  \node [coordinate, right of=F, node distance=1cm] (foo) {};
+  \node [block, below of=kd] (N) {$N[z]$};
+
+  \draw [->] (input) -- (sum);
+  \draw [->] (sum) -- (kd);
+  \draw [->] (kd) -- (F);
+  \draw [-] (F) -- (foo);
+  \draw [->] (foo) |- (N);
+  \draw [->] (N) -| (sum);
+
+  \node [below left of=sum, node distance=0.5cm] {$-$};
+
+  \draw [-,thin] (sum.north) -- (sum.south);
+  \draw [-,thin] (sum.east) -- (sum.west);
+
+\end{tikzpicture}
+
+\end{document}
+

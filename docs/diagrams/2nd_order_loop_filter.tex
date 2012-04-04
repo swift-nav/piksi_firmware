@@ -1,0 +1,44 @@
+\documentclass{article}
+\pagestyle{empty}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes,shapes.geometric,arrows}
+\begin{document}
+
+\input{tikz_styles.tex}
+
+\tikzstyle{mix} = [draw, circle, node distance=1cm, minimum size=0.7cm]
+\tikzstyle{input} = [coordinate]
+
+\begin{tikzpicture}[auto, thick, node distance=1cm, >=stealth']
+
+  \node [input, name=input] {};
+  \node [coordinate, right of=input, name=split] {};
+  \node [gain, right of=split] (ki) {$k_i$};
+  \node [gain, below of=ki, node distance=2.5cm] (kp) {$k_p$};
+  \node [sum, right of=ki, node distance=1.5cm] (sum1) {};
+  \node [coordinate, right of=sum1] (split2) {};
+  \node [simpleblock, below of=split2] (z) {$z^{-1}$};
+  \node [sum, right of=split2] (sum2) {};
+  \node [coordinate, right of=sum2, node distance=1.5cm] (output) {};
+
+  \draw [-] (input) -- (split);
+  \draw [->] (split) -- (ki);
+  \draw [->] (split) |- (kp);
+  \draw [->] (ki) -- (sum1);
+  \draw [-] (sum1) -- (split2);
+  \draw [->] (split2) -- (z);
+  \draw [->] (z) -| (sum1);
+  \draw [->] (split2) -- (sum2);
+  \draw [->] (sum2) -- (output);
+  \draw [->] (kp) -| (sum2);
+
+  \draw [-,thin] (sum1.north) -- (sum1.south);
+  \draw [-,thin] (sum1.east) -- (sum1.west);
+  \draw [-,thin] (sum2.north) -- (sum2.south);
+  \draw [-,thin] (sum2.east) -- (sum2.west);
+
+\end{tikzpicture}
+
+\end{document}
+

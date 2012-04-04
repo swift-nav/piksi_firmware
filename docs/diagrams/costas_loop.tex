@@ -7,7 +7,6 @@
 
 \input{tikz_styles.tex}
 
-\tikzstyle{mix} = [draw, circle, node distance=1cm, minimum size=0.7cm]
 \tikzstyle{input} = [coordinate]
 
 \begin{tikzpicture}[auto, thick, node distance=1.5cm, >=stealth']
@@ -16,27 +15,27 @@
 
   \node [input, name=input] {};
   \node [input, right of=input, name=split] {};
-  \node [block, right of=split, node distance=2cm] (nco) {Carrier NCO};
+  \node [block, right of=split, node distance=1.8cm] (nco) {Carrier NCO};
   \node [mix, above of=nco, node distance=\h] (Imix) {};
   \node [simpleblock, below of=nco, node distance=\h*0.4] (Qphase) {$\frac{\pi}{2}$};
   \node [mix, below of=nco, node distance=\h] (Qmix) {};
-  \node [block, right of=nco, node distance=3.5cm, text width=2cm] (filter) {Loop filter \\ $D[z]$};
+  \node [block, right of=nco, node distance=3.2cm, text width=2cm] (filter) {Loop filter \\ $F[z]$};
   \node [block, above of=filter, node distance=\h, text width=2cm] (Idump) {Integrate \& Dump};
   \node [block, below of=filter, node distance=\h, text width=2cm] (Qdump) {Integrate \& Dump};
-  \node [block, right of=filter, node distance=3.5cm] (desc) {Discriminator};
+  \node [block, right of=filter, node distance=3.2cm] (desc) {Discriminator};
 
-  \draw [->] (input) -- node {$x(n)$} (split);
+  \draw [->] (input) -- node {$x_k$} (split);
   \draw [->] (split) |- (Imix);
   \draw [->] (split) |- (Qmix);
-  \draw [->] (Imix) -- node {$x_i(n)$} (Idump);
-  \draw [->] (Qmix) -- node {$x_q(n)$} (Qdump);
-  \draw [->] (Idump) -| node[near start, above] {$I(n)$} (desc);
-  \draw [->] (Qdump) -| node[near start, above] {$Q(n)$} (desc);
-  \draw [->] (desc) -- node {$\varepsilon(n)$} (filter);
-  \draw [->] (filter) -- node {$\tilde f(n)$} (nco);
-  \draw [->] (nco) -- node {$\tilde x_i(n)$} (Imix);
+  \draw [->] (Imix) -- node {$x_{i,k}$} (Idump);
+  \draw [->] (Qmix) -- node {$x_{q,k}$} (Qdump);
+  \draw [->] (Idump) -| node[near start, above] {$I_k$} (desc);
+  \draw [->] (Qdump) -| node[near start, above] {$Q_k$} (desc);
+  \draw [->] (desc) -- node {$\varepsilon_k$} (filter);
+  \draw [->] (filter) -- node {$\tilde f_{k+1}$} (nco);
+  \draw [->] (nco) -- node {$\tilde x_{i,k}$} (Imix);
   \draw [->] (nco) -- (Qphase);
-  \draw [->] (Qphase) -- node[left] {$\tilde x_q(n)$} (Qmix);
+  \draw [->] (Qphase) -- node[left] {$\tilde x_{q,k}$} (Qmix);
 
   \draw [-] (Imix.south west) -- (Imix.north east);
   \draw [-] (Imix.south east) -- (Imix.north west);

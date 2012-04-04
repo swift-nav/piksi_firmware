@@ -1,5 +1,7 @@
 
-DIAGRAMS = costas_loop.tex
+DIAGRAMS = costas_loop.tex \
+					 2nd_order_dpll.tex \
+					 2nd_order_loop_filter.tex
 
 PDFS = $(DIAGRAMS:.tex=.pdf)
 
@@ -11,7 +13,7 @@ all: $(PNGS)
 	pdflatex $<
 
 %.png: %.pdf
-	 convert -density 120 -trim -bordercolor White -border 20 $< $@
+	 convert -density 120 -trim -bordercolor White -border 5 $< $@
 
 clean:
 	rm *.aux *.log *.pdf *.png
