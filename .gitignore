@@ -15,3 +15,7 @@ libswiftnav/lcov
 /tags
 /libopencm3_for_ctags
 libswiftnav/tests/check_libswiftnav
+docs/diagrams/*.aux
+docs/diagrams/*.log
+docs/diagrams/*.pdf
+docs/diagrams/*.png
