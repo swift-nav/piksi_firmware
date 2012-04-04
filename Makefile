@@ -47,5 +47,6 @@ clean:
 	done
 
 docs:
+	$(MAKE) -C docs/diagrams
 	doxygen docs/Doxyfile
 
