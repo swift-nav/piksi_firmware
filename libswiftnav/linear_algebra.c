@@ -258,9 +258,8 @@ inline int matrix_inverse(u32 n, const double const *a, double *b) {
 }
 
 /** Invert a non-square matrix (least-squares or least-norm solution).
-
- *  Calculate the Moore-Penrose pseudoinverse \f$ A^{+} \f$ of a
- *  square matrix:
+ *  If \f$ A \f$ is of full rank, calculate the Moore-Penrose
+ *  pseudoinverse \f$ A^{+} \f$ of a square matrix:
  *
  *  \f[ A \in \mathbb{R}^{n \times m} \f]
  *  \f[ B := A^{+} = \begin{cases}
@@ -268,21 +267,18 @@ inline int matrix_inverse(u32 n, const double const *a, double *b) {
  *      A^{T} (A A^{T})^{-1} & \text{if } m > n \\
  *      A^{-1} & \text{if } n = m
  *  \end{cases} \f]
- *  assuming that \f$ A \f$ is of full rank.
  * 
  * If \f$ n > m \f$, then \f$ A \f$ must be of full column rank, and
- * the Moore-Penrose pseudoinverse \f$ A^{+} \f$ solves the linear
- * least-squares (overconstrained) problem: \f[ x' = A^{+} b = \underset{x}{min}
- * \|Ax - b\|_{2} \f]
+ * \f$ A^{+} \f$ solves the linear least-squares (overconstrained)
+ * problem: \f[ x' = A^{+} b = \underset{x}{min} \|Ax - b\|_{2} \f]
  *
- * If \f$ m > n \f$, then \f$ A \f$ must be of full row rank, and the
- * Moore-Penrose pseudoinverse solves the linear least-norm
- * (underconstrained) problem \f[ x' = A^{+} b = \underset{x}{min}
- * \|x\|_{2} \text{s.t. } Ax = b \f]
+ * If \f$ m > n \f$, then \f$ A \f$ must be of full row rank, and \f$
+ * A^{+} \f$ solves the linear least-norm (underconstrained) problem:
+ * \f[ x' = A^{+} b = \underset{x}{min} \|x\|_{2} \text{s.t. } Ax = b
+ * \f]
  *
- * If \f$ m = n \f$, then \f$ A \f$ is square and must be of full
- * rank, and the Moore-Penrose pseudoinverse \f$ A^{+} \f$ is the
- * ordinary inverse \f$ A^{-1} \f$.
+ * If \f$ m = n \f$, then \f$ A \f$ must be of full rank, and \f$
+ * A^{+} = A^{-1} \f$.
  *
  *  \param n            The number of rows in a
  *  \param m            The number of columns in a
@@ -357,8 +353,8 @@ inline int matrix_atwaiat(u32 n, u32 m, const double *a,
  *  (therefore) a matrix on \f$\mathbb{R}^{n \times n}\f$, for \f$ n <
  *  m \f$.
  *
- *  \param n            Number of rows in a
- *  \param m            Number of columns in a and rows and columns in b
+ *  \param n            Number of rows in a and rows and columns in b
+ *  \param m            Number of columns in a
  *  \param a            Input matrix
  *  \param w            Diagonal vector of weighting matrix 
  *  \param b            Output matrix
