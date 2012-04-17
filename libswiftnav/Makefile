@@ -87,7 +87,18 @@ clean:
 	@printf "  CLEAN    tests\n"; \
 	$(MAKE) -C tests $(MAKEFLAGS) clean
 
-.PHONY: clean check lcov
+# Program to run for Google CPP Lint code
+LINT = $(shell command -v cpplint || command -v cpplint.py)
+
+# A target for emacs' flymake-mode!
+check-syntax:
+	-$(Q)$(CC) $(CFLAGS) -fsyntax-only $(CHK_SOURCES)
+	-$(LINT) $(CHK_SOURCES) 2>&1 | grep -v "C-style cast"
+
+lint: 
+	$(MAKE) check-syntax CHK_SOURCES="$(SRCS)"
+
+.PHONY: clean check lcov check-syntax lint
 
 -include $(SRCS:.c=.d)
 
