@@ -22,6 +22,12 @@ void matrix_add_sc(u32 n, u32 m, const double *a,
 void matrix_transpose(u32 n, u32 m, const double *a, double *b);
 void matrix_copy(u32 n, u32 m, const double *a, double *b);
 
+int matrix_pseudoinverse(u32 n, u32 m, const double *a, double *b);
+int matrix_atwaiat(u32 n, u32 m, const double *a, const double *w, double *b);
+int matrix_ataiat(u32 n, u32 m, const double *a, double *b);
+int matrix_atawati(u32 n, u32 m, const double *a, const double *w, double *b);
+int matrix_ataati(u32 n, u32 m, const double *a, double *b);
+
 double vector_dot(u32 n, const double *a, const double *b);
 double vector_norm(u32 n, const double *a);
 double vector_mean(u32 n, const double *a);

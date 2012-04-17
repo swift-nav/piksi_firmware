@@ -12,6 +12,8 @@
 #include <math.h>
 #include "common.h"
 
+#include "linear_algebra.h"
+
 /** \addtogroup lib
  * \{ */
 /** \defgroup linear_algebra Linear Algebra
@@ -197,7 +199,7 @@ static int rref(u32 order, u32 cols, double *m) {
  *
  *  \return     -1 if a is singular; 0 otherwise.
  */
-int matrix_inverse(u32 n, const double const *a, double *b) {
+inline int matrix_inverse(u32 n, const double const *a, double *b) {
   /* This function is currently only used to do a linear least-squares
    * solve for x, y, z and t in the navigation filter.  Gauss-Jordan
    * elimination is not the most efficient way to do this.  In the
@@ -255,6 +257,187 @@ int matrix_inverse(u32 n, const double const *a, double *b) {
   }
 }
 
+/** Invert a non-square matrix (least-squares or least-norm solution).
+
+ *  Calculate the Moore-Penrose pseudoinverse \f$ A^{+} \f$ of a
+ *  square matrix:
+ *
+ *  \f[ A \in \mathbb{R}^{n \times m} \f]
+ *  \f[ B := A^{+} = \begin{cases}
+ *      (A^{T} A)^{-1} A^{T} & \text{if } n > m \\
+ *      A^{T} (A A^{T})^{-1} & \text{if } m > n \\
+ *      A^{-1} & \text{if } n = m
+ *  \end{cases} \f]
+ *  assuming that \f$ A \f$ is of full rank.
+ * 
+ * If \f$ n > m \f$, then \f$ A \f$ must be of full column rank, and
+ * the Moore-Penrose pseudoinverse \f$ A^{+} \f$ solves the linear
+ * least-squares (overconstrained) problem: \f[ x' = A^{+} b = \underset{x}{min}
+ * \|Ax - b\|_{2} \f]
+ *
+ * If \f$ m > n \f$, then \f$ A \f$ must be of full row rank, and the
+ * Moore-Penrose pseudoinverse solves the linear least-norm
+ * (underconstrained) problem \f[ x' = A^{+} b = \underset{x}{min}
+ * \|x\|_{2} \text{s.t. } Ax = b \f]
+ *
+ * If \f$ m = n \f$, then \f$ A \f$ is square and must be of full
+ * rank, and the Moore-Penrose pseudoinverse \f$ A^{+} \f$ is the
+ * ordinary inverse \f$ A^{-1} \f$.
+ *
+ *  \param n            The number of rows in a
+ *  \param m            The number of columns in a
+ *  \param a            The matrix to invert (input)
+ *  \param b            Where to put the inverse (output)
+ *
+ *  \return     -1 if a is singular; 0 otherwise.
+ */
+int matrix_pseudoinverse(u32 n, u32 m, const double *a, double *b) {
+  if (n == m)
+    return matrix_inverse(n, a, b);
+  if (n > m)
+    return matrix_ataiat(n, m, a, b);
+  if (n < m)                                  /* n < m */
+    return matrix_ataati(n, m, a, b);
+  return -1;
+}
+
+/** Compute \f$ B := (A^{T} W A)^{-1} A^{T} \f$.
+ *  Compute \f$ B := (A^{T} W A)^{-1} A^{T} \f$, where \f$ A \f$ is a
+ *  matrix on \f$\mathbb{R}^{n \times m}\f$, \f$ W \f$ is a diagonal
+ *  weighting matrix on \f$\mathbb{R}^{n \times n}\f$ and \f$B\f$ is
+ *  (therefore) a matrix on \f$\mathbb{R}^{m \times m}\f$, for \f$ n >
+ *  m \f$.
+ *
+ *  \param n            Number of rows in a
+ *  \param m            Number of columns in a and rows and columns in b
+ *  \param a            Input matrix
+ *  \param w            Diagonal vector of weighting matrix 
+ *  \param b            Output matrix
+ *
+ *  \return     -1 if n <= m or singular; 0 otherwise
+ */
+inline int matrix_atwaiat(u32 n, u32 m, const double *a,
+                          const double *w, double *b) {
+  u32 i, j, k;
+  double c[m*m], inv[m*m];
+  /* Check to make sure we're doing the right operation */
+  if (n <= m) return -1;
+
+  /* The resulting matrix is symmetric, so compute both halves at
+   * once */
+  for (i = 0; i < m; i++)
+    for (j = i; j < m; j++) {
+      c[m*i + j] = 0;
+      if (i == j) {
+        /* If this is a diagonal element, just sum the squares of the
+         * column of A weighted by the weighting vector. */
+        for (k = 0; k < n; k++)
+          c[m*i + j] += w[k]*a[m*k + j]*a[m*k + j];
+      } else {
+        /* Otherwise, assign both off-diagonal elements at once. */
+        for (k = 0; k < n; k++)
+          c[m*i + j] = c[m*j + i] = w[k]*a[m*k + j]*a[m*k + i];
+        c[m*j + i] = c[m*i + j];
+      }
+    }
+  if (matrix_inverse(m, c, inv) < 0) return -1;
+  for (i = 0; i < m; i++)
+    for (j = 0; j < n; j++) {
+      b[n*i + j] = 0;
+      for (k = 0; k < m; k++)
+        b[n*i + j] += inv[n*i+k] * a[m*j + k];
+    }
+  return 0;
+}
+
+/** Compute \f$ B := A^T (A W A^{T})^{-1} \f$.
+ *  Compute \f$ B := A^T (A W A^{T})^{-1} \f$, where \f$ A \f$ is a
+ *  matrix on \f$\mathbb{R}^{n \times m}\f$, \f$ W \f$ is a diagonal
+ *  weighting matrix on \f$\mathbb{R}^{m \times m}\f$ and \f$B\f$ is
+ *  (therefore) a matrix on \f$\mathbb{R}^{n \times n}\f$, for \f$ n <
+ *  m \f$.
+ *
+ *  \param n            Number of rows in a
+ *  \param m            Number of columns in a and rows and columns in b
+ *  \param a            Input matrix
+ *  \param w            Diagonal vector of weighting matrix 
+ *  \param b            Output matrix
+ *
+ *  \return     -1 if n <= m or singular; 0 otherwise
+ */
+inline int matrix_atawati(u32 n, u32 m, const double *a,
+                          const double *w, double *b) {
+  u32 i, j, k;
+  double c[m*m], inv[m*m];
+  /* Check to make sure we're doing the right operation */
+  if (n <= m) return -1;
+
+  /* TODO(MP) -- implement! */
+  /* The resulting matrix is symmetric, so compute both halves at
+   * once */
+  for (i = 0; i < m; i++)
+    for (j = i; j < m; j++) {
+      c[m*i + j] = 0;
+      if (i == j) {
+        /* If this is a diagonal element, just sum the squares of the
+         * column of A weighted by the weighting vector. */
+        for (k = 0; k < n; k++)
+          c[m*i + j] += w[k]*a[m*k + j]*a[m*k + j];
+      } else {
+        /* Otherwise, assign both off-diagonal elements at once. */
+        for (k = 0; k < n; k++)
+          c[m*i + j] = c[m*j + i] = w[k]*a[m*k + j]*a[m*k + i];
+        c[m*j + i] = c[m*i + j];
+      }
+    }
+  if (matrix_inverse(m, c, inv) < 0) return -1;
+  for (i = 0; i < m; i++)
+    for (j = 0; j < n; j++) {
+      b[n*i + j] = 0;
+      for (k = 0; k < m; k++)
+        b[n*i + j] += inv[n*i+k] * a[m*j + k];
+    }
+  return 0;
+}
+
+/** Compute \f$ B := (A^{T} A)^{-1} A^{T} \f$.
+ *  Compute \f$ B := (A^{T} A)^{-1} A^{T} \f$, where \f$ A \f$ is a
+ *  matrix on \f$\mathbb{R}^{n \times m}\f$ and \f$B\f$ is (therefore)
+ *  a matrix on \f$\mathbb{R}^{m \times m}\f$, for \f$ n > m \f$.
+ *
+ *  \param n            Number of rows in a
+ *  \param m            Number of columns in a and rows and columns in b
+ *  \param a            Input matrix
+ *  \param b            Output matrix
+ *
+ *  \return     -1 if n < m; 0 otherwise
+ */
+inline int matrix_ataiat(u32 n, u32 m, const double *a, double *b) {
+  u32 i;
+  double w[n];
+  for (i = 0; i < n; i++) w[i] = 1;
+  return matrix_atwaiat(n, m, a, w, b);
+}
+
+/** Compute \f$ B := A^{T} (A A^{T})^{-1} \f$.
+ *  Compute \f$ B := A^{T} (A A^{T})^{-1} \f$, where \f$ A \f$ is a
+ *  matrix on \f$\mathbb{R}^{n \times m}\f$ and \f$B\f$ is (therefore)
+ *  a matrix on \f$\mathbb{R}^{n \times n}\f$, for \f$ n < m \f$.
+ *
+ *  \param n            Number of rows in a and rows and columns in b
+ *  \param m            Number of columns in a
+ *  \param a            Input matrix
+ *  \param b            Output matrix
+ *
+ *  \return     -1 if n >= m or singular; 0 otherwise
+ */
+inline int matrix_ataati(u32 n, u32 m, const double *a, double *b) {
+  u32 i;
+  double w[n];
+  for (i = 0; i < n; i++) w[i] = 1;
+  return matrix_atawati(n, m, a, w, b);
+}
+
 /** Multiply two matrices.
  *  Multiply two matrices: \f$ C := AB \f$, where \f$ A \f$ is a
  *  matrix on \f$\mathbb{R}^{n \times m}\f$, \f$B\f$ is a matrix on
@@ -268,8 +451,8 @@ int matrix_inverse(u32 n, const double const *a, double *b) {
  *  \param b            Second matrix to multiply
  *  \param c            Output matrix
  */
-void matrix_multiply(u32 n, u32 m, u32 p, const double *a,
-                     const double *b, double *c) {
+inline void matrix_multiply(u32 n, u32 m, u32 p, const double *a,
+                            const double *b, double *c) {
   u32 i, j, k;
   for (i = 0; i < n; i++)
     for (j = 0; j < p; j++) {
