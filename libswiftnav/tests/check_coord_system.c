@@ -291,6 +291,28 @@ START_TEST(test_random_wgsecef2llh2ecef)
 }
 END_TEST
 
+/* Check simply that passing the ECEF position the same as the
+ * reference position returns (0, 0, 0) in NED frame */
+START_TEST(test_random_wgsecef2ned_d_0) {
+  s32 i, j;
+  double ned[3];
+
+  seed_rng();
+  for (i = 0; i < 222; i++) {
+    const double ecef[3] = {frand(-1e8, 1e8),
+                            frand(-1e8, 1e8),
+                            frand(-1e8, 1e8)};
+    wgsecef2ned_d(ecef, ecef, ned);
+    for (j = 0; j < 3; j++)
+      fail_unless(fabs(ned[j]) < 1e-8,
+                  "NED vector to reference ECEF point "
+                  "has nonzero element %d: %lf\n"
+                  "(point was <%lf %lf %lf>)\n",
+                  ned[j], ecef[0], ecef[1], ecef[2]);
+  }
+}
+END_TEST
+
 Suite* coord_system_suite(void)
 {
   Suite *s = suite_create("Coordinate systems");
@@ -306,6 +328,7 @@ Suite* coord_system_suite(void)
   TCase *tc_random = tcase_create("Random");
   tcase_add_loop_test(tc_random, test_random_wgsllh2ecef2llh, 0, 100);
   tcase_add_loop_test(tc_random, test_random_wgsecef2llh2ecef, 0, 100);
+  tcase_add_loop_test(tc_random, test_random_wgsecef2ned_d_0, 0, 100);
   suite_add_tcase(s, tc_random);
 
   return s;
