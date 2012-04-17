@@ -9,6 +9,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <math.h>
+
 #include "pvt.h"
 #include "track.h"
 #include "ephemeris.h"
@@ -101,14 +103,14 @@ void calc_loop_coeff(double BW, double zeta, double k, double *tau1,
  *                    \f$k_p\f$.
  * \param igain       Where to store the calculated integral gain, \f$k_i\f$.
  */
-double calc_loop_gains(double bw, double zeta, double k, double sample_freq,
-                       double *pgain, double *igain) {
+void calc_loop_gains(double bw, double zeta, double k, double sample_freq,
+                     double *pgain, double *igain) {
   /* Find the natural frequency. */
   double omega_n = bw*8*zeta / (4*zeta*zeta + 1);
 
   /* Some intermmediate values. */
   double T = 1. / sample_freq;
-  double denominator = 4 + 4*zeta*omega_n*T + omega_n*omega_n*T*T;
+  double denominator = k*(4 + 4*zeta*omega_n*T + omega_n*omega_n*T*T);
 
   *pgain = 8*zeta*omega_n*T / denominator;
   *igain = 4*omega_n*omega_n*T*T / denominator;
@@ -129,10 +131,10 @@ double calc_loop_gains(double bw, double zeta, double k, double sample_freq,
  * \return The discriminator value, \f$\varepsilon_k\f$.
  */
 double costas_discriminator(double I, double Q) {
-  return atan(I/Q)/(2*PI);
+  return atan(I/Q)/(2*M_PI);
 }
 
-double dll_discriminator(corr_t cs[3]) {
+double dll_discriminator(correlation_t cs[3]) {
   double early_mag = sqrt((double)cs[0].I*cs[0].I + (double)cs[0].Q*cs[0].Q);
   double late_mag = sqrt((double)cs[2].I*cs[2].I + (double)cs[2].Q*cs[2].Q);
 

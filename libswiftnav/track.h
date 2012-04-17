@@ -16,6 +16,10 @@
 #include "ephemeris.h"
 
 typedef struct {
+  double I, Q;
+} correlation_t;
+
+typedef struct {
   u8 prn;
   double code_phase_chips;
   double code_phase_rate;
