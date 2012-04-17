@@ -67,8 +67,9 @@ static inline int inv2(const double *a, double *b) {
  *  \return     -1 if a is singular; 0 otherwise.
  */
 static inline int inv3(const double *a, double *b) {
-
-  double det = ((a[3*1 + 0]*-(a[3*0 + 1]*a[3*2 + 2]-a[3*0 + 2]*a[3*2 + 1])+a[3*1 + 1]*(a[3*0 + 0]*a[3*2 + 2]-a[3*0 + 2]*a[3*2 + 0]))+a[3*1 + 2]*-(a[3*0 + 0]*a[3*2 + 1]-a[3*0 + 1]*a[3*2 + 0]));
+  double det = ((a[3*1 + 0]*-(a[3*0 + 1]*a[3*2 + 2]-a[3*0 + 2]*a[3*2 + 1])
+                 +a[3*1 + 1]*(a[3*0 + 0]*a[3*2 + 2]-a[3*0 + 2]*a[3*2 + 0]))
+                +a[3*1 + 2]*-(a[3*0 + 0]*a[3*2 + 1]-a[3*0 + 1]*a[3*2 + 0]));
 
   if (det < MATRIX_EPSILON)
     return -1;
@@ -132,7 +133,7 @@ static inline int inv4(const double *a, double *b) {
 /* Helper function for rref */
 static void row_swap(double *a, double *b, u32 size) {
   double tmp;
-  for(u32 i=0; i<size; i++) {
+  for(u32 i = 0; i < size; i++) {
     tmp = a[i];
     a[i] = b[i];
     b[i] = tmp;
@@ -145,9 +146,9 @@ static int rref(u32 order, u32 cols, double *m) {
   int i, j, k, maxrow;
   double tmp;
 
-  for (i=0; i<(int) order; i++) {
+  for (i = 0; i < (int) order; i++) {
     maxrow = i;
-    for (j=i+1; j<(int) order; j++) {
+    for (j = i+1; j < (int) order; j++) {
       /* Find the maximum pivot */
       if (fabs(m[j*cols+i]) > fabs(m[maxrow*cols+i]))
         maxrow = j;
@@ -158,24 +159,24 @@ static int rref(u32 order, u32 cols, double *m) {
        * isn't full-rank.  Pork chop sandwiches!  */
       return -1;
     }
-    for (j=i+1; j<(int) order; j++) {
+    for (j = i+1; j < (int) order; j++) {
       /* Elimination of column i */
       tmp = m[j*cols+i] / m[i*cols+i];
-      for (k=i; k<(int) cols; k++) {
+      for (k = i; k < (int) cols; k++) {
         m[j*cols+k] -= m[i*cols+k] * tmp;
       }
     }
   }
-  for (i=order-1; i>=0; i--) {
+  for (i = order-1; i >= 0; i--) {
     /* Back-substitution */
     tmp = m[i*cols+i];
-    for (j=0; j<i; j++) {
-      for (k=cols-1; k>i-1; k--) {
+    for (j = 0; j < i; j++) {
+      for (k = cols-1; k > i-1; k--) {
         m[j*cols+k] -= m[i*cols+k] * m[j*cols+i] / tmp;
       }
     }
     m[i*cols+i] /= tmp;
-    for (j=order; j<(int) cols; j++) {
+    for (j = order; j < (int) cols; j++) {
       /* Normalize row */
       m[i*cols+j] /= tmp;
     }
@@ -223,12 +224,14 @@ int matrix_inverse(u32 n, const double const *a, double *b) {
       break;
     default:
       /* Set up an augmented matrix M = [A I] */
-      for (i=0; i<n; i++) {
-        for (j=0; j<cols; j++) {
-          if(j>=n) {
+      for (i = 0; i < n; i++) {
+        for (j = 0; j < cols; j++) {
+          if (j >= n) {
             if (j-n == i) {
               m[i*cols+j] = 1.0;
-            } else m[i*cols+j] = 0;
+            } else {
+              m[i*cols+j] = 0;
+            }
           } else {
             m[i*cols+j] = a[i*n+j];
           }
@@ -241,8 +244,8 @@ int matrix_inverse(u32 n, const double const *a, double *b) {
       }
 
       /* Extract B from the augmented matrix M = [I inv(A)] */
-      for (i=0; i<n; i++) {
-        for (j=n, k=0; j<cols; j++,k++) {
+      for (i = 0; i < n; i++) {
+        for (j = n, k = 0; j < cols; j++, k++) {
           b[i*n+k] = m[i*cols+j];
         }
       }

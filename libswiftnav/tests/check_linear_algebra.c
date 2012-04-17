@@ -16,8 +16,7 @@
 
 /* TODO: matrix_multiply, matrix_add_sc, matrix_copy, all vector functions */
 
-START_TEST(test_matrix_transpose)
-{
+START_TEST(test_matrix_transpose) {
   unsigned int i, j, t;
   u32 n = random() / RAND_MAX * MSIZE_MAX;
   u32 m = random() / RAND_MAX * MSIZE_MAX;
@@ -39,8 +38,7 @@ START_TEST(test_matrix_transpose)
 }
 END_TEST
 
-START_TEST(test_matrix_inverse_2x2)
-{
+START_TEST(test_matrix_inverse_2x2) {
   unsigned int i, j, t;
   double A[4];
   double B[4];
@@ -55,14 +53,15 @@ START_TEST(test_matrix_inverse_2x2)
           A[2*i + j] = mrand;
     } while (matrix_inverse(2, A, B) < 0);
     matrix_multiply(2, 2, 2, A, B, I);
-    fail_unless(fabs(I[0] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[0]);
-    fail_unless(fabs(I[3] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[3]);
+    fail_unless(fabs(I[0] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[0]);
+    fail_unless(fabs(I[3] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[3]);
   }
 }
 END_TEST
 
-START_TEST(test_matrix_inverse_3x3)
-{
+START_TEST(test_matrix_inverse_3x3) {
   unsigned int i, j, t;
   double A[9];
   double B[9];
@@ -77,15 +76,17 @@ START_TEST(test_matrix_inverse_3x3)
           A[3*i + j] = mrand;
     } while (matrix_inverse(3, A, B) < 0);
     matrix_multiply(3, 3, 3, A, B, I);
-    fail_unless(fabs(I[0] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[0]);
-    fail_unless(fabs(I[4] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[4]);
-    fail_unless(fabs(I[8] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[8]);
+    fail_unless(fabs(I[0] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[0]);
+    fail_unless(fabs(I[4] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[4]);
+    fail_unless(fabs(I[8] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[8]);
   }
 }
 END_TEST
 
-START_TEST(test_matrix_inverse_4x4)
-{
+START_TEST(test_matrix_inverse_4x4) {
   unsigned int i, j, t;
   double A[16];
   double B[16];
@@ -100,16 +101,19 @@ START_TEST(test_matrix_inverse_4x4)
           A[4*i + j] = mrand;
     } while (matrix_inverse(4, A, B) < 0);
     matrix_multiply(4, 4, 4, A, B, I);
-    fail_unless(fabs(I[0] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[0]);
-    fail_unless(fabs(I[5] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[5]);
-    fail_unless(fabs(I[10] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[10]);
-    fail_unless(fabs(I[15] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[15]);
+    fail_unless(fabs(I[0] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[0]);
+    fail_unless(fabs(I[5] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[5]);
+    fail_unless(fabs(I[10] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[10]);
+    fail_unless(fabs(I[15] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[15]);
   }
 }
 END_TEST
 
-START_TEST(test_matrix_inverse_5x5)
-{
+START_TEST(test_matrix_inverse_5x5) {
   unsigned int i, j, t;
   double A[25];
   double B[25];
@@ -124,17 +128,22 @@ START_TEST(test_matrix_inverse_5x5)
           A[5*i + j] = mrand;
     } while (matrix_inverse(5, A, B) < 0);
     matrix_multiply(5, 5, 5, A, B, I);
-    fail_unless(fabs(I[0] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[0]);
-    fail_unless(fabs(I[6] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[6]);
-    fail_unless(fabs(I[12] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[12]);
-    fail_unless(fabs(I[18] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[18]);
-    fail_unless(fabs(I[24] - 1) < LINALG_TOL, "Matrix differs from identity: %lf", I[24]);
+    fail_unless(fabs(I[0] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[0]);
+    fail_unless(fabs(I[6] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[6]);
+    fail_unless(fabs(I[12] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[12]);
+    fail_unless(fabs(I[18] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[18]);
+    fail_unless(fabs(I[24] - 1) < LINALG_TOL,
+                "Matrix differs from identity: %lf", I[24]);
   }
 }
 END_TEST
 
-Suite* linear_algebra_suite(void)
-{
+
+Suite* linear_algebra_suite(void) {
   Suite *s = suite_create("Linear algebra");
 
   /* Core test case */
