@@ -14,6 +14,9 @@
 
 #include "linear_algebra.h"
 
+/* Todo(MP) -- Implement fast linear solve (all-in-one) with Cholesky
+ * decomposition: we want to solve $A^{T} A \hat{x} = A^{T} y */
+
 /** \addtogroup lib
  * \{ */
 /** \defgroup linear_algebra Linear Algebra
