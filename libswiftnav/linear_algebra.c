@@ -273,9 +273,9 @@ void matrix_multiply(u32 n, u32 m, u32 p, const double *a,
   u32 i, j, k;
   for (i = 0; i < n; i++)
     for (j = 0; j < p; j++) {
-      c[n*i + j] = 0;
+      c[p*i + j] = 0;
       for (k = 0; k < m; k++)
-        c[n*i + j] += a[n*i+k] * b[m*k + j];
+        c[p*i + j] += a[m*i+k] * b[p*k + j];
     }
 }
 
@@ -296,7 +296,7 @@ void matrix_add_sc(u32 n, u32 m, const double *a,
   u32 i, j;
   for (i = 0; i < n; i++)
     for (j = 0; j < m; j++)
-      c[n*i + j] += a[n*i + j] + gamma * b[n*i + j];
+      c[m*i + j] = a[m*i + j] + gamma * b[m*i + j];
 }
 
 /** Transpose a matrix.
@@ -314,7 +314,7 @@ void matrix_transpose(u32 n, u32 m,
   u32 i, j;
   for (i = 0; i < n; i++)
     for (j = 0; j < m; j++)
-      b[m*j+i] = a[n*i+j];
+      b[n*j+i] = a[m*i+j];
 }
 
 /** Copy a matrix.
@@ -331,7 +331,7 @@ void matrix_copy(u32 n, u32 m, const double *a,
   u32 i, j;
   for (i = 0; i < n; i++)
     for (j = 0; j < m; j++)
-      b[n*i+j] = a[n*i+j];
+      b[m*i+j] = a[m*i+j];
 }
 
 /* \} */
