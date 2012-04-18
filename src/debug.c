@@ -15,11 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopencm3/stm32/usart.h>
-#include <libopencm3/stm32/nvic.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/gpio.h>
-#include <libopencm3/stm32/f2/dma.h>
 #include <stdio.h>
 #include <errno.h>
 
@@ -30,7 +25,7 @@
 
 u8 msg_header[4] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2, 0, 0};
 
-u8 msg_buff[USART_BUFFER_LEN];
+u8 msg_buff[256];
 
 typedef enum {
   WAITING_1,
@@ -45,7 +40,8 @@ msg_callbacks_node_t* msg_callbacks_head = 0;
 
 void debug_setup()
 {
-  usart_dma_setup();
+  usart_setup_common();
+  usart_tx_dma_setup();
 
   /* Disable input and output bufferings */
   /*setvbuf(stdin, NULL, _IONBF, 0);*/
@@ -190,13 +186,4 @@ int _write (int file, char *ptr, int len)
   errno = EIO;
   return -1;
 }
-
-void screaming_death() {
-  //disable all interrupts
-  __asm__("CPSID f;");
- // __disable_irq();
- 
-  while(1)
-    usart_send_blocking(USART1, '!');
-};
 

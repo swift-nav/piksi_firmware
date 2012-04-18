@@ -18,13 +18,19 @@
 #ifndef SWIFTNAV_USART_H
 #define SWIFTNAV_USART_H
 
-#define USART_BUFFER_LEN 4096
+#define USART_TX_BUFFER_LEN 4096
+#define USART_RX_BUFFER_LEN 4096
 
 #include <libopencm3/cm3/common.h>
 
-void usart_dma_setup(void);
-void usart_write_dma(u8 *data, u16 n);
-u16 usart_n_read_dma();
-u16 usart_read_dma(u8 buff[], u16 len);
+void usart_setup_common(void);
+void usart_tx_dma_setup(void);
+void usart_rx_dma_setup(void);
 
-#endif
+u32 usart_write_dma(u8 data[], u32 n);
+
+u32 usart_n_read_dma();
+u32 usart_read_dma(u8 buff[], u32 len);
+
+#endif /* SWIFTNAV_USART_H */
+

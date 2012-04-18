@@ -44,6 +44,4 @@ void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_
 msg_callback_t debug_find_callback(u8 msg_id);
 void debug_process_messages();
 
-void screaming_death();
-
 #endif

@@ -30,7 +30,7 @@ OBJDUMP = $(PREFIX)-objdump
 # Uncomment this line if you want to use the installed (not local) library.
 #TOOLCHAIN_DIR := $(shell dirname `which $(CC)`)/../$(PREFIX)
 TOOLCHAIN_DIR = $(SWIFTNAV_ROOT)/../libopencm3
-CFLAGS += -O3 -g -Wall -Wextra -Werror -I$(TOOLCHAIN_DIR)/include -I$(SWIFTNAV_ROOT)\
+CFLAGS += -O0 -g -Wall -Wextra -Werror -I$(TOOLCHAIN_DIR)/include -I$(SWIFTNAV_ROOT)\
        -fno-common -mcpu=cortex-m3 -mthumb -msoft-float -MD -DSTM32F2 \
        -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99
 LDSCRIPT = $(SWIFTNAV_ROOT)/stm32/swiftnav.ld

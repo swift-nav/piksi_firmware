@@ -16,6 +16,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/flash.h>
 #include <libopencm3/stm32/f2/gpio.h>
@@ -38,6 +39,10 @@ const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
   .apb2_frequency = 16368000,
 };
 
+void death() {
+  while(1);
+}
+
 int main(void)
 {
   for (u32 i = 0; i < 600000; i++)
@@ -47,28 +52,54 @@ int main(void)
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
 
-  usart_dma_setup();
+  usart_setup_common();
+  usart_tx_dma_setup();
 
-  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
-  printf("--- USART DMA TEST ---\n");
+  /*printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");*/
+  /*printf("--- USART DMA TEST ---\n");*/
 
-  u8 zee_buff[300];
+  u8 guard_below[30];
+  u8 buff_out[300];
+  u8 guard_above[30];
   u8 len;
+
+  for (int i=0; i<30; i++) {
+    guard_below[i] = 0;
+    guard_above[i] = 0;
+  }
+
+  for (int i=0; i<255; i++)
+    buff_out[i] = i;
 
   while(1)
   {
-    while(usart_n_read_dma() == 0);
 
-    len = usart_read_dma(zee_buff, 255);
-    printf("\r\nReceived %d chars:\r\n", len);
-    usart_write_dma(zee_buff, len);
+    len = 255;
+    while (len)
+      len -= usart_write_dma(buff_out, len);
+    /*len = 0;*/
+    /*while (len < 255) {*/
+      /*while(usart_n_read_dma() == 0);*/
+      /*len += usart_read_dma(zee_buff_in, 255);*/
+    /*}*/
+    /*if (memcmp(zee_buff_in, zee_buff_out, 255) != 0) {*/
+      /*death();*/
+    /*}*/
+  /*for (u32 i = 0; i < 600000; i++)*/
+    /*__asm__("nop");*/
 
-    for (u32 i = 0; i < 600000; i++)
-      __asm__("nop");
+
+    /* Check the guards for buffer over/underrun. */
+    for (int i=0; i<30; i++) {
+      if (guard_below[i] != 0)
+        death();
+      if (guard_above[i] != 0)
+        death();
+    }
   }
 
   while (1);
-  
+
 	return 0;
 }
 

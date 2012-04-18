@@ -32,6 +32,7 @@
 #include "acq.h"
 #include "cw.h"
 #include "debug.h"
+#include "error.h"
 #include "hw/spi.h"
 #include "hw/max2769.h"
 
