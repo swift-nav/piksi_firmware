@@ -156,7 +156,7 @@ void flash_write_callback(u8 buff[]) {
   // Write a 256-byte page at a time.
   // If you start partway through a page, that's ok, but if you run off the end of the page
   //  it will wrap, rather than going on to the next page.
-  
+
   u32 addr = *(u32 *)&buff[0];
   u8 len = *(u8 *)&buff[4];
   u8 *data = &buff[5];
@@ -166,14 +166,14 @@ void flash_write_callback(u8 buff[]) {
   m25_page_program(addr, len, data);
   printf("ok\n");
 
-  debug_send_msg(0xF0,0,0);   // Report completion
+  debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
 }
 
 void flash_read_callback(u8 buff[]) {
   // Msg format:  u32 addr, u32 len
   u32 addr, len;
   static char flash_data[16];
-  
+
   addr = *(u32 *)&buff[0];
   len  = *(u32 *)&buff[4];
 
@@ -186,12 +186,12 @@ void flash_read_callback(u8 buff[]) {
     m25_read(addr, chunk_len, (u8 *)flash_data);
 
     printf("%08X:  ", (unsigned int)addr);
-    
-    for (u8 chunk_i = 0; chunk_i < chunk_len; chunk_i++) 
+
+    for (u8 chunk_i = 0; chunk_i < chunk_len; chunk_i++)
       printf("%02X ", flash_data[chunk_i]);
 /*
     printf("  ");
-    
+
     for (u8 chunk_i = 0; chunk_i < chunk_len; chunk_i++)
       if (flash_data[chunk_i] >= 32)
         printf("%c", flash_data[chunk_i]);
@@ -211,7 +211,7 @@ void flash_read_callback(u8 buff[]) {
 void flash_erase_callback(u8 buff[] ) {
   // Msg format: u32 addr
   // Erases a 65536-byte sector.  Any address within the sector will work.
-  
+
   u32 addr = *(u32*)buff;
 
   printf("SPI Flash erasing 64KB from 0x%06X...", (unsigned int)addr & 0xFF0000);
@@ -221,7 +221,7 @@ void flash_erase_callback(u8 buff[] ) {
 
   printf("ok\n");
 
-  debug_send_msg(0xF0,0,0);   // Report completion
+  debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
 
 }
 
@@ -230,9 +230,9 @@ void m25_setup(void) {
   // Assumes spi_setup already called
 
   static msg_callbacks_node_t flash_write_node, flash_read_node, flash_erase_node;
-  debug_register_callback(0xF0, &flash_write_callback, &flash_write_node);
-  debug_register_callback(0xF1, &flash_read_callback,  &flash_read_node);
-  debug_register_callback(0xF2, &flash_erase_callback, &flash_erase_node);
+  debug_register_callback(MSG_FLASH_WRITE, &flash_write_callback, &flash_write_node);
+  debug_register_callback(MSG_FLASH_READ, &flash_read_callback,  &flash_read_node);
+  debug_register_callback(MSG_FLASH_ERASE, &flash_erase_callback, &flash_erase_node);
 
 /*
   u32 m25_id = m25_read_id();

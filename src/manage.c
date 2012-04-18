@@ -56,7 +56,7 @@ void manage_acq_setup()
     acq_prn_param[prn].carrier_freq_min = ACQ_FULL_CF_MIN;
     acq_prn_param[prn].carrier_freq_max = ACQ_FULL_CF_MAX;
   }
-  debug_register_callback(0x69, &acq_setup_callback, &acq_setup_callback_node);
+  debug_register_callback(MSG_ACQ_SETUP, &acq_setup_callback, &acq_setup_callback_node);
 }
 
 void manage_acq()
@@ -143,7 +143,7 @@ void manage_acq()
       if (!acq_get_done())
         break;
       /* Done with the coarse acquisition, check if we have found a
-       * satellite, if so save the results and start the loading 
+       * satellite, if so save the results and start the loading
        * for the fine acquisition. If not, start again choosing a
        * different PRN.
        */
@@ -220,7 +220,7 @@ void manage_acq()
       /* Transition to tracking. */
       u32 track_count = timing_count() + 20000;
       float track_cp = propagate_code_phase(fine_cp, fine_cf, track_count - acq_manage.fine_timer_count);
-     
+
       // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
       track_count += 16*(1023.0-track_cp)*(1.0 + fine_cf / L1_HZ);
 
@@ -254,7 +254,7 @@ void manage_track()
   for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
     if (tracking_channel[i].state == TRACKING_RUNNING) {
       if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
-        if (tracking_channel[i].update_count > TRACK_SNR_INIT_COUNT && 
+        if (tracking_channel[i].update_count > TRACK_SNR_INIT_COUNT &&
             tracking_channel[i].update_count - tracking_channel[i].snr_threshold_count > TRACK_SNR_THRES_COUNT) {
           /* This tracking channel has lost its satellite. */
           printf("Disabling channel %d\n", i);

@@ -34,7 +34,7 @@ void cw_start_callback(u8 msg[])
 void cw_setup()
 {
   static msg_callbacks_node_t cw_start_callback_node;
-  debug_register_callback(0xC1, &cw_start_callback, &cw_start_callback_node);
+  debug_register_callback(MSG_CW_START, &cw_start_callback, &cw_start_callback_node);
 }
 
 void cw_schedule_load(u32 count)
@@ -117,7 +117,7 @@ void cw_service_irq()
        * The first time to disable and the second time really just
        * to clear the interrupt from the last cycle.
        */
-      cw_state.carrier_freq += cw_state.cf_step; //carrier freq corresponding to correlations 
+      cw_state.carrier_freq += cw_state.cf_step; //carrier freq corresponding to correlations
 																								 //that will be read from channel next cycle
 																								 //(unless we are writing second disable)
 			if (cw_state.carrier_freq >= (cw_state.cf_max + cw_state.cf_step)) { //second disable, lower cw channel
@@ -143,7 +143,7 @@ void cw_send_result(float carrier_freq, u64 power)
   msg.cf = carrier_freq;
   msg.power = power;
 
-  debug_send_msg(0xC0, sizeof(msg), (u8*)&msg);
+  debug_send_msg(MSG_CW_RESULTS, sizeof(msg), (u8*)&msg);
 }
 
 void cw_get_spectrum_point(float* freq, u64* power, u16 index)

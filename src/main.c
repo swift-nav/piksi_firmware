@@ -172,10 +172,10 @@ int main(void)
 
       wgsecef2ned_d(soln.pos_ecef, WPR_ecef, soln.pos_ned);
       DO_EVERY_COUNTS(SAMPLE_FREQ/4,
-        debug_send_msg(0x50, sizeof(gnss_solution), (u8 *) &soln);
-        debug_send_msg(0x51, sizeof(dops_t), (u8 *) &dops);
+        debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
+        debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
 
-        debug_send_msg(0x52, sizeof(pr_errs), (u8 *) pr_errs);
+        debug_send_msg(MSG_PR_ERRS, sizeof(pr_errs), (u8 *) pr_errs);
       );
     }
 
@@ -186,7 +186,7 @@ int main(void)
           snrs[i] = tracking_channel_snr(i);
         else
           snrs[i] = -1.0;
-      debug_send_msg(0x22, sizeof(snrs), (u8*)snrs);
+      debug_send_msg(MSG_SNRS, sizeof(snrs), (u8*)snrs);
     );
 
     u32 err = swift_nap_read_error_blocking();
