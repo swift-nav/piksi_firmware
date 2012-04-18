@@ -15,13 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/flash.h>
 #include <libopencm3/stm32/f2/gpio.h>
 
-#include "main.h"
+#include "error.h"
 #include "hw/leds.h"
 #include "hw/usart.h"
 
@@ -39,10 +40,6 @@ const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
   .apb2_frequency = 16368000,
 };
 
-void death() {
-  while(1);
-}
-
 int main(void)
 {
   for (u32 i = 0; i < 600000; i++)
@@ -58,44 +55,38 @@ int main(void)
   /*printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");*/
   /*printf("--- USART DMA TEST ---\n");*/
 
-  u8 guard_below[30];
-  u8 buff_out[300];
-  u8 guard_above[30];
-  u8 len;
+  #define MAX_TX ((u32)(USART_TX_BUFFER_LEN*1.2))
 
-  for (int i=0; i<30; i++) {
+  u8 guard_below[30];
+  u8 buff_out[MAX_TX];
+  u8 guard_above[30];
+  u32 len;
+
+  for (u8 i=0; i<30; i++) {
     guard_below[i] = 0;
     guard_above[i] = 0;
   }
 
-  for (int i=0; i<255; i++)
-    buff_out[i] = i;
+  for (u32 i=0; i<MAX_TX; i++)
+    buff_out[i] = (u8)i;
 
-  while(1)
-  {
-
-    len = 255;
+  while(1) {
+    /* Random transmit length. */
+    len = (u32)rand() % MAX_TX;
     while (len)
       len -= usart_write_dma(buff_out, len);
-    /*len = 0;*/
-    /*while (len < 255) {*/
-      /*while(usart_n_read_dma() == 0);*/
-      /*len += usart_read_dma(zee_buff_in, 255);*/
-    /*}*/
-    /*if (memcmp(zee_buff_in, zee_buff_out, 255) != 0) {*/
-      /*death();*/
-    /*}*/
-  /*for (u32 i = 0; i < 600000; i++)*/
-    /*__asm__("nop");*/
-
 
     /* Check the guards for buffer over/underrun. */
-    for (int i=0; i<30; i++) {
+    for (u8 i=0; i<30; i++) {
       if (guard_below[i] != 0)
-        death();
+        screaming_death();
       if (guard_above[i] != 0)
-        death();
+        screaming_death();
     }
+
+    /* Introduce some timing jitter. */
+    for (u32 i = 0; i < ((u32)rand() % 10000); i++)
+      __asm__("nop");
   }
 
   while (1);
