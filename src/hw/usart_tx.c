@@ -20,6 +20,7 @@
 #include <libopencm3/stm32/f2/gpio.h>
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/nvic.h>
+#include <libopencm3/cm3/sync.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f2/dma.h>
 
@@ -185,15 +186,13 @@ u32 usart_write_dma(u8 data[], u32 n) {
   /* If there is no data to write, just return. */
   if (n == 0) return 0;
 
-  /* Disable interrupts to "atomically" increment wr as we want this function
-   * to be reentrant. */
-  /* TODO: Make sure that this isn't called inside another CPSID block so that
-   * calling CPSIE doesn't mess things up. Could check if interrupts were
-   * disabled before and only re-enable if not. */
-  __asm__("CPSID i;");
-  u32 old_wr = wr;
-  wr = (wr + n) % USART_TX_BUFFER_LEN;
-  __asm__("CPSIE i;");
+  /* Use mutex to "atomically" increment wr as we want this function to be
+   * reentrant. */
+  static mutex_t tx_mtx = MUTEX_UNLOCKED;
+  mutex_lock(&tx_mtx);
+    u32 old_wr = wr;
+    wr = (wr + n) % USART_TX_BUFFER_LEN;
+  mutex_unlock(&tx_mtx);
 
   if (old_wr + n <= USART_TX_BUFFER_LEN) {
     memcpy(&buff[old_wr], data, n);
