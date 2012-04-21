@@ -15,7 +15,18 @@
 #include "linear_algebra.h"
 
 /* Todo(MP) -- Implement fast linear solve (all-in-one) with Cholesky
- * decomposition: we want to solve $A^{T} A \hat{x} = A^{T} y */
+ * decomposition: we want to solve $A^{T} W A \hat{x} = A^{T} W y
+ *
+ * This should be implemented below the functions that explicitly
+ * calculate the pseudoinverse: we have a function that computes the
+ * Cholesky decomposition, a function that performs back-substitution
+ * for the linear solve and then a whole slew of interface functions
+ * for least-squares and least-norm solves.  Separate functions are
+ * required for testing against; a separate "fast" weighted linear
+ * least-squares operation should perform all operations in one
+ * function (lazily or orderedly accessing elements from A and W to
+ * form A W A^T as we go).
+ */
 
 /** \addtogroup lib
  * \{ */
