@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <errno.h>
+#include <libopencm3/cm3/sync.h>
 
 #include "debug.h"
 #include "hw/m25_flash.h"
@@ -50,13 +51,23 @@ void debug_setup()
 
 void debug_send_msg(u8 msg_type, u8 len, u8 buff[])
 {
-  msg_header[2] = msg_type;
-  msg_header[3] = len;
-  /* NOTE: these two writes should really be atomic but
-   * it doesn't matter too much for debug purposes.
-   */
-  usart_write_dma(msg_header, 4);
-  usart_write_dma(buff, len);
+  u8 n;
+  static mutex_t m = MUTEX_UNLOCKED;
+
+  /* Use mutex to make sure the header and the body of the message are written
+   * atomically together. */
+  mutex_lock(&m);
+    msg_header[2] = msg_type;
+    msg_header[3] = len;
+
+    n = 0;
+    while (n < 4)
+      n += usart_write_dma(&msg_header[n], 4 - n);
+
+    n = 0;
+    while (n < len)
+      n += usart_write_dma(&buff[n], len - n);
+  mutex_unlock(&m);
 }
 
 /** Register a callback for a message type.
