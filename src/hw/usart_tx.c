@@ -32,7 +32,7 @@ static u32 rd = 0;
 static u32 wr = 0;
 static u32 xfer_len = 0;
 
-/** Setup the USART for transmittion with DMA. This function sets up the DMA
+/** Setup the USART for transmission with DMA. This function sets up the DMA
  * controller and additional USART parameters for DMA transmission. The USART
  * must first be configured using \ref usart_setup_common. */
 void usart_tx_dma_setup(void) {
