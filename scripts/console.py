@@ -72,7 +72,7 @@ class SwiftConsole(HasTraits):
   def __init__(self, port=serial_link.DEFAULT_PORT):
     self.console_output = OutputStream()
 
-    self.link = serial_link.SerialLink(port, serial_link.DEFAULT_BAUD)
+    self.link = serial_link.SerialLink(port)
     self.link.add_callback(serial_link.MSG_PRINT, self.print_message_callback)
 
     self.tracking_view = TrackingView(self.link)
