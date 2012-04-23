@@ -38,7 +38,7 @@ class ListenerThread (threading.Thread):
 class SerialLink:
   callbacks = {}
 
-  def __init__(self, port, baud):
+  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD):
     self.ser = serial.Serial(port, baud, timeout=1)
     self.lt = ListenerThread(self)
     self.lt.start()
@@ -87,7 +87,7 @@ def default_print_callback(data):
   sys.stdout.write(data)
 
 if __name__ == "__main__":
-  link = SerialLink(DEFAULT_PORT, DEFAULT_BAUD)
+  link = SerialLink()
   link.add_callback(MSG_PRINT, default_print_callback)
   try:
     while True:
