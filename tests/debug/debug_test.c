@@ -44,7 +44,7 @@ void foo_callback(u8 buff[])
 {
   printf("Foo callback: %f\n", *((float*)buff));
 }
- 
+
 msg_callbacks_node_t led_callback_node;
 void led_callback(u8 buff[])
 {
@@ -91,7 +91,7 @@ int main(void)
   }
 
   while (1);
-  
+
 	return 0;
 }
 
