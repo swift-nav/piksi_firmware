@@ -21,6 +21,7 @@
 #include <libopencm3/cm3/common.h>
 
 void screaming_death(void);
+void speaking_death(char *msg);
 
 #endif /* SWIFTNAV_ERROR_H */
 
