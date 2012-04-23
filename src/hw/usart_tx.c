@@ -91,19 +91,12 @@ void usart_tx_dma_setup(void) {
  * TX buffer happen "atomically". */
 static void usart_tx_di(void) {
   /* TODO: Change this so it doesn't just globally disable interrupts. */
-  __asm__("CPSID i;");
-  /*nvic_disable_irq(NVIC_DMA2_STREAM7_IRQ);*/
-  __asm__("nop");
-  __asm__("nop");
-  __asm__("nop");
-  __asm__("nop");
-  __asm__("nop");
+  nvic_disable_irq(NVIC_DMA2_STREAM7_IRQ);
 }
 
 /** Enable the USART TX DMA interrupt. */
 static void usart_tx_ei(void) {
-  __asm__("CPSIE i;");
-  /*nvic_enable_irq(NVIC_DMA2_STREAM7_IRQ);*/
+  nvic_enable_irq(NVIC_DMA2_STREAM7_IRQ);
 }
 
 /** Calculate the number of bytes currently in the TX buffer waiting to be
@@ -112,8 +105,6 @@ static void usart_tx_ei(void) {
  * \return The number of bytes in the buffer.
  */
 u32 usart_tx_n_in_buff(void) {
-  /* Disable interrupt to atomically calculate number of bytes in TX buffer. */
-  /*usart_tx_di();*/
   u32 n;
 
   /* The calculation for the number of bytes in the buffer depends on whether
@@ -123,8 +114,6 @@ u32 usart_tx_n_in_buff(void) {
   else
     n = USART_TX_BUFFER_LEN - (rd - wr);
 
-  /* Re-enable interrupt. */
-  /*usart_tx_ei();*/
   return n;
 }
 
@@ -162,8 +151,6 @@ static void dma_schedule() {
 
 /** USART1 TX DMA interrupt handler. */
 void dma2_stream7_isr() {
-  gpio_set(GPIOC, GPIO10);
-
   if (DMA2_HISR & DMA_HISR_TCIF7) {
     /* Interrupt is Transmit Complete. */
 
@@ -181,7 +168,6 @@ void dma2_stream7_isr() {
     /* TODO: Handle error interrupts! */
     screaming_death();
   }
-  gpio_clear(GPIOC, GPIO10);
 }
 
 /** Write out data over the USART using DMA.
@@ -192,27 +178,19 @@ void dma2_stream7_isr() {
  * \return The number of bytes that will be written, may be less than n.
  */
 u32 usart_write_dma(u8 data[], u32 n) {
-  gpio_set(GPIOC, GPIO11);
-  /*static mutex_t tx_mtx = MUTEX_UNLOCKED;*/
+  usart_tx_di();
 
   /* Check if the write would cause a buffer overflow, if so only write up to
    * the end of the buffer. */
-  /*mutex_lock(&tx_mtx);*/
   u32 n_free = USART_TX_BUFFER_LEN - 1 - usart_tx_n_in_buff();
   if (n > n_free)
-    /*return 0;*/
     n = n_free;
 
   /* If there is no data to write, just return. */
   if (n == 0) return 0;
 
-  /* Use mutex to "atomically" increment wr as we want this function to be
-   * reentrant. */
-  /*mutex_lock(&tx_mtx);*/
   u32 old_wr = wr;
-  usart_tx_di();
   wr = (wr + n) % USART_TX_BUFFER_LEN;
-  /*mutex_unlock(&tx_mtx);*/
 
   if (old_wr + n <= USART_TX_BUFFER_LEN) {
     memcpy(&buff[old_wr], data, n);
@@ -222,9 +200,6 @@ u32 usart_write_dma(u8 data[], u32 n) {
     memcpy(&buff[0], &data[USART_TX_BUFFER_LEN-old_wr],
            n - (USART_TX_BUFFER_LEN - old_wr));
   }
-  /*const u8 foo[2] = {0xDE, 0xAD};*/
-  /*memcpy(&buff[4094], foo, 2);*/
-  /*usart_tx_ei();*/
 
   /* Check if there is a DMA transfer either in progress or waiting for its
    * interrupt to be serviced. Its very important to also check the interrupt
@@ -232,12 +207,11 @@ u32 usart_write_dma(u8 data[], u32 n) {
    * to make sure the ISR has been run to finish up the bookkeeping for the
    * transfer. Also, make sure that this is done atomically without a DMA
    * interrupt squeezing in there. */
-  /*usart_tx_di();*/
   if (!((DMA2_S7CR & DMA_SxCR_EN) || (DMA2_HISR & DMA_HISR_TCIF7)))
     dma_schedule();
+
   usart_tx_ei();
 
-  gpio_clear(GPIOC, GPIO11);
   return n;
 }
 
