@@ -105,7 +105,7 @@ void dma2_stream5_isr()
     wr_wraps++;
   } else {
     // TODO: Handle error interrupts! */
-    screaming_death();
+    speaking_death("DMA RX error interrupt");
   }
 }
 
@@ -119,7 +119,7 @@ u32 usart_n_read_dma()
   __asm__("CPSIE i;");
   if (n_written - n_read > USART_RX_BUFFER_LEN) {
     // My buffer runneth over.
-    screaming_death();
+    speaking_death("DMA RX buffer overrun");
   }
   return n_written - n_read;
 }

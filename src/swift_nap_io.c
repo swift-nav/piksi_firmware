@@ -81,7 +81,7 @@ void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_
     /* DMA transfer already in progress.
      * TODO: handle this gracefully, but for now...
      */
-    screaming_death();
+    speaking_death("SPI DMA xfer already in progess");
   }
 
 
@@ -495,7 +495,7 @@ void swift_nap_xfer_dma(u8 n_bytes) {
     /* DMA transfer already in progress.
      * TODO: handle this gracefully, but for now...
      */
-    screaming_death();
+    speaking_death("SPI DMA xfer already in progess");
   }
 
   DMA1_S4NDTR = n_bytes; // For now, don't transfer any number of datas (will be set in the initiating function)

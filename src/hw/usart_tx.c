@@ -123,7 +123,7 @@ static void dma_schedule() {
   /* TODO: We shouldn't have to check for this now that we are called
    * atomically but leaving it in for now just in case. */
   if (DMA2_S7CR & DMA_SxCR_EN)
-    screaming_death();
+    speaking_death("DMA TX scheduled while DMA channel running");
 
   DMA2_S7M0AR = &buff[rd];
 
@@ -136,9 +136,6 @@ static void dma_schedule() {
     /* DMA up until the end of the buffer. */
     xfer_len = USART_TX_BUFFER_LEN - rd;
   }
-
-  if (xfer_len > 4094)
-    screaming_death();
 
   /* Set the number of datas in the DMA controller. */
   DMA2_S7NDTR = xfer_len;
@@ -166,7 +163,7 @@ void dma2_stream7_isr() {
       dma_schedule();
   } else {
     /* TODO: Handle error interrupts! */
-    screaming_death();
+    speaking_death("DMA TX error interrupt");
   }
 }
 
