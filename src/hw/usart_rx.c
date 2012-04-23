@@ -26,8 +26,8 @@
 #include "../error.h"
 #include "usart.h"
 
-static u8 buff[USART_RX_BUFFER_LEN];
-static u32 rd;
+static u8 rx_buff[USART_RX_BUFFER_LEN];
+static u32 rx_rd;
 static u32 rd_wraps;
 static u32 wr_wraps;
 
@@ -43,7 +43,7 @@ void usart_rx_dma_setup(void) {
   /* Enable RX DMA on the USART. */
   usart_enable_rx_dma(USART1);
 
-  /* USART1 RX - DMA2, stream 5, channel 4, low priority*/
+  /* USART1 RX - DMA2, stream 5, channel 4. */
 
   /* Make sure stream is disabled to start. */
   DMA2_S5CR &= ~DMA_SxCR_EN;
@@ -74,14 +74,14 @@ void usart_rx_dma_setup(void) {
   DMA2_S5NDTR = USART_RX_BUFFER_LEN;
 
   DMA2_S5PAR = &USART1_DR; /* DMA from the USART1 data register. */
-  DMA2_S5M0AR = buff;      /* to the buff. */
+  DMA2_S5M0AR = rx_buff;      /* to the rx_buff. */
 
   // TODO: Investigate more about the best FIFO settings.
   DMA2_S5FCR = DMA_SxFCR_DMDIS |         /* Enable DMA stream FIFO. */
                DMA_SxFCR_FTH_2_4_FULL |  /* Trigger level 1/2 full. */
                DMA_SxFCR_FEIE;           /* Enable FIFO error interrupt. */
 
-  rd = 0;  /* Buffer is empty to begin with. */
+  rx_rd = 0;  /* Buffer is empty to begin with. */
   rd_wraps = wr_wraps = 0;
 
   /* Enable DMA2 Stream 5 (RX) interrupts with the NVIC. */
@@ -114,7 +114,7 @@ u32 usart_n_read_dma()
   __asm__("CPSID i;");
   // Compare number of bytes written to the number read, if greater
   // than a whole buffer then we have had an overflow.
-  u32 n_read = rd_wraps*USART_RX_BUFFER_LEN + rd;
+  u32 n_read = rd_wraps*USART_RX_BUFFER_LEN + rx_rd;
   u32 n_written = (wr_wraps+1)*USART_RX_BUFFER_LEN - DMA2_S5NDTR;
   __asm__("CPSIE i;");
   if (n_written - n_read > USART_RX_BUFFER_LEN) {
@@ -129,14 +129,15 @@ u32 usart_read_dma(u8 buff[], u32 len)
   u16 n_to_read = usart_n_read_dma();
   u16 n = (len > n_to_read) ? n_to_read : len;
 
-  if (rd + n < USART_RX_BUFFER_LEN) {
-    memcpy(buff, &buff[rd], n);
-    rd += n;
+  if (rx_rd + n < USART_RX_BUFFER_LEN) {
+    /* TODO: this is worng! dest <- src */
+    memcpy(rx_buff, &buff[rx_rd], n);
+    rx_rd += n;
   } else {
     rd_wraps++;
-    memcpy(&buff[0], &buff[rd], USART_RX_BUFFER_LEN - rd);
-    memcpy(&buff[USART_RX_BUFFER_LEN - rd], &buff[0], n - USART_RX_BUFFER_LEN + rd);
-    rd = n - USART_RX_BUFFER_LEN + rd;
+    memcpy(&rx_buff[0], &buff[rx_rd], USART_RX_BUFFER_LEN - rx_rd);
+    memcpy(&rx_buff[USART_RX_BUFFER_LEN - rx_rd], &buff[0], n - USART_RX_BUFFER_LEN + rx_rd);
+    rx_rd = n - USART_RX_BUFFER_LEN + rx_rd;
   }
 
   return n;
