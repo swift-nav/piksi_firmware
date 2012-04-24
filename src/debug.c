@@ -17,8 +17,8 @@
 
 #include <stdio.h>
 #include <errno.h>
-#include <libopencm3/cm3/sync.h>
 
+#include "error.h"
 #include "debug.h"
 #include "hw/m25_flash.h"
 #include "hw/leds.h"
@@ -49,25 +49,25 @@ void debug_setup()
   /*setvbuf(stdout, NULL, _IONBF, 0);*/
 }
 
-void debug_send_msg(u8 msg_type, u8 len, u8 buff[])
+u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
 {
-  u8 n;
-  static mutex_t m = MUTEX_UNLOCKED;
+  /* Global interrupt disable to avoid concurrency/reentrance problems. */
+  __asm__("CPSID i;");
 
-  /* Use mutex to make sure the header and the body of the message are written
-   * atomically together. */
-  mutex_lock(&m);
+    if (usart_tx_n_free() < (u32)len+4) {
+      // Not enough space in the TX buffer for the message (including header)
+      __asm__("CPSIE i;");  // Re-enable interrupts
+      return 1; // Discard the message and return an error
+    }
+
     msg_header[2] = msg_type;
     msg_header[3] = len;
 
-    n = 0;
-    while (n < 4)
-      n += usart_write_dma(&msg_header[n], 4 - n);
+    if (4 != usart_write_dma(msg_header, 4)) speaking_death("D_S_M: U_W_D failed (1)");
+    if (len != usart_write_dma(buff, len)) speaking_death("D_S_M: U_W_D failed (2)");
 
-    n = 0;
-    while (n < len)
-      n += usart_write_dma(&buff[n], len - n);
-  mutex_unlock(&m);
+  __asm__("CPSIE i;");  // Re-enable interrupts
+  return 0; // Successfully written to buffer.
 }
 
 /** Register a callback for a message type.

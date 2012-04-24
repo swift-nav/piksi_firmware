@@ -20,7 +20,6 @@
 #include <libopencm3/stm32/f2/gpio.h>
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/nvic.h>
-#include <libopencm3/cm3/sync.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f2/dma.h>
 
@@ -89,32 +88,28 @@ void usart_tx_dma_setup(void) {
 
 /** Disable the USART TX DMA interrupt. Used to ensure that operations on the
  * TX buffer happen "atomically". */
-static void usart_tx_di(void) {
-  /* TODO: Change this so it doesn't just globally disable interrupts. */
-  nvic_disable_irq(NVIC_DMA2_STREAM7_IRQ);
-}
+/*static void usart_tx_di(void) {*/
+  /*[> TODO: Change this so it doesn't just globally disable interrupts. <]*/
+  /*nvic_disable_irq(NVIC_DMA2_STREAM7_IRQ);*/
+/*}*/
 
 /** Enable the USART TX DMA interrupt. */
-static void usart_tx_ei(void) {
-  nvic_enable_irq(NVIC_DMA2_STREAM7_IRQ);
-}
+/*static void usart_tx_ei(void) {*/
+  /*nvic_enable_irq(NVIC_DMA2_STREAM7_IRQ);*/
+/*}*/
 
-/** Calculate the number of bytes currently in the TX buffer waiting to be
- * written out.
+/** Calculate the space left in the TX buffer.
  *
- * \return The number of bytes in the buffer.
+ * \return The number of bytes that may be safely written to the buffer.
  */
-u32 usart_tx_n_in_buff(void) {
-  u32 n;
+u32 usart_tx_n_free(void) {
 
   /* The calculation for the number of bytes in the buffer depends on whether
-   * the write pointer has wrapped around the end of the buffer or not. */
+   * or not the write pointer has wrapped around the end of the buffer. */
   if (wr >= rd)
-    n = wr - rd;
+    return USART_TX_BUFFER_LEN - 1 - (wr - rd);
   else
-    n = USART_TX_BUFFER_LEN - (rd - wr);
-
-  return n;
+    return (rd - wr) - 1;
 }
 
 /** Helper function that schedules a new transfer with the DMA controller if
@@ -175,11 +170,9 @@ void dma2_stream7_isr() {
  * \return The number of bytes that will be written, may be less than n.
  */
 u32 usart_write_dma(u8 data[], u32 n) {
-  usart_tx_di();
-
   /* Check if the write would cause a buffer overflow, if so only write up to
    * the end of the buffer. */
-  u32 n_free = USART_TX_BUFFER_LEN - 1 - usart_tx_n_in_buff();
+  u32 n_free = usart_tx_n_free();
   if (n > n_free)
     n = n_free;
 
@@ -206,8 +199,6 @@ u32 usart_write_dma(u8 data[], u32 n) {
    * interrupt squeezing in there. */
   if (!((DMA2_S7CR & DMA_SxCR_EN) || (DMA2_HISR & DMA_HISR_TCIF7)))
     dma_schedule();
-
-  usart_tx_ei();
 
   return n;
 }

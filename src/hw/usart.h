@@ -27,6 +27,7 @@ void usart_setup_common(void);
 void usart_tx_dma_setup(void);
 void usart_rx_dma_setup(void);
 
+u32 usart_tx_n_free(void);
 u32 usart_write_dma(u8 data[], u32 n);
 
 u32 usart_n_read_dma();
