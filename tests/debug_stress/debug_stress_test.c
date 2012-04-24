@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/flash.h>
+#include <libopencm3/stm32/f2/timer.h>
+#include <libopencm3/stm32/nvic.h>
 #include <libopencm3/stm32/f2/gpio.h>
 
 #include "main.h"
@@ -26,6 +28,10 @@
 #include "error.h"
 #include "hw/leds.h"
 #include "hw/usart.h"
+
+u8 guard_below[30];
+u8 buff_out[256];
+u8 guard_above[30];
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
@@ -41,6 +47,27 @@ const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
   .apb2_frequency = 16368000,
 };
 
+void timer_setup() {
+  RCC_APB1ENR |= RCC_APB1ENR_TIM2EN;
+  timer_set_prescaler(TIM2, 1);
+  timer_set_period(TIM2, rcc_ppre1_frequency / 100);
+  timer_enable_irq(TIM2, TIM_DIER_UIE);
+
+  TIM2_CNT = 0;
+  timer_enable_counter(TIM2);
+  nvic_enable_irq(NVIC_TIM2_IRQ);
+}
+
+void tim2_isr() {
+  timer_clear_flag(TIM2, TIM_SR_UIF);
+  led_toggle(LED_GREEN);
+
+  /* Random transmit length. */
+  u32 len = (u32)rand() % 256;
+  if(debug_send_msg(0x22, len, buff_out))
+    speaking_death("debug_send_msg failed in tim2_isr");
+}
+
 int main(void)
 {
   for (u32 i = 0; i < 600000; i++)
@@ -51,6 +78,7 @@ int main(void)
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
 
   debug_setup();
+  timer_setup();
 
   // Debug pins (CC1111 TX/RX)
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
@@ -61,9 +89,6 @@ int main(void)
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- DEBUG TEST ---\n");
 
-  u8 guard_below[30];
-  u8 buff_out[256];
-  u8 guard_above[30];
   u32 len;
 
   for (u8 i=0; i<30; i++) {
@@ -77,7 +102,7 @@ int main(void)
   while(1) {
     /* Random transmit length. */
     len = (u32)rand() % 256;
-    debug_send_msg(0x22, len, buff_out);
+    while(debug_send_msg(0x22, len, buff_out));
 
     /* Check the guards for buffer over/underrun. */
     for (u8 i=0; i<30; i++) {
