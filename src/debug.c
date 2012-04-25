@@ -43,6 +43,7 @@ void debug_setup()
 {
   usart_setup_common();
   usart_tx_dma_setup();
+  usart_rx_dma_setup();
 
   /* Disable input and output bufferings */
   /*setvbuf(stdin, NULL, _IONBF, 0);*/
