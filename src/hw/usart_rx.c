@@ -130,7 +130,6 @@ u32 usart_read_dma(u8 data[], u32 len)
   u16 n = (len > n_to_read) ? n_to_read : len;
 
   if (rx_rd + n < USART_RX_BUFFER_LEN) {
-    /* TODO: this is worng! dest <- src */
     memcpy(data, &rx_buff[rx_rd], n);
     rx_rd += n;
   } else {

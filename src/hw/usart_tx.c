@@ -162,7 +162,10 @@ void dma2_stream7_isr() {
   }
 }
 
-/** Write out data over the USART using DMA.
+/** Write out data over the USART using DMA. Note that this function is not
+ * reentrant and does not guard against DMA IRQs running at the same time which
+ * will also cause spurious behaviours. Ensure that the calling function
+ * appropriately prevents these things from happeing.
  *
  * \param data A pointer to the data to write out.
  * \param len  The number of bytes to write.
