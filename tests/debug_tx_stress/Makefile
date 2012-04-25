@@ -1,6 +1,6 @@
-BINARY = debug_stress_test
+BINARY = debug_tx_stress_test
 
-OBJS = debug_stress_test.o \
+OBJS = debug_tx_stress_test.o \
        ../../src/debug.o \
        ../../src/error.o \
        ../../src/hw/leds.o \
