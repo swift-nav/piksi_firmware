@@ -7,7 +7,7 @@ import threading
 import time
 import sys
 
-DEFAULT_PORT = '/dev/ttyUSB1'
+DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 921600
 
 DEBUG_MAGIC_1 = 0xBE
@@ -33,7 +33,6 @@ class ListenerThread (threading.Thread):
         cb(md)
       else:
         print "Unhandled message %02X" % mt
-
 
 class SerialLink:
   callbacks = {}
