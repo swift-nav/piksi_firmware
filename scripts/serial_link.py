@@ -67,7 +67,7 @@ class SerialLink:
     return (msg_type, data)
 
   def send_message(self, msg_type, msg):
-    print "Sending, id=0x%02X, len=%d" % (msg_type, len(msg))
+    #print "Sending, id=0x%02X, len=%d" % (msg_type, len(msg))
     self.ser.write(chr(DEBUG_MAGIC_1))
     self.ser.write(chr(DEBUG_MAGIC_2))
     self.ser.write(chr(msg_type))
