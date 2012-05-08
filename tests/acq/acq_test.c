@@ -69,7 +69,7 @@ int main(void)
   led_toggle(LED_GREEN);
   led_toggle(LED_RED);
 
-  for (u8 prn=17; prn<19; prn++) {
+  for (u8 prn=0; prn<31; prn++) {
     acq_write_code_blocking(prn);
     acq_start(prn, 0, 1023, -7000, 7000, 300);
     while(!(acq_get_done()));
