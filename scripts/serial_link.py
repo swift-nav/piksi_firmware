@@ -87,7 +87,14 @@ def default_print_callback(data):
   sys.stdout.write(data)
 
 if __name__ == "__main__":
-  link = SerialLink()
+  import argparse
+  parser = argparse.ArgumentParser(description='Swift Nav Serial Link.')
+  parser.add_argument('-p', '--port',
+                     default=[DEFAULT_PORT], nargs=1,
+                     help='specify the serial port to use.')
+  args = parser.parse_args()
+  serial_port = args.port[0]
+  link = SerialLink(serial_port)
   link.add_callback(MSG_PRINT, default_print_callback)
   try:
     while True:
