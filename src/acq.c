@@ -34,7 +34,7 @@ void acq_schedule_load(u32 count)
 
 void acq_service_load_done()
 {
-  printf("Load done IRQ\n");
+  //printf("Load done IRQ\n");
   acq_clear_load_enable_blocking();
   acq_state.state = ACQ_LOADING_DONE;
 }

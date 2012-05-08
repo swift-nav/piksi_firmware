@@ -17,10 +17,10 @@
  */
 
 #include <string.h>
-#include <libopencm3/stm32/f2/gpio.h>
-#include <libopencm3/stm32/f2/rcc.h>
+#include <libopencm3/stm32/f4/gpio.h>
+#include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/nvic.h>
-#include <libopencm3/stm32/usart.h>
+#include <libopencm3/stm32/f4/usart.h>
 #include <libopencm3/stm32/f2/dma.h>
 
 #include "../error.h"
@@ -35,15 +35,16 @@ static u32 xfer_len = 0;
  * controller and additional USART parameters for DMA transmission. The USART
  * must first be configured using \ref usart_setup_common. */
 void usart_tx_dma_setup(void) {
-  /* Set up the USART1 TX DMA and interrupts. */
+  /* Set up the USART6 TX DMA and interrupts. */
 
   /* Enable clock to DMA peripheral. */
   RCC_AHB1ENR |= RCC_AHB1ENR_DMA2EN;
 
   /* Enable TX DMA on the USART. */
-  usart_enable_tx_dma(USART1);
+  usart_enable_tx_dma(USART6);
 
   /* USART1 TX - DMA2, stream 7, channel 4 */
+  /* USART6 TX - DMA2, stream 7, channel 5 */
 
   /* Make sure stream is disabled to start. */
   DMA2_S7CR &= ~DMA_SxCR_EN;
@@ -64,15 +65,15 @@ void usart_tx_dma_setup(void) {
               /* Low priority. */
               DMA_SxCR_PL_LOW |
               /* The channel selects which request line will trigger a
-               * transfer. In this case, channel 4 = UART1_TX
+               * transfer. In this case, channel 5 = UART6_TX
                * (see CD00225773.pdf Table 23). */
-              DMA_SxCR_CHSEL(4);
+              DMA_SxCR_CHSEL(5);
 
   /* For now, don't transfer any number of datas (will be set in the initiating
    * function). */
   DMA2_S7NDTR = 0;
 
-  DMA2_S7PAR = &USART1_DR; /* DMA into the USART1 data register. */
+  DMA2_S7PAR = &USART6_DR; /* DMA into the USART6 data register. */
   DMA2_S7M0AR = buff;      /* from the buff. */
 
   /* TODO: Investigate more about the best FIFO settings. */
@@ -135,13 +136,13 @@ static void dma_schedule() {
   /* Set the number of datas in the DMA controller. */
   DMA2_S7NDTR = xfer_len;
 
-  USART1_SR &= ~USART_SR_TC;
+  USART6_SR &= ~USART_SR_TC;
 
   /* Enable DMA stream to start transfer. */
   DMA2_S7CR |= DMA_SxCR_EN;
 }
 
-/** USART1 TX DMA interrupt handler. */
+/** USART6 TX DMA interrupt handler. */
 void dma2_stream7_isr() {
   if (DMA2_HISR & DMA_HISR_TCIF7) {
     /* Interrupt is Transmit Complete. */
