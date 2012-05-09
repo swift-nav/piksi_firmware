@@ -43,6 +43,7 @@ void debug_setup()
 {
   usart_setup_common();
   usart_tx_dma_setup();
+  usart_rx_dma_setup();
 
   /* Disable input and output bufferings */
   /*setvbuf(stdin, NULL, _IONBF, 0);*/
@@ -166,7 +167,7 @@ void debug_process_messages()
         }
         if (msg_len - msg_n_read <= 0) {
           /* Message complete, process it. */
-          printf("msg: %02X, len %d\n", msg_type, msg_len);
+          /*printf("msg: %02X, len %d\n", msg_type, msg_len);*/
           msg_callback_t cb = debug_find_callback(msg_type);
           if (cb)
             (*cb)(msg_buff);

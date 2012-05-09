@@ -125,19 +125,18 @@ u32 usart_n_read_dma()
   return n_written - n_read;
 }
 
-u32 usart_read_dma(u8 buff[], u32 len)
+u32 usart_read_dma(u8 data[], u32 len)
 {
   u16 n_to_read = usart_n_read_dma();
   u16 n = (len > n_to_read) ? n_to_read : len;
 
   if (rx_rd + n < USART_RX_BUFFER_LEN) {
-    /* TODO: this is worng! dest <- src */
-    memcpy(rx_buff, &buff[rx_rd], n);
+    memcpy(data, &rx_buff[rx_rd], n);
     rx_rd += n;
   } else {
     rd_wraps++;
-    memcpy(&rx_buff[0], &buff[rx_rd], USART_RX_BUFFER_LEN - rx_rd);
-    memcpy(&rx_buff[USART_RX_BUFFER_LEN - rx_rd], &buff[0], n - USART_RX_BUFFER_LEN + rx_rd);
+    memcpy(&data[0], &rx_buff[rx_rd], USART_RX_BUFFER_LEN - rx_rd);
+    memcpy(&data[USART_RX_BUFFER_LEN - rx_rd], &rx_buff[0], n - USART_RX_BUFFER_LEN + rx_rd);
     rx_rd = n - USART_RX_BUFFER_LEN + rx_rd;
   }
 

@@ -163,33 +163,36 @@ void dma2_stream7_isr() {
   }
 }
 
-/** Write out data over the USART using DMA.
+/** Write out data over the USART using DMA. Note that this function is not
+ * reentrant and does not guard against DMA IRQs running at the same time which
+ * will also cause spurious behaviours. Ensure that the calling function
+ * appropriately prevents these things from happeing.
  *
  * \param data A pointer to the data to write out.
- * \param n    The number of bytes to write.
+ * \param len  The number of bytes to write.
  *
- * \return The number of bytes that will be written, may be less than n.
+ * \return The number of bytes that will be written, may be less than len.
  */
-u32 usart_write_dma(u8 data[], u32 n) {
+u32 usart_write_dma(u8 data[], u32 len) {
   /* Check if the write would cause a buffer overflow, if so only write up to
    * the end of the buffer. */
   u32 n_free = usart_tx_n_free();
-  if (n > n_free)
-    n = n_free;
+  if (len > n_free)
+    len = n_free;
 
   /* If there is no data to write, just return. */
-  if (n == 0) return 0;
+  if (len == 0) return 0;
 
   u32 old_wr = wr;
-  wr = (wr + n) % USART_TX_BUFFER_LEN;
+  wr = (wr + len) % USART_TX_BUFFER_LEN;
 
-  if (old_wr + n <= USART_TX_BUFFER_LEN) {
-    memcpy(&buff[old_wr], data, n);
+  if (old_wr + len <= USART_TX_BUFFER_LEN) {
+    memcpy(&buff[old_wr], data, len);
   } else {
     /* Deal with case where write wraps the buffer. */
     memcpy(&buff[old_wr], &data[0], USART_TX_BUFFER_LEN - old_wr);
     memcpy(&buff[0], &data[USART_TX_BUFFER_LEN-old_wr],
-           n - (USART_TX_BUFFER_LEN - old_wr));
+           len - (USART_TX_BUFFER_LEN - old_wr));
   }
 
   /* Check if there is a DMA transfer either in progress or waiting for its
@@ -201,6 +204,6 @@ u32 usart_write_dma(u8 data[], u32 n) {
   if (!((DMA2_S7CR & DMA_SxCR_EN) || (DMA2_HISR & DMA_HISR_TCIF7)))
     dma_schedule();
 
-  return n;
+  return len;
 }
 
