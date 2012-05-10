@@ -17,6 +17,8 @@
 
 #include "spi.h"
 #include "max2769.h"
+#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f2/rcc.h>
 
 void max2769_write(u8 addr, u32 data)
 {
@@ -35,6 +37,19 @@ void max2769_write(u8 addr, u32 data)
 
 void max2769_setup()
 {
+  /* Setup MAX2769 PGM (PB8) - low */
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPBEN;
+	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO8);
+  gpio_clear(GPIOB, GPIO8);
+
+  /* Setup MAX2769 NSHDN (PB9) - high */
+	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO9);
+  gpio_set(GPIOB, GPIO9);
+
+  /* Setup MAX2769 NIDLE (PB10) - high */
+	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO10);
+  gpio_set(GPIOB, GPIO10);
+
   /* Register settings from Colin "max_regs_defaults.vhd" */
 //  max2769_write(MAX2769_CONF1, 0xA2959A3); //LNA1 selected
   max2769_write(MAX2769_CONF1, 0xA2939A3); //LNA2 selected

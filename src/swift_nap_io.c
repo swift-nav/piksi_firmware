@@ -26,6 +26,7 @@
 #include <libopencm3/stm32/f2/rcc.h>
 #include <libopencm3/stm32/f2/dma.h>
 #include <libopencm3/stm32/f2/timer.h>
+#include "hw/leds.h"
 
 #include "swift_nap_io.h"
 #include "track.h"
@@ -45,17 +46,30 @@ u8 spi_dma_buffer[SPI_DMA_BUFFER_LEN];
 
 void swift_nap_setup()
 {
-  /* Initialise the SPI peripheral. */
-  spi_setup();
-//  spi_dma_setup();
-
-  /* Setup the front end. */
-  max2769_setup();
-
-  /* Setup the reset line GPIO */
+  /* Setup the FPGA_PROGRAM_B line output */
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
+	//gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO12);
+  //gpio_set(GPIOC, GPIO12);
+  /* Setup the FPGA_DONE line input*/
+	gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO1);
+  /* Setup PA2 - FPGA logic reset */
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
 	gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
   gpio_clear(GPIOA, GPIO2);
+  
+  //wait until FPGA_DONE goes high to make sure FPGA is configured
+  //swift_nap_configure();
+  while(!(gpio_get(GPIOC,GPIO1))); 
+  //swift_nap_reset();
+
+  /* Initialise the SPI peripheral. 
+     Note - if configuration is done manually at beginning of
+     STM code, this must be done AFTERWARDS - FPGA uses SPI2
+     to configure itself */
+  spi_setup();
+
+  /* Setup the front end. */
+  max2769_setup();
 
   /* Setup the timing strobe output. */
   timing_strobe_setup();
@@ -66,12 +80,26 @@ void swift_nap_setup()
 
 void swift_nap_reset()
 {
+  //Strobe logical RESET pin high
   gpio_set(GPIOA, GPIO2);
   for (int i = 0; i < 50; i++)
     __asm__("nop");
   gpio_clear(GPIOA, GPIO2);
+  //Allow time for FPGA internal reset sequence
+  //10 periods at 16.368MHz
   for (int i = 0; i < 200; i++)
     __asm__("nop");
+}
+
+void swift_nap_configure()
+{
+  //Strobe PROGRAM_B pin to begin configuration
+  gpio_clear(GPIOC, GPIO12);
+  for (int i = 0; i < 50; i++)
+    __asm__("nop");
+  gpio_set(GPIOC, GPIO12);
+  //Wait for FPGA_DONE to go high to signal end of configuration
+  while(!(gpio_get(GPIOC,GPIO1)));
 }
 
 void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_out[])
