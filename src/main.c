@@ -45,7 +45,7 @@ const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
   .pllm = 16,
   .plln = 256,
   .pllp = 4,
-  .pllq = 6,
+  .pllq = 7,
   .hpre = RCC_CFGR_HPRE_DIV_NONE,
   .ppre1 = RCC_CFGR_PPRE_DIV_4,
   .ppre2 = RCC_CFGR_PPRE_DIV_4,
@@ -62,10 +62,10 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
   .pllq = 6,
   .hpre = RCC_CFGR_HPRE_DIV_NONE,
   .ppre1 = RCC_CFGR_PPRE_DIV_8,
-  .ppre2 = RCC_CFGR_PPRE_DIV_4,
+  .ppre2 = RCC_CFGR_PPRE_DIV_8,
   .flash_config = FLASH_ICE | FLASH_DCE | FLASH_LATENCY_3WS,
   .apb1_frequency = 16368000,
-  .apb2_frequency = 2*16368000,
+  .apb2_frequency = 16368000,
 };
 
 const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3 =
