@@ -82,8 +82,8 @@ int main(void)
       rdwr_in[3] != 0xAD) {
     printf("First read of rd/wr test register reads %02X%02X%02X%02X, "
            "should be DECAFBAD\n",
-           (u16)rdwr_in[0], (u16)rdwr_in[1],
-           (u16)rdwr_in[2], (u16)rdwr_in[3]);
+           rdwr_in[0], rdwr_in[1],
+           rdwr_in[2], rdwr_in[3]);
     rdwr_bad++;
   }
 
@@ -100,8 +100,8 @@ int main(void)
         rdwr_in[3] != (u8)(i-1)) {
       printf("\nrd/wr register reads %02X%02X%02X%02X, "
              " but i = 0x%02X\n",
-             (u16)rdwr_in[0], (u16)rdwr_in[1],
-             (u16)rdwr_in[2], (u16)rdwr_in[3], (u8)(i-1));
+             rdwr_in[0], rdwr_in[1],
+             rdwr_in[2], rdwr_in[3], (u8)(i-1));
       rdwr_bad++;
     }
     i++;
@@ -113,8 +113,8 @@ int main(void)
         rdwr_in[3] != 0xEF) {
       printf("\nDeceased cow register reads %02X%02X%02X%02X, "
              "should be DEADBEEF\n",
-             (u16)rdwr_in[0], (u16)rdwr_in[1],
-             (u16)rdwr_in[2], (u16)rdwr_in[3]);
+             rdwr_in[0], rdwr_in[1],
+             rdwr_in[2], rdwr_in[3]);
       beef_bad++;
     }
 
