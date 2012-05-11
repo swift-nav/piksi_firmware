@@ -8,6 +8,7 @@ OBJS = main.o \
        track.o \
        acq.o \
        manage.o \
+       settings.o \
        hw/m25_flash.o \
        hw/max2769.o \
        hw/leds.o \
