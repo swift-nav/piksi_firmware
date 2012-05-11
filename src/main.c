@@ -91,11 +91,6 @@ int main(void)
 
 	led_setup();
 
-  // Debug pins (CC1111 TX/RX)
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
-	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO10|GPIO11);
-  gpio_clear(GPIOC, GPIO10|GPIO11);
-
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
 
   debug_setup();
