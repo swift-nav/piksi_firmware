@@ -20,14 +20,16 @@ MEMORY
 {
 	rom (rx) : ORIGIN = 0x08000000, LENGTH = 128K
 	ram (rwx) : ORIGIN = 0x20000000, LENGTH = 64K
+  /* STM32F4 Core Coupled Memory, not accesible by peripherals or DMA. */
+  ccm (rwx) : ORIGIN = 0x10000000, LENGTH = 64K
 }
 
 /* Include the common ld script. */
 INCLUDE libopencm3_stm32f2.ld
 
 SECTIONS {
-  _stack_size = 1024;
-  _stack = ORIGIN(ram)+LENGTH(ram);
+  _stack_size = 65536;
+  _stack = ORIGIN(ccm)+LENGTH(ccm);
   _stack_begin = _stack - _stack_size;
 }
 
