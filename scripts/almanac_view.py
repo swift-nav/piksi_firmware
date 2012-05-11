@@ -1,5 +1,5 @@
-from enthought.traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, Button, Int
-from enthought.traits.ui.api import Item, View
+from traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, Button, Int
+from traitsui.api import Item, View
 
 import threading
 import time

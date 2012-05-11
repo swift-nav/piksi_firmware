@@ -15,14 +15,14 @@ logging.basicConfig()
 
 # Fix default font issue on Linux
 import os
-from enthought.kiva.fonttools.font_manager import fontManager, FontProperties
-if os.name == "posix":
-  font = FontProperties()
-  font.set_name("Arial")
-  fontManager.defaultFont = fontManager.findfont(font)
+#from kiva.fonttools.font_manager import fontManager, FontProperties
+#if os.name == "posix":
+  #font = FontProperties()
+  #font.set_name("Arial")
+  #fontManager.defaultFont = fontManager.findfont(font)
 
-from enthought.traits.api import Str, Instance, Dict, HasTraits, Int
-from enthought.traits.ui.api import Item, ShellEditor, View, VSplit, HSplit, Tabbed, InstanceEditor
+from traits.api import Str, Instance, Dict, HasTraits, Int
+from traitsui.api import Item, ShellEditor, View, VSplit, HSplit, Tabbed, InstanceEditor
 
 import struct
 

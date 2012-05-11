@@ -1,10 +1,10 @@
-from enthought.traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, List
-from enthought.traits.ui.api import Item, View
+from traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, List
+from traitsui.api import Item, View
 
-from enthought.chaco.api import BarPlot, ArrayDataSource, DataRange1D, LinearMapper, OverlayPlotContainer, LabelAxis, PlotAxis, ArrayPlotData, Plot
-from enthought.enable.api import ComponentEditor, Component
+from chaco.api import BarPlot, ArrayDataSource, DataRange1D, LinearMapper, OverlayPlotContainer, LabelAxis, PlotAxis, ArrayPlotData, Plot
+from enable.api import ComponentEditor, Component
 
-from enthought.pyface.api import GUI
+from pyface.api import GUI
 
 import struct
 

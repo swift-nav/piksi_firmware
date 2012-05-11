@@ -1,8 +1,8 @@
-from enthought.traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button
-from enthought.traits.ui.api import Item, View, HGroup, VGroup
+from traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button
+from traitsui.api import Item, View, HGroup, VGroup
 
-from enthought.chaco.api import BarPlot, ArrayDataSource, DataRange1D, LinearMapper, OverlayPlotContainer, LabelAxis, PlotAxis, ArrayPlotData, Plot
-from enthought.enable.api import ComponentEditor, Component
+from chaco.api import BarPlot, ArrayDataSource, DataRange1D, LinearMapper, OverlayPlotContainer, LabelAxis, PlotAxis, ArrayPlotData, Plot
+from enable.api import ComponentEditor, Component
 
 import struct
 import math
