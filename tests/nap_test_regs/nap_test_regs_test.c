@@ -68,23 +68,69 @@ int main(void)
   printf("--- NAP TEST REGS TEST ---\n\r");
 
   u8 rdwr_in[4];
-  u8 rdwr_out[4];
+  u8 rdwr_out[4] = {0, 0, 0, 0};
 
-  for (u8 i = 0; i < 6; i++){
+  u32 count = 1;
+  u32 rdwr_bad = 0;
+  u32 beef_bad = 0;
+
+  /* First read should give "DECAFBAD", */
+  swift_nap_xfer_blocking(254, 4, rdwr_in, rdwr_out);
+  if (rdwr_in[0] != 0xDD ||
+      rdwr_in[1] != 0xCA ||
+      rdwr_in[2] != 0xFB ||
+      rdwr_in[3] != 0xAD) {
+    printf("First read of rd/wr test register reads %02X%02X%02X%02X, "
+           "should be DECAFBAD\n",
+           (u16)rdwr_in[0], (u16)rdwr_in[1],
+           (u16)rdwr_in[2], (u16)rdwr_in[3]);
+    rdwr_bad++;
+  }
+
+  u8 i = 1;
+  while (1) {
     rdwr_out[0] = i;
     rdwr_out[1] = i;
     rdwr_out[2] = i;
     rdwr_out[3] = i;
-    swift_nap_xfer_blocking(254,4,rdwr_in,rdwr_out);
-    printf("rdwr_in reads %x%x%x%x\n",(u16)rdwr_in[0],(u16)rdwr_in[1],(u16)rdwr_in[2],(u16)rdwr_in[3]);
+    swift_nap_xfer_blocking(254, 4, rdwr_in, rdwr_out);
+    if (rdwr_in[0] != (u8)(i-1) ||
+        rdwr_in[1] != (u8)(i-1) ||
+        rdwr_in[2] != (u8)(i-1) ||
+        rdwr_in[3] != (u8)(i-1)) {
+      printf("\nrd/wr register reads %02X%02X%02X%02X, "
+             " but i = 0x%02X\n",
+             (u16)rdwr_in[0], (u16)rdwr_in[1],
+             (u16)rdwr_in[2], (u16)rdwr_in[3], (u8)(i-1));
+      rdwr_bad++;
+    }
+    i++;
+
+    swift_nap_xfer_blocking(255, 4, rdwr_in, NULL);
+    if (rdwr_in[0] != 0xDE ||
+        rdwr_in[1] != 0xAD ||
+        rdwr_in[2] != 0xBE ||
+        rdwr_in[3] != 0xEF) {
+      printf("\nDeceased cow register reads %02X%02X%02X%02X, "
+             "should be DEADBEEF\n",
+             (u16)rdwr_in[0], (u16)rdwr_in[1],
+             (u16)rdwr_in[2], (u16)rdwr_in[3]);
+      beef_bad++;
+    }
+
+    led_toggle(LED_GREEN);
+    led_toggle(LED_RED);
+
+    count++;
+
+    if (count % 5000 == 0)
+      printf("%d/%d errors out of %d\n",
+          (unsigned int)rdwr_bad, (unsigned int)beef_bad, (unsigned int)count);
+
+    /*for (u32 i = 0; i < 60000; i++)*/
+      /*__asm__("nop");*/
+
   }
-
-  u8 beef[4] = {0,1,2,3};
-  swift_nap_xfer_blocking(255,4,beef,NULL);
-  printf("register 255 reads %x%x%x%x\n",(u16)beef[0],(u16)beef[1],(u16)beef[2],(u16)beef[3]);
-
-  led_on(LED_GREEN);
-  led_on(LED_RED);
 
   while (1);
 
