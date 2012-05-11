@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from enthought.mayavi import mlab
+from mayavi import mlab
 import math
 import numpy as np
 import data_real4 as d

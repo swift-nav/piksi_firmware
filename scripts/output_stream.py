@@ -1,8 +1,8 @@
 """Contains the class OutputStream, a HasTraits file-like text buffer."""
 
-from enthought.traits.api import HasTraits, Str, Bool, Trait, Int
-from enthought.traits.ui.api import View, UItem, TextEditor, Handler
-from enthought.etsconfig.api import ETSConfig
+from traits.api import HasTraits, Str, Bool, Trait, Int
+from traitsui.api import View, UItem, TextEditor, Handler
+from traits.etsconfig.api import ETSConfig
 
 
 DEFAULT_MAX_LEN = 8000
