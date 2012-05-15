@@ -14,6 +14,26 @@
 #define mrand frand(MATRIX_MIN, MATRIX_MAX)
 #define MSIZE_MAX 64
 
+#define VEC_PRINTF(v, _n) {                                     \
+    printf("%s:%u <|%s| %lf",                                   \
+           __FILE__, __LINE__, #v, v[0]);                       \
+    for (int _i = 1; _i < _n; _i++) printf(", %lf", v[_i]);     \
+    printf(">\n");                                              \
+  }
+
+#define MAT_PRINTF(m, _r, _c) {                    \
+    printf("%s:%u <|%s|",                          \
+           __FILE__, __LINE__, #m);                \
+    for (int _i = 0; _i < _r; _i++) {              \
+      printf(" [%lf", m[_i*_c + 0]);                \
+      for (int _j = 1; _j < _c; _j++)              \
+        printf(" %lf", m[_i*_c + _j]);               \
+      printf("]");                                 \
+      if (_r > 2 && _i < _r - 1) printf("\n\t\t\t       ");              \
+    }                                              \
+    printf(">\n");                                 \
+  }
+
 /* TODO: matrix_multiply, matrix_add_sc, matrix_copy, all vector functions */
 
 START_TEST(test_matrix_inverse_2x2) {
@@ -434,6 +454,55 @@ START_TEST(test_vector_three) {
 }
 END_TEST
 
+START_TEST(test_qrsolve_consistency) {
+  u32 i, j, t;
+  double norm;
+
+  seed_rng();
+  for (t = 0; t < LINALG_NUM; t++) {
+    u32 n = sizerand(MSIZE_MAX);
+    double x_gauss[n], x_qr[n];
+    double A[n*n], Ainv[n*n], b[n];
+    do {
+      for (i = 0; i < n; i++) {
+        b[i] = mrand;
+        for (j = 0; j < n; j++)
+          A[n*i + j] = mrand;
+      }
+    } while (matrix_inverse(n, A, Ainv) < 0);
+    matrix_multiply(n, n, 1, Ainv, b, x_gauss);
+    qrsolve(A, n, n, b, x_qr);
+
+    norm = (vector_norm(n, x_qr) + vector_norm(n, x_gauss)) / 2;
+    for (i = 0; i < n; i++)
+      fail_unless(fabs(x_qr[i] - x_gauss[i]) < LINALG_TOL * norm,
+                  "QR solve failure; difference was %lf for element %u",
+                  x_qr[i] - x_gauss[i], i);
+  }
+}
+END_TEST
+
+START_TEST(test_qrsolve_rect) {
+  s32 i;
+  const double A[8] = {-0.0178505395610981, 1.4638781031761146,
+                       -0.8242742209580581, -0.6843477128009663,
+                       0.9155272861151404, -0.1651159277864960,
+                       -0.9929037180867774, -0.1491537478964264};
+  double Q[16], R[8];
+
+  double buf[10] __attribute__((unused)) = {22, 22, 22, 22, 22,
+                                            22, 22, 22, 22, 22};
+
+  i = qrdecomp(A, 4, 2, Q, R);
+
+  printf("i returned %d\n", i);
+
+  MAT_PRINTF(A, 4, 2);
+  MAT_PRINTF(Q, 4, 4);
+  MAT_PRINTF(R, 4, 2);
+}
+END_TEST
+
 Suite* linear_algebra_suite(void) {
   Suite *s = suite_create("Linear algebra");
 
@@ -456,6 +525,8 @@ Suite* linear_algebra_suite(void) {
   tcase_add_test(tc_core, test_vector_subtract);
   tcase_add_test(tc_core, test_vector_cross);
   tcase_add_test(tc_core, test_vector_three);
+  tcase_add_test(tc_core, test_qrsolve_consistency);
+  tcase_add_test(tc_core, test_qrsolve_rect);
   suite_add_tcase(s, tc_core);
 
   return s;

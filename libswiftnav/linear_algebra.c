@@ -10,9 +10,32 @@
  */
 
 #include <math.h>
+#include <string.h>
+#include <stdio.h>
+
 #include "common.h"
 
 #include "linear_algebra.h"
+
+#define VEC_PRINTF(v, _n) {                                     \
+    printf("%s:%u <|%s| %lf",                                   \
+           __FILE__, __LINE__, #v, v[0]);                       \
+    for (u32 _i = 1; _i < _n; _i++) printf(", %lf", v[_i]);     \
+    printf(">\n");                                              \
+  }
+
+#define MAT_PRINTF(m, _r, _c) {                    \
+    printf("%s:%u <|%s|",                          \
+           __FILE__, __LINE__, #m);                \
+    for (u32 _i = 0; _i < _r; _i++) {              \
+      printf(" [%lf", m[_i*_c + 0]);                \
+      for (u32 _j = 1; _j < _c; _j++)              \
+        printf(" %lf", m[_i*_c + _j]);               \
+      printf("]");                                 \
+      if (_r > 2 && _i < _r - 1) printf("\n\t\t\t");              \
+    }                                              \
+    printf(">\n");                                 \
+  }
 
 /* Todo(MP) -- Implement fast linear solve (all-in-one) with Cholesky
  * decomposition: we want to solve $A^{T} W A \hat{x} = A^{T} W y
@@ -54,6 +77,302 @@
 /** \defgroup matrices Matrix Mathematics
  *  Routines for working with matrices.
  * \{ */
+
+/** QR decomposition of a matrix.
+ * Compute the QR decomposition of an arbitrary matrix \f$ A \in
+ * \mathbb{R}^{N \times M} \f$: \f$ A = Q \cdot R \f$ where \f$ Q \in
+ * \mathbb{R}^{N \times N} \f$ is an orthogonal matrix and \f$ R \in
+ * \mathbb{R}^{N \times M} \f$ is an upper-triangular matrix.
+ *
+ *  For an overdetermined (least-squares) problem, \f$ R \f$ will be
+ *  of the form
+ * \f[ \begin{bmatrix}
+ *     R' \\
+ *     0
+ *     \end{bmatrix}
+ * \f] where \f$ R' \f$ is an upper-triangular matrix on \f$
+ * \mathbb{R}^{M \times M} \f$.  
+ *
+ *  \param A            The matrix \f$ A \f$ to decompose (input)
+ *  \param rows         How many rows in A
+ *  \param cols         How many columns in A
+ *  \param qt           \f$ Q^{T} \f$ (output)
+ *  \param r            \f$ R \f$ (output)
+ *
+ *  \return         -1 if A is singular; 0 otherwise;    
+ */
+s32 qrdecomp(const double *a, u32 rows, u32 cols, double *qt, double *r) {
+  s32 sing = 0;
+  u32 i, j, k;
+
+  double c[cols], d[cols];
+  double scale, sigma, sum, tau;
+  /* r := a */
+  memcpy(r, a, rows*cols * sizeof(*r));
+
+  for (k = 0; k < cols; k++) {
+    if (k > cols-1) printf("%d: k (%u) > cols - 1 (%u)\n",
+                           __LINE__, (unsigned int) k, (unsigned int) cols - 1);
+    /* This is column k of the input matrix */
+    scale = 0.0;
+    /* loop over this column and make sure it's not all zeros*/
+    for (i = k; i < rows; i++) scale = fmax(scale, fabs(r[i*cols + k]));
+    /* singularity check */
+    if (fabs(scale) < MATRIX_EPSILON) {
+      sing = -1;
+      c[k] = d[k] = 0.0;
+      printf("Column %u is singular to machine precision.\n", (unsigned int) k);
+    } else {
+      /* scale this column to 1 */
+      for (i = k; i < rows; i++) r[i*cols + k] /= scale;
+      /* compute norm-squared of this column */
+      for (sum = 0.0, i = k; i < rows; i++) sum += r[i*cols + k]*r[i*cols + k];
+      /* adjust the leading element: σ is the sign of the leading
+       * (diagonal) element of the column times the norm of the
+       * head-adjusted column */
+      sigma = copysign(sqrt(sum), r[k*cols + k]);
+      r[k*cols + k] += sigma;
+      /* set c and d for this column */
+      c[k] = sigma * r[k*cols + k];
+      d[k] = -scale * sigma;
+      printf("d[%u] = %lf\n", (unsigned int) k, d[k]);
+      for (j = k + 1; j < cols; j++) {
+        if (j > cols-1) printf("%d: j (%u) > cols - 1 (%u)\n",
+                               __LINE__, (unsigned int) j,
+                               (unsigned int) cols - 1);
+        /* some crazy shit to update R in place I think; we never
+         * explicitly form the householder matrices */
+        for (sum = 0.0, i = k; i < rows; i++) sum += r[i*cols + k]*r[i*cols + j];
+        tau = sum / c[k];
+        for (i = k; i < rows; i++) r[i*cols + j] -= tau*r[i*cols + k];
+      }
+    }
+  }
+  VEC_PRINTF(d, cols);
+  VEC_PRINTF(c, cols);
+  MAT_PRINTF(r, rows, cols);
+  /* set last element of d to the bottom right corner of the matrix */
+  /* d[cols - 1] = r[(rows - 1)*cols + cols - 1]; */
+  printf("bottom corner: r[%u] = d[%u] = %lf\n",
+         (unsigned int) ((rows - 1)*cols + cols - 1),
+         (unsigned int) (cols - 1), r[(rows - 1)*cols + cols - 1]);
+  /* if that's zero too, then the whole bottom row is zero and this
+   * problem is singular */
+  if (fabs(d[cols - 1]) < MATRIX_EPSILON) sing = -1;
+  /* set Q^T to identity */
+  for (i = 0; i < rows; i++) {
+    for (j = 0; j < rows; j++) qt[i*rows + j] = 0.0;
+    qt[i*rows + i] = 1.0;
+  }
+  for (k = 0; k < cols; k++) {
+    if (k > cols-1) printf("%d: k (%u) > cols - 1 (%u)\n",
+                           __LINE__, (unsigned int) k, (unsigned int) cols - 1);
+    /* for column k of the matrix */
+    if (fabs(c[k]) > MATRIX_EPSILON)
+      /* if there's anything going on in this column */
+      for (j = 0; j < rows; j++) {
+        /* matrix multiply in place or something to form qt */
+        sum = 0.0;
+        for (i = k; i < rows; i++) sum += r[i*cols + k]*qt[i*rows + j];
+        sum /= c[k];
+        for (i = k; i < rows; i++) qt[i*rows + j] -= sum*r[i*cols + k];
+      }
+    MAT_PRINTF(qt, rows, rows);
+  }
+  for (i = 0; i < cols; i++) {
+    if (i > cols-1) printf("%d: i (%u) > cols - 1 (%u)\n",
+                           __LINE__, (unsigned int) i, (unsigned int) cols - 1);
+    /* set r diagonal to d */
+    r[i*cols + i] = d[i];
+    printf("r[%u] = d[%u] = %lf\n", (unsigned int) (i*cols + i),
+           (unsigned int) i, r[i*cols+i]);
+  }
+  for (i = 0; i < rows; i++)
+    /* set below-diagonal elements to zero */
+    for (j = 0; j < i && j < cols; j++) {
+      if (j > cols-1) printf("%d: j (%u) > cols - 1 (%u)\n",
+                             __LINE__, (unsigned int) j,
+                             (unsigned int) cols - 1);
+
+      r[i*cols + j] = 0.0;
+    }
+  return sing;
+}
+
+
+/* static s32 qrdecomp_l(const double *a, u32 rows, */
+/*                       u32 cols, double *qt, double *r) { */
+/*   s32 sing = 0; */
+/*   u32 i, j, k; */
+
+/*   double scale, anorm, vnorm; */
+/*   double u[rows], Hk[rows*rows]; */
+
+/*   /\* R := A *\/ */
+/*   memcpy(r, a, rows*cols*sizeof(*r)); */
+/*   /\* Q := I *\/ */
+/*   for (i = 0; i < rows; i++) */
+/*     for (j = 0; j < rows; j++) { */
+/*       qt[i*rows + j] = (i == j); */
+/*       Hk[i*rows + j] = 0; */
+/*     } */
+
+/*   for (k = 0; k < rows - 1; k++) { */
+/*     /\* Column k of the input matrix *\/ */
+/*     scale = 0.0; */
+/*     anorm = 0.0; */
+/*     /\* compute a^T a *\/ */
+/*     for (i = k; i < rows; i++) anorm += a[i*cols + k]*a[i*cols+k]; */
+/*     anorm = sqrt(anorm); */
+/*     /\* compute u = a + sgn(a[k]) * ||a||_2 * [1 0 0 . . . ]^T *\/ */
+/*     u[k] = a[k*cols + k] + copysign(a[k*cols + k], anorm); */
+/*     /\* form v = u / u[0] *\/ */
+/*     for (i = k+1; i < rows; i++) u[i] = a[i*cols + k] / u[k]; */
+/*     u[k] = 1.0; */
+/*     vnorm = 0.0; */
+/*     /\* compute w = v^T v *\/ */
+/*     for (i = k; i < rows; i++) vnorm += u[i]*u[i]; */
+/*     for (i = k; i < rows; i++) */
+/*       /\* yes, rows is the limit because H is square *\/ */
+/*       for (j = k; j < rows; j++) */
+/*         /\* Hk = I - 2 / w * v * v^T *\/ */
+/*         Hk[i*cols + j] = (i == j) - (2 / vnorm)*u[i]*u[j]; */
+/*     /\* Accumulate onto R *\/ */
+/*   } */
+/*   return sing; */
+/* } */
+
+/** QR decomposition of a square matrix.
+ * Compute the QR decomposition of a square matrix \f$ A \in
+ * \mathbb{R}^{N \times N} \f$: \f$ A = Q \cdot R \f$ where \f$ Q \in
+ * \mathbb{R}^{N \times N} \f$ is an orthogonal matrix and \f$ R \in
+ * \mathbb{R}^{N \times N} \f$ is an upper-triangular matrix.
+ *
+ *  \param A            The matrix \f$ A \f$ to decompose (input)
+ *  \param rows         How many rows in A
+ *  \param qt           \f$ Q^{T} \f$ (output)
+ *  \param r            \f$ R \f$ (output)
+ *
+ *  \return         -1 if A is singular; 0 otherwise;    
+ */
+s32 qrdecomp_square(const double *a, u32 rows, double *qt, double *r) {
+  s32 sing = 0;
+  u32 i, j, k;
+
+  double c[rows], d[rows];
+  double scale, sigma, sum, tau;
+  memcpy(r, a, rows*rows * sizeof(*r));
+
+  for (k = 0; k < rows - 1; k++) {
+    scale = 0.0;
+    for (i = k; i < rows; i++) scale = fmax(scale, fabs(r[i*rows + k]));
+    if (scale == 0.0) {
+      sing = -11;
+      c[k] = d[k] = 0.0;
+    } else {
+      for (i = k; i < rows; i++) r[i*rows + k] /= scale;
+      for (sum = 0.0, i = k; i < rows; i++) sum += r[i*rows + k]*r[i*rows + k];
+      sigma = copysign(sqrt(sum), r[k*rows+k]);
+      r[k*rows + k] += sigma;
+      c[k] = sigma * r[k*rows + k];
+      d[k] = -scale * sigma;
+      for (j = k + 1; j < rows; j++) {
+        for (sum = 0.0, i = k; i < rows; i++) sum += r[i*rows + k]*r[i*rows+j];
+        tau = sum / c[k];
+        for (i = k; i < rows; i++) r[i*rows + j] -= tau*r[i*rows + k];
+      }
+    }
+  }
+  d[rows - 1] = r[(rows - 1)*rows + rows - 1];
+  if (d[rows - 1] == 0.0) sing = -11;
+  for (i = 0; i < rows; i++) {
+    for (j = 0; j < rows; j++) qt[i*rows + j] = 0.0;
+    qt[i*rows + i] = 1.0;
+  }
+  for (k = 0; k < rows - 1; k++) {
+    if (c[k] != 0.0)
+      for (j = 0; j < rows; j++) {
+        sum = 0.0;
+        for (i = k; i < rows; i++) sum += r[i*rows + k]*qt[i*rows + j];
+        sum /= c[k];
+        for (i = k; i < rows; i++) qt[i*rows + j] -= sum*r[i*rows + k];
+      }
+  }
+  for (i = 0; i < rows; i++) {
+    r[i*rows + i] = d[i];
+    for (j = 0; j < i; j++) r[i*rows + j] = 0.0;
+  }
+  return sing;
+}
+
+/** Solve Qx = b for x.
+ * Since \f$ Q \in \mathbb{R}^{N \times N} \f$ is an orthogonal
+ * matrix, \f$ Q^{T} Q = I \f$ and therefore \f$ x = Q^{T} b \f$.
+ * This function computes \f$ x \in \mathbb{R}^{N} \f$ in this way.
+ *
+ *  \param qt            \f$ Q^{T} \f$ to be used to solve for x (input)
+ *  \param n             size of qt (it is square)
+ *  \param b             \f$ b \f$ to be used to solve for x (input)
+ *  \param x             result of the linear solve (output)
+ */
+void qtmult(const double *qt, u32 n, const double *b, double *x) {
+  u32 i, j;
+  double sum;
+  for (i = 0; i < n; i++) {
+    sum = 0.0;
+    for (j = 0; j < n; j++) sum += qt[i*n + j]*b[j];
+    x[i] = sum;
+  }
+}
+
+/** Solve Rx = b for x.
+ * Solve \f$ Rx = b \f$ for \f$ x \in \mathbb{R}^{N} \f$.  Since \f$ R
+ * \in \mathbb{R}^{N \times M} \f$ is upper-triangular, this can be
+ * done efficiently by back-substitution.  This function has two
+ * important properties: it must never be called with an \f$ R \f$
+ * that results from the decomposition of a singular matrix, and it is
+ * safe to pass the same pointer for \f$ b \f$ and \f$ x \f$.
+ *
+ *  \param r            Upper-triangular \f$ R \f$ (input)
+ *  \param rows         Number of rows in r
+ *  \param cols         Number of columns in r
+ *  \param b            Vector \f$ b \f$ to solve against, from qtmult()
+ *  \param x            Solution vector \f$ x \f$ (output)
+ */
+void rsolve(const double *r, u32 rows, u32 cols, const double *b, double *x) {
+  s32 i, j;
+  double sum;
+  for (i = rows - 1; i >= 0; i--) {
+    sum = b[i];
+    for (j = i + 1; j < (int) rows; j++) sum -= r[i*cols + j]*x[j];
+    x[i] = sum / r[i*cols + i];
+  }
+}
+
+/** Solve a linear system using the QR decomposition.
+ * Solve the linear system \f$ Ax = b \f$ using the QR decomposition
+ * and backward substitution, where \f$ A \f$ is a matrix on \f$
+ * \mathbb{R}^{N \times N} \f$ and \f$ x \f$ and \f$ b \f$ are vectors
+ * on \f$ \mathbb{R}^{N} \f$.
+ *
+ *  \param a            Matrix \f$ A \f$ (input)
+ *  \param rows         Number of rows in a
+ *  \param cols         Number of columns in a
+ *  \param b            Vector \f$ b \f$ (input)
+ *  \param x            Vector \f$ x \f$ (output)
+ *
+ *  \return     -1 if a is singular; 0 otherwise.
+ */
+s32 qrsolve(const double *a, u32 rows, u32 cols, const double *b, double *x) {
+  double qt[rows * rows], r[rows * cols];
+  s32 sing = qrdecomp_square(a, rows, qt, r);
+  if (sing != 0) return sing;
+  qtmult(qt, rows, b, x);
+  rsolve(r, rows, cols, x, x);
+  return sing;
+}
+
+
 
 /** Invert a 2x2 matrix.
  *  Calculate the inverse of a 2x2 matrix: \f$ b := a^{-1} \f$
@@ -149,7 +468,7 @@ static inline int inv4(const double *a, double *b) {
 /* Helper function for rref */
 static void row_swap(double *a, double *b, u32 size) {
   double tmp;
-  for(u32 i = 0; i < size; i++) {
+  for (u32 i = 0; i < size; i++) {
     tmp = a[i];
     a[i] = b[i];
     b[i] = tmp;
