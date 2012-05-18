@@ -16,8 +16,8 @@
  */
 
 #include <libopencm3/stm32/spi.h>
-#include <libopencm3/stm32/f2/gpio.h>
-#include <libopencm3/stm32/f2/rcc.h>
+#include <libopencm3/stm32/f4/gpio.h>
+#include <libopencm3/stm32/f4/rcc.h>
 
 #include "spi.h"
 
@@ -47,10 +47,10 @@ void spi_setup(void)
   /*gpio_set_output_options(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO13 | GPIO15);*/
 
 	/* Setup SPI parameters. */
-  spi_init_master(SPI1, SPI_CR1_BAUDRATE_FPCLK_DIV_2, 0, 0, 
+  spi_init_master(SPI1, SPI_CR1_BAUDRATE_FPCLK_DIV_2, 0, 0,
                   SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
   spi_enable_ss_output(SPI1); /* Required, see 25.3.1 section about NSS */
-  spi_init_master(SPI2, SPI_CR1_BAUDRATE_FPCLK_DIV_2, 0, 0, 
+  spi_init_master(SPI2, SPI_CR1_BAUDRATE_FPCLK_DIV_2, 0, 0,
                   SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
   spi_enable_ss_output(SPI2); /* Required, see 25.3.1 section about NSS */
 

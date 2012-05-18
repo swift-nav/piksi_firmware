@@ -17,11 +17,11 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/flash.h>
-#include <libopencm3/stm32/f2/timer.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/flash.h>
+#include <libopencm3/stm32/f4/timer.h>
 #include <libopencm3/stm32/nvic.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/gpio.h>
 
 #include "main.h"
 #include "debug.h"

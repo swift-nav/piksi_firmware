@@ -18,10 +18,10 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/dma.h>
-#include <libopencm3/stm32/f2/flash.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/dma.h>
+#include <libopencm3/stm32/f4/flash.h>
+#include <libopencm3/stm32/f4/gpio.h>
 
 #include "main.h"
 #include "cw.h"

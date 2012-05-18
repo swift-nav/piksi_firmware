@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/nvic.h>
 
@@ -30,7 +30,7 @@
 #include <libswiftnav/pvt.h>
 
 /* Initialiser using GNU extension, see
- * http://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html 
+ * http://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html
  * tracking_channel_t tracking_channel[TRACK_N_CHANNELS] = \
  *   {[0 ... TRACK_N_CHANNELS-1] = {.state = TRACKING_DISABLED}};
  */
@@ -68,7 +68,7 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
   u64 propagated_code_phase = (u64)(code_phase * (((u64)1)<<32)) + n_samples * (u64)code_phase_rate;
 
   /* Convert code phase back to natural units with sub-chip precision.
-   * NOTE: the modulo is required to fix the fact rollover should 
+   * NOTE: the modulo is required to fix the fact rollover should
    * occur at 1023 not 1024.
    */
   return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
@@ -209,7 +209,7 @@ void tracking_channel_update(u8 channel)
         chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
         chan->Q_filter += abs(cs[1].Q);
       }
-      
+
       u32 lag = timing_count() - chan->sample_count;
       if (lag > 16368)
         printf("PRN %02d, lag = %u samples\n",chan->prn+1, (unsigned int)lag);
@@ -264,7 +264,7 @@ void tracking_channel_update(u8 channel)
       /*} else {*/
         /*chan->code_phase_rate += chan->dll_pgain*(chan->dll_disc-dll_disc_prev) + chan->dll_igain*chan->dll_disc;*/
       /*}*/
-   
+
       /* Comp filter take two (with bias estimation). */
 /*
       static double bias = 0;
@@ -289,7 +289,7 @@ void tracking_channel_update(u8 channel)
       static u32 max_timer_val = 0;
 
       u32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
-      
+
       timer_val = timing_count() - timer_val;
       if (timer_val > max_timer_val) {
         max_timer_val = timer_val;
@@ -346,7 +346,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
 
 float tracking_channel_snr(u8 channel)
 {
-  /* Calculate SNR from I and Q filtered magnitudes. */ 
+  /* Calculate SNR from I and Q filtered magnitudes. */
   return (float)(tracking_channel[channel].I_filter >> I_FILTER_COEFF) / \
                 (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
 }

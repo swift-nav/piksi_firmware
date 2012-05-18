@@ -19,13 +19,13 @@
 #include <stdio.h>
 
 #include <libopencm3/stm32/spi.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/nvic.h>
 #include <libopencm3/stm32/usart.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/dma.h>
-#include <libopencm3/stm32/f2/timer.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/dma.h>
+#include <libopencm3/stm32/f4/timer.h>
 #include "hw/leds.h"
 
 #include "swift_nap_io.h"
@@ -56,13 +56,13 @@ void swift_nap_setup()
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
 	gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
   gpio_clear(GPIOA, GPIO2);
-  
+
   //wait until FPGA_DONE goes high to make sure FPGA is configured
   //swift_nap_configure();
-  while(!(gpio_get(GPIOC,GPIO1))); 
+  while(!(gpio_get(GPIOC,GPIO1)));
   //swift_nap_reset();
 
-  /* Initialise the SPI peripheral. 
+  /* Initialise the SPI peripheral.
      Note - if configuration is done manually at beginning of
      STM code, this must be done AFTERWARDS - FPGA uses SPI2
      to configure itself */
