@@ -116,6 +116,8 @@
 #define MAX2769_CONF3_TIMESYNCEN   (1<<2)
 #define MAX2769_CONF3_DATASYNCEN   (1<<1)
 #define MAX2769_CONF3_STRMRST      (1<<0)
+/* Some of the reserved bits are 1. */
+#define MAX2769_CONF3_RESERVED     (1<<14)
 
 /* MAX2769 PLL Configuration. */
 
@@ -149,14 +151,21 @@
 #define MAX2769_PLLCONF_PWRSAV            (1<<2)
 /* PLLCONF bits 1:0 reserved. */
 
+/* Some of the reserved bits are 1. */
+#define MAX2769_PLLCONF_RESERVED          (1<<23)
+
 /* MAX2769 PLL Integer Division Ratio. */
 
 #define MAX2769_DIV_NDIV(n) ((n & 0x7FFF)<<13)
 #define MAX2769_DIV_RDIV(n) ((n & 0x3FF)<<3)
+/* DIV bits 2:0 reserved. */
 
 /* MAX2769 PLL Division Ratio. */
 
-#define MAX2769_FDIV_FDIV(n) ((n & 0xFFFFF)<<8)
+#define MAX2769_FDIV_FDIV(n)  ((n & 0xFFFFF)<<8)
+/* DIV bits 7:0 reserved. */
+/* Some of the reserved bits are 1. */
+#define MAX2769_FDIV_RESERVED 0x70
 
 /* MAX2769 DSP Interface. */
 
