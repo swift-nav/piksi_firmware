@@ -53,12 +53,76 @@ void max2769_setup()
   /* Register settings from Colin "max_regs_defaults.vhd" */
 //  max2769_write(MAX2769_CONF1, 0xA2959A3); //LNA1 selected
   max2769_write(MAX2769_CONF1, 0xA2939A3); //LNA2 selected
+  volatile u32 conf1 = 0;
+  conf1 = MAX2769_CONF1_CHIPEN |
+          MAX2769_CONF1_ILNA1(8) |
+          MAX2769_CONF1_ILNA2(2) |
+          MAX2769_CONF1_ILO(2) |
+          MAX2769_CONF1_IMIX(1) |
+          MAX2769_CONF1_MIXPOLE_13MHZ |
+          MAX2769_CONF1_MIXEN |
+          MAX2769_CONF1_ANTEN |
+          MAX2769_CONF1_FCEN(26) |
+          MAX2769_CONF1_FBW_2_5MHZ |
+          MAX2769_CONF1_F3OR5_5 |
+          MAX2769_CONF1_FCENX_BP |
+          MAX2769_CONF1_FGAIN_HIGH;
+  conf1 |= MAX2769_CONF1_LNAMODE_LNA2;
+
 //  max2769_write(MAX2769_CONF1, 0xA2919A3); //LNA1|LNA2: current gated
   max2769_write(MAX2769_CONF2, 0x8550308);
+  volatile u32 conf2 = 0;
+  conf2 = MAX2769_CONF2_IQEN |
+          MAX2769_CONF2_GAINREF(170) |
+          MAX2769_CONF2_AGCMODE_INDEP |
+          MAX2769_CONF2_FORMAT_SIGN_MAG |
+          MAX2769_CONF2_BITS_3 |
+          MAX2769_CONF2_DRVCFG_CMOS |
+          MAX2769_CONF2_LOEN;
+
   max2769_write(MAX2769_CONF3, 0xEAFE1DC);
+  volatile u32 conf3 = 0;
+  conf3 = MAX2769_CONF3_RESERVED |
+          MAX2769_CONF3_GAININ(0b111010) |
+          MAX2769_CONF3_FSLOWEN |
+          MAX2769_CONF3_ADCEN |
+          MAX2769_CONF3_DRVEN |
+          MAX2769_CONF3_FOFSTEN |
+          MAX2769_CONF3_FILTEN |
+          MAX2769_CONF3_FHIPEN |
+          MAX2769_CONF3_PGAIEN |
+          /*MAX2769_CONF3_PGAQEN |*/
+          /* STRM stuff was set before but its unused, can leave as zeros. */
+          0;
+
+
   max2769_write(MAX2769_PLLCONF, 0x9EC0008);
-  max2769_write(MAX2769_DIV, 0x0C00080);
-  max2769_write(MAX2769_FDIV, 0x8000070);
-  max2769_write(MAX2769_STRM, 0x8000000);
-  max2769_write(MAX2769_CLK, 0x10061B2);
+  volatile u32 pllconf = 0;
+  pllconf = MAX2769_PLLCONF_RESERVED |
+            MAX2769_PLLCONF_VCOEN |
+            MAX2769_PLLCONF_REFOUTEN |
+            MAX2769_PLLCONF_REFDIV_DIV_NONE |
+            MAX2769_PLLCONF_IXTAL_BUFF_NORMAL |
+            MAX2769_PLLCONF_XTALCAP(0b10000) |
+            MAX2769_PLLCONF_LDMUX(0) |
+            MAX2769_PLLCONF_ICP_0_5MA |
+            MAX2769_PLLCONF_CPTEST(0) |
+            MAX2769_PLLCONF_INTPLL;
+
+  max2769_write(MAX2769_DIV,
+    MAX2769_DIV_NDIV(1536) |
+    MAX2769_DIV_RDIV(16)
+  );
+  max2769_write(MAX2769_FDIV,
+    MAX2769_FDIV_RESERVED |
+    MAX2769_FDIV_FDIV(0x80000)
+  );
+  /*max2769_write(MAX2769_STRM,*/
+    /*MAX2769_STRM_FRAMECOUNT(0x8000000)*/
+  /*);*/
+  max2769_write(MAX2769_CLK,
+    MAX2769_CLK_L_CNT(256) |
+    MAX2769_CLK_M_CNT(1563) |
+    MAX2769_CLK_SERCLK
+  );
 }
