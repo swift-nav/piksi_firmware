@@ -47,21 +47,11 @@ int main(void)
 
 	led_setup();
 
+  swift_nap_setup();
+  swift_nap_reset();
+
   led_on(LED_GREEN);
   led_on(LED_RED);
-
-  /* Setup MAX2769 PGM (PB8) - low */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPBEN;
-	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO8);
-  gpio_clear(GPIOB, GPIO8);
-
-  /* Setup MAX2769 NSHDN (PB9) - high */
-	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO9);
-  gpio_set(GPIOB, GPIO9);
-
-  /* Setup MAX2769 NIDLE (PB10) - high */
-	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO10);
-  gpio_set(GPIOB, GPIO10);
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
 
@@ -69,9 +59,6 @@ int main(void)
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n\r");
   printf("--- ACQ TEST ---\n\r");
-
-  swift_nap_setup();
-  swift_nap_reset();
 
   float code_phase;
   float carrier_freq;
