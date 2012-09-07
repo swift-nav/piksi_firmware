@@ -26,7 +26,7 @@
 #define SPI_SLAVE_FRONTEND 0x03
 
 #define SPI_BUS_FLASH    SPI2
-#define SPI_BUS_FPGA     SPI2
+#define SPI_BUS_FPGA     SPI1
 #define SPI_BUS_FRONTEND SPI2
 
 void spi_setup(void);

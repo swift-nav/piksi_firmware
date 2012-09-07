@@ -15,36 +15,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopencm3/stm32/f2/gpio.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/usart.h>
+#include <libopencm3/stm32/f4/gpio.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/usart.h>
 
 #include "usart.h"
 
 /** Setup the USART peripheral. */
 void usart_setup_common(void) {
-  /* Set up the USART1 peripheral. */
+  /* Set up the USART6 peripheral. */
 
   /* First give everything a clock. */
   /* Clock the USART. */
-  RCC_APB2ENR |= RCC_APB2ENR_USART1EN;
+  RCC_APB2ENR |= RCC_APB2ENR_USART6EN;
   /* GPIO pins corresponding to the USART. */
-	RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
+	RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
 
   /* Assign the GPIO pins appropriately. */
-  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9|GPIO10);
-	gpio_set_af(GPIOA, GPIO_AF7, GPIO9|GPIO10);
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO6|GPIO7);
+	gpio_set_af(GPIOC, GPIO_AF8, GPIO6|GPIO7);
 
   /* Setup UART parameters. */
-  usart_disable(USART1);
-	usart_set_baudrate(USART1, 921600);
-	usart_set_databits(USART1, 8);
-	usart_set_stopbits(USART1, USART_STOPBITS_1);
-	usart_set_parity(USART1, USART_PARITY_NONE);
-	usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
-	usart_set_mode(USART1, USART_MODE_TX_RX);
+  usart_disable(USART6);
+	usart_set_baudrate(USART6, 921600);
+	usart_set_databits(USART6, 8);
+	usart_set_stopbits(USART6, USART_STOPBITS_1);
+	usart_set_parity(USART6, USART_PARITY_NONE);
+	usart_set_flow_control(USART6, USART_FLOWCONTROL_NONE);
+	usart_set_mode(USART6, USART_MODE_TX_RX);
 
 	/* Enable the USART. */
-	usart_enable(USART1);
+	usart_enable(USART6);
 }
 
