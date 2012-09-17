@@ -16,7 +16,7 @@
  */
 
 #include <libopencm3/stm32/usart.h>
-#include <libopencm3/stm32/f2/dma.h>
+#include <libopencm3/stm32/f4/dma.h>
 
 #include "hw/leds.h"
 

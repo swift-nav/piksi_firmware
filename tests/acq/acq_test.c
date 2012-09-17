@@ -16,9 +16,9 @@
  */
 
 #include <stdio.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/flash.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/flash.h>
+#include <libopencm3/stm32/f4/gpio.h>
 
 #include "main.h"
 #include "debug.h"
@@ -47,18 +47,18 @@ int main(void)
 
 	led_setup();
 
+  swift_nap_setup();
+  swift_nap_reset();
+
+  led_on(LED_GREEN);
+  led_on(LED_RED);
+
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
 
   debug_setup();
 
-  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
-  printf("--- ACQ TEST ---\n");
-
-  swift_nap_setup();
-  swift_nap_reset();
-
-  led_toggle(LED_GREEN);
-  led_toggle(LED_RED);
+  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n\r");
+  printf("--- ACQ TEST ---\n\r");
 
   float code_phase;
   float carrier_freq;
@@ -66,10 +66,10 @@ int main(void)
 
   acq_schedule_load(timing_count() + 1000);
   while(!(acq_get_load_done()));
-  led_toggle(LED_GREEN);
-  led_toggle(LED_RED);
+  led_off(LED_GREEN);
+  led_off(LED_RED);
 
-  for (u8 prn=0; prn<31; prn++) {
+  for (u8 prn=0; prn<32; prn++) {
     acq_write_code_blocking(prn);
     acq_start(prn, 0, 1023, -7000, 7000, 300);
     while(!(acq_get_done()));
@@ -86,6 +86,7 @@ int main(void)
 
   printf("DONE!\n");
   led_on(LED_GREEN);
+  led_off(LED_RED);
   while (1);
 
 	return 0;

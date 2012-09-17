@@ -16,38 +16,46 @@
  */
 
 #include <libopencm3/stm32/spi.h>
-#include <libopencm3/stm32/f2/gpio.h>
-#include <libopencm3/stm32/f2/rcc.h>
+#include <libopencm3/stm32/f4/gpio.h>
+#include <libopencm3/stm32/f4/rcc.h>
 
 #include "spi.h"
 
 void spi_setup(void)
 {
-  /* Enable SPI periperal clock */
+  /* Enable SPI1 periperal clock */
+  RCC_APB2ENR |= RCC_APB2ENR_SPI1EN;
+  /* Enable SPI2 periperal clock */
   RCC_APB1ENR |= RCC_APB1ENR_SPI2EN;
   /* Enable GPIO clocks for CS lines */
-	RCC_AHB1ENR |= RCC_AHB1ENR_IOPBEN | RCC_AHB1ENR_IOPCEN;
+	RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN | RCC_AHB1ENR_IOPBEN;
 
   /* Setup CS line GPIOs */
   spi_slave_deselect();
   /* FPGA CS */
-	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO8);
+	gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO4);
   /* Configuration flash CS */
 	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO12);
   /* Front-end CS */
 	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO11);
 
   /* Setup SPI alternate function */
+	gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO5 | GPIO6 | GPIO7);
+	gpio_set_af(GPIOA, GPIO_AF5, GPIO5 | GPIO6 | GPIO7);
 	gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO13 | GPIO14 | GPIO15);
-  /*gpio_set_output_options(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO13 | GPIO15);*/
 	gpio_set_af(GPIOB, GPIO_AF5, GPIO13 | GPIO14 | GPIO15);
+  /*gpio_set_output_options(GPIOB, GPIO_OTYPE_PP, GPIO_OSPEED_100MHZ, GPIO13 | GPIO15);*/
 
 	/* Setup SPI parameters. */
-  spi_init_master(SPI2, SPI_CR1_BAUDRATE_FPCLK_DIV_2, 0, 0, 
+  spi_init_master(SPI1, SPI_CR1_BAUDRATE_FPCLK_DIV_2, 0, 0,
+                  SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
+  spi_enable_ss_output(SPI1); /* Required, see 25.3.1 section about NSS */
+  spi_init_master(SPI2, SPI_CR1_BAUDRATE_FPCLK_DIV_2, 0, 0,
                   SPI_CR1_DFF_8BIT, SPI_CR1_MSBFIRST);
   spi_enable_ss_output(SPI2); /* Required, see 25.3.1 section about NSS */
 
 	/* Finally enable the SPI. */
+	spi_enable(SPI1);
 	spi_enable(SPI2);
 }
 
@@ -64,7 +72,7 @@ void spi_slave_select(u8 slave)
 
   switch (slave) {
     case SPI_SLAVE_FPGA:
-      gpio_clear(GPIOC, GPIO8);
+      gpio_clear(GPIOA, GPIO4);
       break;
     case SPI_SLAVE_FLASH:
       gpio_clear(GPIOB, GPIO12);
@@ -83,7 +91,7 @@ void spi_slave_select(u8 slave)
 void spi_slave_deselect(void)
 {
   /* Deselect FPGA CS */
-  gpio_set(GPIOC, GPIO8);
+  gpio_set(GPIOA, GPIO4);
   /* Deselect Configuration flash and Front-end CS */
   gpio_set(GPIOB, GPIO11 | GPIO12);
   __asm__("CPSIE i;");    // Re-enable interrupts

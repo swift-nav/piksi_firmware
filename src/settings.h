@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Fergus Noble <fergusnoble@gmail.com>
+ * Copyright (C) 2012 Fergus Noble <fergusnoble@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,23 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SWIFTNAV_SPI_H
-#define SWIFTNAV_SPI_H
-
 #include <libopencm3/cm3/common.h>
-#include <libopencm3/stm32/spi.h>
 
-#define SPI_SLAVE_FPGA     0x01
-#define SPI_SLAVE_FLASH    0x02
-#define SPI_SLAVE_FRONTEND 0x03
+typedef struct {
+  u8 foo;
+} settings_t;
 
-#define SPI_BUS_FLASH    SPI2
-#define SPI_BUS_FPGA     SPI1
-#define SPI_BUS_FRONTEND SPI2
+extern settings_t settings;
 
-void spi_setup(void);
-void spi_slave_select(u8 slave);
-void spi_slave_deselect(void);
-
-#endif
 

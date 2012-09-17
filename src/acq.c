@@ -17,7 +17,7 @@
 
 #include <math.h>
 #include <stdio.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/gpio.h>
 
 #include "swift_nap_io.h"
 #include "acq.h"
@@ -34,7 +34,7 @@ void acq_schedule_load(u32 count)
 
 void acq_service_load_done()
 {
-  printf("Load done IRQ\n");
+  //printf("Load done IRQ\n");
   acq_clear_load_enable_blocking();
   acq_state.state = ACQ_LOADING_DONE;
 }

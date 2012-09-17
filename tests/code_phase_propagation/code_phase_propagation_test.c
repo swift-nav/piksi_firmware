@@ -17,9 +17,9 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/flash.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/flash.h>
+#include <libopencm3/stm32/f4/gpio.h>
 
 #include "main.h"
 #include "debug.h"
@@ -123,7 +123,7 @@ int main(void)
     printf("  Code phase: %7.4f, Carrier freq % 7.1f, SNR %5.2f\n", fine2_acq_code_phase, fine2_acq_carrier_freq, fine2_snr);
     printf("  Code phase error: %f\n", fine2_acq_code_phase - fine2_cp);
   }
-  
+
 	return 0;
 }
 

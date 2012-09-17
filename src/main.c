@@ -18,10 +18,10 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/dma.h>
-#include <libopencm3/stm32/f2/flash.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/dma.h>
+#include <libopencm3/stm32/f4/flash.h>
+#include <libopencm3/stm32/f4/gpio.h>
 
 #include "main.h"
 #include "cw.h"
@@ -45,7 +45,7 @@ const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
   .pllm = 16,
   .plln = 256,
   .pllp = 4,
-  .pllq = 6,
+  .pllq = 7,
   .hpre = RCC_CFGR_HPRE_DIV_NONE,
   .ppre1 = RCC_CFGR_PPRE_DIV_4,
   .ppre2 = RCC_CFGR_PPRE_DIV_4,
@@ -62,10 +62,10 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
   .pllq = 6,
   .hpre = RCC_CFGR_HPRE_DIV_NONE,
   .ppre1 = RCC_CFGR_PPRE_DIV_8,
-  .ppre2 = RCC_CFGR_PPRE_DIV_4,
+  .ppre2 = RCC_CFGR_PPRE_DIV_8,
   .flash_config = FLASH_ICE | FLASH_DCE | FLASH_LATENCY_3WS,
   .apb1_frequency = 16368000,
-  .apb2_frequency = 2*16368000,
+  .apb2_frequency = 16368000,
 };
 
 const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3 =
@@ -91,19 +91,14 @@ int main(void)
 
 	led_setup();
 
-  // Debug pins (CC1111 TX/RX)
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
-	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO10|GPIO11);
-  gpio_clear(GPIOC, GPIO10|GPIO11);
+  swift_nap_setup();
+  swift_nap_reset();
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
 
   debug_setup();
 
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
-
-  swift_nap_setup();
-  swift_nap_reset();
 
   m25_setup();
 

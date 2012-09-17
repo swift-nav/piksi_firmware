@@ -19,13 +19,14 @@
 #include <stdio.h>
 
 #include <libopencm3/stm32/spi.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/nvic.h>
 #include <libopencm3/stm32/usart.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/dma.h>
-#include <libopencm3/stm32/f2/timer.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/dma.h>
+#include <libopencm3/stm32/f4/timer.h>
+#include "hw/leds.h"
 
 #include "swift_nap_io.h"
 #include "track.h"
@@ -45,17 +46,30 @@ u8 spi_dma_buffer[SPI_DMA_BUFFER_LEN];
 
 void swift_nap_setup()
 {
-  /* Initialise the SPI peripheral. */
+  /* Setup the FPGA_PROGRAM_B line output */
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
+	//gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO12);
+  //gpio_set(GPIOC, GPIO12);
+  /* Setup the FPGA_DONE line input*/
+	gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO1);
+  /* Setup PA2 - FPGA logic reset */
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
+	gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
+  gpio_clear(GPIOA, GPIO2);
+
+  //wait until FPGA_DONE goes high to make sure FPGA is configured
+  //swift_nap_configure();
+  while(!(gpio_get(GPIOC,GPIO1)));
+  //swift_nap_reset();
+
+  /* Initialise the SPI peripheral.
+     Note - if configuration is done manually at beginning of
+     STM code, this must be done AFTERWARDS - FPGA uses SPI2
+     to configure itself */
   spi_setup();
-//  spi_dma_setup();
 
   /* Setup the front end. */
   max2769_setup();
-
-  /* Setup the reset line GPIO. */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPBEN;
-	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO6);
-  gpio_clear(GPIOB, GPIO6);
 
   /* Setup the timing strobe output. */
   timing_strobe_setup();
@@ -66,10 +80,26 @@ void swift_nap_setup()
 
 void swift_nap_reset()
 {
-  gpio_set(GPIOB, GPIO6);
+  //Strobe logical RESET pin high
+  gpio_set(GPIOA, GPIO2);
   for (int i = 0; i < 50; i++)
     __asm__("nop");
-  gpio_clear(GPIOB, GPIO6);
+  gpio_clear(GPIOA, GPIO2);
+  //Allow time for FPGA internal reset sequence
+  //10 periods at 16.368MHz
+  for (int i = 0; i < 200; i++)
+    __asm__("nop");
+}
+
+void swift_nap_configure()
+{
+  //Strobe PROGRAM_B pin to begin configuration
+  gpio_clear(GPIOC, GPIO12);
+  for (int i = 0; i < 50; i++)
+    __asm__("nop");
+  gpio_set(GPIOC, GPIO12);
+  //Wait for FPGA_DONE to go high to signal end of configuration
+  while(!(gpio_get(GPIOC,GPIO1)));
 }
 
 void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_out[])
@@ -102,25 +132,26 @@ void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_
 
 void exti_setup()
 {
-  /* Signal from the FPGA is on PC6. */
+  /* Signal from the FPGA is on PA1. */
 
   /* Enable clock to GPIOA. */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
   /* Enable clock to SYSCFG which contains the EXTI functionality. */
   RCC_APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 
-  exti_select_source(EXTI6, GPIOC);
-	exti_set_trigger(EXTI6, EXTI_TRIGGER_RISING);
-  exti_reset_request(EXTI6);
-	exti_enable_request(EXTI6);
+  exti_select_source(EXTI1, GPIOA);
+	exti_set_trigger(EXTI1, EXTI_TRIGGER_RISING);
+  exti_reset_request(EXTI1);
+	exti_enable_request(EXTI1);
 
-	/* Enable EXTI6 interrupt */
-	nvic_enable_irq(NVIC_EXTI9_5_IRQ);
+	/* Enable EXTI1 interrupt */
+	nvic_enable_irq(NVIC_EXTI1_IRQ);
 }
 
-void exti9_5_isr()
+void exti1_isr()
 {
-  exti_reset_request(EXTI6);
+
+  exti_reset_request(EXTI1);
 
   u32 irq = swift_nap_read_irq_blocking();
 
@@ -166,8 +197,8 @@ void exti9_5_isr()
    * NAP then the IRQ line will stay high. Therefore if
    * the line is still high, trigger another interrupt.
    */
-  if (GPIOC_IDR & GPIO6)
-    EXTI_SWIER = (1<<6);
+  if (GPIOA_IDR & GPIO1)
+    EXTI_SWIER = (1<<1);
 }
 
 u32 last_exti_count()
@@ -441,7 +472,7 @@ void track_read_phase_blocking(u8 channel, u32* carrier_phase, u64* code_phase)
                 ((u64)temp[0] << 40);
 }
 
-void spi_dma_setup() {
+void spi_dma_setup() { // not yet updated for v2.2
 
   RCC_AHB1ENR |= RCC_AHB1ENR_DMA1EN;  // Enable clock to DMA peripheral
 
@@ -489,7 +520,7 @@ void spi_dma_setup() {
 
 }
 
-void swift_nap_xfer_dma(u8 n_bytes) {
+void swift_nap_xfer_dma(u8 n_bytes) { // not yet updated for v2.2
 
   if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
     /* DMA transfer already in progress.
@@ -508,7 +539,7 @@ void swift_nap_xfer_dma(u8 n_bytes) {
 }
 
 
-void track_read_corr_dma(u8 channel)
+void track_read_corr_dma(u8 channel) // not yet updated for v2.2
 {
   spi_dma_buffer[0] = SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET; // Select correlation result register
 
@@ -516,7 +547,7 @@ void track_read_corr_dma(u8 channel)
   swift_nap_xfer_dma(2*3*3);
 }
 
-void track_unpack_corr_dma(corr_t corrs[])
+void track_unpack_corr_dma(corr_t corrs[]) // not yet updated for v2.2
 {
   /* Correlations now in DMA buffer, skip first byte that
    * corresponds to the SPI ID.

@@ -79,6 +79,7 @@ typedef struct {
 
 void swift_nap_setup();
 void swift_nap_reset();
+void swift_nap_configure();
 void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_out[]);
 
 void exti_setup();
