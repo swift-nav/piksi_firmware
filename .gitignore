@@ -20,3 +20,4 @@ docs/diagrams/*.log
 docs/diagrams/*.pdf
 docs/diagrams/*.png
 libswiftnav/python/build
+libswiftnav/python/swiftnav/*.c
