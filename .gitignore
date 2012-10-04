@@ -19,3 +19,4 @@ docs/diagrams/*.aux
 docs/diagrams/*.log
 docs/diagrams/*.pdf
 docs/diagrams/*.png
+libswiftnav/python/build
