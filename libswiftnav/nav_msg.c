@@ -179,22 +179,22 @@ int nav_parity(u32 *word) {
 
  // printf("w=%08X  ",(unsigned int )word);
 
-  if (parity(*word & 0b10111011000111110011010010100000)) // check d25 (see IS-GPS-200E Table 20-XIV)
+  if (parity(*word & 0xBB1F34A0 /* 0b10111011000111110011010010100000 */)) // check d25 (see IS-GPS-200E Table 20-XIV)
     return 25;
 
-  if (parity(*word & 0b01011101100011111001101001010000)) // check d26
+  if (parity(*word & 0x5D8F9A50 /* 0b01011101100011111001101001010000 */)) // check d26
     return 26;
 
-  if (parity(*word & 0b10101110110001111100110100001000)) // check d27
+  if (parity(*word & 0xAEC7CD08 /* 0b10101110110001111100110100001000 */)) // check d27
     return 27;
 
-  if (parity(*word & 0b01010111011000111110011010000100)) // check d28
+  if (parity(*word & 0x5763E684 /* 0b01010111011000111110011010000100 */)) // check d28
     return 28;
 
-  if (parity(*word & 0b01101011101100011111001101000010)) // check d29
+  if (parity(*word & 0x6BB1F342 /* 0b01101011101100011111001101000010 */)) // check d29
     return 29;
 
-  if (parity(*word & 0b10001011011110101000100111000001)) // check d30
+  if (parity(*word & 0x8B7A89C1 /* 0b10001011011110101000100111000001 */)) // check d30
     return 30;
 
   return 0;
