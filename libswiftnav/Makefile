@@ -53,6 +53,8 @@ endif
 
 all: $(LIBNAME)-x86.a $(LIBNAME)-arm.a check
 
+x86: $(LIBNAME)-x86.a check
+
 $(LIBNAME)-arm.a: $(ARM_OBJS)
 	@printf "  ARM AR   $(subst $(shell pwd)/,,$(@))\n"
 	$(Q)$(ARM_AR) $(ARFLAGS) $@ $^
