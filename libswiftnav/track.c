@@ -12,6 +12,7 @@
 #include <math.h>
 
 #include "pvt.h"
+#include "prns.h"
 #include "track.h"
 #include "ephemeris.h"
 #include "tropo.h"
@@ -178,6 +179,56 @@ void calc_navigation_measurement(u8 n_channels, channel_measurement_t meas[], na
     nav_meas[i].pseudorange += clock_err*NAV_C;
     nav_meas[i].pseudorange_rate -= clock_rate_err*NAV_C;
   }
+}
+
+void track_correlate(s8* samples, long* code,
+                     double* init_code_phase, double code_step, double* init_carr_phase, double carr_step,
+                     double* I_E, double* Q_E, double* I_P, double* Q_P, double* I_L, double* Q_L, u32* num_samples)
+{
+  double code_phase = *init_code_phase;
+  double carr_phase = *init_carr_phase;
+
+  double carr_sin = sin(carr_phase);
+  double carr_cos = cos(carr_phase);
+  double sin_delta = sin(carr_step);
+  double cos_delta = cos(carr_step);
+
+  *I_E = *Q_E = *I_P = *Q_P = *I_L = *Q_L = 0;
+
+  double code_E, code_P, code_L;
+  double baseband_Q, baseband_I;
+
+  *num_samples = (int)ceil((1023.0 - code_phase) / code_step);
+
+  for (u32 i=0; i<*num_samples; i++) {
+    /*code_E = get_chip(code, (int)ceil(code_phase-0.5));*/
+    /*code_P = get_chip(code, (int)ceil(code_phase));*/
+    /*code_L = get_chip(code, (int)ceil(code_phase+0.5));*/
+    code_E = code[(int)ceil(code_phase-0.5)];
+    code_P = code[(int)ceil(code_phase)];
+    code_L = code[(int)ceil(code_phase+0.5)];
+
+    baseband_Q = carr_cos * samples[i];
+    baseband_I = carr_sin * samples[i];
+
+    double carr_sin_ = carr_sin*cos_delta + carr_cos*sin_delta;
+    double carr_cos_ = carr_cos*cos_delta - carr_sin*sin_delta;
+    double i_mag = (3.0 - carr_sin_*carr_sin_ - carr_cos_*carr_cos_) / 2.0;
+    carr_sin = carr_sin_ * i_mag;
+    carr_cos = carr_cos_ * i_mag;
+
+    *I_E += code_E * baseband_I;
+    *Q_E += code_E * baseband_Q;
+    *I_P += code_P * baseband_I;
+    *Q_P += code_P * baseband_Q;
+    *I_L += code_L * baseband_I;
+    *Q_L += code_L * baseband_Q;
+
+    code_phase += code_step;
+    carr_phase += carr_step;
+  }
+  *init_code_phase = code_phase - 1023;
+  *init_carr_phase = fmod(carr_phase, 2*M_PI);
 }
 
 /** \} */
