@@ -1,4 +1,5 @@
 # Build script for 'swiftnav' - Python libswiftnav bindings
+import numpy as np
 
 # Change this as needed
 libswiftnav_path = ".."
@@ -32,7 +33,7 @@ def make_extension(ext_name):
   return Extension(
     ext_name,
     [ext_path],
-    include_dirs = [libswiftnav_path, "."],
+    include_dirs = [np.get_include(), libswiftnav_path, "."],
     library_dirs = [libswiftnav_path],
     extra_compile_args = ["-O3", "-Wall"],
     extra_link_args = ['-g'],
