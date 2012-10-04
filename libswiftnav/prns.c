@@ -36,6 +36,14 @@ const u8* ca_code(u8 prn) {
   return ca_codes[prn];
 }
 
+inline s8 get_chip(u8* code, u32 chip_num)
+{
+  u32 byte = chip_num / 8;
+  u8 bit = 7 - chip_num % 8;
+
+  return ((code[byte] >> bit) & 1) ? -1 : 1;
+}
+
 /** \} */
 /** \} */
 

@@ -15,5 +15,6 @@
 #include "common.h"
 
 const u8* ca_code(u8 prn);
+inline s8 get_chip(u8* code, u32 chip_num);
 
 #endif /* SWIFTLIB_PRNS_H */
