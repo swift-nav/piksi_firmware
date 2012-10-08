@@ -25,10 +25,10 @@ MAKEFLAGS += --no-print-directory
 
 CC = gcc
 COMMON_CFLAGS += -O3 -g -Wall -Wextra -Werror \
-		   -ffunction-sections -fdata-sections -MD \
+		   -ffunction-sections -fdata-sections \
 		   -Wstrict-prototypes -fno-common -fPIC \
 		   -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99
-CFLAGS += $(COMMON_CFLAGS) #-fprofile-arcs -ftest-coverage
+CFLAGS += $(COMMON_CFLAGS) -arch i386 -arch x86_64 #-fprofile-arcs -ftest-coverage
 ARFLAGS	= rcs
 SRCS = linear_algebra.c \
 			 coord_system.c \
