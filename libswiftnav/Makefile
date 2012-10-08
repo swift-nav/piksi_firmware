@@ -51,7 +51,7 @@ ifneq ($(V),1)
 Q := @
 endif
 
-all: $(LIBNAME)-x86.a $(LIBNAME)-arm.a check
+all: $(LIBNAME)-x86.a $(LIBNAME)-arm.a check python
 
 x86: $(LIBNAME)-x86.a check
 
@@ -82,14 +82,20 @@ lcov:
 	lcov -d ./ -c --output-file lcov/coverage.info
 	cd lcov && genhtml --legend coverage.info
 
+python: $(LIBNAME)-x86.a
+	$(Q)cd python/; python setup.py build; cd ..
+
 clean:
 	$(Q)rm -f *.arm.o *.o *.d *.a
 	$(Q)rm -f *.gcda *.gcno
 	$(Q)rm -rf lcov/
-	@printf "  CLEAN    tests\n"; \
-	$(MAKE) -C tests $(MAKEFLAGS) clean
+	@printf "  CLEAN    tests\n"
+	$(Q)$(MAKE) -C tests $(MAKEFLAGS) clean
+	@printf "  CLEAN    python\n"
+	$(Q)cd python/; python setup.py clean; cd ..
+	$(Q)rm -f python/swiftnav/*.c
 
-.PHONY: clean check lcov
+.PHONY: clean check lcov python
 
 -include $(SRCS:.c=.d)
 
