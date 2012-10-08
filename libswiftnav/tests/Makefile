@@ -4,8 +4,8 @@ CFLAGS += -O0 -g -Wall -Wextra -Werror \
 			 -ffunction-sections -fdata-sections -MD \
 			 -Wstrict-prototypes -fno-common \
 			 -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99 \
-			 -I../
-LDFLAGS += -lm -L../ -fprofile-arcs
+			 -I../ -I/opt/local/include
+LDFLAGS += -lm -L../ -L/opt/local/lib -fprofile-arcs
 
 SRCS = check_main.c \
 			 check_utils.c \
