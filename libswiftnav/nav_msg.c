@@ -200,8 +200,9 @@ int nav_parity(u32 *word) {
   return 0;
 }
 
-
-
+bool subframe_ready(nav_msg_t *n) {
+  return (n->subframe_start_index != 0);
+}
 
 void process_subframe(nav_msg_t *n, ephemeris_t *e) {
   // Check parity and parse out the ephemeris from the most recently received subframe
