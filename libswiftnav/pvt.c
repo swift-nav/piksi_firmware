@@ -205,6 +205,9 @@ static double pvt_solve(double rx_state[],
     /* Construct a geometry matrix.  Each row (satellite) is
      * independently normalized into a unit vector.
      */
+    /* TODO: these aren't normalised now are they! But still
+     * seems to work ok.
+     */
     for (u8 i=0; i<3; i++) {
       los[i] = los[i] / p_pred[j];
       G[j][i] = -los[i];
