@@ -7,8 +7,7 @@ cimport cython
 cimport track_c
 cimport prns_c
 from common cimport *
-
-cdef double PI = 3.1415926535897932384626433832795028841971693993751058209
+from libc.math cimport M_PI
 
 @cython.boundscheck(False)
 def track_correlate_cy(np.ndarray[char, ndim=1, mode="c"] rawSignal,
@@ -19,7 +18,7 @@ def track_correlate_cy(np.ndarray[char, ndim=1, mode="c"] rawSignal,
                        np.ndarray[long, ndim=1, mode="c"] caCode,
                        settings):
       cdef double codePhaseStep = codeFreq/settings.samplingFreq
-      cdef double carrPhaseStep = carrFreq * 2.0 * PI / settings.samplingFreq
+      cdef double carrPhaseStep = carrFreq * 2.0 * M_PI / settings.samplingFreq
       cdef unsigned int blksize = <unsigned int>libc.math.ceil((settings.codeLength - remCodePhase)/codePhaseStep)
 
       cdef double codePhase = remCodePhase
@@ -73,7 +72,7 @@ def track_correlate_cy(np.ndarray[char, ndim=1, mode="c"] rawSignal,
         codePhase += codePhaseStep
         carrPhase += carrPhaseStep
       remCodePhase = codePhase - 1023
-      remCarrPhase = carrPhase % (2.0*PI)
+      remCarrPhase = carrPhase % (2.0*M_PI)
 
       return (I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, remCodePhase, remCarrPhase)
 
@@ -88,6 +87,6 @@ def track_correlate(np.ndarray[char, ndim=1, mode="c"] rawSignal,
   cdef unsigned int blksize
   track_c.track_correlate(<s8*>&rawSignal[0], &caCode[0],
                           &init_code_phase, codeFreq/settings.samplingFreq,
-                          &init_carr_phase, carrFreq * 2.0 * PI / settings.samplingFreq,
+                          &init_carr_phase, carrFreq * 2.0 * M_PI / settings.samplingFreq,
                           &I_E, &Q_E, &I_P, &Q_P, &I_L, &Q_L, &blksize)
   return (I_E, Q_E, I_P, Q_P, I_L, Q_L, blksize, init_code_phase, init_carr_phase)
