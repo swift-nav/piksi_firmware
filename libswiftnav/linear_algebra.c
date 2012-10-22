@@ -91,7 +91,7 @@
  *     0
  *     \end{bmatrix}
  * \f] where \f$ R' \f$ is an upper-triangular matrix on \f$
- * \mathbb{R}^{M \times M} \f$.  
+ * \mathbb{R}^{M \times M} \f$.
  *
  *  \param A            The matrix \f$ A \f$ to decompose (input)
  *  \param rows         How many rows in A
@@ -99,7 +99,7 @@
  *  \param qt           \f$ Q^{T} \f$ (output)
  *  \param r            \f$ R \f$ (output)
  *
- *  \return         -1 if A is singular; 0 otherwise;    
+ *  \return         -1 if A is singular; 0 otherwise;
  */
 s32 qrdecomp(const double *a, u32 rows, u32 cols, double *qt, double *r) {
   s32 sing = 0;
@@ -253,7 +253,7 @@ s32 qrdecomp(const double *a, u32 rows, u32 cols, double *qt, double *r) {
  *  \param qt           \f$ Q^{T} \f$ (output)
  *  \param r            \f$ R \f$ (output)
  *
- *  \return         -1 if A is singular; 0 otherwise;    
+ *  \return         -1 if A is singular; 0 otherwise;
  */
 s32 qrdecomp_square(const double *a, u32 rows, double *qt, double *r) {
   s32 sing = 0;
@@ -600,7 +600,7 @@ inline int matrix_inverse(u32 n, const double const *a, double *b) {
  *      A^{T} (A A^{T})^{-1} & \text{if } m > n \\
  *      A^{-1} & \text{if } n = m
  *  \end{cases} \f]
- * 
+ *
  * If \f$ n > m \f$, then \f$ A \f$ must be of full column rank, and
  * \f$ A^{+} \f$ solves the linear least-squares (overconstrained)
  * problem: \f[ x' = A^{+} b = \underset{x}{min} \|Ax - b\|_{2} \f]
@@ -640,7 +640,7 @@ int matrix_pseudoinverse(u32 n, u32 m, const double *a, double *b) {
  *  \param n            Number of rows in a
  *  \param m            Number of columns in a and rows and columns in b
  *  \param a            Input matrix
- *  \param w            Diagonal vector of weighting matrix 
+ *  \param w            Diagonal vector of weighting matrix
  *  \param b            Output matrix
  *
  *  \return     -1 if n <= m or singular; 0 otherwise
@@ -689,7 +689,7 @@ inline int matrix_atwaiat(u32 n, u32 m, const double *a,
  *  \param n            Number of rows in a and rows and columns in b
  *  \param m            Number of columns in a
  *  \param a            Input matrix
- *  \param w            Diagonal vector of weighting matrix 
+ *  \param w            Diagonal vector of weighting matrix
  *  \param b            Output matrix
  *
  *  \return     -1 if n <= m or singular; 0 otherwise
