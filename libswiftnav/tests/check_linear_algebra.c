@@ -282,11 +282,11 @@ START_TEST(test_vector_mean) {
   for (t = 0; t < LINALG_NUM; t++) {
     u32 n = sizerand(MSIZE_MAX);
     double A[n];
-    double test = mrand;
+    double test = mrand/1e22;
     for (i = 0; i < n; i++)
       A[i] = test + i;
     double mean = vector_mean(n, A);
-    double expect = test + ((double) i / 2.0);
+    double expect = test + (n - 1.0) / 2.0;
     fail_unless(fabs(mean - expect)
                 < LINALG_TOL,
                 "Mean differs from expected %lf: %lf (%lf)",
