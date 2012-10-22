@@ -146,17 +146,32 @@ double dll_discriminator(correlation_t cs[3]) {
 
 void calc_navigation_measurement(u8 n_channels, channel_measurement_t meas[], navigation_measurement_t nav_meas[], double nav_time, ephemeris_t ephemerides[])
 {
+  channel_measurement_t* meas_ptrs[n_channels];
+  navigation_measurement_t* nav_meas_ptrs[n_channels];
+  ephemeris_t* ephemerides_ptrs[n_channels];
+
+  for (u8 i=0; i<n_channels; i++) {
+    meas_ptrs[i] = &meas[i];
+    nav_meas_ptrs[i] = &nav_meas[i];
+    ephemerides_ptrs[i] = &ephemerides[i];
+  }
+
+  calc_navigation_measurement_(n_channels, meas_ptrs, nav_meas_ptrs, nav_time, ephemerides_ptrs);
+}
+
+void calc_navigation_measurement_(u8 n_channels, channel_measurement_t* meas[], navigation_measurement_t* nav_meas[], double nav_time, ephemeris_t* ephemerides[])
+{
   double TOTs[n_channels];
   double mean_TOT = 0;
 
   for (u8 i=0; i<n_channels; i++) {
-    TOTs[i] = 1e-3*meas[i].time_of_week_ms;
-    TOTs[i] += meas[i].code_phase_chips / 1.023e6;
-    TOTs[i] += (nav_time - meas[i].receiver_time) * meas[i].code_phase_rate / 1.023e6;
+    TOTs[i] = 1e-3 * meas[i]->time_of_week_ms;
+    TOTs[i] += meas[i]->code_phase_chips / 1.023e6;
+    TOTs[i] += (nav_time - meas[i]->receiver_time) * meas[i]->code_phase_rate / 1.023e6;
 
-    nav_meas[i].TOT = TOTs[i];
+    nav_meas[i]->TOT = TOTs[i];
     mean_TOT += TOTs[i];
-    nav_meas[i].pseudorange_rate = NAV_C * -meas[i].carrier_freq / GPS_L1_HZ;
+    nav_meas[i]->pseudorange_rate = NAV_C * -meas[i]->carrier_freq / GPS_L1_HZ;
   }
 
   mean_TOT = mean_TOT/n_channels;
@@ -170,14 +185,14 @@ void calc_navigation_measurement(u8 n_channels, channel_measurement_t meas[], na
   wgsllh2ecef(WPR_llh, WPR_ecef);
 
   for (u8 i=0; i<n_channels; i++) {
-    nav_meas[i].pseudorange = (mean_TOT - TOTs[i])*NAV_C + NOMINAL_RANGE;
+    nav_meas[i]->pseudorange = (mean_TOT - TOTs[i])*NAV_C + NOMINAL_RANGE;
 
-    calc_sat_pos(nav_meas[i].sat_pos, nav_meas[i].sat_vel, &clock_err, &clock_rate_err, &ephemerides[meas[i].prn], TOTs[i]);
-    wgsecef2azel(nav_meas[i].sat_pos, WPR_ecef, &az, &el);
+    calc_sat_pos(nav_meas[i]->sat_pos, nav_meas[i]->sat_vel, &clock_err, &clock_rate_err, ephemerides[i], TOTs[i]);
+    wgsecef2azel(nav_meas[i]->sat_pos, WPR_ecef, &az, &el);
 
-    nav_meas[i].pseudorange -= tropo_correction(el);
-    nav_meas[i].pseudorange += clock_err*NAV_C;
-    nav_meas[i].pseudorange_rate -= clock_rate_err*NAV_C;
+    /*nav_meas[i]->pseudorange -= tropo_correction(el);*/
+    nav_meas[i]->pseudorange += clock_err*NAV_C;
+    nav_meas[i]->pseudorange_rate -= clock_rate_err*NAV_C;
   }
 }
 
