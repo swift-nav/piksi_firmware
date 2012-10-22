@@ -454,6 +454,7 @@ START_TEST(test_vector_three) {
 }
 END_TEST
 
+/*
 START_TEST(test_qrsolve_consistency) {
   u32 i, j, t;
   double norm;
@@ -502,6 +503,7 @@ START_TEST(test_qrsolve_rect) {
   MAT_PRINTF(R, 4, 2);
 }
 END_TEST
+*/
 
 Suite* linear_algebra_suite(void) {
   Suite *s = suite_create("Linear algebra");
@@ -525,8 +527,8 @@ Suite* linear_algebra_suite(void) {
   tcase_add_test(tc_core, test_vector_subtract);
   tcase_add_test(tc_core, test_vector_cross);
   tcase_add_test(tc_core, test_vector_three);
-  tcase_add_test(tc_core, test_qrsolve_consistency);
-  tcase_add_test(tc_core, test_qrsolve_rect);
+  /*tcase_add_test(tc_core, test_qrsolve_consistency);*/
+  /*tcase_add_test(tc_core, test_qrsolve_rect);*/
   suite_add_tcase(s, tc_core);
 
   return s;
