@@ -95,7 +95,18 @@ clean:
 	$(Q)cd python/; python setup.py clean; cd ..
 	$(Q)rm -f python/swiftnav/*.c
 
-.PHONY: clean check lcov python
+# Program to run for Google CPP Lint code
+LINT = $(shell command -v cpplint || command -v cpplint.py)
+
+# A target for emacs' flymake-mode!
+check-syntax:
+	-$(Q)$(CC) $(CFLAGS) -fsyntax-only $(CHK_SOURCES)
+	-$(LINT) $(CHK_SOURCES) 2>&1 | grep -v "C-style cast"
+
+lint:
+	$(MAKE) check-syntax CHK_SOURCES="$(SRCS)"
+
+.PHONY: clean check lcov check-syntax lint python
 
 -include $(SRCS:.c=.d)
 
