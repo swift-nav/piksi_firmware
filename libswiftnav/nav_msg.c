@@ -228,7 +228,7 @@ void process_subframe(nav_msg_t *n, ephemeris_t *e) {
 
   u8 sf_id = sf_word2 >> 8 & 0x07;    // Which of 5 possible subframes is it?
 
-  printf("sf_id = %d\n",sf_id);
+  /*printf("sf_id = %d\n",sf_id);*/
 
   if (sf_id <= 3 && sf_id == n->next_subframe_id) {  // Is it the one that we want next?
 
