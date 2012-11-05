@@ -35,6 +35,10 @@ cdef class Solution:
               self.soln.vel_ecef[1],
               self.soln.vel_ecef[2])
 
+  property tow:
+    def __get__(self):
+      return self.soln.time
+
 def calc_PVT(nav_meas):
   n_used = len(nav_meas)
   cdef navigation_measurement_t* nav_meas_array = <navigation_measurement_t*>malloc(n_used*sizeof(navigation_measurement_t))
