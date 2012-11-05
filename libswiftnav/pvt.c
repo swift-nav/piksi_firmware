@@ -333,6 +333,7 @@ u8 calc_PVT(const u8 n_used,
   /* Implicitly use the first receiver to calculate offset from GPS
    * TOW.  Maybe there's a better way to do this?  */
   /* TODO: what is this about? */
+  soln->time = nav_meas[0].TOT;
   soln->time -= rx_state[3] / NAV_C;
 
   return 0;
