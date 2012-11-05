@@ -15,6 +15,7 @@
 #include <stdint.h>
 
 typedef struct {
+  uint16_t wn;
   double tgd;
   double crs, crc, cuc, cus, cic, cis;
   double dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot;

@@ -271,6 +271,8 @@ void process_subframe(nav_msg_t *n, ephemeris_t *e) {
 
       // Subframe 1: SV health, T_GD, t_oc, a_f2, a_f1, a_f0
 
+      e->wn = (n->frame_words[0][3-3] >> (30-10) & 0x3FF);       // GPS week number (mod 1024): Word 3, bits 20-30
+
       e->healthy = !(n->frame_words[0][3-3] >> (30-17) & 1);     // Health flag: Word 3, bit 17
       if (!e->healthy)
         printf("UNHEALTHY");
