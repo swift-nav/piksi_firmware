@@ -28,7 +28,7 @@ COMMON_CFLAGS += -O3 -g -Wall -Wextra -Werror \
 		   -ffunction-sections -fdata-sections -MD \
 		   -Wstrict-prototypes -fno-common -fPIC \
 		   -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99
-CFLAGS += $(COMMON_CFLAGS) #-fprofile-arcs -ftest-coverage
+CFLAGS += $(COMMON_CFLAGS) -fprofile-arcs -ftest-coverage
 ARFLAGS	= rcs
 SRCS = linear_algebra.c \
 			 coord_system.c \
@@ -83,7 +83,7 @@ lcov:
 	cd lcov && genhtml --legend coverage.info
 
 python: $(LIBNAME)-x86.a
-	$(Q)cd python/; python setup.py build; cd ..
+	$(Q)cd python/; env ARCHFLAGS="" python setup.py build; cd ..
 
 clean:
 	$(Q)rm -f *.arm.o *.o *.d *.a
