@@ -205,6 +205,9 @@ static double pvt_solve(double rx_state[],
     /* Construct a geometry matrix.  Each row (satellite) is
      * independently normalized into a unit vector.
      */
+    /* TODO: these aren't normalised now are they! But still
+     * seems to work ok.
+     */
     for (u8 i=0; i<3; i++) {
       los[i] = los[i] / p_pred[j];
       G[j][i] = -los[i];
@@ -330,6 +333,7 @@ u8 calc_PVT(const u8 n_used,
   /* Implicitly use the first receiver to calculate offset from GPS
    * TOW.  Maybe there's a better way to do this?  */
   /* TODO: what is this about? */
+  soln->time = nav_meas[0].TOT;
   soln->time -= rx_state[3] / NAV_C;
 
   return 0;

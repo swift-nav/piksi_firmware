@@ -200,8 +200,9 @@ int nav_parity(u32 *word) {
   return 0;
 }
 
-
-
+bool subframe_ready(nav_msg_t *n) {
+  return (n->subframe_start_index != 0);
+}
 
 void process_subframe(nav_msg_t *n, ephemeris_t *e) {
   // Check parity and parse out the ephemeris from the most recently received subframe
@@ -227,7 +228,7 @@ void process_subframe(nav_msg_t *n, ephemeris_t *e) {
 
   u8 sf_id = sf_word2 >> 8 & 0x07;    // Which of 5 possible subframes is it?
 
-  printf("sf_id = %d\n",sf_id);
+  /*printf("sf_id = %d\n",sf_id);*/
 
   if (sf_id <= 3 && sf_id == n->next_subframe_id) {  // Is it the one that we want next?
 
@@ -269,6 +270,8 @@ void process_subframe(nav_msg_t *n, ephemeris_t *e) {
       } fourbyte;
 
       // Subframe 1: SV health, T_GD, t_oc, a_f2, a_f1, a_f0
+
+      e->wn = (n->frame_words[0][3-3] >> (30-10) & 0x3FF);       // GPS week number (mod 1024): Word 3, bits 20-30
 
       e->healthy = !(n->frame_words[0][3-3] >> (30-17) & 1);     // Health flag: Word 3, bit 17
       if (!e->healthy)
