@@ -84,13 +84,13 @@ def track_correlate_cy(np.ndarray[char, ndim=1, mode="c"] rawSignal,
 
 def track_correlate(np.ndarray[char, ndim=1, mode="c"] rawSignal,
                        codeFreq, remCodePhase, carrFreq, remCarrPhase,
-                       np.ndarray[long, ndim=1, mode="c"] caCode,
+                       np.ndarray[char, ndim=1, mode="c"] caCode,
                        settings):
   cdef double init_code_phase = remCodePhase
   cdef double init_carr_phase = remCarrPhase
   cdef double I_E, Q_E, I_P, Q_P, I_L, Q_L
   cdef unsigned int blksize
-  track_c.track_correlate(<s8*>&rawSignal[0], &caCode[0],
+  track_c.track_correlate(<s8*>&rawSignal[0], <s8*>&caCode[0],
                           &init_code_phase, codeFreq/settings.samplingFreq,
                           &init_carr_phase, carrFreq * 2.0 * M_PI / settings.samplingFreq,
                           &I_E, &Q_E, &I_P, &Q_P, &I_L, &Q_L, &blksize)

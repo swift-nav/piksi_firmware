@@ -196,7 +196,7 @@ void calc_navigation_measurement_(u8 n_channels, channel_measurement_t* meas[], 
   }
 }
 
-void track_correlate(s8* samples, long* code,
+void track_correlate(s8* samples, s8* code,
                      double* init_code_phase, double code_step, double* init_carr_phase, double carr_step,
                      double* I_E, double* Q_E, double* I_P, double* Q_P, double* I_L, double* Q_L, u32* num_samples)
 {

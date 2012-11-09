@@ -19,7 +19,7 @@ cdef extern from "track.h":
     double sat_pos[3]
     double sat_vel[3]
 
-  void track_correlate(s8* samples, long* code, double* init_code_phase, double code_step, double* init_carr_phase, double carr_step, double* I_E, double* Q_E, double* I_P, double* Q_P, double* I_L, double* Q_L, u32* num_samples)
+  void track_correlate(s8* samples, s8* code, double* init_code_phase, double code_step, double* init_carr_phase, double carr_step, double* I_E, double* Q_E, double* I_P, double* Q_P, double* I_L, double* Q_L, u32* num_samples)
 
   void calc_navigation_measurement_(u8 n_channels, channel_measurement_t* meas[], navigation_measurement_t* nav_meas[], double nav_time, ephemeris_t* ephemerides[])
 
