@@ -84,6 +84,8 @@ lcov:
 
 python: $(LIBNAME)-x86.a
 	$(Q)cd python/; env ARCHFLAGS="" python setup.py build; cd ..
+install: python
+	$(Q)cd python/; env ARCHFLAGS="" python setup.py install; cd ..
 
 clean:
 	$(Q)rm -f *.arm.o *.o *.d *.a
