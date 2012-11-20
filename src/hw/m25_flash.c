@@ -161,10 +161,10 @@ void flash_write_callback(u8 buff[]) {
   u8 len = *(u8 *)&buff[4];
   u8 *data = &buff[5];
 
-  printf("SPI Flash writing %d bytes to 0x%06X...", (int)len, (unsigned int)addr);
+//  printf("SPI Flash writing %d bytes to 0x%06X...", (int)len, (unsigned int)addr);
   m25_write_enable();
   m25_page_program(addr, len, data);
-  printf("ok\n");
+//  printf("ok\n");
 
   debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
 }
@@ -177,7 +177,7 @@ void flash_read_callback(u8 buff[]) {
   addr = *(u32 *)&buff[0];
   len  = *(u32 *)&buff[4];
 
-  printf("SPI Flash reading %d bytes from 0x%06X:\n", (int)len, (unsigned int)addr);
+//  printf("SPI Flash reading %d bytes from 0x%06X:\n", (int)len, (unsigned int)addr);
 
   while (len) {
     u8 chunk_len = 16;
@@ -214,17 +214,16 @@ void flash_erase_callback(u8 buff[] ) {
 
   u32 addr = *(u32*)buff;
 
-  printf("SPI Flash erasing 64KB from 0x%06X...", (unsigned int)addr & 0xFF0000);
+//  printf("SPI Flash erasing 64KB from 0x%06X...", (unsigned int)addr & 0xFF0000);
 
   m25_write_enable();
   m25_sector_erase(addr);
 
-  printf("ok\n");
+//  printf("ok\n");
 
   debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
 
 }
-
 
 void m25_setup(void) {
   // Assumes spi_setup already called
@@ -240,4 +239,3 @@ void m25_setup(void) {
   printf("SPI flash capacity = %02X, type = %02X, manufacturer = %02X\n", (char) (m25_id & 0xFF), (char)((m25_id >> 8) & 0xFF), (char)((m25_id >> 16) & 0xFF));
 */
 }
-

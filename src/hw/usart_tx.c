@@ -43,7 +43,6 @@ void usart_tx_dma_setup(void) {
   /* Enable TX DMA on the USART. */
   usart_enable_tx_dma(USART6);
 
-  /* USART1 TX - DMA2, stream 7, channel 4 */
   /* USART6 TX - DMA2, stream 7, channel 5 */
 
   /* Make sure stream is disabled to start. */
