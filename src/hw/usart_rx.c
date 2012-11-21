@@ -17,7 +17,6 @@
  */
 
 #include <string.h>
-#include <stdio.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/nvic.h>
@@ -44,20 +43,18 @@ void usart_rx_dma_setup(void) {
   /* Enable RX DMA on the USART. */
   usart_enable_rx_dma(USART6);
 
+  /* USART1 RX - DMA2, stream 5, channel 4. */
   /* USART6 RX - DMA2, stream 2, channel 5. */
 
   /* Make sure stream is disabled to start. */
   DMA2_S2CR &= ~DMA_SxCR_EN;
-
-  /* Supposed to wait until enable bit reads '0' before we write to registers */
-  while (DMA2_S2CR & DMA_SxCR_EN) {
-    __asm__("nop");
-  }
+  DMA2_S2CR = 0;
 
   /* Configure the DMA controller. */
-  DMA2_S2CR = 0;
               /* Error interrupts. */
-  DMA2_S2CR = DMA_SxCR_DMEIE | DMA_SxCR_TEIE | DMA_SxCR_TCIE |
+  DMA2_S2CR = DMA_SxCR_DMEIE | DMA_SxCR_TEIE |
+              /* Transfer complete interrupt. */
+              DMA_SxCR_TCIE |
               /* Enable circular buffer mode. */
               DMA_SxCR_CIRC |
               DMA_SxCR_DIR_PERIPHERAL_TO_MEM |
@@ -97,15 +94,13 @@ void usart_rx_dma_setup(void) {
 
 void dma2_stream2_isr()
 {
-  //make sure TCIF2 and HTIF2 bits are the only ones that are high
-  if ((DMA2_LISR & (DMA_LISR_TCIF2 | DMA_LISR_HTIF2)) && !(DMA2_LISR & ~(DMA_LISR_TCIF2 | DMA_LISR_HTIF2))) {
-//  if (DMA2_LISR & DMA_LISR_TCIF2) {
+  if (DMA2_HISR & DMA_HISR_TCIF5) {
     /* Interrupt is Transmit Complete. We are in circular buffer mode
      * so this probably means we just wrapped the buffer.
      */
 
-    /* Clear the DMA transmit complete and half complete interrupt flags. */
-    DMA2_LIFCR = (DMA_LIFCR_CHTIF2 | DMA_LIFCR_CTCIF2);
+    /* Clear the DMA transmit complete interrupt flag. */
+    DMA2_HIFCR = DMA_HIFCR_CTCIF5;
 
     /* Increment our write wrap counter. */
     wr_wraps++;
@@ -117,104 +112,16 @@ void dma2_stream2_isr()
 
 u32 usart_n_read_dma()
 {
-  static u32 d1_n_written, d1_n_read;
-  static u32 d1_ndtr_old, d1_ndtr_new;
-  static u32 d1_wr_wraps_old, d1_wr_wraps_new;
-  volatile u32 wr_wraps_old, ndtr_old;
-  volatile u32 wr_wraps_new, ndtr_new;
-  u32 xtra_wr_wraps = 1;
-
-  u32 n_written;
-  u32 n_read;
-
-  // It appears that it is possible for the NDTR register to roll over
-  // before "A" without the interrupt being called at any point within the
-  // function - this delay (hopefully) gives enough time for the interrupt
-  // to be called before we read wr_wraps
-  if ((wr_wraps_new == wr_wraps_old) && (d1_wr_wraps_old == d1_wr_wraps_new) && (d1_wr_wraps_new == wr_wraps_new) && ((ndtr_old == USART_RX_BUFFER_LEN) && (ndtr_new == USART_RX_BUFFER_LEN)) && (d1_ndtr_old == 1 && d1_ndtr_new == 1)) {
-//    u32  = ;
-    for (u32 i; i<10000; i++) {
-      __asm__("nop");
-    }
-//    printf("");
-  }
-
-  wr_wraps_old = wr_wraps;
-  //A : possible interrupt here that would cause our observations to be funky
-  //    ie wr_wraps observation is out of date but ndtr has rolled over
-  ndtr_old = DMA2_S2NDTR;
-  //B : possible interrupt here
   __asm__("CPSID i;");
-  //C : possible rollover of DMA2_S2NDTR here - C's are equivalent as wr_wraps
-  //    can't be incremented with interrupts disabled
-  wr_wraps_new = wr_wraps;
-  //C : possible rollover of DMA2_S2NDTR here - C's are equivalent as wr_wraps
-  //    can't be incremented with interrupts disabled
-  ndtr_new = DMA2_S2NDTR;
-  /* We assume that DMA2_S2NDTR does not roll over at more than one of A, B, C,
-   * so we have 4 possible cases :
-   * 1 : no rollover between old and new observations
-   *     wr_wraps_new == wr_wraps_old, ndtr_old >= ndtr_new
-   *     Use new values for n_read / n_written calcs
-   * 2 : rollover at A. 
-   *     wr_wraps_new == wr_wraps_old + 1, ndtr_old >= ndtr_new
-   *     Use new values for n_read / n_written calcs
-   * 3 : rollover at B.
-   *     wr_wraps_new == wr_wraps_old + 1, ndtr_old < ndtr_new
-   *     Use new values for n_read / n_written calcs
-   * 4 : rollover at C
-   *     wr_wraps_new == wr_wraps_old, ndtr_old < ndtr_new
-   *     use wr_wraps_new + 1 and ndtr_new for calcs
-   */
-  if ((wr_wraps_new == wr_wraps_old) && ((ndtr_old < ndtr_new))) {
-    xtra_wr_wraps = 2;
-  } else if ((wr_wraps_new == wr_wraps_old) && (d1_wr_wraps_old == d1_wr_wraps_new) && (d1_wr_wraps_new == wr_wraps_new) && ((ndtr_old == USART_RX_BUFFER_LEN) && (ndtr_new == USART_RX_BUFFER_LEN)) && (d1_ndtr_old == 1 && d1_ndtr_new == 1)) {
-    xtra_wr_wraps = 2;
-  }
-  __asm__("CPSIE i;");
-  n_written = (wr_wraps_new+xtra_wr_wraps)*USART_RX_BUFFER_LEN - ndtr_new;
-  n_read = rd_wraps*USART_RX_BUFFER_LEN + rx_rd;
-//  if ((((ndtr_old == USART_RX_BUFFER_LEN) && (ndtr_new == USART_RX_BUFFER_LEN)) || ((ndtr_old == 1) && (ndtr_new == 1))) && (n_written > 0)) {
-  if (((ndtr_old == USART_RX_BUFFER_LEN) && (ndtr_new == USART_RX_BUFFER_LEN)) && (n_written > 0)) {
-    printf("ndtr_old = %d\n",(int)ndtr_old);
-    printf("ndtr_new = %d\n",(int)ndtr_new);
-    printf("d1_n_written = %d\n",(int)d1_n_written);
-    printf("d1_n_read = %d\n",(int)d1_n_read);
-    printf("d1_wr_wraps_old = %d\n",(int)d1_wr_wraps_old);
-    printf("d1_wr_wraps_new = %d\n",(int)d1_wr_wraps_new);
-    printf("d1_ndtr_old = %d\n",(int)d1_ndtr_old);
-    printf("d1_ndtr_new = %d\n",(int)d1_ndtr_new);
-    printf("wr_wraps_old = %d\n",(int)wr_wraps_old);
-    printf("wr_wraps_new = %d\n",(int)wr_wraps_new);
-    printf("xtra_wr_wraps = %d\n",(int)xtra_wr_wraps);
-    printf("n_written = %d\n",(int)n_written);
-    printf("n_read = %d\n",(int)n_read);
-    printf("\n");
-//    for(u32 i=0; i<1000; i++)
-//      __asm__("nop");
-  }
   // Compare number of bytes written to the number read, if greater
   // than a whole buffer then we have had an overflow.
+  u32 n_read = rd_wraps*USART_RX_BUFFER_LEN + rx_rd;
+  u32 n_written = (wr_wraps+1)*USART_RX_BUFFER_LEN - DMA2_S2NDTR;
+  __asm__("CPSIE i;");
   if (n_written - n_read > USART_RX_BUFFER_LEN) {
-     //Wait for any messages that are still transmitting to finish
-     for (u32 i; i<10000; i++){
-       __asm__("nop");
-     }
-     printf("last wr_wraps before going into speaking death : %d\n", (int)wr_wraps);
-     for (u32 i; i<10000; i++){
-       __asm__("nop");
-     }
-     while(usart_tx_n_free() < USART_TX_BUFFER_LEN){
-       __asm__("nop");
-     }
-     speaking_death("DMA RX buffer overrun");
+    // My buffer runneth over.
+    speaking_death("DMA RX buffer overrun");
   }
-  d1_n_written = n_written;
-  d1_ndtr_old = ndtr_old;
-  d1_wr_wraps_old = wr_wraps_old;
-  d1_ndtr_new = ndtr_new;
-  d1_wr_wraps_new = wr_wraps_new;
-  d1_n_read = n_read;
   return n_written - n_read;
 }
 
@@ -236,22 +143,3 @@ u32 usart_read_dma(u8 data[], u32 len)
   return n;
 }
 
-//u32 usart_read_dma(u8 data[], u32 len)
-//{
-//  u16 n_avail = usart_n_read_dma();
-//  if (len > n_avail)
-//    speaking_death("Tried to read more bytes out of RX buffer than were in RX buffer");
-//  u16 n = len;
-//
-//  if (rx_rd + n < USART_RX_BUFFER_LEN) {
-//    memcpy(data, &rx_buff[rx_rd], n);
-//    rx_rd += n;
-//  } else {
-//    rd_wraps++;
-//    memcpy(&data[0], &rx_buff[rx_rd], USART_RX_BUFFER_LEN - rx_rd);
-//    memcpy(&data[USART_RX_BUFFER_LEN - rx_rd], &rx_buff[0], n - USART_RX_BUFFER_LEN + rx_rd);
-//    rx_rd = n - USART_RX_BUFFER_LEN + rx_rd;
-//  }
-//
-//  return n;
-//}
