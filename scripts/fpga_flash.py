@@ -19,8 +19,8 @@ args = parser.parse_args()
 serial_port = args.port[0]
 flash_file = args.configuration_file[0]
 
-#Check that ending address of hex file is greater than 16 bytes from
-#the end of the flash - we use that space for the FPGA DNA hash
+#Check that ending address of hex file is not in the last sector
+#We use the last 16 bytes of the flash for the FPGA DNA hash
 ihx = IntelHex(flash_file)
 print "Checking to make sure hex file's maximum address is not in last sector"
 print "  Maximum addresss =", hex(ihx.maxaddr())
@@ -36,12 +36,12 @@ piksi_flash.start()
 
 #Write configuration file to FPGA's flash
 print "Writing hex file to FPGA's flash..."
-#piksi_flash.write_ihx(flash_file)
+piksi_flash.write_ihx(flash_file)
 
 #Wait for flash operations to finish
 t1 = time.time()
 try:
-  while piksi_flash.flash_operations_left() > 0:
+  while piksi_flash.flash_callbacks_left() > 0:
     time.sleep(0.1)
 except KeyboardInterrupt:
   pass
@@ -51,7 +51,7 @@ print "Finished writing hex file to device's flash, took %.2f seconds" % (time.t
 print "piksi_flash._read_callbacks_received =", piksi_flash._read_callbacks_received
 print "Reading configuration from flash"
 piksi_flash.read(0,ihx.maxaddr())
-while piksi_flash.flash_operations_left() > 0:
+while piksi_flash.flash_callbacks_left() > 0:
   try:
     time.sleep(0.1)
   except KeyboardInterrupt:
@@ -61,7 +61,11 @@ print "unhandled bytes received by serial link =", link.unhandled_bytes
 print "piksi_flash.rd_cb_addrs[-1] =", hex(piksi_flash.rd_cb_addrs[-1])
 print "piksi_flash.rd_cb_addrs[-1] + piksi_flash.rd_cb_lens[-1] =", hex(piksi_flash.rd_cb_addrs[-1]+piksi_flash.rd_cb_lens[-1])
 
-#
+#Check that the data read back from the flash matches that in the configuration file
+piksi_flash.read_cb_sanity_check()
+if piksi_flash.rd_cb_data != list(ihx.tobinarray(start=ihx.minaddr(), size=ihx.maxaddr()-ihx.minaddr())):
+  raise Exception('Data read from flash does not match configration file')
+print "Data read back from flash matches configuration file. Flashing was successful."
 
 #Clean up before exiting
 piksi_flash.stop()
