@@ -3,12 +3,13 @@ import struct
 import time
 from intelhex import IntelHex
 from threading import Thread, Event
+import sys
 
 PAGESIZE = 256
 SECTORSIZE = 64*1024
 FLASHSIZE = 1024*1024
 #max number of flash operations to have pending in STM
-PENDING_COMMANDS_LIMIT = 5
+PENDING_COMMANDS_LIMIT = 20
 
 def roundup_multiple(x, multiple):
   return x if x % multiple == 0 else x + multiple - x % multiple
@@ -22,12 +23,18 @@ class Flash(Thread):
   _wants_to_exit = False
   _commands_sent = 0
   _done_callbacks_received = 0
+  _read_callbacks_received = 0
+  rd_cb_addrs = []
+  rd_cb_lens = []
+  rd_cb_data = []
+  last_data = []
 
   def __init__(self, link):
     super(Flash, self).__init__()
     self._flash_ready.set()
     self.link = link
     self.link.add_callback(0xF0, self._flash_done_callback)
+    self.link.add_callback(0xF1, self._flash_read_callback)
 
   def flash_operations_left(self):
     return len(self._command_queue) + self._commands_sent - self._done_callbacks_received
@@ -35,7 +42,50 @@ class Flash(Thread):
   def _flash_done_callback(self, data):
     self._flash_ready.set()
     self._done_callbacks_received += 1
-    assert self._commands_sent - self._done_callbacks_received >= 0, "More callbacks received than commands sent"
+    assert self._commands_sent - self._done_callbacks_received >= 0, "More done callbacks received than commands sent"
+
+  def _flash_read_callback(self, data):
+    #3 bytes addr, 1 byte length, length bytes data
+    #append \x00 to the left side as it is a 3-byte big endian unsigned int and 
+    #we unpack as a 4-byte big endian unsigned int
+    self._read_callbacks_received += 1
+    addr = None
+    length = None
+    try:
+      addr = struct.unpack('>I','\x00' + data[0:3])[0]
+      self.rd_cb_addrs.append(addr)
+      length = struct.unpack('B',data[3])[0]
+      self.rd_cb_lens.append(length)
+      self.rd_cb_data += list(struct.unpack(str(self.rd_cb_lens[-1]) + 'B',data[4:]))
+#      self.rd_cb_data += list(struct.unpack('20B',data[4:]))
+      if length != 16:
+        print "read_callbacks_received = ", self._read_callbacks_received
+        print '  addr =', addr
+        print '  length =', length
+        print '  len of data =', len(data)
+        print '  data =', [ord(i) for i in data]
+        print '  last_data =', [ord(i) for i in self.last_data]
+        print '  hex(addr) =', hex(addr)
+        print '  flash operations left =', self.flash_operations_left()
+        sys.exit()
+    except Exception:
+      print "read_callbacks_received = ", self._read_callbacks_received
+      print '  addr =', addr
+      print '  length =', length
+      print '  len of data =', len(data)
+      print '  data =', [ord(i) for i in data]
+      print '  last_data =', [ord(i) for i in self.last_data]
+      print '  hex(addr) =', hex(addr)
+      sys.exit()
+    if self._read_callbacks_received % 0x1000 == 0:
+      print "read_callbacks_received = ", self._read_callbacks_received
+      print '  addr =', addr
+      print '  length =', length
+      print '  len of data =', len(data)
+      print '  data =', [ord(i) for i in data]
+      print '  last_data =', [ord(i) for i in self.last_data]
+      print '  hex(addr) =', hex(addr)
+    self.last_data = data
 
   def _acquire_flash(self):
     self._flash_ready.wait()
@@ -62,7 +112,7 @@ class Flash(Thread):
     self._schedule_command('_read', (addr, length))
   def _read(self, addr, length):
     msg_buf = struct.pack("<II", addr, length)
-    self._commands_sent += 1
+    self._commands_sent += length
     self.link.send_message(0xF1, msg_buf)
 
   def erase_sector(self, length):

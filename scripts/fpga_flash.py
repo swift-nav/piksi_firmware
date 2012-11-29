@@ -21,8 +21,9 @@ flash_file = args.configuration_file[0]
 
 #Check that ending address of hex file is greater than 16 bytes from
 #the end of the flash - we use that space for the FPGA DNA hash
-print "Checking to make sure hex file's maximum address is not in last sector"
 ihx = IntelHex(flash_file)
+print "Checking to make sure hex file's maximum address is not in last sector"
+print "  Maximum addresss =", hex(ihx.maxaddr())
 assert ihx.maxaddr() < (flash.FLASHSIZE-flash.SECTORSIZE), "Highest address in hexfile in in last sector"
 
 #Create SerialLink and Flash objects to write to FPGA's flash
@@ -35,7 +36,7 @@ piksi_flash.start()
 
 #Write configuration file to FPGA's flash
 print "Writing hex file to FPGA's flash..."
-piksi_flash.write_ihx(flash_file)
+#piksi_flash.write_ihx(flash_file)
 
 #Wait for flash operations to finish
 t1 = time.time()
@@ -44,23 +45,25 @@ try:
     time.sleep(0.1)
 except KeyboardInterrupt:
   pass
-finally:
-  print "Finished writing hex file to device's flash, took %.2f seconds" % (time.time() - t1)
-  print "The numbers of commands that were queued =", piksi_flash._num_qd_cmnds
-  piksi_flash.stop()
-  link.close()
-  sys.exit()
-
 print "Finished writing hex file to device's flash, took %.2f seconds" % (time.time() - t1)
 
-#Finished, close the links
-try:
-  while True:
+#Read back the configuration from the flash in order to validate
+print "piksi_flash._read_callbacks_received =", piksi_flash._read_callbacks_received
+print "Reading configuration from flash"
+piksi_flash.read(0,ihx.maxaddr())
+while piksi_flash.flash_operations_left() > 0:
+  try:
     time.sleep(0.1)
-except KeyboardInterrupt:
-  pass
-finally:
-  print "The numbers of commands that were queued =", piksi_flash._num_qd_cmnds
-  piksi_flash.stop()
-  link.close()
-  sys.exit()
+  except KeyboardInterrupt:
+    break
+print "piksi_flash._read_callbacks_received =", piksi_flash._read_callbacks_received
+print "unhandled bytes received by serial link =", link.unhandled_bytes
+print "piksi_flash.rd_cb_addrs[-1] =", hex(piksi_flash.rd_cb_addrs[-1])
+print "piksi_flash.rd_cb_addrs[-1] + piksi_flash.rd_cb_lens[-1] =", hex(piksi_flash.rd_cb_addrs[-1]+piksi_flash.rd_cb_lens[-1])
+
+#
+
+#Clean up before exiting
+piksi_flash.stop()
+link.close()
+sys.exit()

@@ -35,6 +35,7 @@ class ListenerThread (threading.Thread):
         print "Unhandled message %02X" % mt
 
 class SerialLink:
+  unhandled_bytes = 0
   callbacks = {}
 
   def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD):
@@ -54,10 +55,15 @@ class SerialLink:
     # Sync with magic start bytes
     while True:
       magic = self.ser.read()
-      if magic and ord(magic) == DEBUG_MAGIC_1:
-        if ord(self.ser.read()) == DEBUG_MAGIC_2:
-          break
-
+      if magic:
+        if ord(magic) == DEBUG_MAGIC_1:
+          magic = self.ser.read()
+          if ord(magic) == DEBUG_MAGIC_2:
+            break
+          else:
+            self.unhandled_bytes += 1
+        else:
+          self.unhandled_bytes += 1
     msg_type = ord(self.ser.read())
     msg_len = ord(self.ser.read())
     data = ""
