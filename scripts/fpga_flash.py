@@ -36,36 +36,25 @@ piksi_flash.start()
 
 #Write configuration file to FPGA's flash
 print "Writing hex file to FPGA's flash..."
-piksi_flash.write_ihx(flash_file)
-
-#Wait for flash operations to finish
 t1 = time.time()
-try:
-  while piksi_flash.flash_callbacks_left() > 0:
-    time.sleep(0.1)
-except KeyboardInterrupt:
-  pass
-print "Finished writing hex file to device's flash, took %.2f seconds" % (time.time() - t1)
+piksi_flash.write_ihx(flash_file)
+while bool(piksi_flash._command_queue) or (piksi_flash.flash_operations_pending() > 0):
+  time.sleep(0.01)
+print "Finished writing hex file to device's flash, took %.2f seconds." % (time.time() - t1)
 
 #Read back the configuration from the flash in order to validate
-print "piksi_flash._read_callbacks_received =", piksi_flash._read_callbacks_received
 print "Reading configuration from flash"
+t1 = time.time()
 piksi_flash.read(0,ihx.maxaddr())
-while piksi_flash.flash_callbacks_left() > 0:
-  try:
-    time.sleep(0.1)
-  except KeyboardInterrupt:
-    break
-print "piksi_flash._read_callbacks_received =", piksi_flash._read_callbacks_received
-print "unhandled bytes received by serial link =", link.unhandled_bytes
-print "piksi_flash.rd_cb_addrs[-1] =", hex(piksi_flash.rd_cb_addrs[-1])
-print "piksi_flash.rd_cb_addrs[-1] + piksi_flash.rd_cb_lens[-1] =", hex(piksi_flash.rd_cb_addrs[-1]+piksi_flash.rd_cb_lens[-1])
+while bool(piksi_flash._command_queue) or (piksi_flash.flash_operations_pending() > 0):
+  time.sleep(0.01)
+print "Finished reading data from device's flash, took %.2f seconds." % (time.time() - t1)
 
 #Check that the data read back from the flash matches that in the configuration file
 piksi_flash.read_cb_sanity_check()
 if piksi_flash.rd_cb_data != list(ihx.tobinarray(start=ihx.minaddr(), size=ihx.maxaddr()-ihx.minaddr())):
   raise Exception('Data read from flash does not match configration file')
-print "Data read back from flash matches configuration file. Flashing was successful."
+print "Flashing successful"
 
 #Clean up before exiting
 piksi_flash.stop()
