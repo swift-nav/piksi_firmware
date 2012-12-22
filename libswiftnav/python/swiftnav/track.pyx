@@ -20,7 +20,7 @@ def track_correlate_cy(np.ndarray[char, ndim=1, mode="c"] rawSignal,
                        double remCodePhase,
                        double carrFreq,
                        double remCarrPhase,
-                       np.ndarray[long, ndim=1, mode="c"] caCode,
+                       np.ndarray[char, ndim=1, mode="c"] caCode,
                        settings):
       cdef double codePhaseStep = codeFreq/settings.samplingFreq
       cdef double carrPhaseStep = carrFreq * 2.0 * M_PI / settings.samplingFreq
