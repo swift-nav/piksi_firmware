@@ -109,6 +109,10 @@ cdef class ChannelMeasurement:
     self.meas.receiver_time = rx_time
     self.meas.snr = snr
 
+  property prn:
+    def __get__(self):
+      return self.meas.prn
+
   def __repr__(self):
     #return "<ChannelMeasurement PRN %d>" % self.meas.prn
     return str((self.meas.prn,
