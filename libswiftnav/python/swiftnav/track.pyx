@@ -115,14 +115,14 @@ cdef class ChannelMeasurement:
 
   def __repr__(self):
     #return "<ChannelMeasurement PRN %d>" % self.meas.prn
-    return str((self.meas.prn,
+    return '<ChannelMeasurement ' + str((self.meas.prn,
                 self.meas.code_phase_chips,
                 self.meas.code_phase_rate,
                 self.meas.carrier_phase,
                 self.meas.carrier_freq,
                 self.meas.time_of_week_ms,
                 self.meas.receiver_time,
-                self.meas.snr))
+                self.meas.snr)) + '>'
 
 
 cdef class NavigationMeasurement:
@@ -135,11 +135,11 @@ cdef class NavigationMeasurement:
       self.meas.sat_vel[i] = sat_vel[i]
 
   def __repr__(self):
-    return str((self.meas.pseudorange,
+    return '<NavigationMeasurement ' + str((self.meas.pseudorange,
                 self.meas.pseudorange_rate,
                 self.meas.TOT,
                 (self.meas.sat_pos[0], self.meas.sat_pos[1], self.meas.sat_pos[2]),
-                (self.meas.sat_vel[0], self.meas.sat_vel[1], self.meas.sat_vel[2])))
+                (self.meas.sat_vel[0], self.meas.sat_vel[1], self.meas.sat_vel[2]))) + '>'
 
 def calc_navigation_measurement(double t, chan_meas, es):
   n_channels = len(chan_meas)
