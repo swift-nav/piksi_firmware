@@ -161,15 +161,16 @@ void flash_write_callback(u8 buff[]) {
   u8 len = *(u8 *)&buff[4];
   u8 *data = &buff[5];
 
-  printf("SPI Flash writing %d bytes to 0x%06X...", (int)len, (unsigned int)addr);
+//  printf("SPI Flash writing %d bytes to 0x%06X...", (int)len, (unsigned int)addr);
   m25_write_enable();
   m25_page_program(addr, len, data);
-  printf("ok\n");
+//  printf("ok\n");
 
   debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
 }
 
 void flash_read_callback(u8 buff[]) {
+  static u32 num_read_callbacks = 0;
   // Msg format:  u32 addr, u32 len
   u32 addr, len;
   static char flash_data[16];
@@ -198,23 +199,25 @@ void flash_read_callback(u8 buff[]) {
     callback_data[1] = (addr >> 8) & 0xFF;
     callback_data[2] = (addr >> 0) & 0xFF;
     callback_data[3] = chunk_len;
-//    callback_data[3] = 16;
     for (u8 i = 0; i < chunk_len; i++) {
       callback_data[i+4] = flash_data[i];
     }
     //Make sure we don't wrap the TX DMA buffer
     while(usart_tx_n_free() < USART_TX_BUFFER_LEN*0.5)
       __asm__("nop");
+    num_read_callbacks++;
     u32 msg_qd;
     msg_qd = debug_send_msg(MSG_FLASH_READ,4 + chunk_len,callback_data);
-//    msg_qd = debug_send_msg(MSG_FLASH_READ,20,callback_data);
     if (msg_qd)
       speaking_death("debug_send_msg in read callback not successful");
+//    while (!(debug_send_msg(MSG_FLASH_READ,4 + chunk_len,callback_data)))
+//      __asm__("nop");
 
     len -= chunk_len;
     addr += chunk_len;
   }
-  debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
+//  debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
+  printf("num read callbacks = %d\n",(int)num_read_callbacks);
 
 }
 
@@ -224,12 +227,12 @@ void flash_erase_callback(u8 buff[] ) {
 
   u32 addr = *(u32*)buff;
 
-  printf("SPI Flash erasing 64KB from 0x%06X...", (unsigned int)addr & 0xFF0000);
+//  printf("SPI Flash erasing 64KB from 0x%06X...", (unsigned int)addr & 0xFF0000);
 
   m25_write_enable();
   m25_sector_erase(addr);
 
-  printf("ok\n");
+//  printf("ok\n");
 
   debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
 

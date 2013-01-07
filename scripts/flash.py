@@ -4,6 +4,7 @@ import time
 from intelhex import IntelHex
 from threading import Thread, Event
 import sys
+from math import ceil
 
 PAGESIZE = 256
 SECTORSIZE = 64*1024
@@ -37,12 +38,11 @@ class Flash(Thread):
     self.link.add_callback(0xF1, self._flash_read_callback)
 
   def flash_operations_left(self):
-    return len(self._command_queue) + self._commands_sent - self._done_callbacks_received
+    return len(self._command_queue) + self._commands_sent - self._done_callbacks_received - self._read_callbacks_received
 
   def _flash_done_callback(self, data):
     self._flash_ready.set()
     self._done_callbacks_received += 1
-    assert self._commands_sent - self._done_callbacks_received >= 0, "More done callbacks received than commands sent"
 
   def _flash_read_callback(self, data):
     #3 bytes addr, 1 byte length, length bytes data
@@ -99,7 +99,7 @@ class Flash(Thread):
 
   def run(self):
     while not self._wants_to_exit:
-      if self._command_queue and (self._commands_sent - self._done_callbacks_received < PENDING_COMMANDS_LIMIT):
+      if (len(self._command_queue) > 0) and ((self._commands_sent - self._done_callbacks_received - self._read_callbacks_received) < PENDING_COMMANDS_LIMIT):
         cmd, args = self._command_queue[0]
         self._command_queue = self._command_queue[1:]
         cmd_func = getattr(self, cmd)
@@ -112,7 +112,7 @@ class Flash(Thread):
     self._schedule_command('_read', (addr, length))
   def _read(self, addr, length):
     msg_buf = struct.pack("<II", addr, length)
-    self._commands_sent += length
+    self._commands_sent += int(ceil(float(length)/16))
     self.link.send_message(0xF1, msg_buf)
 
   def erase_sector(self, length):

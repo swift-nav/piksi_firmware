@@ -36,7 +36,7 @@ piksi_flash.start()
 
 #Write configuration file to FPGA's flash
 print "Writing hex file to FPGA's flash..."
-#piksi_flash.write_ihx(flash_file)
+piksi_flash.write_ihx(flash_file)
 
 #Wait for flash operations to finish
 t1 = time.time()
@@ -54,6 +54,8 @@ piksi_flash.read(0,ihx.maxaddr())
 while piksi_flash.flash_operations_left() > 0:
   try:
     time.sleep(0.1)
+    if link.unhandled_bytes > 0:
+      print "unhandled bytes =", link.unhandled_bytes
   except KeyboardInterrupt:
     break
 print "piksi_flash._read_callbacks_received =", piksi_flash._read_callbacks_received
