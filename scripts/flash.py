@@ -108,6 +108,18 @@ class Flash(Thread):
       else:
         time.sleep(0.001)
 
+  #Check that we received continuous addresses from the 
+  #beginning of the flash read to the end, and that this
+  #matches the length of the received data from those addrs
+  def read_cb_sanity_check(self):
+    expected_addrs = [self.rd_cb_addrs[0]]
+    for length in self.rd_cb_lens[0:-1]:
+      expected_addrs.append(expected_addrs[-1] + length)
+    if self.rd_cb_addrs != expected_addrs:
+      raise Exception('Addresses returned in read callback appear discontinuous')
+    if sum(self.rd_cb_lens) != len(self.rd_cb_data):
+      raise Exception('Length of read data does not match read callback lengths')
+
   def read(self, addr, length):
     self._schedule_command('_read', (addr, length))
   def _read(self, addr, length):

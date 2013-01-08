@@ -63,7 +63,14 @@ print "unhandled bytes received by serial link =", link.unhandled_bytes
 print "piksi_flash.rd_cb_addrs[-1] =", hex(piksi_flash.rd_cb_addrs[-1])
 print "piksi_flash.rd_cb_addrs[-1] + piksi_flash.rd_cb_lens[-1] =", hex(piksi_flash.rd_cb_addrs[-1]+piksi_flash.rd_cb_lens[-1])
 
-#
+#Make sure the starting address and length of each callback we received are continuous
+piksi_flash.read_cb_sanity_check()
+print "Sanity check passed"
+
+#Compare the data read out of the flash with the data in the hex file
+if piksi_flash.rd_cb_data != list(ihx.tobinarray(start=ihx.minaddr(), size=ihx.maxaddr()-ihx.minaddr())):
+  raise Exception('Data read from flash does not match configuration file')
+print "Data read from flash matches configuration file"
 
 #Clean up before exiting
 piksi_flash.stop()
