@@ -1,4 +1,3 @@
-#import wx
 import struct
 import time
 from intelhex import IntelHex
@@ -170,13 +169,14 @@ class Flash(Thread):
       self.write(addr, ihx.tobinstr(start=addr, size=128))
     ops_left = self.flash_operations_left()
     while ops_left != 0:
-      print "\r                                           ",
+      sys.stdout.write("\r\033[K")
       print "\rFlash operations left =", ops_left,
       sys.stdout.flush()
       time.sleep(0.2)
       ops_left = self.flash_operations_left()
-    print "\r                                           ",
+    sys.stdout.write("\r\033[K")
     print "\rFlash operations left =", ops_left
+    sys.stdout.flush()
     t2 = time.time()
     print "Finished writing hex to flash, took %.2f seconds" % (t2 - t1)
     
@@ -185,13 +185,14 @@ class Flash(Thread):
     self.read(0,ihx.maxaddr())
     ops_left = self.flash_operations_left()
     while ops_left != 0:
-      print "\r                                           ",
-      print "\rFlash operations left =", ops_left,
+      sys.stdout.write("\r\033[K") #return to beginning of line and clear line
+      print "Flash operations left =", ops_left,
       sys.stdout.flush()
       time.sleep(0.2)
       ops_left = self.flash_operations_left()
-    print "\r                                           ",
-    print "\rFlash operations left =", ops_left
+    sys.stdout.write("\r\033[K")
+    print "Flash operations left =", ops_left
+    sys.stdout.flush()
     t3 = time.time()
     print "Finished reading hex from flash, took %.2f seconds" % (t3 - t2)
 
@@ -204,3 +205,38 @@ class Flash(Thread):
 
     #Finished, report execution time
     print "Total time was %.2f seconds" %(t3 - t1)
+
+#Write the hex file 'swift-nap_mcs.mcs' to the flash
+#on the device connected via serial port /dev/ttyUSB0
+if __name__ == "__main__":
+  import argparse
+  import serial_link
+  #Command line arguments
+  parser = argparse.ArgumentParser(description='FPGA Flash Utility')
+  parser.add_argument('-p', '--port',
+                      default=['/dev/ttyUSB0'], nargs=1,
+                      help='specify the serial port to use')
+  parser.add_argument('-c', '--configuration_file',
+                      default=['swift-nap_mcs.mcs'], nargs=1,
+                      help='hex file to program the flash with')
+  args = parser.parse_args()
+  serial_port = args.port[0]
+  flash_file = args.configuration_file[0]
+  #Check that final address of the hex file is not in the last sector of the flash
+  ihx = IntelHex(flash_file)
+  print "Checking to make sure hex file's maximum address is not in last sector"
+  print "We don't want to erase the device's authentication hash"
+  print "  First address of flash's last sector =", hex(FLASHSIZE-SECTORSIZE)
+  print "  Maximum address of hex file          =", hex(ihx.maxaddr())
+  assert ihx.maxaddr() < (FLASHSIZE-SECTORSIZE), "Maximum address in hex file is in last sector"
+  #Create SerialLink and Flash objects
+  link = serial_link.SerialLink(port=serial_port)
+  link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
+  piksi_flash = Flash(link)
+  piksi_flash.start()
+  #Write configuration file to FPGA's flash
+  piksi_flash.write_ihx(flash_file)
+  #Clean up before exiting
+  piksi_flash.stop()
+  link.close()
+  sys.exit()
