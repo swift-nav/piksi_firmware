@@ -28,6 +28,10 @@ class ListenerThread (threading.Thread):
   def run(self):
     while not self.wants_to_stop:
       mt, md = self.link.get_message()
+      if self.wants_to_stop: #will throw away last message here even if it is valid
+        if self.link.ser:
+          self.link.ser.close()
+        break
       cb = self.link.get_callback(mt)
       if cb:
         cb(md)
@@ -48,12 +52,12 @@ class SerialLink:
 
   def close(self):
     self.lt.stop()
-    if self.ser:
-      self.ser.close()
 
   def get_message(self):
-    # Sync with magic start bytes
     while True:
+      if self.lt.wants_to_stop:
+        return (None, None)
+      # Sync with magic start bytes
       magic = self.ser.read()
       if magic:
         if ord(magic) == DEBUG_MAGIC_1:
