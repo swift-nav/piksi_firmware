@@ -10,7 +10,7 @@ PAGESIZE = 256
 SECTORSIZE = 64*1024
 FLASHSIZE = 1024*1024
 #max number of flash operations to have pending in STM
-PENDING_COMMANDS_LIMIT = 20
+PENDING_COMMANDS_LIMIT = 5
 
 def roundup_multiple(x, multiple):
   return x if x % multiple == 0 else x + multiple - x % multiple
@@ -51,41 +51,41 @@ class Flash(Thread):
     self._read_callbacks_received += 1
     addr = None
     length = None
-    try:
-      addr = struct.unpack('>I','\x00' + data[0:3])[0]
-      self.rd_cb_addrs.append(addr)
-      length = struct.unpack('B',data[3])[0]
-      self.rd_cb_lens.append(length)
-      self.rd_cb_data += list(struct.unpack(str(self.rd_cb_lens[-1]) + 'B',data[4:]))
-#      self.rd_cb_data += list(struct.unpack('20B',data[4:]))
-      if length != 16:
-        print "read_callbacks_received = ", self._read_callbacks_received
-        print '  addr =', addr
-        print '  length =', length
-        print '  len of data =', len(data)
-        print '  data =', [ord(i) for i in data]
-        print '  last_data =', [ord(i) for i in self.last_data]
-        print '  hex(addr) =', hex(addr)
-        print '  flash operations left =', self.flash_operations_left()
-        sys.exit()
-    except Exception:
-      print "read_callbacks_received = ", self._read_callbacks_received
-      print '  addr =', addr
-      print '  length =', length
-      print '  len of data =', len(data)
-      print '  data =', [ord(i) for i in data]
-      print '  last_data =', [ord(i) for i in self.last_data]
-      print '  hex(addr) =', hex(addr)
-      sys.exit()
-    if self._read_callbacks_received % 0x1000 == 0:
-      print "read_callbacks_received = ", self._read_callbacks_received
-      print '  addr =', addr
-      print '  length =', length
-      print '  len of data =', len(data)
-      print '  data =', [ord(i) for i in data]
-      print '  last_data =', [ord(i) for i in self.last_data]
-      print '  hex(addr) =', hex(addr)
-    self.last_data = data
+#    try:
+    addr = struct.unpack('>I','\x00' + data[0:3])[0]
+    self.rd_cb_addrs.append(addr)
+    length = struct.unpack('B',data[3])[0]
+    self.rd_cb_lens.append(length)
+    self.rd_cb_data += list(struct.unpack(str(self.rd_cb_lens[-1]) + 'B',data[4:]))
+##      self.rd_cb_data += list(struct.unpack('20B',data[4:]))
+#      if length != 16:
+#        print "read_callbacks_received = ", self._read_callbacks_received
+#        print '  addr =', addr
+#        print '  length =', length
+#        print '  len of data =', len(data)
+#        print '  data =', [ord(i) for i in data]
+#        print '  last_data =', [ord(i) for i in self.last_data]
+#        print '  hex(addr) =', hex(addr)
+#        print '  flash operations left =', self.flash_operations_left()
+#        sys.exit()
+#    except Exception:
+#      print "read_callbacks_received = ", self._read_callbacks_received
+#      print '  addr =', addr
+#      print '  length =', length
+#      print '  len of data =', len(data)
+#      print '  data =', [ord(i) for i in data]
+#      print '  last_data =', [ord(i) for i in self.last_data]
+#      print '  hex(addr) =', hex(addr)
+#      sys.exit()
+#    if self._read_callbacks_received % 0x1000 == 0:
+#      print "read_callbacks_received = ", self._read_callbacks_received
+#      print '  addr =', addr
+#      print '  length =', length
+#      print '  len of data =', len(data)
+#      print '  data =', [ord(i) for i in data]
+#      print '  last_data =', [ord(i) for i in self.last_data]
+#      print '  hex(addr) =', hex(addr)
+#    self.last_data = data
 
   def _acquire_flash(self):
     self._flash_ready.wait()
@@ -99,6 +99,8 @@ class Flash(Thread):
 
   def run(self):
     while not self._wants_to_exit:
+      while self.flash_operations_left() < 0:
+        raise Exception('self.flash_operations_left() returns less than 0')
       if (len(self._command_queue) > 0) and ((self._commands_sent - self._done_callbacks_received - self._read_callbacks_received) < PENDING_COMMANDS_LIMIT):
         cmd, args = self._command_queue[0]
         self._command_queue = self._command_queue[1:]
@@ -152,15 +154,53 @@ class Flash(Thread):
     self._commands_sent += 1
     self.link.send_message(0xF0, msg_header+data)
 
-#  def write_ihx(self, filename):
-#    self._schedule_command('_write_ihx', (filename,))
   def write_ihx(self, filename):
     ihx = IntelHex(filename)
+    t1 = time.time()
     min_sector = rounddown_multiple(ihx.minaddr(), SECTORSIZE)
     max_sector = roundup_multiple(ihx.maxaddr(), SECTORSIZE)
+    
+    #Write hex file to flash
+    print "Writing hex to flash..."
     for addr in range(min_sector, max_sector, SECTORSIZE):
       self.erase_sector(addr)
     min_page = rounddown_multiple(ihx.minaddr(), 128)
     max_page = roundup_multiple(ihx.maxaddr(), 128)
     for addr in range(min_page, max_page, 128):
       self.write(addr, ihx.tobinstr(start=addr, size=128))
+    ops_left = self.flash_operations_left()
+    while ops_left != 0:
+      print "\r                                           ",
+      print "\rFlash operations left =", ops_left,
+      sys.stdout.flush()
+      time.sleep(0.2)
+      ops_left = self.flash_operations_left()
+    print "\r                                           ",
+    print "\rFlash operations left =", ops_left
+    t2 = time.time()
+    print "Finished writing hex to flash, took %.2f seconds" % (t2 - t1)
+    
+    #Read bytes back from flash
+    print "Reading hex back from flash..."
+    self.read(0,ihx.maxaddr())
+    ops_left = self.flash_operations_left()
+    while ops_left != 0:
+      print "\r                                           ",
+      print "\rFlash operations left =", ops_left,
+      sys.stdout.flush()
+      time.sleep(0.2)
+      ops_left = self.flash_operations_left()
+    print "\r                                           ",
+    print "\rFlash operations left =", ops_left
+    t3 = time.time()
+    print "Finished reading hex from flash, took %.2f seconds" % (t3 - t2)
+
+    #Check that bytes read back from flash match hex file
+    print "Verifying that bytes read back from flash match hex file..."
+    self.read_cb_sanity_check()
+    if self.rd_cb_data != list(ihx.tobinarray(start=ihx.minaddr(), size=ihx.maxaddr()-ihx.minaddr())):
+      raise Exception('Data read from flash does not match configuration file')
+    print "Data from flash matches hex file, update successful"
+
+    #Finished, report execution time
+    print "Total time was %.2f seconds" %(t3 - t1)
