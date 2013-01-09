@@ -9,7 +9,7 @@ PAGESIZE = 256
 SECTORSIZE = 64*1024
 FLASHSIZE = 1024*1024
 #max number of flash operations to have pending in STM
-PENDING_COMMANDS_LIMIT = 5
+PENDING_COMMANDS_LIMIT = 10
 
 def roundup_multiple(x, multiple):
   return x if x % multiple == 0 else x + multiple - x % multiple
@@ -24,10 +24,9 @@ class Flash(Thread):
   _commands_sent = 0
   _done_callbacks_received = 0
   _read_callbacks_received = 0
-  rd_cb_addrs = []
-  rd_cb_lens = []
-  rd_cb_data = []
-  last_data = []
+  _rd_cb_addrs = []
+  _rd_cb_lens = []
+  _rd_cb_data = []
 
   def __init__(self, link):
     super(Flash, self).__init__()
@@ -40,7 +39,6 @@ class Flash(Thread):
     return len(self._command_queue) + self._commands_sent - self._done_callbacks_received - self._read_callbacks_received
 
   def _flash_done_callback(self, data):
-    self._flash_ready.set()
     self._done_callbacks_received += 1
 
   def _flash_read_callback(self, data):
@@ -48,47 +46,9 @@ class Flash(Thread):
     #append \x00 to the left side as it is a 3-byte big endian unsigned int and 
     #we unpack as a 4-byte big endian unsigned int
     self._read_callbacks_received += 1
-    addr = None
-    length = None
-#    try:
-    addr = struct.unpack('>I','\x00' + data[0:3])[0]
-    self.rd_cb_addrs.append(addr)
-    length = struct.unpack('B',data[3])[0]
-    self.rd_cb_lens.append(length)
-    self.rd_cb_data += list(struct.unpack(str(self.rd_cb_lens[-1]) + 'B',data[4:]))
-##      self.rd_cb_data += list(struct.unpack('20B',data[4:]))
-#      if length != 16:
-#        print "read_callbacks_received = ", self._read_callbacks_received
-#        print '  addr =', addr
-#        print '  length =', length
-#        print '  len of data =', len(data)
-#        print '  data =', [ord(i) for i in data]
-#        print '  last_data =', [ord(i) for i in self.last_data]
-#        print '  hex(addr) =', hex(addr)
-#        print '  flash operations left =', self.flash_operations_left()
-#        sys.exit()
-#    except Exception:
-#      print "read_callbacks_received = ", self._read_callbacks_received
-#      print '  addr =', addr
-#      print '  length =', length
-#      print '  len of data =', len(data)
-#      print '  data =', [ord(i) for i in data]
-#      print '  last_data =', [ord(i) for i in self.last_data]
-#      print '  hex(addr) =', hex(addr)
-#      sys.exit()
-#    if self._read_callbacks_received % 0x1000 == 0:
-#      print "read_callbacks_received = ", self._read_callbacks_received
-#      print '  addr =', addr
-#      print '  length =', length
-#      print '  len of data =', len(data)
-#      print '  data =', [ord(i) for i in data]
-#      print '  last_data =', [ord(i) for i in self.last_data]
-#      print '  hex(addr) =', hex(addr)
-#    self.last_data = data
-
-  def _acquire_flash(self):
-    self._flash_ready.wait()
-    self._flash_ready.clear()
+    self._rd_cb_addrs.append(struct.unpack('>I','\x00' + data[0:3])[0])
+    self._rd_cb_lens.append(struct.unpack('B',data[3])[0])
+    self._rd_cb_data += list(struct.unpack(str(self._rd_cb_lens[-1]) + 'B',data[4:]))
 
   def _schedule_command(self, cmd, addr):
     self._command_queue.append((cmd, addr))
@@ -107,18 +67,18 @@ class Flash(Thread):
         if cmd_func:
           cmd_func(*args)
       else:
-        time.sleep(0.001)
+        time.sleep(0.01)
 
   #Check that we received continuous addresses from the 
   #beginning of the flash read to the end, and that this
   #matches the length of the received data from those addrs
   def read_cb_sanity_check(self):
-    expected_addrs = [self.rd_cb_addrs[0]]
-    for length in self.rd_cb_lens[0:-1]:
+    expected_addrs = [self._rd_cb_addrs[0]]
+    for length in self._rd_cb_lens[0:-1]:
       expected_addrs.append(expected_addrs[-1] + length)
-    if self.rd_cb_addrs != expected_addrs:
+    if self._rd_cb_addrs != expected_addrs:
       raise Exception('Addresses returned in read callback appear discontinuous')
-    if sum(self.rd_cb_lens) != len(self.rd_cb_data):
+    if sum(self._rd_cb_lens) != len(self._rd_cb_data):
       raise Exception('Length of read data does not match read callback lengths')
 
   def read(self, addr, length):
@@ -131,7 +91,6 @@ class Flash(Thread):
   def erase_sector(self, length):
     self._schedule_command('_erase_sector', (length,))
   def _erase_sector(self, addr):
-#    self._acquire_flash()
     msg_buf = struct.pack("<I", addr)
     self._commands_sent += 1
     self.link.send_message(0xF2, msg_buf)
@@ -142,13 +101,11 @@ class Flash(Thread):
     MAXSIZE = 128
     while len(data) > MAXSIZE:
       data_to_send = data[:MAXSIZE]
-#      self._acquire_flash()
       msg_header = struct.pack("<IB", addr, len(data_to_send))
       self._commands_sent += 1
       self.link.send_message(0xF0, msg_header+data_to_send)
       addr += MAXSIZE
       data = data[MAXSIZE:]
-#    self._acquire_flash()
     msg_header = struct.pack("<IB", addr, len(data))
     self._commands_sent += 1
     self.link.send_message(0xF0, msg_header+data)
@@ -158,7 +115,6 @@ class Flash(Thread):
     t1 = time.time()
     min_sector = rounddown_multiple(ihx.minaddr(), SECTORSIZE)
     max_sector = roundup_multiple(ihx.maxaddr(), SECTORSIZE)
-    
     #Write hex file to flash
     print "Writing hex to flash..."
     for addr in range(min_sector, max_sector, SECTORSIZE):
@@ -179,7 +135,6 @@ class Flash(Thread):
     sys.stdout.flush()
     t2 = time.time()
     print "Finished writing hex to flash, took %.2f seconds" % (t2 - t1)
-    
     #Read bytes back from flash
     print "Reading hex back from flash..."
     self.read(0,ihx.maxaddr())
@@ -195,14 +150,12 @@ class Flash(Thread):
     sys.stdout.flush()
     t3 = time.time()
     print "Finished reading hex from flash, took %.2f seconds" % (t3 - t2)
-
     #Check that bytes read back from flash match hex file
     print "Verifying that bytes read back from flash match hex file..."
     self.read_cb_sanity_check()
-    if self.rd_cb_data != list(ihx.tobinarray(start=ihx.minaddr(), size=ihx.maxaddr()-ihx.minaddr())):
+    if self._rd_cb_data != list(ihx.tobinarray(start=ihx.minaddr(), size=ihx.maxaddr()-ihx.minaddr())):
       raise Exception('Data read from flash does not match configuration file')
     print "Data from flash matches hex file, update successful"
-
     #Finished, report execution time
     print "Total time was %.2f seconds" %(t3 - t1)
 
