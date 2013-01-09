@@ -170,7 +170,6 @@ void flash_write_callback(u8 buff[]) {
 }
 
 void flash_read_callback(u8 buff[]) {
-  static u32 num_read_callbacks = 0;
   // Msg format:  u32 addr, u32 len
   u32 addr, len;
   static char flash_data[16];
@@ -203,9 +202,9 @@ void flash_read_callback(u8 buff[]) {
       callback_data[i+4] = flash_data[i];
     }
     //Make sure we don't wrap the TX DMA buffer
+    //This shouldn't be necessary, but just to give a bit more protection
     while(usart_tx_n_free() < USART_TX_BUFFER_LEN*0.5)
       __asm__("nop");
-    num_read_callbacks++;
     u32 msg_qd;
     msg_qd = debug_send_msg(MSG_FLASH_READ,4 + chunk_len,callback_data);
     if (msg_qd)
@@ -217,7 +216,6 @@ void flash_read_callback(u8 buff[]) {
     addr += chunk_len;
   }
 //  debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
-  printf("num read callbacks = %d\n",(int)num_read_callbacks);
 
 }
 
