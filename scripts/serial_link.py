@@ -8,7 +8,7 @@ import time
 import sys
 
 DEFAULT_PORT = '/dev/ttyUSB0'
-DEFAULT_BAUD = 921600
+DEFAULT_BAUD = 230400
 
 DEBUG_MAGIC_1 = 0xBE
 DEBUG_MAGIC_2 = 0xEF
