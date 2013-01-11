@@ -18,10 +18,10 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/dma.h>
-#include <libopencm3/stm32/f2/flash.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/dma.h>
+#include <libopencm3/stm32/f4/flash.h>
+#include <libopencm3/stm32/f4/gpio.h>
 
 #include "main.h"
 #include "debug.h"
@@ -32,6 +32,7 @@
 #include "manage.h"
 #include "hw/leds.h"
 #include "hw/spi.h"
+#include "hw/m25_flash.h"
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
@@ -95,7 +96,10 @@ int main(void)
 
   swift_nap_setup();
   swift_nap_reset();
- 
+
+  m25_setup();
+  xfer_dna_hash();
+
   led_toggle(LED_GREEN);
   led_toggle(LED_RED);
 
@@ -121,18 +125,18 @@ int main(void)
 		printf("# Finished doing cw detection\n");
 
 		for (u16 si=0;si<SPECTRUM_LEN;si++) {
-			
+
 			for (u32 dly = 0; dly < 50000; dly++)
 				__asm__("nop");
-			
+
 			cw_get_spectrum_point(&cw_freq,&cw_power,si);
-			
+
       if (~((cw_power == 0) && (cw_freq == 0))) {
 //			printf("%+7.2f %lu # %d\n",cw_freq,(long unsigned int)cw_power,(unsigned int)si);
 			printf("%+7.1f %lu\n",cw_freq,(long unsigned int)cw_power);
 //			printf("%+4.2f %lu\n",cw_freq,(long unsigned int)cw_power);
       }
-		
+
 			u32 err = swift_nap_read_error_blocking();
 			if (err) {
 				printf("Error: 0x%08X\n", (unsigned int)err);
@@ -145,7 +149,7 @@ int main(void)
 	}
 
   while (1);
-  
+
 	return 0;
 }
 

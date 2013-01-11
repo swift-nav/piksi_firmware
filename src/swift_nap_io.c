@@ -35,6 +35,7 @@
 #include "error.h"
 #include "hw/spi.h"
 #include "hw/max2769.h"
+#include "hw/m25_flash.h"
 
 #include <libswiftnav/prns.h>
 
@@ -42,6 +43,8 @@ u32 exti_count = 0;
 
 #define SPI_DMA_BUFFER_LEN 22
 u8 spi_dma_buffer[SPI_DMA_BUFFER_LEN];
+
+void swift_nap_callbacks_setup();
 
 void swift_nap_setup()
 {
@@ -62,6 +65,9 @@ void swift_nap_setup()
 
   /* Setup the external interrupts. */
   exti_setup();
+
+  /* Setup callback functions */
+  swift_nap_callbacks_setup();
 }
 
 void swift_nap_reset()
@@ -595,4 +601,44 @@ void cw_read_corr_blocking(corr_t* corrs) {
               | (temp[5]);         // LSB
 
   corrs->I = sign.xtend; /* Sign extend! */
+}
+
+//Spartan 6 Device DNA is 57 bits, padded to 64 (with 0's) within FPGA
+void get_nap_dna(u8 dna[]){
+  swift_nap_xfer_blocking(SPI_ID_DNA,8,dna,dna);
+}
+
+u8 get_nap_hash_status(){
+  u8 temp[1];
+  swift_nap_xfer_blocking(SPI_ID_HASH_STATUS,1,temp,temp);
+  return temp[0];
+}
+
+void get_nap_dna_callback(){
+  // Retrieves Spartan 6 Device DNA and sends back over UART
+  u8 dna[8];
+  get_nap_dna(dna);
+  // TODO : error handling for debug_send_msg failure?
+  debug_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
+}
+
+void xfer_dna_hash(){
+  u8 hash[16];
+  m25_read(M25_FPGA_HASH_ADDR,16,hash);
+//  printf("dna_hash in flash = 0x");
+//  for(u8 i=0; i<sizeof(hash); i++){
+//    printf("%02x",hash[i]);
+//  }
+//  printf("\n");
+  swift_nap_xfer_blocking(SPI_ID_DNA_HASH, 16, hash, hash);
+//  printf("dna_hash in fpga = 0x");
+//  for(u8 i=0; i<sizeof(hash); i++){
+//    printf("%02x",hash[i]);
+//  }
+//  printf("\n");
+}
+
+void swift_nap_callbacks_setup(){
+  static msg_callbacks_node_t swift_nap_dna_node;
+  debug_register_callback(MSG_NAP_DEVICE_DNA, &get_nap_dna_callback, &swift_nap_dna_node);
 }

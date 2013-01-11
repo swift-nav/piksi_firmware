@@ -18,8 +18,8 @@
 #ifndef SWIFTNAV_LEDS_H
 #define SWIFTNAV_LEDS_H
 
-#define LED_RED   LED_1
-#define LED_GREEN LED_2
+#define LED_GREEN LED_1
+#define LED_RED   LED_2
 #define LED_1 1
 #define LED_2 2
 

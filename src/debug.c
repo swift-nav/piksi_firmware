@@ -46,8 +46,8 @@ void debug_setup()
   usart_rx_dma_setup();
 
   /* Disable input and output bufferings */
-  /*setvbuf(stdin, NULL, _IONBF, 0);*/
-  /*setvbuf(stdout, NULL, _IONBF, 0);*/
+  setvbuf(stdin, NULL, _IONBF, 0);
+  setvbuf(stdout, NULL, _IONBF, 0);
 }
 
 u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
@@ -132,7 +132,7 @@ void debug_process_messages()
 {
   u8 len, temp;
   static u8 msg_type, msg_len, msg_n_read;
-  static debug_process_messages_state_t state = WAITING_1;
+  static debug_process_messages_state_t state;
 
   while((len = usart_n_read_dma()))
   {

@@ -17,7 +17,7 @@
 
 #include <math.h>
 #include <stdio.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/gpio.h>
 
 #include "swift_nap_io.h"
 #include "acq.h"

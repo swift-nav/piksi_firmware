@@ -40,6 +40,8 @@
 #define M25_SR_WEL  (1<<1)
 #define M25_SR_WIP  (1<<0)
 
+#define M25_FPGA_HASH_ADDR 0xFFFFF0
+
 void m25_write_enable(void);
 void m25_write_disable(void);
 u32 m25_read_id(void);

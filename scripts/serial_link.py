@@ -8,7 +8,7 @@ import time
 import sys
 
 DEFAULT_PORT = '/dev/ttyUSB0'
-DEFAULT_BAUD = 921600
+DEFAULT_BAUD = 230400
 
 DEBUG_MAGIC_1 = 0xBE
 DEBUG_MAGIC_2 = 0xEF
@@ -28,6 +28,10 @@ class ListenerThread (threading.Thread):
   def run(self):
     while not self.wants_to_stop:
       mt, md = self.link.get_message()
+      if self.wants_to_stop: #will throw away last message here even if it is valid
+        if self.link.ser:
+          self.link.ser.close()
+        break
       cb = self.link.get_callback(mt)
       if cb:
         cb(md)
@@ -35,6 +39,7 @@ class ListenerThread (threading.Thread):
         print "Unhandled message %02X" % mt
 
 class SerialLink:
+  unhandled_bytes = 0
   callbacks = {}
 
   def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD):
@@ -47,17 +52,24 @@ class SerialLink:
 
   def close(self):
     self.lt.stop()
-    if self.ser:
-      self.ser.close()
 
   def get_message(self):
-    # Sync with magic start bytes
     while True:
+      if self.lt.wants_to_stop:
+        return (None, None)
+      # Sync with magic start bytes
       magic = self.ser.read()
-      if magic and ord(magic) == DEBUG_MAGIC_1:
-        if ord(self.ser.read()) == DEBUG_MAGIC_2:
-          break
-
+      if magic:
+        if ord(magic) == DEBUG_MAGIC_1:
+          magic = self.ser.read()
+          if ord(magic) == DEBUG_MAGIC_2:
+            break
+          else:
+            self.unhandled_bytes += 1
+            print "Total unhandled bytes =", self.unhandled_bytes
+        else:
+          self.unhandled_bytes += 1
+          print "Total unhandled bytes =", self.unhandled_bytes
     msg_type = ord(self.ser.read())
     msg_len = ord(self.ser.read())
     data = ""
@@ -102,4 +114,3 @@ if __name__ == "__main__":
     pass
   finally:
     link.close()
-

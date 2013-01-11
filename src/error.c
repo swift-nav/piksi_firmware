@@ -15,8 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopencm3/stm32/usart.h>
-#include <libopencm3/stm32/f2/dma.h>
+#include <libopencm3/stm32/f4/usart.h>
+#include <libopencm3/stm32/f4/dma.h>
 
 #include "hw/leds.h"
 
@@ -34,7 +34,7 @@ void screaming_death(void) {
 
   while(1) {
     while(error_string[i] != 0) {
-      usart_send_blocking(USART1, error_string[i]);
+      usart_send_blocking(USART6, error_string[i]);
       i++;
     }
 
@@ -50,7 +50,7 @@ void screaming_death(void) {
 void speaking_death(char *msg) {
   __asm__("CPSID if;");           /* Disable all interrupts and faults */
   DMA2_S7CR = 0;                  /* Disable USART TX DMA */
-  USART1_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
+  USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
 
   #define ERR_MSG_N 64            /* Maximum length of error message */
 
@@ -67,8 +67,8 @@ void speaking_death(char *msg) {
 
   i=0;
   while (1) {
-    while (!(USART1_SR & USART_SR_TXE));
-    USART1_DR = err_msg[i];
+    while (!(USART6_SR & USART_SR_TXE));
+    USART6_DR = err_msg[i];
     if (++i == (ERR_MSG_N + 4)) {
       i = 0;
       led_toggle(LED_RED);

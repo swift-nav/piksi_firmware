@@ -15,27 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SWIFTNAV_DEBUG_MESSAGES_H
-#define SWIFTNAV_DEBUG_MESSAGES_H
+#include "settings.h"
 
-#define MSG_PRINT 0x01
-
-#define MSG_ACQ_SETUP   0x69
-
-#define MSG_CW_START    0xC1
-#define MSG_CW_RESULTS  0xC0
-
-#define MSG_NAP_DEVICE_DNA 0xDD //both C and Python ID
-
-#define MSG_FLASH_WRITE 0xF0
-#define MSG_FLASH_READ  0xF1
-#define MSG_FLASH_ERASE 0xF2
-#define MSG_FLASH_COMPLETE 0xF0
-
-#define MSG_SOLUTION 0x50
-#define MSG_DOPS     0x51
-#define MSG_PR_ERRS  0x52
-#define MSG_SNRS     0x22
-
-#endif /* SWIFTNAV_DEBUG_MESSAGES_H */
+settings_t settings __attribute__ ((section (".settings_area"))) =
+/* Default settings: */
+{
+  .foo = 22
+};
 
