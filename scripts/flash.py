@@ -115,6 +115,7 @@ class Flash(Thread):
     t1 = time.time()
     min_sector = rounddown_multiple(ihx.minaddr(), SECTORSIZE)
     max_sector = roundup_multiple(ihx.maxaddr(), SECTORSIZE)
+
     #Write hex file to flash
     print "Writing hex to flash..."
     for addr in range(min_sector, max_sector, SECTORSIZE):
@@ -135,6 +136,7 @@ class Flash(Thread):
     sys.stdout.flush()
     t2 = time.time()
     print "Finished writing hex to flash, took %.2f seconds" % (t2 - t1)
+
     #Read bytes back from flash
     print "Reading hex back from flash..."
     self.read(0,ihx.maxaddr())
@@ -150,12 +152,14 @@ class Flash(Thread):
     sys.stdout.flush()
     t3 = time.time()
     print "Finished reading hex from flash, took %.2f seconds" % (t3 - t2)
+
     #Check that bytes read back from flash match hex file
     print "Verifying that bytes read back from flash match hex file..."
     self.read_cb_sanity_check()
     if self._rd_cb_data != list(ihx.tobinarray(start=ihx.minaddr(), size=ihx.maxaddr()-ihx.minaddr())):
       raise Exception('Data read from flash does not match configuration file')
     print "Data from flash matches hex file, update successful"
+
     #Finished, report execution time
     print "Total time was %.2f seconds" %(t3 - t1)
 
