@@ -30,6 +30,7 @@ static u8 buff[USART_TX_BUFFER_LEN];
 static u32 rd = 0;
 static u32 wr = 0;
 static u32 xfer_len = 0;
+u32 feif_isrs = 0;
 
 /** Setup the USART for transmission with DMA. This function sets up the DMA
  * controller and additional USART parameters for DMA transmission. The USART
@@ -80,7 +81,7 @@ void usart_tx_dma_setup(void) {
 
   /* TODO: Investigate more about the best FIFO settings. */
   DMA2_S7FCR = DMA_SxFCR_DMDIS |         /* Enable DMA stream FIFO. */
-               DMA_SxFCR_FTH_2_4_FULL |  /* Trigger level 1/2 full. */
+               DMA_SxFCR_FTH_2_4_FULL |  /* Trigger level 2/4 full. */
                DMA_SxFCR_FEIE;           /* Enable FIFO error interrupt. */
 
   wr = rd = 0;  /* Buffer is empty to begin with. */
@@ -151,6 +152,7 @@ void dma2_stream7_isr() {
   } else if (DMA2_HISR & DMA_HISR_FEIF7) {
     /* Clear FIFO error flag */
     DMA2_HIFCR = DMA_HIFCR_CFEIF7;
+    feif_isrs++;
   } else {
     /* TODO: Handle error interrupts! */
     speaking_death("DMA TX error interrupt");
