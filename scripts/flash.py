@@ -14,6 +14,8 @@ FLASHSIZE = 1024*1024
 ADDR_PER_RD_CB = 16
 
 #Maximum number of addresses written in a single write callback to STM
+#We would do 256 (pagesize), but currently max number of bytes in callbacks 
+#in firmware doesn't allow for this
 ADDR_PER_WR_CB = 128
 
 #Maximum number of flash callbacks to have pending in STM
@@ -24,7 +26,7 @@ ADDR_PER_WR_CB = 128
 #  write : each write of ADDR_PER_WR_CB bytes or less is one callback
 #  read : each read of ADDR_PER_RD_CB bytes or less is one callback
 #         (can read arbitrary length of flash with just
-#          a single read callback to STM, so only (2)
+#          a single read command sent to STM, so only (2)
 #          applies to read)
 PENDING_CB_LIMIT = 10
 
@@ -138,10 +140,10 @@ class Flash(Thread):
     print "Writing hex to flash..."
     for addr in range(min_sector, max_sector, SECTORSIZE):
       self.erase_sector(addr)
-    min_page = rounddown_multiple(ihx.minaddr(), 128)
-    max_page = roundup_multiple(ihx.maxaddr(), 128)
-    for addr in range(min_page, max_page, 128):
-      self.write(addr, ihx.tobinstr(start=addr, size=128))
+    min_page = rounddown_multiple(ihx.minaddr(), ADDR_PER_WR_CB)
+    max_page = roundup_multiple(ihx.maxaddr(), ADDR_PER_WR_CB)
+    for addr in range(min_page, max_page, ADDR_PER_WR_CB):
+      self.write(addr, ihx.tobinstr(start=addr, size=ADDR_PER_WR_CB))
     ops_left = self.flash_operations_left()
     while ops_left != 0:
       sys.stdout.write("\r\033[K")
