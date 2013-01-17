@@ -43,11 +43,8 @@ const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 
 int main(void)
 {
-  for (u32 i = 0; i < 600000; i++)
-    __asm__("nop");
 
-	led_setup();
-
+  led_setup();
   debug_setup();
 
   swift_nap_setup();
@@ -55,20 +52,7 @@ int main(void)
 
   led_on(LED_GREEN);
   led_on(LED_RED);
-
-  /* Setup MAX2769 PGM (PB8) - low */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPBEN;
-	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO8);
-  gpio_clear(GPIOB, GPIO8);
-
-  /* Setup MAX2769 NSHDN (PB9) - high */
-	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO9);
-  gpio_set(GPIOB, GPIO9);
-
-  /* Setup MAX2769 NIDLE (PB10) - high */
-	gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO10);
-  gpio_set(GPIOB, GPIO10);
-
+  
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
 
   m25_setup();

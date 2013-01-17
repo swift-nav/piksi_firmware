@@ -48,6 +48,17 @@ void swift_nap_callbacks_setup();
 
 void swift_nap_setup()
 {
+  /* Setup the FPGA conf done line */
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
+  gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO1);
+
+  /* We don't want spi_setup() called until
+   * the FPGA has finished configuring itself.
+   * (It uses the SPI2 bus for this.)
+   */
+  while (!(swift_nap_conf_done()))
+    __asm__("nop");
+
   /* Initialise the SPI peripheral. */
   spi_setup();
 //  spi_dma_setup();
@@ -80,11 +91,18 @@ void swift_nap_reset()
     __asm__("nop");
 }
 
+/* Check if configuration is finished
+ * Returns 1 if configuration is finished (line high), 0 if not finished (line low) 
+ */
+u8 swift_nap_conf_done()
+{
+  return ((gpio_port_read(GPIOC))>>1) & 0x01;
+}
+
 void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_out[])
 {
 
   // Check that there's no DMA transfer in progress
-
   if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
     /* DMA transfer already in progress.
      * TODO: handle this gracefully, but for now...

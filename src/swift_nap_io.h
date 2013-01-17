@@ -87,6 +87,8 @@ void swift_nap_setup();
 void swift_nap_reset();
 void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_out[]);
 
+u8 swift_nap_conf_done();
+
 void exti_setup();
 u32 last_exti_count();
 void wait_for_exti();
