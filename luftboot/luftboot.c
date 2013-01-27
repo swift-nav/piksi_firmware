@@ -62,6 +62,21 @@ void usart_setup(void)
 	usart_enable(USART6);
 }
 
+void print_mem(u32 address){
+  u8 foo = *(u8 *)address;
+  if (((foo >> 4) & 0x0F) < 10) { //0-9
+    usart_send_blocking(USART6, ((foo >> 4) & 0x0F) + 48);
+  } else { //A-F
+    usart_send_blocking(USART6, ((foo >> 4) & 0x0F) + 55);
+  }
+  if ((foo & 0x0F) < 10) { //0-9
+    usart_send_blocking(USART6, (foo & 0x0F) + 48);
+  } else { //A-F
+    usart_send_blocking(USART6, (foo & 0x0F) + 55);
+  }
+  usart_send_blocking(USART6, '\n');
+  usart_send_blocking(USART6, '\r');
+}
 
 int main(void)
 {
@@ -69,7 +84,7 @@ int main(void)
   clock_setup();
   /* Setup UART6 to receive data from flash */
   usart_setup();
-
+  /* Setup and turn on LEDs */
   led_setup();
   led_on(LED_GREEN);
   led_on(LED_RED);
@@ -85,10 +100,20 @@ int main(void)
     (*(void(**)())(APP_ADDRESS + 4))();
   }
 
-//	systick_set_clocksource(STK_CTRL_CLKSOURCE_AHB_DIV8); 
-//	systick_set_reload(900000);
-//	systick_interrupt_enable();
-//	systick_counter_enable();
+  usart_send_blocking(USART6, '\n');
+  usart_send_blocking(USART6, '\r');
+
+  //Try some flash writing stuff
+  //Bootloader starts at 0x08000000 and shouldn't go above 0x08003FFF
+  //So let's write some stuff to addresses starting at 0x08004000
+  flash_unlock();
+  print_mem(0x08004000);
+//  flash_erase_sector(*(u32*)(prog.buf+1));
+  flash_erase_sector(0x0000 | (0x1 << 3),1);
+  print_mem(0x08004000);
+  flash_program_byte(0x08004000,0xA5,0x0020);
+  print_mem(0x08004000);
+  flash_lock();
 
   u16 uart_data;
 	
