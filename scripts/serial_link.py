@@ -66,10 +66,10 @@ class SerialLink:
             break
           else:
             self.unhandled_bytes += 1
-            print "Total unhandled bytes =", self.unhandled_bytes
+            print "Unhandled byte : 0x%02x," % (ord(magic)), "total", self.unhandled_bytes
         else:
           self.unhandled_bytes += 1
-          print "Total unhandled bytes =", self.unhandled_bytes
+          print "Unhandled byte : 0x%02x," % (ord(magic)), "total", self.unhandled_bytes
     msg_type = ord(self.ser.read())
     msg_len = ord(self.ser.read())
     data = ""
