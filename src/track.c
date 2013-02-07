@@ -19,9 +19,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/exti.h>
-#include <libopencm3/stm32/nvic.h>
 
 #include "main.h"
 #include "swift_nap_io.h"
