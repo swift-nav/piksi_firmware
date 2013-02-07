@@ -101,20 +101,21 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].TOW_ms = 0;
   tracking_channel[channel].snr_threshold_count = 0;
 
-  double tau1_code, tau2_code;
-  calc_loop_coeff(2, 0.7, 1, &tau1_code, &tau2_code);
+  double pgain_code, igain_code;
+  calc_loop_gains(2, 0.7, 1, 1e3, &pgain_code, &igain_code);
   /*calc_loop_coeff(0.05, 0.7, 1, &tau1_code, &tau2_code);*/
-  tracking_channel[channel].dll_pgain = tau2_code/tau1_code;
-  tracking_channel[channel].dll_igain = 1e-3/tau1_code; /* loop update rate = 1e-3 sec */
-  tracking_channel[channel].dll_pgain = 1;
-  tracking_channel[channel].dll_igain = 0.004; /* loop update rate = 1e-3 sec */
+  tracking_channel[channel].dll_pgain = pgain_code;
+  tracking_channel[channel].dll_igain = igain_code;
+  /*tracking_channel[channel].dll_pgain = 1;*/
+  /*tracking_channel[channel].dll_igain = 0.004; [> loop update rate = 1e-3 sec <]*/
   tracking_channel[channel].dll_disc = 0;
 
-  double tau1_carr, tau2_carr;
-  calc_loop_coeff(30, 0.3, 0.07, &tau1_carr, &tau2_carr);
+  double pgain_carr, igain_carr;
+  calc_loop_gains(25, 0.7, 0.25, 1e3, &pgain_carr, &igain_carr);
+  /*calc_loop_gains(30, 0.3, 0.07, 1e3, &pgain_carr, &igain_carr);*/
   /*calc_loop_coeff(25, 0.3, 0.032, &tau1_carr, &tau2_carr);*/
-  tracking_channel[channel].pll_pgain = tau2_carr/tau1_carr;
-  tracking_channel[channel].pll_igain = 1e-3/tau1_carr; /* loop update rate = 1e-3 sec */
+  tracking_channel[channel].pll_pgain = pgain_carr;
+  tracking_channel[channel].pll_igain = igain_carr;
   tracking_channel[channel].pll_disc = 0;
 
   tracking_channel[channel].I_filter = 0;
