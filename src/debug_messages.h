@@ -27,10 +27,10 @@
 
 #define MSG_NAP_DEVICE_DNA 0xDD //Callback in C and Python
 
-#define MSG_FLASH_WRITE 0xF0 //Callback in C
-#define MSG_FLASH_READ  0xF1 //Callback in C and Python
-#define MSG_FLASH_ERASE 0xF2
 #define MSG_FLASH_COMPLETE 0xF0 //Callback in Python
+#define MSG_FLASH_WRITE 0xF0    //Callback in C
+#define MSG_FLASH_READ  0xF1    //Callback in C and Python
+#define MSG_FLASH_ERASE 0xF2    //Callback in C
 
 #define MSG_JUMP_TO_APP 0xA0
 
@@ -43,6 +43,8 @@
 #define MSG_STM_FLASH_READ     0xE1 //Callback in C and Python
 #define MSG_STM_FLASH_ERASE    0xE2
 #define MSG_STM_FLASH_COMPLETE 0xE0
+#define MSG_BOOTLOADER_HANDSHAKE 0xE3 //Callback in C and Python
+
 
 #endif /* SWIFTNAV_DEBUG_MESSAGES_H */
 

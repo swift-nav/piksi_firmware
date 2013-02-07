@@ -27,18 +27,22 @@
 #include "hw/stm_flash.h"
 
 #define APP_ADDRESS	0x08010000
+#define STACK_ADDRESS 0x10010000
 
-void jump_to_app_callback(u8 buff[]){
-  /* Doing something with buff so as not to get compile error. 
-   * Cludge, will change later */
-  buff[0] = buff[0] & 0xFF;
+u8 pc_wants_bootload = 0;
+
+void jump_to_app_callback(u8 buff[] __attribute__((unused))){
+  /* Should we disable interrupts here? */
   /* Set vector table base address */
   SCB_VTOR = APP_ADDRESS & 0xFFFF;
   /* Initialise master stack pointer */
-  asm volatile ("msr msp, %0"::"g"
-      (*(volatile u32*)APP_ADDRESS));
+  asm volatile ("msr msp, %0"::"g"(*(volatile u32*)APP_ADDRESS));
   /* Jump to application */
   (*(void(**)())(APP_ADDRESS + 4))();
+}
+
+void pc_wants_bootload_callback(u8 buff[] __attribute__((unused))){
+  pc_wants_bootload = 1;
 }
 
 int main(void)
@@ -49,7 +53,7 @@ int main(void)
   led_on(LED_RED);
 
   /* Setup UART and debug interface for 
-   * transmitting and receiving flash callbacks */
+   * transmitting and receiving callbacks */
   debug_setup();
 
   /* Add callbacks for erasing, programming and reading flash */
@@ -57,25 +61,60 @@ int main(void)
 
   /* Add callback for jumping to application after bootloading is finished */
   static msg_callbacks_node_t jump_to_app_node;
-  debug_register_callback(MSG_JUMP_TO_APP, &jump_to_app_callback, &jump_to_app_node);
-	
-  /* Process debug messages */
-	while (1){
-    debug_process_messages();
-    DO_EVERY(100000,
-      led_toggle(LED_GREEN);
-      led_toggle(LED_RED);
-    );
+  debug_register_callback(MSG_JUMP_TO_APP, &jump_to_app_callback, 
+    &jump_to_app_node);
+
+  /* Add callback for PC to tell bootloader it wants to load program */
+  static msg_callbacks_node_t pc_wants_bootload_node;
+  debug_register_callback(MSG_BOOTLOADER_HANDSHAKE,&pc_wants_bootload_callback,
+    &pc_wants_bootload_node);
+
+  /* Send message to PC indicating bootloader is ready to load program */
+  debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+
+  /* Is current application we are programmed with valid? */
+  u8 current_app_valid = (*(volatile u32*)APP_ADDRESS == STACK_ADDRESS) ? 1:0;
+
+  /* 
+   * Wait a bit for response from PC. If it doesn't respond by calling
+   * pc_wants_bootload_callback and we have a valid application, 
+   * then boot the application 
+   */
+  u32 wait_for_pc_count = 0;
+	while (wait_for_pc_count < 100000){
+    if (pc_wants_bootload)
+      break;
+    wait_for_pc_count++;
+  }
+  if ((pc_wants_bootload) || !(current_app_valid)){
+    /*
+     * We expect PC application passing application data to call 
+     * jump_to_app_callback to break us out of this while loop after it has
+     * finished sending flash programming callbacks
+     */
+    while(1){
+      debug_process_messages();
+      DO_EVERY(100000,
+        led_toggle(LED_GREEN);
+        led_toggle(LED_RED);
+        /* 
+         * In case PC application was started after we entered the loop. It
+         * is expecting to get a bootloader handshake message before it will
+         * send flash programming callbacks 
+         */
+        debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+      );
+    }
   }
 
-  ///* Boot the application if it's valid */
-  //if ((*(volatile u32*)APP_ADDRESS & 0x2FFE0000) == 0x20000000) {
-  //  /* Set vector table base address */
-  //  SCB_VTOR = APP_ADDRESS & 0xFFFF;
-  //  /* Initialise master stack pointer */
-  //  asm volatile ("msr msp, %0"::"g"
-  //      (*(volatile u32*)APP_ADDRESS));
-  //  /* Jump to application */
-  //  (*(void(**)())(APP_ADDRESS + 4))();
-  //}
+  /* Looks like the PC didn't want to update - boot the existing application */
+  /* Should we disable interrupts here? */
+  /* Set vector table base address */
+  SCB_VTOR = APP_ADDRESS & 0xFFFF;
+  /* Initialise master stack pointer */
+  asm volatile ("msr msp, %0"::"g"(*(volatile u32*)APP_ADDRESS));
+  /* Jump to application */
+  (*(void(**)())(APP_ADDRESS + 4))();
+
+  while(1);
 }
