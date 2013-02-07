@@ -1,4 +1,3 @@
-import wx
 import struct
 import time
 from intelhex import IntelHex
