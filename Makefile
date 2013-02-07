@@ -22,7 +22,7 @@ libswiftnav:
 	@printf "BUILD   libswiftnav\n"; \
 	$(MAKE) -C libswiftnav $(MAKEFLAGS)
 
-firmware: libswiftnav
+firmware:
 	@printf "BUILD   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS)
 
