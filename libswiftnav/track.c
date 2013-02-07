@@ -178,23 +178,27 @@ void calc_navigation_measurement_(u8 n_channels, channel_measurement_t* meas[], 
 
   double clock_err, clock_rate_err;
 
-  double az, el;
-
-  const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
-  double WPR_ecef[3];
-  wgsllh2ecef(WPR_llh, WPR_ecef);
-
   for (u8 i=0; i<n_channels; i++) {
     nav_meas[i]->pseudorange = (mean_TOT - TOTs[i])*NAV_C + NOMINAL_RANGE;
 
     calc_sat_pos(nav_meas[i]->sat_pos, nav_meas[i]->sat_vel, &clock_err, &clock_rate_err, ephemerides[i], TOTs[i]);
-    wgsecef2azel(nav_meas[i]->sat_pos, WPR_ecef, &az, &el);
 
-    /*nav_meas[i]->pseudorange -= tropo_correction(el);*/
     nav_meas[i]->pseudorange += clock_err*NAV_C;
     nav_meas[i]->pseudorange_rate -= clock_rate_err*NAV_C;
   }
 }
+
+void apply_tropo_correction(u8 n_channels, navigation_measurement_t* nav_meas[], double ref_ecef[3])
+{
+  /*double ref_ecef[3] = {3428027.88064438,   603837.64228578,  5326788.33674493};*/
+  double az, el;
+
+  for (u8 i=0; i<n_channels; i++) {
+    wgsecef2azel(nav_meas[i]->sat_pos, ref_ecef, &az, &el);
+    nav_meas[i]->pseudorange -= tropo_correction(el);
+  }
+}
+
 
 void track_correlate(s8* samples, s8* code,
                      double* init_code_phase, double code_step, double* init_carr_phase, double carr_step,
