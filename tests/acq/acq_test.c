@@ -25,6 +25,7 @@
 #include "swift_nap_io.h"
 #include "acq.h"
 #include "hw/leds.h"
+#include "hw/m25_flash.h"
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
@@ -42,20 +43,20 @@ const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 
 int main(void)
 {
-  for (u32 i = 0; i < 600000; i++)
-    __asm__("nop");
 
-	led_setup();
+  led_setup();
+  debug_setup();
 
   swift_nap_setup();
   swift_nap_reset();
 
   led_on(LED_GREEN);
   led_on(LED_RED);
-
+  
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
 
-  debug_setup();
+  m25_setup();
+  xfer_dna_hash();
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n\r");
   printf("--- ACQ TEST ---\n\r");

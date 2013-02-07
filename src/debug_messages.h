@@ -25,6 +25,8 @@
 #define MSG_CW_START    0xC1
 #define MSG_CW_RESULTS  0xC0
 
+#define MSG_NAP_DEVICE_DNA 0xDD //both C and Python ID
+
 #define MSG_FLASH_WRITE 0xF0
 #define MSG_FLASH_READ  0xF1
 #define MSG_FLASH_ERASE 0xF2

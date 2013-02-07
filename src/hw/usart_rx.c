@@ -48,9 +48,14 @@ void usart_rx_dma_setup(void) {
 
   /* Make sure stream is disabled to start. */
   DMA2_S2CR &= ~DMA_SxCR_EN;
-  DMA2_S2CR = 0;
+
+  /* Supposed to wait until enable bit reads '0' before we write to registers */
+  while (DMA2_S2CR & DMA_SxCR_EN) {
+    __asm__("nop");
+  }
 
   /* Configure the DMA controller. */
+  DMA2_S2CR = 0;
               /* Error interrupts. */
   DMA2_S2CR = DMA_SxCR_DMEIE | DMA_SxCR_TEIE |
               /* Transfer complete interrupt. */
@@ -78,9 +83,9 @@ void usart_rx_dma_setup(void) {
   DMA2_S2M0AR = rx_buff;      /* to the rx_buff. */
 
   // TODO: Investigate more about the best FIFO settings.
-  DMA2_S2FCR = DMA_SxFCR_DMDIS |         /* Enable DMA stream FIFO. */
-               DMA_SxFCR_FTH_2_4_FULL |  /* Trigger level 1/2 full. */
-               DMA_SxFCR_FEIE;           /* Enable FIFO error interrupt. */
+//  DMA2_S2FCR = DMA_SxFCR_DMDIS |         /* Enable DMA stream FIFO. */
+//               DMA_SxFCR_FTH_2_4_FULL |  /* Trigger level 1/2 full. */
+//               DMA_SxFCR_FEIE;           /* Enable FIFO error interrupt. */
 
   rx_rd = 0;  /* Buffer is empty to begin with. */
   rd_wraps = wr_wraps = 0;
@@ -94,13 +99,14 @@ void usart_rx_dma_setup(void) {
 
 void dma2_stream2_isr()
 {
-  if (DMA2_HISR & DMA_HISR_TCIF5) {
+  //make sure TCIF2 and HTIF2 bits are the only ones that are high
+  if ((DMA2_LISR & (DMA_LISR_TCIF2 | DMA_LISR_HTIF2)) && !(DMA2_LISR & ~(DMA_LISR_TCIF2 | DMA_LISR_HTIF2))) {
     /* Interrupt is Transmit Complete. We are in circular buffer mode
      * so this probably means we just wrapped the buffer.
      */
 
-    /* Clear the DMA transmit complete interrupt flag. */
-    DMA2_HIFCR = DMA_HIFCR_CTCIF5;
+    /* Clear the DMA transmit complete and half complete interrupt flags. */
+    DMA2_LIFCR = (DMA_LIFCR_CHTIF2 | DMA_LIFCR_CTCIF2);
 
     /* Increment our write wrap counter. */
     wr_wraps++;
@@ -112,17 +118,27 @@ void dma2_stream2_isr()
 
 u32 usart_n_read_dma()
 {
-  __asm__("CPSID i;");
-  // Compare number of bytes written to the number read, if greater
-  // than a whole buffer then we have had an overflow.
-  u32 n_read = rd_wraps*USART_RX_BUFFER_LEN + rx_rd;
-  u32 n_written = (wr_wraps+1)*USART_RX_BUFFER_LEN - DMA2_S2NDTR;
-  __asm__("CPSIE i;");
-  if (n_written - n_read > USART_RX_BUFFER_LEN) {
-    // My buffer runneth over.
+  s32 n_read = rd_wraps*USART_RX_BUFFER_LEN + rx_rd;
+  s32 n_written = (wr_wraps+1)*USART_RX_BUFFER_LEN - DMA2_S2NDTR;
+  s32 n_available = n_written - n_read;
+  /* If this case occurs we have had strange timing between the 
+   * call to this function, the rollover of NDTR, and the interrupt
+   * flag for the rollover of NDTR being raised, ie NDTR has rolled
+   * over but the flag hasn't been raised and thus n_wraps hasn't
+   * been incremented in the ISR yet. There shouldn't be
+   * any case in which more bytes are actually read out of the buffer
+   * than have been written in - usart_read_dma takes care of this 
+   * We will simply return 0 this call and the next time this
+   * function is called (or at some point) the interrupt will have
+   * been resolved and the number of bytes available in the buffer
+   * will be a sane amount */
+  if (n_available < 0) {
+    n_available = 0;
+  // If greater than a whole buffer then we have had an overflow
+  } else if (n_available > USART_RX_BUFFER_LEN) {
     speaking_death("DMA RX buffer overrun");
   }
-  return n_written - n_read;
+  return n_available;
 }
 
 u32 usart_read_dma(u8 data[], u32 len)

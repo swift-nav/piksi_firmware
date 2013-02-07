@@ -18,8 +18,9 @@
 #include "spi.h"
 #include "m25_flash.h"
 #include "../debug.h"
+#include "usart.h"
 #include <stdio.h>
-
+#include "../error.h"
 
 void m25_write_enable(void)
 {
@@ -150,7 +151,6 @@ void m25_bulk_erase(void)
   while(m25_read_status() & M25_SR_WIP);
 }
 
-
 void flash_write_callback(u8 buff[]) {
   // Msg format:  u32 addr, u8 len, u8 data[]
   // Write a 256-byte page at a time.
@@ -161,10 +161,10 @@ void flash_write_callback(u8 buff[]) {
   u8 len = *(u8 *)&buff[4];
   u8 *data = &buff[5];
 
-  printf("SPI Flash writing %d bytes to 0x%06X...", (int)len, (unsigned int)addr);
+//  printf("SPI Flash writing %d bytes to 0x%06X...", (int)len, (unsigned int)addr);
   m25_write_enable();
   m25_page_program(addr, len, data);
-  printf("ok\n");
+//  printf("ok\n");
 
   debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
 }
@@ -176,8 +176,9 @@ void flash_read_callback(u8 buff[]) {
 
   addr = *(u32 *)&buff[0];
   len  = *(u32 *)&buff[4];
+  u8 callback_data[20];
 
-  printf("SPI Flash reading %d bytes from 0x%06X:\n", (int)len, (unsigned int)addr);
+//  printf("SPI Flash reading %d bytes from 0x%06X:\n", (int)len, (unsigned int)addr);
 
   while (len) {
     u8 chunk_len = 16;
@@ -185,26 +186,36 @@ void flash_read_callback(u8 buff[]) {
 
     m25_read(addr, chunk_len, (u8 *)flash_data);
 
-    printf("%08X:  ", (unsigned int)addr);
+//    printf("%08X:  ", (unsigned int)addr);
+//    for (u8 chunk_i = 0; chunk_i < chunk_len; chunk_i++) {
+//      printf("%02X ", flash_data[chunk_i]);
+//    }
+//    printf("\n");
 
-    for (u8 chunk_i = 0; chunk_i < chunk_len; chunk_i++)
-      printf("%02X ", flash_data[chunk_i]);
-/*
-    printf("  ");
-
-    for (u8 chunk_i = 0; chunk_i < chunk_len; chunk_i++)
-      if (flash_data[chunk_i] >= 32)
-        printf("%c", flash_data[chunk_i]);
-      else
-        printf(".");
-*/
-
-    printf("\n");
+    //Pack data for read callback back to host
+    //3 bytes starting address, 1 byte length, chunk_len byes data
+    callback_data[0] = (addr >> 16) & 0xFF;
+    callback_data[1] = (addr >> 8) & 0xFF;
+    callback_data[2] = (addr >> 0) & 0xFF;
+    callback_data[3] = chunk_len;
+    for (u8 i = 0; i < chunk_len; i++) {
+      callback_data[i+4] = flash_data[i];
+    }
+    //Make sure we don't wrap the TX DMA buffer
+    //This shouldn't be necessary, but just to give a bit more protection
+    while(usart_tx_n_free() < USART_TX_BUFFER_LEN*0.5)
+      __asm__("nop");
+    u32 msg_qd;
+    msg_qd = debug_send_msg(MSG_FLASH_READ,4 + chunk_len,callback_data);
+    if (msg_qd)
+      speaking_death("debug_send_msg in read callback not successful");
+//    while (!(debug_send_msg(MSG_FLASH_READ,4 + chunk_len,callback_data)))
+//      __asm__("nop");
 
     len -= chunk_len;
     addr += chunk_len;
   }
-
+//  debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
 
 }
 
@@ -214,17 +225,16 @@ void flash_erase_callback(u8 buff[] ) {
 
   u32 addr = *(u32*)buff;
 
-  printf("SPI Flash erasing 64KB from 0x%06X...", (unsigned int)addr & 0xFF0000);
+//  printf("SPI Flash erasing 64KB from 0x%06X...", (unsigned int)addr & 0xFF0000);
 
   m25_write_enable();
   m25_sector_erase(addr);
 
-  printf("ok\n");
+//  printf("ok\n");
 
   debug_send_msg(MSG_FLASH_COMPLETE,0,0);   // Report completion
 
 }
-
 
 void m25_setup(void) {
   // Assumes spi_setup already called
@@ -240,4 +250,3 @@ void m25_setup(void) {
   printf("SPI flash capacity = %02X, type = %02X, manufacturer = %02X\n", (char) (m25_id & 0xFF), (char)((m25_id >> 8) & 0xFF), (char)((m25_id >> 16) & 0xFF));
 */
 }
-

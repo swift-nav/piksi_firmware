@@ -64,7 +64,7 @@ void max2769_setup()
           MAX2769_CONF1_F3OR5_5 |
           MAX2769_CONF1_FCENX_BP |
           MAX2769_CONF1_FGAIN_HIGH;
-  conf1 |= MAX2769_CONF1_LNAMODE_LNA1;
+  conf1 |= MAX2769_CONF1_LNAMODE_GATED;
   max2769_write(MAX2769_CONF1, conf1);
 
   max2769_write(MAX2769_CONF2,

@@ -30,6 +30,7 @@ static u8 buff[USART_TX_BUFFER_LEN];
 static u32 rd = 0;
 static u32 wr = 0;
 static u32 xfer_len = 0;
+u32 feif_isrs = 0;
 
 /** Setup the USART for transmission with DMA. This function sets up the DMA
  * controller and additional USART parameters for DMA transmission. The USART
@@ -43,7 +44,6 @@ void usart_tx_dma_setup(void) {
   /* Enable TX DMA on the USART. */
   usart_enable_tx_dma(USART6);
 
-  /* USART1 TX - DMA2, stream 7, channel 4 */
   /* USART6 TX - DMA2, stream 7, channel 5 */
 
   /* Make sure stream is disabled to start. */
@@ -58,12 +58,15 @@ void usart_tx_dma_setup(void) {
               DMA_SxCR_DIR_MEM_TO_PERIPHERAL |
               /* Increment the memory address after each transfer. */
               DMA_SxCR_MINC |
+              /* 4 bytes written to the FIFO from memory at a time */
+              DMA_SxCR_MBURST_INCR4 |
               /* 8 bit transfers to USART peripheral. */
               DMA_SxCR_PSIZE_8BIT |
               /* and from memory. */
               DMA_SxCR_MSIZE_8BIT |
-              /* Low priority. */
-              DMA_SxCR_PL_LOW |
+              /* TODO: what priority level is necessary? */
+              /* Very high priority. */
+              DMA_SxCR_PL_VERY_HIGH |
               /* The channel selects which request line will trigger a
                * transfer. In this case, channel 5 = UART6_TX
                * (see CD00225773.pdf Table 23). */
@@ -78,7 +81,7 @@ void usart_tx_dma_setup(void) {
 
   /* TODO: Investigate more about the best FIFO settings. */
   DMA2_S7FCR = DMA_SxFCR_DMDIS |         /* Enable DMA stream FIFO. */
-               DMA_SxFCR_FTH_2_4_FULL |  /* Trigger level 1/2 full. */
+               DMA_SxFCR_FTH_2_4_FULL |  /* Trigger level 2/4 full. */
                DMA_SxFCR_FEIE;           /* Enable FIFO error interrupt. */
 
   wr = rd = 0;  /* Buffer is empty to begin with. */
@@ -86,18 +89,6 @@ void usart_tx_dma_setup(void) {
   /* Enable DMA2 Stream 7 (TX) interrupts with the NVIC. */
   nvic_enable_irq(NVIC_DMA2_STREAM7_IRQ);
 }
-
-/** Disable the USART TX DMA interrupt. Used to ensure that operations on the
- * TX buffer happen "atomically". */
-/*static void usart_tx_di(void) {*/
-  /*[> TODO: Change this so it doesn't just globally disable interrupts. <]*/
-  /*nvic_disable_irq(NVIC_DMA2_STREAM7_IRQ);*/
-/*}*/
-
-/** Enable the USART TX DMA interrupt. */
-/*static void usart_tx_ei(void) {*/
-  /*nvic_enable_irq(NVIC_DMA2_STREAM7_IRQ);*/
-/*}*/
 
 /** Calculate the space left in the TX buffer.
  *
@@ -136,13 +127,14 @@ static void dma_schedule() {
   /* Set the number of datas in the DMA controller. */
   DMA2_S7NDTR = xfer_len;
 
-  USART6_SR &= ~USART_SR_TC;
+  /* Clear USART6_TC flag */
+  USART6_SR &= ~USART_SR_TC; 
 
   /* Enable DMA stream to start transfer. */
   DMA2_S7CR |= DMA_SxCR_EN;
 }
 
-/** USART6 TX DMA interrupt handler. */
+/* USART6 TX DMA interrupt handler. */
 void dma2_stream7_isr() {
   if (DMA2_HISR & DMA_HISR_TCIF7) {
     /* Interrupt is Transmit Complete. */
@@ -155,8 +147,12 @@ void dma2_stream7_isr() {
     rd = (rd + xfer_len) % USART_TX_BUFFER_LEN;
 
     if (wr != rd)
-      /* FIFO not empty. */
+      /* Buffer not empty. */
       dma_schedule();
+  } else if (DMA2_HISR & DMA_HISR_FEIF7) {
+    /* Clear FIFO error flag */
+    DMA2_HIFCR = DMA_HIFCR_CFEIF7;
+    feif_isrs++;
   } else {
     /* TODO: Handle error interrupts! */
     speaking_death("DMA TX error interrupt");

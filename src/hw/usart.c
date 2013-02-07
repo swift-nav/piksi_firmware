@@ -37,7 +37,7 @@ void usart_setup_common(void) {
 
   /* Setup UART parameters. */
   usart_disable(USART6);
-	usart_set_baudrate(USART6, 921600);
+	usart_set_baudrate(USART6, 230400);
 	usart_set_databits(USART6, 8);
 	usart_set_stopbits(USART6, USART_STOPBITS_1);
 	usart_set_parity(USART6, USART_PARITY_NONE);
