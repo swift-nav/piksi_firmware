@@ -46,12 +46,14 @@
 #define TRACK_PHASE_OFFSET  0x03
 #define TRACK_CODE_OFFSET   0x04
 
+#define SPI_ID_TIMING_COMPARE 0xF8
+#define SPI_ID_TIMING_COUNT 0xF9
+#define SPI_ID_TIMING_COUNT_LATCH 0xFA
 #define SPI_ID_HASH_STATUS 0xFB
 #define SPI_ID_DNA_HASH 0xFC
 #define SPI_ID_DNA 0xFD
 #define SPI_ID_RDWR 0xFE
 #define SPI_ID_DECEASED_COW 0xFF
-
 
 #define IRQ_ACQ_DONE      (1<<31)
 #define IRQ_ACQ_LOAD_DONE (1<<30)
@@ -93,8 +95,9 @@ void exti_setup();
 u32 last_exti_count();
 void wait_for_exti();
 
-void timing_strobe_setup();
+//void timing_strobe_setup();
 u32 timing_count();
+u32 timing_count_latched();
 void timing_strobe(u32 falling_edge_count);
 
 void spi_dma_setup();

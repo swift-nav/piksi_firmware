@@ -72,7 +72,7 @@ void swift_nap_setup()
   gpio_clear(GPIOA, GPIO2);
 
   /* Setup the timing strobe output. */
-  timing_strobe_setup();
+//  timing_strobe_setup();
 
   /* Setup the external interrupts. */
   exti_setup();
@@ -109,7 +109,6 @@ void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_
      */
     speaking_death("SPI DMA xfer already in progess");
   }
-
 
   spi_slave_select(SPI_SLAVE_FPGA);
 
@@ -210,27 +209,12 @@ void wait_for_exti()
 
 void timing_strobe(u32 falling_edge_count)
 {
-  /* Clear the capture compare interrupt flag,
-   * used to detect when the timing strobe has
-   * gone low.
-   */
-  TIM2_SR &= ~TIM_SR_CC1IF;
-
-  /* Setup a new capture compare timer count. */
-  timer_set_oc_mode(TIM2, TIM_OC1, TIM_OCM_FORCE_HIGH);
-  timer_set_oc_value(TIM2, TIM_OC1, falling_edge_count);
-  timer_set_oc_mode(TIM2, TIM_OC1, TIM_OCM_INACTIVE);
-
-  /* Wait until the the capture compare interrupt
-   * flag is set indicating that the previous timing
-   * strobe has completed.
-   */
-  /*while(!(TIM2_SR | TIM_SR_CC1IF));*/
-
-  /* TODO: find out why the above isn't working,
-   * in the mean time this will work.
-   */
-  while(TIM2_CNT <= TIM2_CCR1);
+  u8 temp[4];
+  temp[0] = (falling_edge_count >> 24) & 0xFF;
+  temp[1] = (falling_edge_count >> 16) & 0xFF;
+  temp[2] = (falling_edge_count >> 8) & 0xFF;
+  temp[3] = (falling_edge_count >> 0) & 0xFF;
+  swift_nap_xfer_blocking(SPI_ID_TIMING_COMPARE,4,temp,temp);
   /* Add a little bit of delay before the next
    * timing strobe.
    */
@@ -238,36 +222,16 @@ void timing_strobe(u32 falling_edge_count)
     __asm__("nop");
 }
 
-u32 timing_count() {
-  return TIM2_CNT;
+u32 timing_count(){
+  u8 temp[4] = {0,0,0,0};
+  swift_nap_xfer_blocking(SPI_ID_TIMING_COUNT,4,temp,temp);
+  return (temp[0]<<24)|(temp[1]<<16)|(temp[2]<<8)|temp[3];
 }
 
-void timing_strobe_setup()
-{
-  /* Setup Timer 2 as out global sample counter. */
-  RCC_APB1ENR |= RCC_APB1ENR_TIM2EN;
-
-  /* Set timer prescale to divide APB bus back to the sample
-   * clock frequency.
-   *
-   * NOTE: This will only work for ppre1_freq that is an integer
-   *       multiple of the sample clock.
-   * NOTE: Assumes APB1 prescale != 1, see Ref Man pg. 84
-   */
-  timer_set_prescaler(TIM2, rcc_ppre1_frequency / SAMPLE_FREQ);
-
-  /* Set time auto-reload value to the longest possible period. */
-  timer_set_period(TIM2, 0xFFFFFFFF);
-
-  /* Configure PA0 as TIM2CH1 alternate function. */
-  timer_enable_oc_output(TIM2, TIM_OC1);
-  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO0);
-  gpio_set_af(GPIOA, GPIO_AF1, GPIO0);
-
-  /* Enable timer */
-  TIM2_CNT = 0;
-  timer_generate_event(TIM2, TIM_EGR_UG);
-  timer_enable_counter(TIM2);
+u32 timing_count_latched(){
+  u8 temp[4] = {0,0,0,0};
+  swift_nap_xfer_blocking(SPI_ID_TIMING_COUNT_LATCH,4,temp,temp);
+  return (temp[0]<<24)|(temp[1]<<16)|(temp[2]<<8)|temp[3];
 }
 
 u32 swift_nap_read_irq_blocking()
