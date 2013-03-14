@@ -101,6 +101,7 @@ int main(void)
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
 
   m25_setup();
+  xfer_dna_hash();
 
   manage_acq_setup();
   cw_setup();
