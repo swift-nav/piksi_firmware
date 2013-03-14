@@ -1,8 +1,5 @@
 
-DIAGRAMS = costas_loop.tex \
-					 2nd_order_dpll.tex \
-					 2nd_order_loop_filter.tex \
-					 wgsecef2azel.tex
+DIAGRAMS =
 
 PDFS = $(DIAGRAMS:.tex=.pdf)
 
