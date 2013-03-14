@@ -217,7 +217,8 @@ void manage_acq()
         /* TODO: Perhaps we can try to warm start this one
          * later using another fine acq.
          */
-        acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
+        printf("No channels free :(\n");
+        acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
         acq_manage.state = ACQ_MANAGE_START;
         break;
       }
