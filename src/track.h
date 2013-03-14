@@ -33,7 +33,7 @@ typedef enum {
 } tracking_state_t;
 
 typedef struct {
-  tracking_state_t state; 
+  tracking_state_t state;
   u32 update_count;
   u32 TOW_ms;
   u32 snr_threshold_count;
@@ -42,16 +42,13 @@ typedef struct {
   u32 sample_count;
   u32 code_phase_early;
 
+  /* Tracking loop filter state. */
+  comp_tl_state_t tl_state;
+
   double code_phase_rate;
   u32 code_phase_rate_fp;
   u32 code_phase_rate_fp_prev;
   double carrier_freq;
-
-  /* Loop filter state. */
-  double dll_igain, dll_pgain;
-  double pll_igain, pll_pgain;
-  double dll_disc;
-  double pll_disc;
 
   /* SNR filter state. */
   u32 I_filter, Q_filter;
