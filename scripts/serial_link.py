@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-import serial
 import re
 import struct
 import threading
 import time
 import sys
+
 
 DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 230400
@@ -42,8 +42,15 @@ class SerialLink:
   unhandled_bytes = 0
   callbacks = {}
 
-  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD):
-    self.ser = serial.Serial(port, baud, timeout=1)
+  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False):
+    if use_ftdi:
+      import pylibftdi
+      self.ser = pylibftdi.Device()
+      self.ser.baudrate = baud
+    else:
+      import serial
+      self.ser = serial.Serial(port, baud, timeout=1)
+
     self.lt = ListenerThread(self)
     self.lt.start()
 
@@ -51,17 +58,20 @@ class SerialLink:
     self.close()
 
   def close(self):
-    self.lt.stop()
+    try:
+      self.lt.stop()
+    except AttributeError:
+      pass
 
   def get_message(self):
     while True:
       if self.lt.wants_to_stop:
         return (None, None)
       # Sync with magic start bytes
-      magic = self.ser.read()
+      magic = self.ser.read(1)
       if magic:
         if ord(magic) == DEBUG_MAGIC_1:
-          magic = self.ser.read()
+          magic = self.ser.read(1)
           if ord(magic) == DEBUG_MAGIC_2:
             break
           else:
@@ -70,15 +80,14 @@ class SerialLink:
         else:
           self.unhandled_bytes += 1
           print "Total unhandled bytes =", self.unhandled_bytes
-    msg_type = ord(self.ser.read())
-    msg_len = ord(self.ser.read())
+    msg_type = ord(self.ser.read(1))
+    msg_len = ord(self.ser.read(1))
     data = ""
     while len(data) < msg_len:
       data += self.ser.read(msg_len - len(data))
     return (msg_type, data)
 
   def send_message(self, msg_type, msg):
-    #print "Sending, id=0x%02X, len=%d" % (msg_type, len(msg))
     self.ser.write(chr(DEBUG_MAGIC_1))
     self.ser.write(chr(DEBUG_MAGIC_2))
     self.ser.write(chr(msg_type))
@@ -103,9 +112,12 @@ if __name__ == "__main__":
   parser.add_argument('-p', '--port',
                      default=[DEFAULT_PORT], nargs=1,
                      help='specify the serial port to use.')
+  parser.add_argument("-f", "--ftdi",
+                    help="use pylibftdi instead of pyserial.",
+                    action="store_true")
   args = parser.parse_args()
   serial_port = args.port[0]
-  link = SerialLink(serial_port)
+  link = SerialLink(serial_port, use_ftdi=args.ftdi)
   link.add_callback(MSG_PRINT, default_print_callback)
   try:
     while True:
