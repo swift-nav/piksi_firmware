@@ -21,3 +21,4 @@ docs/diagrams/*.pdf
 docs/diagrams/*.png
 libswiftnav/python/build
 libswiftnav/python/swiftnav/*.c
+.DS_Store
