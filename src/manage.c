@@ -240,7 +240,7 @@ u8 manage_track_new_acq(float snr __attribute__((unused)))
   /* Decide which (if any) tracking channel to put
    * a newly acquired satellite into.
    */
-  for (u8 i=0; i<TRACK_N_CHANNELS-1; i++) {
+  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
     if (tracking_channel[i].state == TRACKING_DISABLED) {
       return i;
     }
