@@ -428,7 +428,7 @@ void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]) {
    */
   u8 temp[2*3*3+2];
 
-  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
+  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3+2, temp, temp);
 
   struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
 
