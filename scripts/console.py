@@ -7,6 +7,9 @@ parser = argparse.ArgumentParser(description='Swift Nav Console.')
 parser.add_argument('-p', '--port',
                    default=[serial_link.DEFAULT_PORT], nargs=1,
                    help='specify the serial port to use.')
+parser.add_argument("-f", "--ftdi",
+                  help="use pylibftdi instead of pyserial.",
+                  action="store_true")
 args = parser.parse_args()
 serial_port = args.port[0]
 
@@ -69,10 +72,10 @@ class SwiftConsole(HasTraits):
     except UnicodeDecodeError:
       print "Oh crap!"
 
-  def __init__(self, port=serial_link.DEFAULT_PORT):
+  def __init__(self, *args, **kwargs):
     self.console_output = OutputStream()
 
-    self.link = serial_link.SerialLink(port)
+    self.link = serial_link.SerialLink(*args, **kwargs)
     self.link.add_callback(serial_link.MSG_PRINT, self.print_message_callback)
 
     self.tracking_view = TrackingView(self.link)
@@ -94,7 +97,7 @@ class SwiftConsole(HasTraits):
     self.flash.stop()
     self.link.close()
 
-console = SwiftConsole(serial_port)
+console = SwiftConsole(serial_port, use_ftdi=args.ftdi)
 
 console.configure_traits()
 console.stop()
