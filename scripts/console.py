@@ -54,7 +54,7 @@ class SwiftConsole(HasTraits):
       HSplit(
         Item('python_console_env', editor=ShellEditor()),
         Item('console_output', style='custom', editor=InstanceEditor()),
-        Item('tracking_view', style='custom', editor=InstanceEditor(view='snr_bar_view')),
+        #Item('tracking_view', style='custom', editor=InstanceEditor(view='snr_bar_view')),
         show_labels=False
       )
     ),
