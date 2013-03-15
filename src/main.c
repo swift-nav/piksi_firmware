@@ -159,8 +159,14 @@ int main(void)
       }
       mean_range /= n_ready;
       double pr_errs[TRACK_N_CHANNELS];
+      double mean = 0;
       for (u8 i=0; i<n_ready; i++) {
         pr_errs[i] = nav_meas[i].pseudorange - (ranges[i] - mean_range + NOMINAL_RANGE);
+        mean += pr_errs[i];
+      }
+      mean /= n_ready;
+      for (u8 i=0; i<n_ready; i++) {
+        pr_errs[i] -= mean;
       }
       for (u8 i=n_ready; i<TRACK_N_CHANNELS; i++) {
         pr_errs[i] = 0;
