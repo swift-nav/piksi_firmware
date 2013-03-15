@@ -29,8 +29,14 @@
 
 typedef enum {
   TRACKING_DISABLED = 0,
-  TRACKING_RUNNING
+  TRACKING_RUNNING = 1
 } tracking_state_t;
+
+typedef struct __attribute__((packed)) {
+  tracking_state_t state;
+  u8 prn;
+  float cn0;
+} tracking_state_msg_t;
 
 typedef struct {
   tracking_state_t state;
@@ -70,5 +76,6 @@ void tracking_channel_update(u8 channel);
 void tracking_channel_disable(u8 channel);
 void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
 float tracking_channel_snr(u8 channel);
+void tracking_send_state();
 
 #endif

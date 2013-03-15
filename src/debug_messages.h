@@ -35,7 +35,8 @@
 #define MSG_SOLUTION 0x50
 #define MSG_DOPS     0x51
 #define MSG_PR_ERRS  0x52
-#define MSG_SNRS     0x22
+
+#define MSG_TRACKING_STATE 0x22
 
 #endif /* SWIFTNAV_DEBUG_MESSAGES_H */
 

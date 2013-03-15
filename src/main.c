@@ -181,14 +181,8 @@ int main(void)
       );
     }
 
-    DO_EVERY_COUNTS(SAMPLE_FREQ/5, // 10 Hz update
-      float snrs[TRACK_N_CHANNELS];
-      for (u8 i=0; i<TRACK_N_CHANNELS; i++)
-        if (tracking_channel[i].state == TRACKING_RUNNING)
-          snrs[i] = tracking_channel_snr(i);
-        else
-          snrs[i] = -1.0;
-      debug_send_msg(MSG_SNRS, sizeof(snrs), (u8*)snrs);
+    DO_EVERY_COUNTS(SAMPLE_FREQ/10, // 10 Hz update
+      tracking_send_state();
     );
 
     u32 err = swift_nap_read_error_blocking();
