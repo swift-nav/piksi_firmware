@@ -27,16 +27,20 @@ class ListenerThread (threading.Thread):
 
   def run(self):
     while not self.wants_to_stop:
-      mt, md = self.link.get_message()
-      if self.wants_to_stop: #will throw away last message here even if it is valid
-        if self.link.ser:
-          self.link.ser.close()
-        break
-      cb = self.link.get_callback(mt)
-      if cb:
-        cb(md)
-      else:
-        print "Unhandled message %02X" % mt
+      try:
+        mt, md = self.link.get_message()
+        if self.wants_to_stop: #will throw away last message here even if it is valid
+          if self.link.ser:
+            self.link.ser.close()
+          break
+        cb = self.link.get_callback(mt)
+        if cb:
+          cb(md)
+        else:
+          print "Unhandled message %02X" % mt
+      except Exception, err:
+        import traceback
+        print traceback.format_exc()
 
 class SerialLink:
   unhandled_bytes = 0

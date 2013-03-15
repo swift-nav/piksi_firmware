@@ -25,6 +25,7 @@
 
 #include "main.h"
 #include "swift_nap_io.h"
+#include "debug.h"
 #include "track.h"
 
 #include <libswiftnav/pvt.h>
@@ -282,5 +283,18 @@ float tracking_channel_snr(u8 channel)
   /* Calculate SNR from I and Q filtered magnitudes. */
   return (float)(tracking_channel[channel].I_filter >> I_FILTER_COEFF) / \
                 (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
+}
+
+void tracking_send_state() {
+  tracking_state_msg_t states[TRACK_N_CHANNELS];
+  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+    states[i].state = tracking_channel[i].state;
+    states[i].prn = tracking_channel[i].prn;
+    if (tracking_channel[i].state == TRACKING_RUNNING)
+      states[i].cn0 = tracking_channel_snr(i);
+    else
+      states[i].cn0 = -1;
+  }
+  debug_send_msg(MSG_TRACKING_STATE, sizeof(states), (u8*)states);
 }
 
