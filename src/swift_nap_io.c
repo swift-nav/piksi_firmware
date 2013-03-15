@@ -215,6 +215,9 @@ void timing_strobe(u32 falling_edge_count)
   temp[2] = (falling_edge_count >> 8) & 0xFF;
   temp[3] = (falling_edge_count >> 0) & 0xFF;
   swift_nap_xfer_blocking(SPI_ID_TIMING_COMPARE,4,temp,temp);
+
+  while(timing_count() < falling_edge_count);
+
   /* Add a little bit of delay before the next
    * timing strobe.
    */
