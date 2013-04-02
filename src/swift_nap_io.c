@@ -52,11 +52,14 @@ void swift_nap_setup()
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
   gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO1);
 
-  /* We don't want spi_setup() called until
-   * the FPGA has finished configuring itself.
-   * (It uses the SPI2 bus for this.)
-   */
-  while (!(swift_nap_conf_done()))
+  /* Setup the FPGA hash read done line */
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
+  gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO3);
+
+  /* We don't want spi_setup() called until the FPGA has finished configuring
+   * itself and has read the device hash out of the configuration flash.
+   * (It uses the SPI2 bus for this.) */
+  while (!(swift_nap_conf_done() && swift_nap_hash_rd_done()))
     __asm__("nop");
 
   /* Initialise the SPI peripheral. */
@@ -91,12 +94,18 @@ void swift_nap_reset()
     __asm__("nop");
 }
 
-/* Check if configuration is finished
- * Returns 1 if configuration is finished (line high), 0 if not finished (line low) 
- */
+/* Check if configuration is finished. Returns 1 if configuration is finished 
+ * (line high), 0 if not finished (line low) */
 u8 swift_nap_conf_done()
 {
   return ((gpio_port_read(GPIOC))>>1) & 0x01;
+}
+
+/* Check if FPGA has finished reading hash from configuration flash. Returns 1 
+ * if configuration is finished (line low), 0 if not finished (line high) */
+u8 swift_nap_hash_rd_done()
+{
+  return ~(((gpio_port_read(GPIOA))>>3) | 0xFE);
 }
 
 void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_out[])
@@ -585,15 +594,15 @@ void cw_read_corr_blocking(corr_t* corrs) {
   corrs->I = sign.xtend; /* Sign extend! */
 }
 
-//Spartan 6 Device DNA is 57 bits, padded to 64 (with 0's) within FPGA
+/* Spartan 6 Device DNA is 57 bits, padded to 64 (with 0's) within FPGA */
 void get_nap_dna(u8 dna[]){
   swift_nap_xfer_blocking(SPI_ID_DNA,8,dna,dna);
 }
 
 /* Returns status of device hash comparison inside FPGA 
-   0x00 = hashes match
-   0x01 = hashes do not match
-   0x02 = one or more hashes are not ready to compare */
+ * 0x00 = hashes match
+ * 0x01 = hashes do not match
+ * 0x02 = one or more hashes are not ready to compare */
 u8 get_nap_hash_status(){
   u8 temp[1];
   swift_nap_xfer_blocking(SPI_ID_HASH_STATUS,1,temp,temp);
@@ -601,10 +610,10 @@ u8 get_nap_hash_status(){
 }
 
 void get_nap_dna_callback(){
-  // Retrieves Spartan 6 Device DNA and sends back over UART
+  /* Retrieves Spartan 6 Device DNA and sends back over UART */
   u8 dna[8];
   get_nap_dna(dna);
-  // TODO : error handling for debug_send_msg failure?
+  /* TODO : error handling for debug_send_msg failure? */
   debug_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
 }
 

@@ -24,14 +24,9 @@ int main(void)
   led_on(LED_GREEN);
   led_on(LED_RED);
 
-  //Hold FPGA re-configuration line low while we flash the flash
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
-	gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
-  gpio_clear(GPIOC, GPIO12);
-
-  spi_setup();
-  m25_setup();
+  swift_nap_setup();
   debug_setup();
+  m25_setup();
 
   for (u32 i = 0; i < 600000; i++)
     __asm__("nop");
