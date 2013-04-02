@@ -590,6 +590,10 @@ void get_nap_dna(u8 dna[]){
   swift_nap_xfer_blocking(SPI_ID_DNA,8,dna,dna);
 }
 
+/* Returns status of device hash comparison inside FPGA 
+   0x00 = hashes match
+   0x01 = hashes do not match
+   0x02 = one or more hashes are not ready to compare */
 u8 get_nap_hash_status(){
   u8 temp[1];
   swift_nap_xfer_blocking(SPI_ID_HASH_STATUS,1,temp,temp);
@@ -602,22 +606,6 @@ void get_nap_dna_callback(){
   get_nap_dna(dna);
   // TODO : error handling for debug_send_msg failure?
   debug_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
-}
-
-void xfer_dna_hash(){
-  u8 hash[16];
-  m25_read(M25_FPGA_HASH_ADDR,16,hash);
-//  printf("dna_hash in flash = 0x");
-//  for(u8 i=0; i<sizeof(hash); i++){
-//    printf("%02x",hash[i]);
-//  }
-//  printf("\n");
-  swift_nap_xfer_blocking(SPI_ID_DNA_HASH, 16, hash, hash);
-//  printf("dna_hash in fpga = 0x");
-//  for(u8 i=0; i<sizeof(hash); i++){
-//    printf("%02x",hash[i]);
-//  }
-//  printf("\n");
 }
 
 void swift_nap_callbacks_setup(){

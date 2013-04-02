@@ -98,7 +98,6 @@ int main(void)
   swift_nap_reset();
 
   m25_setup();
-  xfer_dna_hash();
 
   led_toggle(LED_GREEN);
   led_toggle(LED_RED);

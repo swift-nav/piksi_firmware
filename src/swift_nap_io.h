@@ -127,6 +127,5 @@ void cw_read_corr_blocking(corr_t* corrs);
 
 void get_nap_dna(u8 dna[]);
 u8 get_nap_hash_status();
-void xfer_dna_hash();
 
 #endif
