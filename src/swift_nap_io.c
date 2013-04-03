@@ -39,12 +39,18 @@
 
 #include <libswiftnav/prns.h>
 
+#define FLASH_NAP_PARAMS_ADDR 0xD0000
+u8 ACQ_N_TAPS;
+u8 TRACK_N_CHANNELS;
+
 u32 exti_count = 0;
 
 #define SPI_DMA_BUFFER_LEN 22
 u8 spi_dma_buffer[SPI_DMA_BUFFER_LEN];
 
 void swift_nap_callbacks_setup();
+
+void get_nap_parameters();
 
 void swift_nap_setup()
 {
@@ -82,6 +88,10 @@ void swift_nap_setup()
 
   /* Setup callback functions */
   swift_nap_callbacks_setup();
+
+  /* Get NAP parameters (number of acquisition taps, number of tracking
+   * channels, etc) from flash */
+  get_nap_parameters();
 }
 
 void swift_nap_reset()
@@ -100,7 +110,7 @@ u8 swift_nap_conf_done()
 {
   return ((gpio_port_read(GPIOC))>>1) & 0x01;
 }
-
+ 
 /* Check if FPGA has finished reading hash from configuration flash. Returns 1 
  * if configuration is finished (line low), 0 if not finished (line high) */
 u8 swift_nap_hash_rd_done()
@@ -507,7 +517,6 @@ void swift_nap_xfer_dma(u8 n_bytes) { // not yet updated for v2.2
   DMA1_S4CR |= DMA_SxCR_EN;
 }
 
-
 void track_read_corr_dma(u8 channel) // not yet updated for v2.2
 {
   spi_dma_buffer[0] = SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET; // Select correlation result register
@@ -620,4 +629,9 @@ void get_nap_dna_callback(){
 void swift_nap_callbacks_setup(){
   static msg_callbacks_node_t swift_nap_dna_node;
   debug_register_callback(MSG_NAP_DEVICE_DNA, &get_nap_dna_callback, &swift_nap_dna_node);
+}
+
+void get_nap_parameters(){
+  m25_read(FLASH_NAP_PARAMS_ADDR + 0, 1, &ACQ_N_TAPS);
+  m25_read(FLASH_NAP_PARAMS_ADDR + 1, 1, &TRACK_N_CHANNELS);
 }

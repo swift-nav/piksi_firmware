@@ -38,7 +38,8 @@
 /* Initialiser actually not needed, static array inits to zero
  * and TRACKING_DISABLED = 0.
  */
-tracking_channel_t tracking_channel[TRACK_N_CHANNELS];
+/* Assuming we will never have a greater number of tracking channels than 12 */
+tracking_channel_t tracking_channel[12];
 
 /** Calculate the future code phase after N samples.
  * Calculate the expected code phase in N samples time with carrier aiding.
@@ -350,4 +351,3 @@ float tracking_channel_snr(u8 channel)
   return (float)(tracking_channel[channel].I_filter >> I_FILTER_COEFF) / \
                 (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
 }
-
