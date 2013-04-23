@@ -22,7 +22,7 @@
 #include "../debug.h"
 #include "../error.h"
 
-void stm_flash_erase_callback(u8 buff[]){
+void stm_flash_erase_sector_callback(u8 buff[]){
   /* Msg format : 1 byte, sector number to erase (0-11)
    * See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual" */
   u8 sector = buff[0];
@@ -50,12 +50,12 @@ void stm_flash_erase_callback(u8 buff[]){
   debug_send_msg(MSG_STM_FLASH_COMPLETE,0,0);
 }
 
-void stm_flash_program_callback(u8 buff[]){
+void stm_flash_program_byte_callback(u8 buff[]){
   /* Msg format : 4 bytes, address to program 
    *              1 byte, data to program at address */
   u32 address = *(u32 *)&buff[0];
   u8 data = buff[4];
-  
+
   /* TODO : Add check to restrict addresses that can be programmed? */
 
   /* Program specified address with data
@@ -73,27 +73,62 @@ void stm_flash_program_callback(u8 buff[]){
   debug_send_msg(MSG_STM_FLASH_COMPLETE,0,0);
 }
 
-void stm_flash_read_callback(u8 buff[]){
-  /* Msg format : 4 bytes, address to read byte from */
+void stm_flash_program_callback(u8 buff[]){
+  /* Msg format : 4 bytes, address to program 
+   *              1 byte, number of addresses to program 
+   *              rest of bytes : data to program addr's with */
   u32 address = *(u32 *)&buff[0];
+  u8 length = buff[4];
+  u8 *data = &buff[5];
 
-  /* Get byte from address */
-  u8 byte = *(u8 *)address;
+  /* TODO : Add check to restrict addresses that can be programmed? */
 
-  /* Send byte back to PC */
-  debug_send_msg(MSG_STM_FLASH_READ,1,&byte);
+  /* Program specified addresses with data */
+  flash_unlock();
+  while (length) {
+    /*program 1 byte at a time*/
+    flash_program_byte(address,*data,0x00000000);
+    length -= 1;
+    data += 1;
+    address += 1;
+  }
+  flash_lock();
+
+  /* Send message back to PC to signal operation is finished */
+  debug_send_msg(MSG_STM_FLASH_COMPLETE,0,0);
+}
+
+void stm_flash_read_callback(u8 buff[]){
+  /* 
+   * Msg format : 4 bytes, starting address to read from
+   *              1 byte, number of addresses to read
+   */  
+  u32 address = *(u32 *)&buff[0];
+  u8 length = buff[4];
+
+  u8 callback_data[length+5];
+  /* Put address and length in array */
+  callback_data[0] = buff[0];
+  callback_data[1] = buff[1];
+  callback_data[2] = buff[2];
+  callback_data[3] = buff[3];
+  callback_data[4] = buff[4];
+  /* Copy data from addresses into array */
+  for (u16 i=0; i<length; i++){
+    callback_data[5+i] = *(u8 *)(address+i);
+  }
+
+  /* Send bytes to PC */
+  debug_send_msg(MSG_STM_FLASH_READ,length+5,callback_data);
 }
 
 void stm_flash_callbacks_setup(){
   /* Create message callbacks node types to add to debug callback
    * linked list for each flash callback defined above */
-  static msg_callbacks_node_t stm_flash_erase_node, stm_flash_program_node,
-    stm_flash_read_node;
+  static msg_callbacks_node_t stm_flash_erase_sector_node, stm_flash_program_node, stm_flash_program_byte_node, stm_flash_read_node;
   /* Insert callbacks in debug callback linked list so they can be called */
-  debug_register_callback(MSG_STM_FLASH_ERASE, &stm_flash_erase_callback,
-    &stm_flash_erase_node);
-  debug_register_callback(MSG_STM_FLASH_READ, &stm_flash_read_callback,
-    &stm_flash_read_node);
-  debug_register_callback(MSG_STM_FLASH_PROGRAM, &stm_flash_program_callback,
-    &stm_flash_program_node);
+  debug_register_callback(MSG_STM_FLASH_ERASE_SECTOR, &stm_flash_erase_sector_callback, &stm_flash_erase_sector_node);
+  debug_register_callback(MSG_STM_FLASH_READ, &stm_flash_read_callback, &stm_flash_read_node);
+  debug_register_callback(MSG_STM_FLASH_PROGRAM_BYTE, &stm_flash_program_byte_callback, &stm_flash_program_byte_node);
+  debug_register_callback(MSG_STM_FLASH_PROGRAM, &stm_flash_program_callback, &stm_flash_program_node);
 }
