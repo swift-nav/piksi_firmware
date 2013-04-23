@@ -13,4 +13,4 @@ CFLAGS += -I../src/
 
 SWIFTNAV_ROOT ?= ..
 
-include ../stm32/Makefile.include
+include Makefile.include
