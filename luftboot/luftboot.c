@@ -79,14 +79,21 @@ int main(void)
    * Wait a bit for response from PC. If it doesn't respond by calling
    * pc_wants_bootload_callback and we have a valid application, 
    * then boot the application 
+   * TODO : might as well make this as long as FPGA takes to configure itself
+   *        from the configuration flash, as it doesn't add to the startup time
    */
-  u32 wait_for_pc_count = 0;
-	while (wait_for_pc_count < 100000){
+	for (u64 i=0; i<100000; i++){
+    DO_EVERY(3000,
+      led_toggle(LED_GREEN);
+      led_toggle(LED_RED);
+      debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+    );
+    debug_process_messages(); // to service pc_wants_bootload_callback
     if (pc_wants_bootload)
       break;
-    wait_for_pc_count++;
   }
   if ((pc_wants_bootload) || !(current_app_valid)){
+//  if (pc_wants_bootload){
     /*
      * We expect PC application passing application data to call 
      * jump_to_app_callback to break us out of this while loop after it has
@@ -94,7 +101,7 @@ int main(void)
      */
     while(1){
       debug_process_messages();
-      DO_EVERY(100000,
+      DO_EVERY(50000,
         led_toggle(LED_GREEN);
         led_toggle(LED_RED);
         /* 
