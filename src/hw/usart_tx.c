@@ -30,7 +30,6 @@ static u8 buff[USART_TX_BUFFER_LEN];
 static u32 rd = 0;
 static u32 wr = 0;
 static u32 xfer_len = 0;
-u32 feif_isrs = 0;
 
 /** Setup the USART for transmission with DMA. This function sets up the DMA
  * controller and additional USART parameters for DMA transmission. The USART
@@ -48,9 +47,14 @@ void usart_tx_dma_setup(void) {
 
   /* Make sure stream is disabled to start. */
   DMA2_S7CR &= ~DMA_SxCR_EN;
-  DMA2_S7CR = 0;
+
+  /* Supposed to wait until enable bit reads '0' before we write to registers */
+  while (DMA2_S7CR & DMA_SxCR_EN) {
+    __asm__("nop");
+  }
 
   /* Configure the DMA controller. */
+  DMA2_S7CR = 0;
               /* Error interrupts. */
   DMA2_S7CR = DMA_SxCR_DMEIE | DMA_SxCR_TEIE |
               /* Transfer complete interrupt. */
@@ -152,7 +156,6 @@ void dma2_stream7_isr() {
   } else if (DMA2_HISR & DMA_HISR_FEIF7) {
     /* Clear FIFO error flag */
     DMA2_HIFCR = DMA_HIFCR_CFEIF7;
-    feif_isrs++;
   } else {
     /* TODO: Handle error interrupts! */
     speaking_death("DMA TX error interrupt");
