@@ -24,8 +24,11 @@
 #include <libopencm3/cm3/common.h>
 
 void usart_setup_common(void);
+void usart_disable_common(void);
 void usart_tx_dma_setup(void);
+void usart_tx_dma_disable(void);
 void usart_rx_dma_setup(void);
+void usart_rx_dma_disable(void);
 
 u32 usart_tx_n_free(void);
 u32 usart_write_dma(u8 data[], u32 len);

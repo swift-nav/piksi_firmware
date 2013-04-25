@@ -25,6 +25,7 @@
 #include "hw/leds.h"
 #include "debug.h"
 #include "hw/stm_flash.h"
+#include "hw/usart.h"
 
 #define APP_ADDRESS	0x08010000
 #define STACK_ADDRESS 0x10010000
@@ -33,7 +34,10 @@ u8 pc_wants_bootload = 0;
 u8 current_app_valid = 0;
 
 void jump_to_app_callback(u8 buff[] __attribute__((unused))){
-  /* Should we disable interrupts here? */
+  /* Disable peripherals used in the bootloader */
+  usart_tx_dma_disable();
+  usart_rx_dma_disable();
+  usart_disable_common();
   /* Set vector table base address */
   SCB_VTOR = APP_ADDRESS & 0x1FFFFF00;
   /* Initialise master stack pointer */
@@ -95,7 +99,6 @@ int main(void)
     if (pc_wants_bootload) break;
   }
   if ((pc_wants_bootload) || !(current_app_valid)){
-//  if (pc_wants_bootload){
     /*
      * We expect PC application passing application data to call 
      * jump_to_app_callback to break us out of this while loop after it has
@@ -117,13 +120,7 @@ int main(void)
   }
 
   /* Looks like the PC didn't want to update - boot the existing application */
-  /* Should we disable interrupts here? */
-  /* Set vector table base address */
-  SCB_VTOR = APP_ADDRESS & 0x1FFFFF00;
-  /* Initialise master stack pointer */
-  asm volatile ("msr msp, %0"::"g"(*(volatile u32*)APP_ADDRESS));
-  /* Jump to application */
-  (*(void(**)())(APP_ADDRESS + 4))();
+  jump_to_app_callback(NULL);
 
-  while(1);
+  return 0;
 }

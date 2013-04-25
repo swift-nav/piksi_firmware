@@ -94,6 +94,17 @@ void usart_tx_dma_setup(void) {
   nvic_enable_irq(NVIC_DMA2_STREAM7_IRQ);
 }
 
+void usart_tx_dma_disable(void) {
+  /* Disable DMA2 Stream 7 (TX) interrupts with the NVIC. */
+  nvic_disable_irq(NVIC_DMA2_STREAM7_IRQ);
+  /* Disable the stream. */
+  DMA2_S7CR &= ~DMA_SxCR_EN;
+  while (DMA2_S7CR & DMA_SxCR_EN)
+    __asm__("nop");
+  /* Disable TX DMA on the USART. */
+  usart_disable_tx_dma(USART6);
+}
+
 /** Calculate the space left in the TX buffer.
  *
  * \return The number of bytes that may be safely written to the buffer.

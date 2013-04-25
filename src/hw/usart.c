@@ -48,3 +48,6 @@ void usart_setup_common(void) {
 	usart_enable(USART6);
 }
 
+void usart_disable_common(void){
+  usart_disable(USART6);
+}
