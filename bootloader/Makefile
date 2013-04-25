@@ -1,6 +1,6 @@
-BINARY = luftboot
+BINARY = bootloader
 
-OBJS = luftboot.o \
+OBJS = bootloader.o \
        ../src/debug.o \
        ../src/error.o \
        ../src/hw/usart.o \
@@ -13,4 +13,6 @@ CFLAGS += -I../src/
 
 SWIFTNAV_ROOT ?= ..
 
-include Makefile.include
+LDSCRIPT ?= $(SWIFTNAV_ROOT)/bootloader/bootloader.ld
+
+include $(SWIFTNAV_ROOT)/stm32/Makefile.include
