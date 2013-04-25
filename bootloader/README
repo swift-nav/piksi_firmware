@@ -1,0 +1,3 @@
+Use stm32_flash.py to upload new firmware using the bootloader, via
+
+  "./stm32flash.py [filename]"
