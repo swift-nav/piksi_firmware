@@ -30,11 +30,13 @@
 #define STACK_ADDRESS 0x10010000
 
 u8 pc_wants_bootload = 0;
+u8 current_app_valid = 0;
 
 void jump_to_app_callback(u8 buff[] __attribute__((unused))){
   /* Should we disable interrupts here? */
   /* Set vector table base address */
-  SCB_VTOR = APP_ADDRESS & 0xFFFF;
+//  SCB_VTOR = APP_ADDRESS & 0xFFFF;
+  SCB_VTOR = APP_ADDRESS & 0x1FFFFF00;
   /* Initialise master stack pointer */
   asm volatile ("msr msp, %0"::"g"(*(volatile u32*)APP_ADDRESS));
   /* Jump to application */
@@ -54,26 +56,26 @@ int main(void)
 
   /* Setup UART and debug interface for 
    * transmitting and receiving callbacks */
-  debug_setup();
+//  debug_setup();
 
   /* Add callbacks for erasing, programming and reading flash */
-  stm_flash_callbacks_setup();
+//  stm_flash_callbacks_setup();
 
   /* Add callback for jumping to application after bootloading is finished */
-  static msg_callbacks_node_t jump_to_app_node;
-  debug_register_callback(MSG_JUMP_TO_APP, &jump_to_app_callback, 
-    &jump_to_app_node);
+//  static msg_callbacks_node_t jump_to_app_node;
+//  debug_register_callback(MSG_JUMP_TO_APP, &jump_to_app_callback, 
+//    &jump_to_app_node);
 
   /* Add callback for PC to tell bootloader it wants to load program */
-  static msg_callbacks_node_t pc_wants_bootload_node;
-  debug_register_callback(MSG_BOOTLOADER_HANDSHAKE,&pc_wants_bootload_callback,
-    &pc_wants_bootload_node);
+//  static msg_callbacks_node_t pc_wants_bootload_node;
+//  debug_register_callback(MSG_BOOTLOADER_HANDSHAKE,&pc_wants_bootload_callback,
+//    &pc_wants_bootload_node);
 
   /* Send message to PC indicating bootloader is ready to load program */
-  debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+//  debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
 
   /* Is current application we are programmed with valid? */
-  u8 current_app_valid = (*(volatile u32*)APP_ADDRESS == STACK_ADDRESS) ? 1:0;
+  current_app_valid = (*(volatile u32*)APP_ADDRESS == STACK_ADDRESS) ? 1:0;
 
   /* 
    * Wait a bit for response from PC. If it doesn't respond by calling
@@ -82,15 +84,14 @@ int main(void)
    * TODO : might as well make this as long as FPGA takes to configure itself
    *        from the configuration flash, as it doesn't add to the startup time
    */
-	for (u64 i=0; i<100000; i++){
-    DO_EVERY(3000,
+	for (u64 i=0; i<500000; i++){
+    DO_EVERY(10000,
       led_toggle(LED_GREEN);
       led_toggle(LED_RED);
-      debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+//      debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
     );
-    debug_process_messages(); // to service pc_wants_bootload_callback
-    if (pc_wants_bootload)
-      break;
+//    debug_process_messages(); /* to service pc_wants_bootload_callback */
+    if (pc_wants_bootload) break;
   }
   if ((pc_wants_bootload) || !(current_app_valid)){
 //  if (pc_wants_bootload){
@@ -100,7 +101,7 @@ int main(void)
      * finished sending flash programming callbacks
      */
     while(1){
-      debug_process_messages();
+//      debug_process_messages();
       DO_EVERY(50000,
         led_toggle(LED_GREEN);
         led_toggle(LED_RED);
@@ -109,7 +110,7 @@ int main(void)
          * is expecting to get a bootloader handshake message before it will
          * send flash programming callbacks 
          */
-        debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+//        debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
       );
     }
   }
@@ -117,7 +118,8 @@ int main(void)
   /* Looks like the PC didn't want to update - boot the existing application */
   /* Should we disable interrupts here? */
   /* Set vector table base address */
-  SCB_VTOR = APP_ADDRESS & 0xFFFF;
+//  SCB_VTOR = APP_ADDRESS & 0xFFFF;
+  SCB_VTOR = APP_ADDRESS & 0x1FFFFF00;
   /* Initialise master stack pointer */
   asm volatile ("msr msp, %0"::"g"(*(volatile u32*)APP_ADDRESS));
   /* Jump to application */
