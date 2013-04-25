@@ -6,8 +6,6 @@ OBJS = leds_test.o \
 
 CFLAGS += -I../../src/
 
-LDFLAGS += -Ttext=0x08010000
-
 SWIFTNAV_ROOT ?= ../..
 
 include ../../stm32/Makefile.include
