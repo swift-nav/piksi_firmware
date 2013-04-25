@@ -99,11 +99,11 @@ if __name__ == "__main__":
   link.send_message(MSG_BOOTLOADER_HANDSHAKE,'\x00')
 
   #Get program binary
-#  binary = open(argv[1], "rb").read()
-  binary = open("../tests/leds/leds_test.bin", "rb").read()
-#  binary = open("../tests/acq/acq_test.bin", "rb").read()
+  binary = open(sys.argv[1], "rb").read()
 
   #Erase sector of Piksi's flash where binary is to go
+  #Don't erase sectors 0-3 or you'll erase the bootloader
+  #TODO : automatically erase correct number of sectors for program size
   print "Erasing flash ...",
   flash.erase_sector(4)
   print "done"
@@ -125,9 +125,12 @@ if __name__ == "__main__":
   #Tell STM to jump to application, as programming is finished
   link.send_message(MSG_JUMP_TO_APP,'\x00')
 
-#  while True:
-#    time.sleep(0.1)
-#
+  try:
+    while(1):
+      time.sleep(0.1)
+  except KeyboardInterrupt:
+    pass
+
   #Clean up and exit
   link.close()
   sys.exit()
