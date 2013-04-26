@@ -38,7 +38,9 @@
 /* Initialiser actually not needed, static array inits to zero
  * and TRACKING_DISABLED = 0.
  */
-/* Assuming we will never have a greater number of tracking channels than 12 */
+/* Assuming we will never have a greater number of tracking channels than 12 
+ * We have to declare the number here as the number of tracking channels in
+ * the FPGA is read at runtime. */
 tracking_channel_t tracking_channel[12];
 
 /** Calculate the future code phase after N samples.
