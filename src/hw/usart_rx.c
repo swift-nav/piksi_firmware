@@ -43,16 +43,19 @@ void usart_rx_dma_setup(void) {
   /* Enable RX DMA on the USART. */
   usart_enable_rx_dma(USART6);
 
-  /* USART1 RX - DMA2, stream 5, channel 4. */
   /* USART6 RX - DMA2, stream 2, channel 5. */
 
   /* Make sure stream is disabled to start. */
   DMA2_S2CR &= ~DMA_SxCR_EN;
 
-  /* Supposed to wait until enable bit reads '0' before we write to registers */
-  while (DMA2_S2CR & DMA_SxCR_EN) {
+  /* RM0090 - 9.3.17 : Supposed to wait until enable bit reads '0' before we 
+   * write to registers */
+  while (DMA2_S2CR & DMA_SxCR_EN)
     __asm__("nop");
-  }
+
+  /* RM0090 - 9.3.17 : Supposed to clear any interrupts in DMA status register
+   * before we reconfigure registers */
+  DMA2_LIFCR = (DMA_LIFCR_CHTIF2 | DMA_LIFCR_CTCIF2);
 
   /* Configure the DMA controller. */
   DMA2_S2CR = 0;
@@ -106,11 +109,13 @@ void usart_rx_dma_disable(){
     __asm__("nop");
   /* Disable RX DMA on the USART. */
   usart_disable_rx_dma(USART6);
+  /* Clear the DMA transmit complete and half complete interrupt flags. */
+  DMA2_LIFCR = (DMA_LIFCR_CHTIF2 | DMA_LIFCR_CTCIF2);
 }
 
 void dma2_stream2_isr()
 {
-  //make sure TCIF2 and HTIF2 bits are the only ones that are high
+  /* make sure TCIF2 and HTIF2 bits are the only ones that are high */
   if ((DMA2_LISR & (DMA_LISR_TCIF2 | DMA_LISR_HTIF2)) && !(DMA2_LISR & ~(DMA_LISR_TCIF2 | DMA_LISR_HTIF2))) {
     /* Interrupt is Transmit Complete. We are in circular buffer mode
      * so this probably means we just wrapped the buffer.
@@ -121,6 +126,10 @@ void dma2_stream2_isr()
 
     /* Increment our write wrap counter. */
     wr_wraps++;
+  /* When DMA is re-enabled after bootloader it appears ISR can get
+   * called without any of the bits of DMA_LISR being high */
+  } else if (!(DMA2_LISR)) { 
+    __asm__("nop");
   } else {
     // TODO: Handle error interrupts! */
     speaking_death("DMA RX error interrupt");
