@@ -20,7 +20,7 @@ ADDRS_PER_OP = 128
 
 #Currently just serves to block until callbacks
 #for each command are received
-class stm32_flash():
+class STM32_flash():
   bootloader_ready = False
   _waiting_for_callback = False
   _read_callback_data = []
@@ -81,12 +81,12 @@ if __name__ == "__main__":
     try:
       link = serial_link.SerialLink()
     except serial.serialutil.SerialException: #couldn't find device
-      time.sleep(0.1)
+      time.sleep(0.01)
   link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
   print "link with device successfully created."
 
-  #Create stm32_flash object and pass Piksi serial link to it
-  flash = stm32_flash(link)
+  #Create STM32_flash object and pass Piksi serial link to it
+  flash = STM32_flash(link)
 
   #Wait until device informs us that it is ready to receive program
   print "Waiting for device to tell us it is ready to bootload ...",
@@ -125,6 +125,7 @@ if __name__ == "__main__":
   #Tell STM to jump to application, as programming is finished
   link.send_message(MSG_JUMP_TO_APP,'\x00')
 
+  #Wait for ctrl+C until we exit
   try:
     while(1):
       time.sleep(0.1)
