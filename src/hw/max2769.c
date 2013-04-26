@@ -62,8 +62,8 @@ void max2769_setup()
           MAX2769_CONF1_ANTEN |
 
           //MAX2769_CONF1_FCEN(7) | //1mhz center
-          MAX2769_CONF1_FCEN(43) | //2mhz center
-          //MAX2769_CONF1_FCEN(21) | //4mhz center
+//          MAX2769_CONF1_FCEN(43) | //2mhz center
+          MAX2769_CONF1_FCEN(21) | //4mhz center
           //MAX2769_CONF1_FCEN(42) | //8mhz center
           MAX2769_CONF1_FBW_2_5MHZ |
           MAX2769_CONF1_F3OR5_5 |
@@ -102,7 +102,8 @@ void max2769_setup()
     MAX2769_PLLCONF_RESERVED |
     MAX2769_PLLCONF_VCOEN |
     MAX2769_PLLCONF_REFOUTEN |
-    MAX2769_PLLCONF_REFDIV_DIV_2 |
+//    MAX2769_PLLCONF_REFDIV_DIV_2 |
+    MAX2769_PLLCONF_REFDIV_DIV_NONE |
     MAX2769_PLLCONF_IXTAL_BUFF_NORMAL |
     MAX2769_PLLCONF_XTALCAP(0b10000) |
     MAX2769_PLLCONF_LDMUX(0) |
@@ -112,7 +113,8 @@ void max2769_setup()
   );
 
   max2769_write(MAX2769_DIV,
-    MAX2769_DIV_NDIV(1538) |
+//    MAX2769_DIV_NDIV(1538) |
+    MAX2769_DIV_NDIV(1536) |
     MAX2769_DIV_RDIV(16)
   );
   max2769_write(MAX2769_FDIV,
