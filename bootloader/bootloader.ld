@@ -18,7 +18,8 @@
 /* Define memory regions. */
 MEMORY
 {
-	rom (rx) : ORIGIN = 0x08010000, LENGTH = 896K /*bootloader is at 0x08000000*/
+	/* rom (rx) : ORIGIN = 0x08010000, LENGTH = 896K */
+	rom (rx) : ORIGIN = 0x08000000, LENGTH = 896K
 	settings_flash (r) : ORIGIN = 0x080E0000, LENGTH = 128K
 	ram (rwx) : ORIGIN = 0x20000000, LENGTH = 128K
   /* STM32F4 Core Coupled Memory, not accesible by peripherals or DMA. */

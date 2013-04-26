@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Henry Hallam <henry@swift-nav.com>
+ * Copyright (C) 2013 Colin Beighley <colinbeighley@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,26 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SWIFTNAV_USART_H
-#define SWIFTNAV_USART_H
+#ifndef SWIFTNAV_STM_FLASH_H
+#define SWIFTNAV_STM_FLASH_H
 
-#define USART_TX_BUFFER_LEN 4096
-#define USART_RX_BUFFER_LEN 4096
+void stm_flash_callbacks_setup();
 
-#include <libopencm3/cm3/common.h>
-
-void usart_setup_common(void);
-void usart_disable_common(void);
-void usart_tx_dma_setup(void);
-void usart_tx_dma_disable(void);
-void usart_rx_dma_setup(void);
-void usart_rx_dma_disable(void);
-
-u32 usart_tx_n_free(void);
-u32 usart_write_dma(u8 data[], u32 len);
-
-u32 usart_n_read_dma();
-u32 usart_read_dma(u8 data[], u32 len);
-
-#endif /* SWIFTNAV_USART_H */
-
+#endif

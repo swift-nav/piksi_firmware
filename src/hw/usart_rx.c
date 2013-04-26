@@ -97,6 +97,17 @@ void usart_rx_dma_setup(void) {
   DMA2_S2CR |= DMA_SxCR_EN;
 }
 
+void usart_rx_dma_disable(){
+  /* Disable DMA2 Stream 2 interrupts with the NVIC. */
+  nvic_disable_irq(NVIC_DMA2_STREAM2_IRQ);
+  /* Disable DMA stream */
+  DMA2_S2CR &= ~DMA_SxCR_EN;
+  while (DMA2_S2CR & DMA_SxCR_EN)
+    __asm__("nop");
+  /* Disable RX DMA on the USART. */
+  usart_disable_rx_dma(USART6);
+}
+
 void dma2_stream2_isr()
 {
   //make sure TCIF2 and HTIF2 bits are the only ones that are high
