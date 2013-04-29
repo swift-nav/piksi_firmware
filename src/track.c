@@ -99,7 +99,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].state = TRACKING_RUNNING;
   tracking_channel[channel].prn = prn;
   tracking_channel[channel].update_count = 0;
-  tracking_channel[channel].TOW_ms = 0;
+  /* Use -1 to indicate an uninitialised value. */
+  tracking_channel[channel].TOW_ms = -1;
   tracking_channel[channel].snr_threshold_count = 0;
 
   comp_tl_init(&(tracking_channel[channel].tl_state), 1e3,
@@ -165,9 +166,11 @@ void tracking_channel_update(u8 channel)
     {
       chan->update_count++;
       chan->sample_count += chan->corr_sample_count;
-      chan->TOW_ms++;
-      if (chan->TOW_ms == 7*24*60*60*1000)
-        chan->TOW_ms = 0;
+      if (chan->TOW_ms > 0) {
+        chan->TOW_ms++;
+        if (chan->TOW_ms == 7*24*60*60*1000)
+          chan->TOW_ms = 0;
+      }
 
       chan->code_phase_early = (u64)chan->code_phase_early + (u64)chan->corr_sample_count*chan->code_phase_rate_fp_prev;
 
@@ -222,7 +225,7 @@ void tracking_channel_update(u8 channel)
       u32 timer_val = timing_count();
       static u32 max_timer_val = 0;
 
-      u32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
+      s32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
 
       timer_val = timing_count() - timer_val;
       if (timer_val > max_timer_val) {
@@ -230,7 +233,7 @@ void tracking_channel_update(u8 channel)
         printf("n_m_u took %.1f us\n", max_timer_val/16.368);
       }
 
-      if (TOW_ms && chan->TOW_ms != TOW_ms) {
+      if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
         printf("PRN %d TOW mismatch: %u, %u\n",(int)chan->prn + 1, (unsigned int)chan->TOW_ms, (unsigned int)TOW_ms);
         chan->TOW_ms = TOW_ms;
       }
