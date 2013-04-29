@@ -1,5 +1,10 @@
 /*
- * Copyright (C) 2011 Fergus Noble <fergusnoble@gmail.com>
+ * bootloader for the Swift Navigation Piksi GPS Receiver
+ * 
+ * Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
+ *
+ * Contacts: Fergus Noble <fergusnoble@gmail.com>
+ *           Colin Beighley <colin@swift-nav.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +23,6 @@
 /* Define memory regions. */
 MEMORY
 {
-	/* rom (rx) : ORIGIN = 0x08010000, LENGTH = 896K */
 	rom (rx) : ORIGIN = 0x08000000, LENGTH = 896K
 	settings_flash (r) : ORIGIN = 0x080E0000, LENGTH = 128K
 	ram (rwx) : ORIGIN = 0x20000000, LENGTH = 128K
@@ -41,4 +45,3 @@ SECTIONS {
   } > settings_flash
 
 }
-

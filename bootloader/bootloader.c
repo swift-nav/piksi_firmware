@@ -1,8 +1,13 @@
 /*
- * This file is part of the Paparazzi UAV project.
- *
+ * bootloader for the Swift Navigation Piksi GPS Receiver
+ * 
  * Copyright (C) 2010 Gareth McMullin <gareth@blacksphere.co.nz>
  * Copyright (C) 2011 Piotr Esden-Tempski <piotr@esden.net>
+ * Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
+ *
+ * Contact: Colin Beighley <colin@swift-nav.com>
+ *
+ * Based on luftboot, a bootloader for the Paparazzi UAV project.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -74,6 +79,7 @@ int main(void)
   debug_register_callback(MSG_BOOTLOADER_HANDSHAKE,&pc_wants_bootload_callback,
     &pc_wants_bootload_node);
 
+	/* rom (rx) : ORIGIN = 0x08010000, LENGTH = 896K */
   /* Send message to PC indicating bootloader is ready to load program */
   debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
 
@@ -107,7 +113,9 @@ int main(void)
     while(1){
       debug_process_messages();
       DO_EVERY(50000,
-        led_toggle(LED_GREEN);
+        DO_EVERY(2,
+          led_toggle(LED_GREEN);
+        );
         led_toggle(LED_RED);
         /* 
          * In case PC application was started after we entered the loop. It
