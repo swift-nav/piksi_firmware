@@ -254,7 +254,7 @@ void timing_strobe_setup()
    *       multiple of the sample clock.
    * NOTE: Assumes APB1 prescale != 1, see Ref Man pg. 84
    */
-  timer_set_prescaler(TIM2, 2*rcc_ppre1_frequency / SAMPLE_FREQ);
+  timer_set_prescaler(TIM2, 2*rcc_ppre1_frequency/SAMPLE_FREQ - 1);
 
   /* Set time auto-reload value to the longest possible period. */
   timer_set_period(TIM2, 0xFFFFFFFF);

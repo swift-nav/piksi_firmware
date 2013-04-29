@@ -61,11 +61,11 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
   .pllp = 2,
   .pllq = 6,
   .hpre = RCC_CFGR_HPRE_DIV_NONE,
-  .ppre1 = RCC_CFGR_PPRE_DIV_8,
-  .ppre2 = RCC_CFGR_PPRE_DIV_8,
+  .ppre1 = RCC_CFGR_PPRE_DIV_4,
+  .ppre2 = RCC_CFGR_PPRE_DIV_4,
   .flash_config = FLASH_ICE | FLASH_DCE | FLASH_LATENCY_3WS,
-  .apb1_frequency = 16368000,
-  .apb2_frequency = 16368000,
+  .apb1_frequency = 32736000,
+  .apb2_frequency = 32736000,
 };
 
 const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3 =
@@ -91,10 +91,10 @@ int main(void)
 
 	led_setup();
 
+  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
+
   swift_nap_setup();
   swift_nap_reset();
-
-  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
 
   debug_setup();
 
