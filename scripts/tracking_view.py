@@ -80,7 +80,7 @@ class TrackingView(HasTraits):
       if self.states[n].state == 0:
         plot_labels.append('Ch %d (Disabled)' % n)
       else:
-        plot_labels.append('Ch %d (PRN%02d)' % (n, self.states[n].prn))
+        plot_labels.append('Ch %d (PRN%02d)' % (n, self.states[n].prn+1))
     plots = dict(zip(plot_labels, self.plots))
     self.plot.legend.plots = plots
 
@@ -106,6 +106,7 @@ class TrackingView(HasTraits):
     self.plot.legend.visible = True
     self.plot.legend.align = 'ul'
     self.plot.legend.tools.append(LegendTool(self.plot.legend, drag_button="right"))
+    self.update_plot()
 
     self.python_console_cmds = {
       'track': self
