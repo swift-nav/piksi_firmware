@@ -122,6 +122,7 @@ void manage_acq()
       if (timing_count() - acq_manage.coarse_timer_count > 2*SAMPLE_FREQ) {
         printf("Coarse loading error %u %u\n", (unsigned int)timing_count(), (unsigned int)acq_manage.coarse_timer_count);
         acq_manage.state = ACQ_MANAGE_START;
+        acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
       /* Wait until we are done loading. */
       if (!acq_get_load_done())
@@ -170,6 +171,7 @@ void manage_acq()
       if (timing_count() - acq_manage.fine_timer_count > 2*SAMPLE_FREQ) {
         printf("Fine loading error %u %u\n", (unsigned int)timing_count(), (unsigned int)acq_manage.fine_timer_count);
         acq_manage.state = ACQ_MANAGE_START;
+        acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
       /* Wait until we are done loading. */
       if (!acq_get_load_done())
