@@ -104,9 +104,9 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].snr_threshold_count = 0;
 
   comp_tl_init(&(tracking_channel[channel].tl_state), 1e3,
-               code_phase_rate, 2, 0.7, 1,
+               code_phase_rate-1.023e6, 2, 0.7, 1,
                carrier_freq, 25, 0.7, 0.25,
-               0.01, 5000);
+               0.005, 1540, 5000);
 
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
@@ -220,7 +220,7 @@ void tracking_channel_update(u8 channel)
       }
       comp_tl_update(&(chan->tl_state), cs2);
       chan->carrier_freq = chan->tl_state.carr_freq;
-      chan->code_phase_rate = chan->tl_state.code_freq;
+      chan->code_phase_rate = chan->tl_state.code_freq + 1.023e6;
 
       u32 timer_val = timing_count();
       static u32 max_timer_val = 0;
