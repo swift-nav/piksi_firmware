@@ -136,10 +136,14 @@ int main(void)
 
     u8 n_ready = 0;
     for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-      if (es[tracking_channel[i].prn].valid == 1 && es[tracking_channel[i].prn].healthy == 1 && tracking_channel[i].state == TRACKING_RUNNING) {
+      if (es[tracking_channel[i].prn].valid == 1 && \
+          es[tracking_channel[i].prn].healthy == 1 && \
+          tracking_channel[i].state == TRACKING_RUNNING && \
+          tracking_channel[i].TOW_ms > 0) {
         __asm__("CPSID i;");
         tracking_update_measurement(i, &meas[n_ready]);
         __asm__("CPSIE i;");
+
         n_ready++;
       }
     }
