@@ -12,7 +12,7 @@ import struct
 import numpy as np
 
 MSG_TRACKING_STATE = 0x22
-TRACK_N_CHANNELS = 5
+TRACK_N_CHANNELS = 10
 
 colours_list = [
   0xE41A1C,
