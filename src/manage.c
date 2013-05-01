@@ -24,7 +24,7 @@
 #include "debug.h"
 
 acq_prn_t acq_prn_param[32] = {
-  [0 ... 31] = { .state = ACQ_PRN_SKIP },
+  [0 ... 31] = { .state = ACQ_PRN_TRIED },
 };
 
 acq_manage_t acq_manage;
