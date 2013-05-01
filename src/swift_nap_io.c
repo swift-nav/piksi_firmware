@@ -532,6 +532,8 @@ void swift_nap_xfer_dma(u8 n_bytes) { // not yet updated for v2.2
   /* Enable DMA channels. */
   DMA1_S3CR |= DMA_SxCR_EN;
   DMA1_S4CR |= DMA_SxCR_EN;
+
+  while (DMA1_S4NDTR > 0);
 }
 
 
