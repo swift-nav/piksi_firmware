@@ -137,4 +137,7 @@ void cw_read_corr_blocking(corr_t* corrs);
 void get_nap_dna(u8 dna[]);
 u8 get_nap_hash_status();
 
+void get_nap_git_hash(u8 git_hash[]);
+u8 get_nap_git_unclean();
+
 #endif

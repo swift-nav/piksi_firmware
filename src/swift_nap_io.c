@@ -40,6 +40,8 @@
 #include <libswiftnav/prns.h>
 
 #define FLASH_NAP_PARAMS_ADDR 0xD0000
+#define FLASH_NAP_GIT_HASH_ADDR 0xE0000
+#define FLASH_NAP_GIT_UNCLEAN_ADDR (FLASH_NAP_GIT_HASH_ADDR + 20)
 
 /* NAP Parameters stored in the FPGA configuration flash */
 u8 ACQ_N_TAPS;
@@ -95,7 +97,7 @@ void swift_nap_setup()
 
   /* Initialise the SPI peripheral. */
   spi_setup();
-//  spi_dma_setup();
+  //spi_dma_setup();
 
   /* Setup the front end. */
   max2769_setup();
@@ -690,4 +692,14 @@ void get_nap_parameters(){
   TRACK_CODE_PHASE_RATE_UNITS_PER_HZ = (TRACK_NOMINAL_CODE_PHASE_RATE / 1.023e6);
   TRACK_CODE_PHASE_UNITS_PER_CHIP = ((u64)1<<TRACK_CODE_PHASE_FRACTIONAL_WIDTH);
   CW_CARRIER_FREQ_UNITS_PER_HZ = (1<<CW_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ;
+}
+
+void get_nap_git_hash(u8 git_hash[]){
+  m25_read(FLASH_NAP_GIT_HASH_ADDR,20,git_hash);
+}
+
+u8 get_nap_git_unclean(){
+  u8 unclean;
+  m25_read(FLASH_NAP_GIT_UNCLEAN_ADDR, 1, &unclean);
+  return unclean;
 }
