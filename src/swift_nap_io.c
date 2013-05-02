@@ -85,7 +85,7 @@ void swift_nap_setup()
   gpio_clear(GPIOA, GPIO2);
 
   /* Setup the timing strobe output. */
-//  timing_strobe_setup();
+  //timing_strobe_setup();
 
   /* Setup the external interrupts. */
   exti_setup();
@@ -283,9 +283,7 @@ void acq_clear_load_enable_blocking()
   swift_nap_xfer_blocking(SPI_ID_ACQ_LOAD_ENABLE, 1, 0, temp);
 }
 
-/** Write initialisation parameters to the Swift NAP acquisition channel.
- * Writes acquisition initialisation parameters into the ACQ_INIT
- * register on the Swift NAP.
+/* Pack data for writing to NAP acq init register
  *
  * NOTE: Swift NAP returns corrs corresponding to code phases from
  * code_phase_reg_value-ACQ_N_TAPS-1 to code_phase_reg_value where
@@ -312,28 +310,34 @@ void acq_clear_load_enable_blocking()
  * \param carrier_freq Carrier frequency i.e. Doppler in acquisition
  *                     units.
  */
-void acq_write_init_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
-{
-  u8 temp[4];
+void acq_pack_init(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq){
 
   /* Modulo 1023*4 in case adding ACQ_N_TAPS-1 rolls us over a
    * code phase boundary.
    */
   u16 code_phase_reg_value = (code_phase+ACQ_N_TAPS-1) % (1023*4);
 
-  temp[0] = (1<<5) |                          // Acq enabled
-            ((carrier_freq >> 7) & 0x1F);     // carrier freq [11:7]
+  pack[0] = (1<<5) |                      // Acq enabled
+            ((carrier_freq >> 7) & 0x1F); // carrier freq [11:7]
 
-  temp[1] = (carrier_freq << 1) |            // carrier freq [6:0]
-            (code_phase_reg_value >> 11);     // code phase [11]
+  pack[1] = (carrier_freq << 1) |         // carrier freq [6:0]
+            (code_phase_reg_value >> 11); // code phase [11]
 
-  temp[2] = code_phase_reg_value >> 3;        // code phase [10:3]
+  pack[2] = code_phase_reg_value >> 3;    // code phase [10:3]
 
-  temp[3] = (code_phase_reg_value << 5) |     // code phase [2:0]
-            (prn & 0x1F);                     // PRN number (0..31)
+  pack[3] = (code_phase_reg_value << 5) | // code phase [2:0]
+            (prn & 0x1F);                 // PRN number (0..31)
+}
 
+/** Write initialisation parameters to the Swift NAP acquisition channel.
+ * Writes acquisition initialisation parameters into the ACQ_INIT
+ * register on the Swift NAP.
+  */
+void acq_write_init_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
+{
+  u8 temp[4];
+  acq_pack_init(temp, prn, code_phase, carrier_freq);
   swift_nap_xfer_blocking(SPI_ID_ACQ_INIT, 4, 0, temp);
-
 }
 
 /** Disable the acquisition channel.
@@ -346,67 +350,95 @@ void acq_disable_blocking()
   swift_nap_xfer_blocking(SPI_ID_ACQ_INIT, 4, 0, temp);
 }
 
-void acq_read_corr_blocking(corr_t corrs[]) {
-  u8 temp[2*ACQ_N_TAPS * 3];
-
-  swift_nap_xfer_blocking(SPI_ID_ACQ_CORR, 2*ACQ_N_TAPS*3, temp, temp);
+/* Unpack correlations read from acquisition channel */
+void acq_unpack_corr(u8 packed[], corr_t corrs[]) {
 
   struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
 
   for (u8 i=0; i<ACQ_N_TAPS; i++) {
 
-    sign.xtend  = (temp[6*i]   << 16)    // MSB
-                | (temp[6*i+1] << 8)     // Middle byte
-                | (temp[6*i+2]);         // LSB
+    sign.xtend  = (packed[6*i]   << 16)    // MSB
+                | (packed[6*i+1] << 8)     // Middle byte
+                | (packed[6*i+2]);         // LSB
 
     corrs[i].Q = sign.xtend; /* Sign extend! */
 
-    sign.xtend  = (temp[6*i+3] << 16)    // MSB
-                | (temp[6*i+4] << 8)     // Middle byte
-                | (temp[6*i+5]);         // LSB
+    sign.xtend  = (packed[6*i+3] << 16)    // MSB
+                | (packed[6*i+4] << 8)     // Middle byte
+                | (packed[6*i+5]);         // LSB
 
     corrs[i].I = sign.xtend; /* Sign extend! */
   }
+}
+
+void acq_read_corr_blocking(corr_t corrs[]) {
+  u8 temp[2*ACQ_N_TAPS * 3];
+  swift_nap_xfer_blocking(SPI_ID_ACQ_CORR, 2*ACQ_N_TAPS*3, temp, temp);
+  acq_unpack_corr(temp, corrs);
 }
 
 void acq_write_code_blocking(u8 prn) {
   swift_nap_xfer_blocking(SPI_ID_ACQ_CODE, 128, 0, ca_code(prn));
 }
 
-void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
+void track_pack_init(u8 pack[], u8 prn, s32 carrier_phase, u16 code_phase){
   /* for length(prn) = 5,
    *     length(carrier_phase) = 24,
    *     length(code_phase) = 14
    */
+  pack[0] = ((code_phase << 5) >> 16) & 0x07;
+  pack[1] = (code_phase << 5) >> 8;
+  pack[2] = (((carrier_phase << 5) >> 24) & 0x1F) | (code_phase << 5);
+  pack[3] = (carrier_phase << 5) >> 16;
+  pack[4] = (carrier_phase << 5) >> 8;
+  pack[5] = (prn & 0x1F) | (carrier_phase << 5 & 0xE0);
+}
+
+void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
-
-  temp[0] = ((code_phase << 5) >> 16) & 0x07;
-  temp[1] = (code_phase << 5) >> 8;
-  temp[2] = (((carrier_phase << 5) >> 24) & 0x1F) | (code_phase << 5);
-  temp[3] = (carrier_phase << 5) >> 16;
-  temp[4] = (carrier_phase << 5) >> 8;
-  temp[5] = (prn & 0x1F) | (carrier_phase << 5 & 0xE0);
-
+  track_pack_init(temp, prn, carrier_phase, code_phase);
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_INIT_OFFSET, 6, 0, temp);
+}
+
+void track_pack_update(u8 pack[], s32 carrier_freq, u32 code_phase_rate){
+  /* for length(prn) = 5,
+   *     length(carrier_phase) = 24,
+   *     length(code_phase) = 14
+   */
+  pack[0] = (code_phase_rate >> 24) & 0x1F;
+  pack[1] = (code_phase_rate >> 16);
+  pack[2] = (code_phase_rate >> 8);
+  pack[3] = code_phase_rate;
+  pack[4] = (carrier_freq >> 8);
+  pack[5] = carrier_freq;
 }
 
 void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
-
-  temp[0] = (code_phase_rate >> 24) & 0x1F;
-  temp[1] = (code_phase_rate >> 16);
-  temp[2] = (code_phase_rate >> 8);
-  temp[3] = code_phase_rate;
-  temp[4] = (carrier_freq >> 8);
-  temp[5] = carrier_freq;
-
-  /*printf("%d, %d", (int)carrier_freq, (unsigned int)code_phase_rate);*/
-  /*printf("0x");*/
-  /*for(u8 i=0; i<6; i++)*/
-    /*printf("%02X", temp[i]);*/
-  /*printf("\n");*/
-
+  track_pack_update(temp, carrier_freq, code_phase_rate);
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_UPDATE_OFFSET, 6, 0, temp);
+}
+
+void track_unpack_corr(u8 packed[], u16* sample_count, corr_t corrs[]) {
+
+  struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
+
+  *sample_count = (packed[0]<<8) | packed[1];
+
+  for (u8 i=0; i<3; i++) {
+
+    sign.xtend  = (packed[6*(3-i-1)+2] << 16)    // MSB
+                | (packed[6*(3-i-1)+3] << 8)     // Middle byte
+                | (packed[6*(3-i-1)+4]);         // LSB
+
+    corrs[i].Q = sign.xtend; /* Sign extend! */
+
+    sign.xtend  = (packed[6*(3-i-1)+5] << 16)    // MSB
+                | (packed[6*(3-i-1)+6] << 8)     // Middle byte
+                | (packed[6*(3-i-1)+7]);         // LSB
+
+    corrs[i].I = sign.xtend; /* Sign extend! */
+  }
 }
 
 void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]) {
@@ -414,45 +446,27 @@ void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]) {
    * + 16 bits sample count.
    */
   u8 temp[2*3*3+2];
-
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
+  track_unpack_corr(temp, sample_count, corrs);
+}
 
-  struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
-
-  *sample_count = (temp[0]<<8) | temp[1];
-
-  for (u8 i=0; i<3; i++) {
-
-    sign.xtend  = (temp[6*(3-i-1)+2] << 16)    // MSB
-                | (temp[6*(3-i-1)+3] << 8)     // Middle byte
-                | (temp[6*(3-i-1)+4]);         // LSB
-
-    corrs[i].Q = sign.xtend; /* Sign extend! */
-
-    sign.xtend  = (temp[6*(3-i-1)+5] << 16)    // MSB
-                | (temp[6*(3-i-1)+6] << 8)     // Middle byte
-                | (temp[6*(3-i-1)+7]);         // LSB
-
-    corrs[i].I = sign.xtend; /* Sign extend! */
-  }
+void track_unpack_phase(u8 packed[], u32* carrier_phase, u64* code_phase){
+  *carrier_phase = packed[8] |
+                   (packed[7] << 8) |
+                   (packed[6] << 16);
+  *code_phase = (u64)packed[5] |
+                ((u64)packed[4] << 8) |
+                ((u64)packed[3] << 16) |
+                ((u64)packed[2] << 24) |
+                ((u64)packed[1] << 32) |
+                ((u64)packed[0] << 40);
 }
 
 void track_read_phase_blocking(u8 channel, u32* carrier_phase, u64* code_phase)
 {
   u8 temp[9] = {0, 0, 0x22, 0, 0, 0, 0, 0, 0};
-
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_PHASE_OFFSET, 9, temp, temp);
-
-  *carrier_phase = temp[8] |
-                   (temp[7] << 8) |
-                   (temp[6] << 16);
-
-  *code_phase = (u64)temp[5] |
-                ((u64)temp[4] << 8) |
-                ((u64)temp[3] << 16) |
-                ((u64)temp[2] << 24) |
-                ((u64)temp[1] << 32) |
-                ((u64)temp[0] << 40);
+  track_unpack_phase(temp, carrier_phase, code_phase);
 }
 
 void spi_dma_setup() { // not yet updated for v2.2
@@ -566,17 +580,18 @@ void cw_clear_load_enable_blocking()
   swift_nap_xfer_blocking(SPI_ID_CW_LOAD_ENABLE, 1, 0, temp);
 }
 
+void cw_pack_init(u8 pack[], s32 carrier_freq){
+  pack[0] = (1<<3) |                        // cw enabled
+            ((carrier_freq >> 30) & 0x04) | // carrier freq [sign]
+            ((carrier_freq >> 16) & 0x03);  // carrier freq [17:16]
+  pack[1] = (carrier_freq >> 8) & 0xFF;     // carrier freq [15:8]
+  pack[2] = carrier_freq & 0xFF;            // carrier freq [7:0]
+}
+
 void cw_write_init_blocking(s32 carrier_freq)
 {
   u8 temp[3];
-
-  temp[0] = (1<<3) |                        // cw enabled
-            ((carrier_freq >> 30) & 0x04) | // carrier freq [sign]
-            ((carrier_freq >> 16) & 0x03);  // carrier freq [17:16]
-
-  temp[1] = (carrier_freq >> 8) & 0xFF;     // carrier freq [15:8]
-  temp[2] = carrier_freq & 0xFF;            // carrier freq [7:0]
-
+  cw_pack_init(temp, carrier_freq);
   swift_nap_xfer_blocking(SPI_ID_CW_INIT, 3, 0, temp);
 }
 
@@ -586,25 +601,28 @@ void cw_disable_blocking()
   swift_nap_xfer_blocking(SPI_ID_CW_INIT, 3, 0, temp);
 }
 
-void cw_read_corr_blocking(corr_t* corrs) {
-  u8 temp[6]; //6 u8 = 48 bits = 2*(24 bits)
-
-  swift_nap_xfer_blocking(SPI_ID_CW_CORR, 6, temp, temp);
+void cw_unpack_corr(u8 packed[], corr_t* corrs) {
 
 	//should 24 instead be a macro constant?
   struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
 
-  sign.xtend  = (temp[0] << 16)    // MSB
-              | (temp[1] << 8)     // Middle byte
-              | (temp[2]);         // LSB
+  sign.xtend  = (packed[0] << 16)    // MSB
+              | (packed[1] << 8)     // Middle byte
+              | (packed[2]);         // LSB
 
   corrs->Q = sign.xtend; /* Sign extend! */
 
-  sign.xtend  = (temp[3] << 16)    // MSB
-              | (temp[4] << 8)     // Middle byte
-              | (temp[5]);         // LSB
+  sign.xtend  = (packed[3] << 16)    // MSB
+              | (packed[4] << 8)     // Middle byte
+              | (packed[5]);         // LSB
 
   corrs->I = sign.xtend; /* Sign extend! */
+}
+
+void cw_read_corr_blocking(corr_t* corrs) {
+  u8 temp[6]; //6 u8 = 48 bits = 2*(24 bits)
+  cw_unpack_corr(temp,corrs);
+  swift_nap_xfer_blocking(SPI_ID_CW_CORR, 6, temp, temp);
 }
 
 /* Spartan 6 Device DNA is 57 bits, padded to 64 (with 0's) within FPGA */
