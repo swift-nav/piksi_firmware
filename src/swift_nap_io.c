@@ -103,12 +103,12 @@ void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_
 {
 
   // Check that there's no DMA transfer in progress
-  if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
+  //if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
     /* DMA transfer already in progress.
      * TODO: handle this gracefully, but for now...
      */
-    speaking_death("SPI DMA xfer already in progess");
-  }
+    //speaking_death("SPI DMA xfer already in progess");
+  //}
 
 
   spi_slave_select(SPI_SLAVE_FPGA);
