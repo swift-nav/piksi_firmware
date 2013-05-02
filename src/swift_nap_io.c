@@ -45,30 +45,7 @@
 
 /* NAP Parameters stored in the FPGA configuration flash */
 u8 ACQ_N_TAPS;
-u8 ACQ_CODE_PHASE_WIDTH;
-u8 ACQ_CARRIER_FREQ_WIDTH;
-u8 ACQ_CORRELATOR_WIDTH;
-u8 TRACK_INIT_CODE_PHASE_WIDTH;
-u8 TRACK_CODE_PHASE_FRACTIONAL_WIDTH;
-u8 TRACK_CARRIER_FREQ_WIDTH;
-u8 TRACK_CODE_PHASE_RATE_WIDTH;
-u8 TRACK_CORRELATOR_WIDTH;
-u8 CW_CARRIER_FREQ_WIDTH;
-u8 CW_CORRELATOR_WIDTH;
-s8 IIR_COEF_LSB;
-u8 IIR_COEF_MSB;
-u8 IIR_N_TAPS;
 u8 TRACK_N_CHANNELS;
-
-/* Constants derived from NAP Parameters stored in the configuration flash */
-u64 ACQ_CODE_PHASE_UNITS_PER_CHIP;
-float ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-u8 TRACK_INIT_CODE_PHASE_UNITS_PER_CHIP;
-float TRACK_CARRIER_FREQ_UNITS_PER_HZ;
-u32 TRACK_NOMINAL_CODE_PHASE_RATE;
-float TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-u64 TRACK_CODE_PHASE_UNITS_PER_CHIP;
-float CW_CARRIER_FREQ_UNITS_PER_HZ;
 
 u32 exti_count = 0;
 
@@ -662,36 +639,15 @@ void get_nap_parameters(){
   /* Define parameters that need to be read from FPGA configuration flash.
    * Pointers in the array should be in the same order they're stored in the 
    * configuration flash. */
-  u8 * nap_parameters[15] = {
-                              &ACQ_N_TAPS,
-                              &ACQ_CODE_PHASE_WIDTH,
-                              &ACQ_CARRIER_FREQ_WIDTH,
-                              &ACQ_CORRELATOR_WIDTH,
-                              &TRACK_INIT_CODE_PHASE_WIDTH,
-                              &TRACK_CODE_PHASE_FRACTIONAL_WIDTH,
-                              &TRACK_CARRIER_FREQ_WIDTH,
-                              &TRACK_CODE_PHASE_RATE_WIDTH,
-                              &TRACK_CORRELATOR_WIDTH,
-                              &CW_CARRIER_FREQ_WIDTH,
-                              &CW_CORRELATOR_WIDTH,
-                              (u8 *)&IIR_COEF_LSB,
-                              &IIR_COEF_MSB,
-                              &IIR_N_TAPS,
-                              &TRACK_N_CHANNELS
-                            };
+  u8 * nap_parameters[2] = {
+                            &ACQ_N_TAPS,
+                            &TRACK_N_CHANNELS
+                           };
   /* Get parameters from FPGA configuration flash */
   for (u8 i=0; i<(sizeof(nap_parameters)/sizeof(nap_parameters[0])); i++){
     m25_read(FLASH_NAP_PARAMS_ADDR + i, 1, nap_parameters[i]);
   }
   /* Other parameters that are derived from NAP parameters */
-  ACQ_CODE_PHASE_UNITS_PER_CHIP = 1<<(ACQ_CODE_PHASE_WIDTH-10);
-  ACQ_CARRIER_FREQ_UNITS_PER_HZ = (1<<ACQ_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ;
-  TRACK_INIT_CODE_PHASE_UNITS_PER_CHIP = 1<<(TRACK_INIT_CODE_PHASE_WIDTH-10);
-  TRACK_CARRIER_FREQ_UNITS_PER_HZ = (1<<TRACK_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ;
-  TRACK_NOMINAL_CODE_PHASE_RATE = 1<<(TRACK_CODE_PHASE_RATE_WIDTH-1);
-  TRACK_CODE_PHASE_RATE_UNITS_PER_HZ = (TRACK_NOMINAL_CODE_PHASE_RATE / 1.023e6);
-  TRACK_CODE_PHASE_UNITS_PER_CHIP = ((u64)1<<TRACK_CODE_PHASE_FRACTIONAL_WIDTH);
-  CW_CARRIER_FREQ_UNITS_PER_HZ = (1<<CW_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ;
 }
 
 void get_nap_git_hash(u8 git_hash[]){
