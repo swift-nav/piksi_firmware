@@ -51,7 +51,7 @@ typedef struct {
 
 extern const u8 dma_irq_lookup[2][8];
 
-void usart_setup_common(void);
+void usarts_setup();
 
 void usart_tx_dma_setup(usart_tx_dma_state* s, u32 usart,
                         u32 dma, u8 stream, u8 channel);

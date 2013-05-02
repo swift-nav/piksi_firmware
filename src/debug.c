@@ -22,6 +22,7 @@
 #include <libopencm3/stm32/f4/dma.h>
 
 #include "error.h"
+#include "settings.h"
 #include "debug.h"
 #include "hw/m25_flash.h"
 #include "hw/leds.h"
@@ -33,38 +34,61 @@ u8 msg_buff[256];
 
 usart_rx_dma_state ftdi_rx_state;
 usart_tx_dma_state ftdi_tx_state;
-
-typedef enum {
-  WAITING_1,
-  WAITING_2,
-  GET_TYPE,
-  GET_LEN,
-  GET_MSG
-} debug_process_messages_state_t;
+usart_rx_dma_state uarta_rx_state;
+usart_tx_dma_state uarta_tx_state;
+usart_rx_dma_state uartb_rx_state;
+usart_tx_dma_state uartb_tx_state;
 
 /* Store a pointer to the head of our linked list. */
 msg_callbacks_node_t* msg_callbacks_head = 0;
 
 void debug_setup()
 {
-  usart_setup_common();
-  /* USART6 TX - DMA2, stream 7, channel 5. */
-  usart_tx_dma_setup(&ftdi_tx_state, USART6, DMA2, 7, 5);
-  /* USART6 RX - DMA2, stream 2, channel 5. */
-  usart_rx_dma_setup(&ftdi_rx_state, USART6, DMA2, 2, 5);
+  usarts_setup();
+
+  /* FTDI (USART6) TX - DMA2, stream 6, channel 5. */
+  usart_tx_dma_setup(&ftdi_tx_state, USART6, DMA2, 6, 5);
+  /* FTDI (USART6) RX - DMA2, stream 1, channel 5. */
+  usart_rx_dma_setup(&ftdi_rx_state, USART6, DMA2, 1, 5);
+
+  /* UARTA (USART1) TX - DMA2, stream 7, channel 4. */
+  usart_tx_dma_setup(&uarta_tx_state, USART1, DMA2, 7, 4);
+  /* UARTA (USART1) RX - DMA2, stream 2, channel 4. */
+  usart_rx_dma_setup(&uarta_rx_state, USART1, DMA2, 2, 4);
+
+  /* UARTB (USART3) TX - DMA1, stream 3, channel 4. */
+  usart_tx_dma_setup(&uartb_tx_state, USART3, DMA1, 3, 4);
+  /* UARTB (USART3) RX - DMA1, stream 1, channel 4. */
+  usart_rx_dma_setup(&uartb_rx_state, USART3, DMA1, 1, 4);
 
   /* Disable input and output buffering. */
   setvbuf(stdin, NULL, _IONBF, 0);
   setvbuf(stdout, NULL, _IONBF, 0);
 }
 
-void dma2_stream7_isr(void)
+void dma2_stream6_isr(void)
 {
   usart_tx_dma_isr(&ftdi_tx_state);
 }
-void dma2_stream2_isr(void)
+void dma2_stream1_isr(void)
 {
   usart_rx_dma_isr(&ftdi_rx_state);
+}
+void dma2_stream7_isr(void)
+{
+  usart_tx_dma_isr(&uarta_tx_state);
+}
+void dma2_stream2_isr(void)
+{
+  usart_rx_dma_isr(&uarta_rx_state);
+}
+void dma1_stream3_isr(void)
+{
+  usart_tx_dma_isr(&uartb_tx_state);
+}
+void dma1_stream1_isr(void)
+{
+  usart_rx_dma_isr(&uartb_rx_state);
 }
 
 u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
@@ -72,17 +96,32 @@ u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
   /* Global interrupt disable to avoid concurrency/reentrance problems. */
   __asm__("CPSID i;");
 
-    if (usart_tx_n_free(&ftdi_tx_state) < (u32)len+4) {
-      // Not enough space in the TX buffer for the message (including header)
-      __asm__("CPSIE i;");  // Re-enable interrupts
-      return 1; // Discard the message and return an error
-    }
-
     msg_header[2] = msg_type;
     msg_header[3] = len;
 
-    if (4 != usart_write_dma(&ftdi_tx_state, msg_header, 4)) speaking_death("D_S_M: U_W_D failed (1)");
-    if (len != usart_write_dma(&ftdi_tx_state, buff, len)) speaking_death("D_S_M: U_W_D failed (2)");
+    if (settings.ftdi_usart.mode == PIKSI_BINARY &&
+        settings.ftdi_usart.message_mask & msg_type) {
+      if (4 != usart_write_dma(&ftdi_tx_state, msg_header, 4))
+        speaking_death("debug_send_message failed on FTDI");
+      if (len != usart_write_dma(&ftdi_tx_state, buff, len))
+        speaking_death("debug_send_message failed on FTDI");
+    }
+
+    if (settings.uarta_usart.mode == PIKSI_BINARY &&
+        settings.uarta_usart.message_mask & msg_type) {
+      if (4 != usart_write_dma(&uarta_tx_state, msg_header, 4))
+        speaking_death("debug_send_message failed on UARTA");
+      if (len != usart_write_dma(&uarta_tx_state, buff, len))
+        speaking_death("debug_send_message failed on UARTA");
+    }
+
+    if (settings.uartb_usart.mode == PIKSI_BINARY &&
+        settings.uartb_usart.message_mask & msg_type) {
+      if (4 != usart_write_dma(&uartb_tx_state, msg_header, 4))
+        speaking_death("debug_send_message failed on UARTB");
+      if (len != usart_write_dma(&uartb_tx_state, buff, len))
+        speaking_death("debug_send_message failed on UARTB");
+    }
 
   __asm__("CPSIE i;");  // Re-enable interrupts
   return 0; // Successfully written to buffer.
@@ -147,54 +186,76 @@ msg_callback_t debug_find_callback(u8 msg_type)
 
 void debug_process_messages()
 {
-  u8 len, temp;
-  static u8 msg_type, msg_len, msg_n_read;
-  static debug_process_messages_state_t state;
+  static debug_process_messages_state_t ftdi_s = {
+    .state = WAITING_1,
+    .rx_state = &ftdi_rx_state,
+  };
+  static debug_process_messages_state_t uarta_s = {
+    .state = WAITING_1,
+    .rx_state = &uarta_rx_state,
+  };
+  static debug_process_messages_state_t uartb_s = {
+    .state = WAITING_1,
+    .rx_state = &uartb_rx_state,
+  };
 
-  while((len = usart_n_read_dma(&ftdi_rx_state)))
+  debug_process_usart(&ftdi_s);
+  debug_process_usart(&uarta_s);
+  debug_process_usart(&uartb_s);
+}
+
+void debug_process_usart(debug_process_messages_state_t* s)
+{
+  u8 len, temp;
+
+  while((len = usart_n_read_dma(s->rx_state)))
   {
     /* If there are no bytes waiting to be processed then return. */
     if (len == 0)
       return;
 
-    switch(state) {
+    switch(s->state) {
       case WAITING_1:
-        usart_read_dma(&ftdi_rx_state, &temp, 1);
+        usart_read_dma(s->rx_state, &temp, 1);
         if (temp == DEBUG_MAGIC_1)
-          state = WAITING_2;
+          s->state = WAITING_2;
         break;
       case WAITING_2:
-        usart_read_dma(&ftdi_rx_state, &temp, 1);
+        usart_read_dma(s->rx_state, &temp, 1);
         if (temp == DEBUG_MAGIC_2)
-          state = GET_TYPE;
+          s->state = GET_TYPE;
         break;
       case GET_TYPE:
-        usart_read_dma(&ftdi_rx_state, &msg_type, 1);
-        state = GET_LEN;
+        usart_read_dma(s->rx_state, &(s->msg_type), 1);
+        s->state = GET_LEN;
         break;
       case GET_LEN:
-        usart_read_dma(&ftdi_rx_state, &msg_len, 1);
-        msg_n_read = 0;
-        state = GET_MSG;
+        usart_read_dma(s->rx_state, &(s->msg_len), 1);
+        s->msg_n_read = 0;
+        s->state = GET_MSG;
         break;
       case GET_MSG:
-        if (msg_len - msg_n_read > 0) {
+        if (s->msg_len - s->msg_n_read > 0) {
           /* Not received whole message yet, try and get some more. */
-          msg_n_read += usart_read_dma(&ftdi_rx_state, &msg_buff[msg_n_read], msg_len - msg_n_read);
+          s->msg_n_read += usart_read_dma(
+              s->rx_state,
+              &msg_buff[s->msg_n_read],
+              s->msg_len - s->msg_n_read
+          );
         }
-        if (msg_len - msg_n_read <= 0) {
+        if (s->msg_len - s->msg_n_read <= 0) {
           /* Message complete, process it. */
-          /*printf("msg: %02X, len %d\n", msg_type, msg_len);*/
-          msg_callback_t cb = debug_find_callback(msg_type);
+          /*printf("msg: %02X, len %d\n", s->msg_type, s->msg_len);*/
+          msg_callback_t cb = debug_find_callback(s->msg_type);
           if (cb)
             (*cb)(msg_buff);
           else
-            printf("no callback registered for msg type %02X\n", msg_type);
-          state = WAITING_1;
+            printf("no callback registered for msg type %02X\n", s->msg_type);
+          s->state = WAITING_1;
         }
         break;
       default:
-        state = WAITING_1;
+        s->state = WAITING_1;
         break;
     }
   }
@@ -202,13 +263,20 @@ void debug_process_messages()
 
 int _write (int file, char *ptr, int len)
 {
-	if (file == 1) {
-    if (len > 255) len = 255; /* Send maximum of 255 chars at a time */
+	switch (file) {
+    case 1:
+      if (len > 255) len = 255; /* Send maximum of 255 chars at a time */
+      debug_send_msg(MSG_PRINT, len, (u8*)ptr);
+      return len;
 
-    debug_send_msg(MSG_PRINT, len, (u8*)ptr);
-		return len;
+    case 22:
+      if (len > 255) len = 255; /* Send maximum of 255 chars at a time */
+      usart_write_dma(&ftdi_tx_state, (u8*)ptr, len);
+      return len;
+
+    default:
+      errno = EIO;
+      return -1;
 	}
-  errno = EIO;
-  return -1;
 }
 
