@@ -29,6 +29,7 @@
 #include "swift_nap_io.h"
 #include "track.h"
 #include "acq.h"
+#include "nmea.h"
 #include "manage.h"
 #include "hw/leds.h"
 #include "hw/spi.h"
@@ -158,7 +159,7 @@ int main(void)
       double mean_range = 0;
       double ranges[n_ready];
       for (u8 i=0; i<n_ready; i++) {
-        ranges[i] = predict_range(WPR_ecef, nav_meas[i].TOT, &es[meas[i].prn]);
+        ranges[i] = predict_range(WPR_ecef, nav_meas[i].tot, &es[meas[i].prn]);
         mean_range += ranges[i];
       }
       mean_range /= n_ready;
@@ -178,13 +179,20 @@ int main(void)
 
       wgsecef2ned_d(soln.pos_ecef, WPR_ecef, soln.pos_ned);
       DO_EVERY_COUNTS(SAMPLE_FREQ/4,
-        debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
-        debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
+        /*debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);*/
+        /*debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);*/
 
-        debug_send_msg(MSG_PR_ERRS, sizeof(pr_errs), (u8 *) pr_errs);
+        /*debug_send_msg(MSG_PR_ERRS, sizeof(pr_errs), (u8 *) pr_errs);*/
+        nmea_gpgga(&soln, &dops);
+      );
+      DO_EVERY_COUNTS(SAMPLE_FREQ,
+        nmea_gpgsv(n_ready, nav_meas, &soln);
       );
     }
 
+    DO_EVERY_COUNTS(SAMPLE_FREQ,
+      nmea_gpgsa(tracking_channel, 0);
+    );
     DO_EVERY_COUNTS(SAMPLE_FREQ/10, // 10 Hz update
       tracking_send_state();
     );
