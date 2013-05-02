@@ -18,6 +18,9 @@
 #include <stdio.h>
 #include <errno.h>
 
+#include <libopencm3/stm32/f4/usart.h>
+#include <libopencm3/stm32/f4/dma.h>
+
 #include "error.h"
 #include "debug.h"
 #include "hw/m25_flash.h"
@@ -27,6 +30,9 @@
 u8 msg_header[4] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2, 0, 0};
 
 u8 msg_buff[256];
+
+usart_rx_dma_state ftdi_rx_state;
+usart_tx_dma_state ftdi_tx_state;
 
 typedef enum {
   WAITING_1,
@@ -42,12 +48,23 @@ msg_callbacks_node_t* msg_callbacks_head = 0;
 void debug_setup()
 {
   usart_setup_common();
-  usart_tx_dma_setup();
-  usart_rx_dma_setup();
+  /* USART6 TX - DMA2, stream 7, channel 5. */
+  usart_tx_dma_setup(&ftdi_tx_state, USART6, DMA2, 7, 5);
+  /* USART6 RX - DMA2, stream 2, channel 5. */
+  usart_rx_dma_setup(&ftdi_rx_state, USART6, DMA2, 2, 5);
 
-  /* Disable input and output bufferings */
+  /* Disable input and output buffering. */
   setvbuf(stdin, NULL, _IONBF, 0);
   setvbuf(stdout, NULL, _IONBF, 0);
+}
+
+void dma2_stream7_isr(void)
+{
+  usart_tx_dma_isr(&ftdi_tx_state);
+}
+void dma2_stream2_isr(void)
+{
+  usart_rx_dma_isr(&ftdi_rx_state);
 }
 
 u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
@@ -55,7 +72,7 @@ u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
   /* Global interrupt disable to avoid concurrency/reentrance problems. */
   __asm__("CPSID i;");
 
-    if (usart_tx_n_free() < (u32)len+4) {
+    if (usart_tx_n_free(&ftdi_tx_state) < (u32)len+4) {
       // Not enough space in the TX buffer for the message (including header)
       __asm__("CPSIE i;");  // Re-enable interrupts
       return 1; // Discard the message and return an error
@@ -64,8 +81,8 @@ u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
     msg_header[2] = msg_type;
     msg_header[3] = len;
 
-    if (4 != usart_write_dma(msg_header, 4)) speaking_death("D_S_M: U_W_D failed (1)");
-    if (len != usart_write_dma(buff, len)) speaking_death("D_S_M: U_W_D failed (2)");
+    if (4 != usart_write_dma(&ftdi_tx_state, msg_header, 4)) speaking_death("D_S_M: U_W_D failed (1)");
+    if (len != usart_write_dma(&ftdi_tx_state, buff, len)) speaking_death("D_S_M: U_W_D failed (2)");
 
   __asm__("CPSIE i;");  // Re-enable interrupts
   return 0; // Successfully written to buffer.
@@ -134,7 +151,7 @@ void debug_process_messages()
   static u8 msg_type, msg_len, msg_n_read;
   static debug_process_messages_state_t state;
 
-  while((len = usart_n_read_dma()))
+  while((len = usart_n_read_dma(&ftdi_rx_state)))
   {
     /* If there are no bytes waiting to be processed then return. */
     if (len == 0)
@@ -142,28 +159,28 @@ void debug_process_messages()
 
     switch(state) {
       case WAITING_1:
-        usart_read_dma(&temp, 1);
+        usart_read_dma(&ftdi_rx_state, &temp, 1);
         if (temp == DEBUG_MAGIC_1)
           state = WAITING_2;
         break;
       case WAITING_2:
-        usart_read_dma(&temp, 1);
+        usart_read_dma(&ftdi_rx_state, &temp, 1);
         if (temp == DEBUG_MAGIC_2)
           state = GET_TYPE;
         break;
       case GET_TYPE:
-        usart_read_dma(&msg_type, 1);
+        usart_read_dma(&ftdi_rx_state, &msg_type, 1);
         state = GET_LEN;
         break;
       case GET_LEN:
-        usart_read_dma(&msg_len, 1);
+        usart_read_dma(&ftdi_rx_state, &msg_len, 1);
         msg_n_read = 0;
         state = GET_MSG;
         break;
       case GET_MSG:
         if (msg_len - msg_n_read > 0) {
           /* Not received whole message yet, try and get some more. */
-          msg_n_read += usart_read_dma(&msg_buff[msg_n_read], msg_len - msg_n_read);
+          msg_n_read += usart_read_dma(&ftdi_rx_state, &msg_buff[msg_n_read], msg_len - msg_n_read);
         }
         if (msg_len - msg_n_read <= 0) {
           /* Message complete, process it. */
