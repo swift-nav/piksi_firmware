@@ -31,17 +31,14 @@
 
 /* Initialiser using GNU extension, see
  * http://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html
- * tracking_channel_t tracking_channel[TRACK_N_CHANNELS] = \
+ * tracking_channel_t tracking_channel[MAX_TRACK_N_CHANNELS] = \
  *   {[0 ... TRACK_N_CHANNELS-1] = {.state = TRACKING_DISABLED}};
  */
 
 /* Initialiser actually not needed, static array inits to zero
  * and TRACKING_DISABLED = 0.
  */
-/* Assuming we will never have a greater number of tracking channels than 12 
- * We have to declare the number here as the number of tracking channels in
- * the FPGA is read at runtime. */
-tracking_channel_t tracking_channel[12];
+tracking_channel_t tracking_channel[MAX_TRACK_N_CHANNELS];
 
 /** Calculate the future code phase after N samples.
  * Calculate the expected code phase in N samples time with carrier aiding.
