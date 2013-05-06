@@ -122,13 +122,32 @@ void stm_flash_read_callback(u8 buff[]){
   debug_send_msg(MSG_STM_FLASH_READ,length+5,callback_data);
 }
 
+void stm_unique_id_callback(){
+  debug_send_msg(MSG_STM_UNIQUE_ID,12,(u8 *)STM_UNIQUE_ID_ADDR);
+}
+
 void stm_flash_callbacks_setup(){
   /* Create message callbacks node types to add to debug callback
    * linked list for each flash callback defined above */
-  static msg_callbacks_node_t stm_flash_erase_sector_node, stm_flash_program_node, stm_flash_program_byte_node, stm_flash_read_node;
+  static msg_callbacks_node_t stm_flash_erase_sector_node;
+  static msg_callbacks_node_t stm_flash_program_node;
+  static msg_callbacks_node_t stm_flash_program_byte_node;
+  static msg_callbacks_node_t stm_flash_read_node;
+  static msg_callbacks_node_t stm_unique_id_node;
   /* Insert callbacks in debug callback linked list so they can be called */
-  debug_register_callback(MSG_STM_FLASH_ERASE_SECTOR, &stm_flash_erase_sector_callback, &stm_flash_erase_sector_node);
-  debug_register_callback(MSG_STM_FLASH_READ, &stm_flash_read_callback, &stm_flash_read_node);
-  debug_register_callback(MSG_STM_FLASH_PROGRAM_BYTE, &stm_flash_program_byte_callback, &stm_flash_program_byte_node);
-  debug_register_callback(MSG_STM_FLASH_PROGRAM, &stm_flash_program_callback, &stm_flash_program_node);
+  debug_register_callback(MSG_STM_FLASH_ERASE_SECTOR,
+                          &stm_flash_erase_sector_callback,
+                          &stm_flash_erase_sector_node);
+  debug_register_callback(MSG_STM_FLASH_READ,
+                          &stm_flash_read_callback,
+                          &stm_flash_read_node);
+  debug_register_callback(MSG_STM_FLASH_PROGRAM_BYTE,
+                          &stm_flash_program_byte_callback,
+                          &stm_flash_program_byte_node);
+  debug_register_callback(MSG_STM_FLASH_PROGRAM,
+                          &stm_flash_program_callback,
+                          &stm_flash_program_node);
+  debug_register_callback(MSG_STM_UNIQUE_ID,
+                          &stm_unique_id_callback,
+                          &stm_unique_id_node);
 }
