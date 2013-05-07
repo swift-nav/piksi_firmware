@@ -24,12 +24,18 @@ int main(void)
   led_on(LED_GREEN);
   led_on(LED_RED);
 
+  /* Setup and hold the FPGA PROGRAM_B line low so that the FPGA does not
+   * contest the flash SPI bus */
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
+  gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
+  gpio_clear(GPIOC, GPIO12);
+
   swift_nap_setup();
   debug_setup();
   m25_setup();
 
-  for (u32 i = 0; i < 600000; i++)
-    __asm__("nop");
+  //for (u32 i = 0; i < 10000000; i++)
+  //  __asm__("nop");
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- M25 FLASH TEST ---\n");
