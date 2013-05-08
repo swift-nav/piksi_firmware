@@ -34,8 +34,8 @@ int main(void)
   debug_setup();
   m25_setup();
 
-  //for (u32 i = 0; i < 10000000; i++)
-  //  __asm__("nop");
+  for (u32 i = 0; i < 600000; i++)
+    __asm__("nop");
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- M25 FLASH TEST ---\n");

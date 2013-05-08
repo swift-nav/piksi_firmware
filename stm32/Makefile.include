@@ -33,6 +33,7 @@ TOOLCHAIN_DIR = $(SWIFTNAV_ROOT)/../libopencm3
 CFLAGS += -O0 -g -Wall -Wextra -Werror -I$(TOOLCHAIN_DIR)/include -I$(SWIFTNAV_ROOT)\
        -fno-common -mcpu=cortex-m3 -mthumb -msoft-float -MD -DSTM32F2 \
        -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99
+#       -DGIT_VERSION="\"$(GIT_VERSION)\"" -std=gnu99 -v
 LDSCRIPT ?= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
 LDFLAGS += -lc -lnosys -L$(TOOLCHAIN_DIR)/lib -L$(SWIFTNAV_ROOT)/libswiftnav \
         -L$(TOOLCHAIN_DIR)/lib/stm32/f4 \
