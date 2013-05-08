@@ -629,7 +629,7 @@ void get_nap_dna(u8 dna[]){
 }
 
 u8 get_nap_hash_status(){
-  u8 temp[1];
+  u8 temp[1] = {0};
   swift_nap_xfer_blocking(SPI_ID_HASH_STATUS,1,temp,temp);
   return temp[0];
 }
