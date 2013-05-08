@@ -203,13 +203,6 @@ void tracking_channel_update(u8 channel)
         chan->Q_filter += abs(cs[1].Q);
       }
 
-      u32 lag = timing_count() - chan->sample_count;
-      if (lag > 16368)
-        DO_ONLY(10,
-          printf("PRN %02d, lag = %u samples\n",chan->prn+1, (unsigned int)lag);
-          printf("    tc: %u, sc: %u, csc: %u\n", (unsigned int)timing_count(), (unsigned int) chan->sample_count, (unsigned int)chan->corr_sample_count);
-        );
-
       /* Run the loop filters. */
 
       /* TODO: Make this more elegant. */
@@ -222,16 +215,7 @@ void tracking_channel_update(u8 channel)
       chan->carrier_freq = chan->tl_state.carr_freq;
       chan->code_phase_rate = chan->tl_state.code_freq + 1.023e6;
 
-      u32 timer_val = timing_count();
-      static u32 max_timer_val = 0;
-
       s32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
-
-      timer_val = timing_count() - timer_val;
-      if (timer_val > max_timer_val) {
-        max_timer_val = timer_val;
-        printf("n_m_u took %.1f us\n", max_timer_val/16.368);
-      }
 
       if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
         printf("PRN %d TOW mismatch: %u, %u\n",(int)chan->prn + 1, (unsigned int)chan->TOW_ms, (unsigned int)TOW_ms);
