@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
-# bootloader for the Swift Navigation Piksi GPS Receiver
-# 
+# Bootloader for the Swift Navigation Piksi GPS Receiver
+#
 # Copyright (C) 2010 Gareth McMullin <gareth@blacksphere.co.nz>
 # Copyright (C) 2011 Piotr Esden-Tempski <piotr@esden.net>
 # Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
@@ -27,11 +27,10 @@ import serial_link
 import struct
 import time
 import sys
-import serial
 
 MSG_STM_FLASH_PROGRAM_BYTE = 0xE0
 MSG_STM_FLASH_PROGRAM      = 0xE4
-MSG_STM_FLASH_READ         = 0xE1 #both C and Python ID
+MSG_STM_FLASH_READ         = 0xE1 # both C and Python ID
 MSG_STM_FLASH_ERASE_SECTOR = 0xE2
 MSG_STM_FLASH_COMPLETE     = 0xE0
 MSG_BOOTLOADER_HANDSHAKE   = 0xE3
@@ -41,88 +40,116 @@ MSG_JUMP_TO_APP = 0xA0
 APP_ADDRESS = 0x08010000
 ADDRS_PER_OP = 128
 
-#Currently just serves to block until callbacks
-#for each command are received
-class STM32_flash():
+# Currently just serves to block until callbacks
+# for each command are received
+class STM32Flash():
   bootloader_ready = False
   _waiting_for_callback = False
   _read_callback_data = []
 
-  def __init__(self,link):
+  def __init__(self, link):
     self.link = link
     self.link.add_callback(MSG_STM_FLASH_COMPLETE, self._done_callback)
     self.link.add_callback(MSG_STM_FLASH_READ, self._read_callback)
-    self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE, self._bootloader_ready_callback)
+    self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE,
+                           self._bootloader_ready_callback)
 
-  def erase_sector(self,sector):
-    msg_buf = struct.pack("B",sector)
+  def erase_sector(self, sector):
+    msg_buf = struct.pack("B", sector)
     self._waiting_for_callback = True
-    link.send_message(MSG_STM_FLASH_ERASE_SECTOR,msg_buf)
+    link.send_message(MSG_STM_FLASH_ERASE_SECTOR, msg_buf)
     while self._waiting_for_callback == True:
       pass
 
-  def program_byte(self,address,byte):
-    msg_buf = struct.pack("<IB",address,byte)
+  def program_byte(self, address, byte):
+    msg_buf = struct.pack("<IB", address, byte)
     self._waiting_for_callback = True
-    link.send_message(MSG_STM_FLASH_PROGRAM_BYTE,msg_buf)
+    link.send_message(MSG_STM_FLASH_PROGRAM_BYTE, msg_buf)
     while self._waiting_for_callback == True:
       pass
 
-  def program(self,address,data):
-    msg_buf = struct.pack("<IB",address,len(data))
+  def program(self, address, data):
+    msg_buf = struct.pack("<IB", address, len(data))
     self._waiting_for_callback = True
-    link.send_message(MSG_STM_FLASH_PROGRAM,msg_buf+data)
+    link.send_message(MSG_STM_FLASH_PROGRAM, msg_buf + data)
     while self._waiting_for_callback == True:
       pass
 
-  def read(self,address,length):
-    msg_buf = struct.pack("<IB",address,length)
+  def read(self, address, length):
+    msg_buf = struct.pack("<IB", address, length)
     self._waiting_for_callback = True
-    link.send_message(MSG_STM_FLASH_READ,msg_buf)
+    link.send_message(MSG_STM_FLASH_READ, msg_buf)
     while self._waiting_for_callback == True:
       pass
     return self._read_callback_data
 
-  def _done_callback(self,data):
+  def _done_callback(self, data):
     self._waiting_for_callback = False
 
-  def _read_callback(self,data):
-    #4 bytes addr, 1 byte length, length bytes data
-    addr = struct.unpack('<I',data[0:4])[0];
-    length = struct.unpack('B',data[4])[0];
-    self._read_callback_data = list(struct.unpack(str(length)+'B',data[5:]))
+  def _read_callback(self, data):
+    # 4 bytes addr, 1 byte length, length bytes data
+    addr = struct.unpack('<I', data[0:4])[0];
+    length = struct.unpack('B', data[4])[0];
+    self._read_callback_data = list(struct.unpack(str(length)+'B', data[5:]))
     self._waiting_for_callback = False
 
-  def _bootloader_ready_callback(self,data):
+  def _bootloader_ready_callback(self, data):
     self.bootloader_ready = True
 
 if __name__ == "__main__":
-  #Wait for device to be plugged in
+  import argparse
+
+  parser = argparse.ArgumentParser(description='Piksi Bootloader')
+  parser.add_argument("file",
+                      help="the sample data file to process")
+  parser.add_argument('-p', '--port',
+                     default=[serial_link.DEFAULT_PORT], nargs=1,
+                     help='specify the serial port to use.')
+  parser.add_argument("-f", "--ftdi",
+                    help="use pylibftdi instead of pyserial.",
+                    action="store_true")
+  args = parser.parse_args()
+  serial_port = args.port[0]
+
   print "Waiting for device to be plugged in ...",
   sys.stdout.flush()
-  while not locals().has_key('link'): #'link' doesn't exist, it hasn't been created successfully yet, probably because device is not plugged in
+
+  found_device = False
+  while not found_device:
     try:
-      link = serial_link.SerialLink()
-    except serial.serialutil.SerialException: #couldn't find device
+      link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi)
+      found_device = True
+    except KeyboardInterrupt:
+      # Clean up and exit
+      link.close()
+      sys.exit()
+    except:
+      # Couldn't find device
       time.sleep(0.01)
+
   link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
   print "link with device successfully created."
 
-  #Create STM32_flash object and pass Piksi serial link to it
-  flash = STM32_flash(link)
+  # Create STM32Flash object and pass Piksi serial link to it
+  flash = STM32Flash(link)
 
-  #Wait until device informs us that it is ready to receive program
+  # Wait until device informs us that it is ready to receive program
   print "Waiting for device to tell us it is ready to bootload ...",
   sys.stdout.flush()
-  while not flash.bootloader_ready:
-    time.sleep(0.1)
+  try:
+    while not flash.bootloader_ready:
+      time.sleep(0.1)
+  except KeyboardInterrupt:
+    # Clean up and exit
+    link.close()
+    sys.exit()
   print "received handshake signal."
 
-  #Send message to device to let it know we want to change the application
-  link.send_message(MSG_BOOTLOADER_HANDSHAKE,'\x00')
+  # Send message to device to let it know we want to change the application
+  link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00')
 
   #Get program binary
-  binary = open(sys.argv[1], "rb").read()
+  binary = open(args.file, "rb").read()
 
   #Erase sector of Piksi's flash where binary is to go
   #Don't erase sectors 0-3 or you'll erase the bootloader
@@ -145,16 +172,17 @@ if __name__ == "__main__":
     addr += n_addrs
   print "\nDone programming flash, telling device to jump to application"
 
-  #Tell STM to jump to application, as programming is finished
-  link.send_message(MSG_JUMP_TO_APP,'\x00')
+  # Tell STM to jump to application, as programming is finished
+  link.send_message(MSG_JUMP_TO_APP, '\x00')
 
-  #Wait for ctrl+C until we exit
+  # Wait for ctrl+C until we exit
   try:
     while(1):
       time.sleep(0.1)
   except KeyboardInterrupt:
     pass
 
-  #Clean up and exit
+  # Clean up and exit
   link.close()
   sys.exit()
+
