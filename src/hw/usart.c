@@ -76,3 +76,9 @@ void usarts_setup()
   usart_set_parameters(USART3, settings.uartb_usart.baud_rate);
 }
 
+void usarts_disable(){
+  /* Disable all USARTs. */
+  usart_disable(USART6);
+  usart_disable(USART1);
+  usart_disable(USART3);
+}

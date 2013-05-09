@@ -14,13 +14,17 @@ else
 	MAKEFLAGS += PRN=$(PRN)
 endif
 
-.PHONY: all tests firmware docs
+.PHONY: all tests firmware bootloader docs
 
-all: firmware tests
+all: firmware bootloader tests
 
 firmware:
 	@printf "BUILD   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS)
+
+bootloader:
+	@printf "BUILD   bootloader\n"; \
+	$(MAKE) -C bootloader $(MAKEFLAGS)
 
 tests:
 	$(Q)for i in tests/*; do \
@@ -32,6 +36,8 @@ tests:
 
 clean:
 	@printf "CLEAN   src\n"; \
+	$(MAKE) -C bootloader $(MAKEFLAGS) clean
+	@printf "CLEAN   bootloader\n"; \
 	$(MAKE) -C src $(MAKEFLAGS) clean
 	$(Q)for i in tests/*; do \
 		if [ -d $$i ]; then \

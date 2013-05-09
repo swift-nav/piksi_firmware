@@ -54,6 +54,7 @@ typedef struct {
 } debug_process_messages_state_t;
 
 void debug_setup();
+void debug_disable();
 u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[]);
 void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_t* node);
 msg_callback_t debug_find_callback(u8 msg_id);

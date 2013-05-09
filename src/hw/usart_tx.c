@@ -105,6 +105,21 @@ void usart_tx_dma_setup(usart_tx_dma_state* s, u32 usart,
     nvic_enable_irq(dma_irq_lookup[1][stream]);
 }
 
+void usart_tx_dma_disable(usart_tx_dma_state* s)
+{
+  /* Disable DMA stream interrupts with the NVIC. */
+  if (s->dma == DMA1)
+    nvic_disable_irq(dma_irq_lookup[0][s->stream]);
+  else if (s->dma == DMA2)
+    nvic_disable_irq(dma_irq_lookup[1][s->stream]);
+
+  /* Disable DMA stream. */
+  DMA_SCR(s->dma, s->stream) &= ~DMA_SxCR_EN;
+  while (DMA_SCR(s->dma, s->stream) & DMA_SxCR_EN);
+
+  /* Disable RX DMA on the USART. */
+  usart_disable_tx_dma(s->usart);
+}
 
 /** Calculate the space left in the USART DMA TX buffer.
  * \param s The USART DMA state structure.

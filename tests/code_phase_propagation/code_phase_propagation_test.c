@@ -65,7 +65,6 @@ int main(void)
   swift_nap_reset();
 
   m25_setup();
-  xfer_dna_hash();
 
   while(1) {
     printf("\nPRN: %u\n", PRN);

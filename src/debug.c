@@ -66,6 +66,18 @@ void debug_setup()
   setvbuf(stdout, NULL, _IONBF, 0);
 }
 
+/** Disables the USART peripherals and DMA streams enabled by debug_setup(). */
+void debug_disable()
+{
+  usart_tx_dma_disable(&ftdi_tx_state);
+  usart_rx_dma_disable(&ftdi_rx_state);
+  usart_tx_dma_disable(&uarta_tx_state);
+  usart_rx_dma_disable(&uarta_rx_state);
+  usart_tx_dma_disable(&uartb_tx_state);
+  usart_rx_dma_disable(&uartb_rx_state);
+  usarts_disable();
+}
+
 void dma2_stream6_isr(void)
 {
   usart_tx_dma_isr(&ftdi_tx_state);
