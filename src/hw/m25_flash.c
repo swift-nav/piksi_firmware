@@ -203,8 +203,10 @@ void flash_read_callback(u8 buff[]) {
     }
     //Make sure we don't wrap the TX DMA buffer
     //This shouldn't be necessary, but just to give a bit more protection
-    while(usart_tx_n_free() < USART_TX_BUFFER_LEN*0.5)
+    /*
+    while(usart_tx_n_free(&ftdi_tx_state) < USART_TX_BUFFER_LEN*0.5)
       __asm__("nop");
+    */
     u32 msg_qd;
     msg_qd = debug_send_msg(MSG_FLASH_READ,4 + chunk_len,callback_data);
     if (msg_qd)

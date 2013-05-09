@@ -18,7 +18,18 @@
 #include <libopencm3/cm3/common.h>
 
 typedef struct {
-  u8 foo;
+  enum {
+    PIKSI_BINARY,
+    NMEA
+  } mode;
+  u32 baud_rate;
+  u8 message_mask;
+} usart_settings_t;
+
+typedef struct {
+  usart_settings_t ftdi_usart;
+  usart_settings_t uarta_usart;
+  usart_settings_t uartb_usart;
 } settings_t;
 
 extern settings_t settings;

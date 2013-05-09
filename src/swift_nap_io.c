@@ -103,12 +103,12 @@ void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_
 {
 
   // Check that there's no DMA transfer in progress
-  if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
+  //if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
     /* DMA transfer already in progress.
      * TODO: handle this gracefully, but for now...
      */
-    speaking_death("SPI DMA xfer already in progess");
-  }
+    //speaking_death("SPI DMA xfer already in progess");
+  //}
 
   spi_slave_select(SPI_SLAVE_FPGA);
 
@@ -216,6 +216,8 @@ void timing_strobe(u32 falling_edge_count)
   temp[3] = (falling_edge_count >> 0) & 0xFF;
   swift_nap_xfer_blocking(SPI_ID_TIMING_COMPARE,4,temp,temp);
 
+  /* TODO: need to wait until the timing strobe has finished but also don't
+   * want to spin in a busy loop. */
   while(timing_count() < falling_edge_count);
 
   /* Add a little bit of delay before the next
@@ -499,6 +501,8 @@ void swift_nap_xfer_dma(u8 n_bytes) { // not yet updated for v2.2
   /* Enable DMA channels. */
   DMA1_S3CR |= DMA_SxCR_EN;
   DMA1_S4CR |= DMA_SxCR_EN;
+
+  while (DMA1_S4NDTR > 0);
 }
 
 
@@ -594,7 +598,7 @@ void get_nap_dna(u8 dna[]){
 }
 
 u8 get_nap_hash_status(){
-  u8 temp[1];
+  u8 temp[1] = {0};
   swift_nap_xfer_blocking(SPI_ID_HASH_STATUS,1,temp,temp);
   return temp[0];
 }
