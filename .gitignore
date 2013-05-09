@@ -1,3 +1,4 @@
+.gdbinit
 docs/html
 *.o
 *.a
