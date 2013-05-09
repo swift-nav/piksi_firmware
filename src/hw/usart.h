@@ -52,9 +52,11 @@ typedef struct {
 extern const u8 dma_irq_lookup[2][8];
 
 void usarts_setup();
+void usarts_disable();
 
 void usart_tx_dma_setup(usart_tx_dma_state* s, u32 usart,
                         u32 dma, u8 stream, u8 channel);
+void usart_tx_dma_disable(usart_tx_dma_state* s);
 u32 usart_tx_n_free(usart_tx_dma_state* s);
 void usart_tx_dma_isr(usart_tx_dma_state* s);
 u32 usart_write_dma(usart_tx_dma_state* s, u8 data[], u32 len);

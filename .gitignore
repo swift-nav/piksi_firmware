@@ -11,6 +11,7 @@ docs/html
 *.pyc
 *.gcno
 *.gcda
+*.swp
 libswiftnav/lcov
 /tags
 /libopencm3_for_ctags

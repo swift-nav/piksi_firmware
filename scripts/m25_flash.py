@@ -36,7 +36,7 @@ def roundup_multiple(x, multiple):
 def rounddown_multiple(x, multiple):
   return x if x % multiple == 0 else x - x % multiple
 
-class Flash(Thread):
+class M25_flash(Thread):
   _flash_ready = Event()
   _command_queue = []
   _wants_to_exit = False
@@ -48,7 +48,7 @@ class Flash(Thread):
   _rd_cb_data = []
 
   def __init__(self, link):
-    super(Flash, self).__init__()
+    super(M25_flash, self).__init__()
     self._flash_ready.set()
     self.link = link
     self.link.add_callback(0xF0, self._flash_done_callback)
@@ -209,7 +209,7 @@ if __name__ == "__main__":
   #Create SerialLink and Flash objects
   link = serial_link.SerialLink(port=serial_port)
   link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
-  piksi_flash = Flash(link)
+  piksi_flash = M25_flash(link)
   piksi_flash.start()
   #Write configuration file to FPGA's flash
   piksi_flash.write_ihx(flash_file)

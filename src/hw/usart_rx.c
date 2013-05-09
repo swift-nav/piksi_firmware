@@ -122,9 +122,9 @@ void usart_rx_dma_disable(usart_rx_dma_state* s)
 {
   /* Disable DMA stream interrupts with the NVIC. */
   if (s->dma == DMA1)
-    nvic_enable_irq(dma_irq_lookup[0][s->stream]);
+    nvic_disable_irq(dma_irq_lookup[0][s->stream]);
   else if (s->dma == DMA2)
-    nvic_enable_irq(dma_irq_lookup[1][s->stream]);
+    nvic_disable_irq(dma_irq_lookup[1][s->stream]);
 
   /* Disable DMA stream. */
   DMA_SCR(s->dma, s->stream) &= ~DMA_SxCR_EN;

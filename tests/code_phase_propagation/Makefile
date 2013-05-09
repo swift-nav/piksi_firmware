@@ -2,6 +2,7 @@ BINARY = code_phase_propagation_test
 
 OBJS = code_phase_propagation_test.o \
        ../../src/debug.o \
+       ../../src/settings.o \
        ../../src/error.o \
        ../../src/swift_nap_io.o \
        ../../src/cw.o \

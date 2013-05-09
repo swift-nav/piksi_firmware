@@ -12,7 +12,7 @@ import struct
 import numpy as np
 
 MSG_TRACKING_STATE = 0x22
-TRACK_N_CHANNELS = 10
+TRACK_N_CHANNELS = 12
 
 colours_list = [
   0xE41A1C,
@@ -78,9 +78,9 @@ class TrackingView(HasTraits):
     for n in range(TRACK_N_CHANNELS):
       self.plot_data.set_data('ch'+str(n), chans[n])
       if self.states[n].state == 0:
-        plot_labels.append('Ch %d (Disabled)' % n)
+        plot_labels.append('Ch %02d (Disabled)' % n)
       else:
-        plot_labels.append('Ch %d (PRN%02d)' % (n, self.states[n].prn+1))
+        plot_labels.append('Ch %02d (PRN%02d)' % (n, self.states[n].prn+1))
     plots = dict(zip(plot_labels, self.plots))
     self.plot.legend.plots = plots
 

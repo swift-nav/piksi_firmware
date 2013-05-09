@@ -66,7 +66,10 @@ typedef struct {
   nav_msg_t nav_msg;
 } tracking_channel_t;
 
-extern tracking_channel_t tracking_channel[TRACK_N_CHANNELS];
+/* Assuming we will never have a greater number of tracking channels than 12 
+ * We have to declare the number here as the number of tracking channels in
+ * the FPGA is read at runtime. */
+extern tracking_channel_t tracking_channel[12];
 
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sample_count);
