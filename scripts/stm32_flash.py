@@ -27,6 +27,8 @@ import serial_link
 import struct
 import time
 import sys
+from intelhex import IntelHex
+from itertools import groupby
 
 MSG_STM_FLASH_PROGRAM_BYTE = 0xE0
 MSG_STM_FLASH_PROGRAM      = 0xE4
@@ -37,8 +39,58 @@ MSG_BOOTLOADER_HANDSHAKE   = 0xE3
 
 MSG_JUMP_TO_APP = 0xA0
 
-APP_ADDRESS = 0x08010000
 ADDRS_PER_OP = 128
+
+def sector_of_address(addr):
+  if   addr >= 0x08000000 and addr < 0x08004000:
+    return 0
+  elif addr >= 0x08004000 and addr < 0x08008000:
+    return 1
+  elif addr >= 0x08008000 and addr < 0x0800C000:
+    return 2
+  elif addr >= 0x0800C000 and addr < 0x08010000:
+    return 3
+  elif addr >= 0x08010000 and addr < 0x08020000:
+    return 4
+  elif addr >= 0x08020000 and addr < 0x08040000:
+    return 5
+  elif addr >= 0x08040000 and addr < 0x08060000:
+    return 6
+  elif addr >= 0x08060000 and addr < 0x08080000:
+    return 7
+  elif addr >= 0x08080000 and addr < 0x080A0000:
+    return 8
+  elif addr >= 0x080A0000 and addr < 0x080C0000:
+    return 9
+  elif addr >= 0x080C0000 and addr < 0x080E0000:
+    return 10
+  elif addr >= 0x080E0000 and addr < 0x08100000:
+    return 11
+  else:
+    return None
+
+def roundup_multiple(x, multiple):
+  return x if x % multiple == 0 else x + multiple - x % multiple
+
+def rounddown_multiple(x, multiple):
+  return x if x % multiple == 0 else x - x % multiple
+
+def ihx_ranges(ihx):
+  def first_last(x):
+      first = x.next()
+      last = first
+      for last in x:
+          pass
+      return (first[1], last[1])
+  return [first_last(v) for k, v in
+          groupby(enumerate(ihx.addresses()), lambda (i, x) : i - x)]
+
+def sectors_used(ihx):
+    ranges = ihx_ranges(ihx)
+    sectors = set()
+    for s, e in ranges:
+        sectors |= set(range(sector_of_address(s), sector_of_address(e)+1))
+    return sorted(list(sectors))
 
 # Currently just serves to block until callbacks
 # for each command are received
@@ -59,28 +111,28 @@ class STM32Flash():
     self._waiting_for_callback = True
     link.send_message(MSG_STM_FLASH_ERASE_SECTOR, msg_buf)
     while self._waiting_for_callback == True:
-      pass
+      time.sleep(0.01)
 
   def program_byte(self, address, byte):
     msg_buf = struct.pack("<IB", address, byte)
     self._waiting_for_callback = True
     link.send_message(MSG_STM_FLASH_PROGRAM_BYTE, msg_buf)
     while self._waiting_for_callback == True:
-      pass
+      time.sleep(0.01)
 
   def program(self, address, data):
     msg_buf = struct.pack("<IB", address, len(data))
     self._waiting_for_callback = True
     link.send_message(MSG_STM_FLASH_PROGRAM, msg_buf + data)
     while self._waiting_for_callback == True:
-      pass
+      time.sleep(0.01)
 
   def read(self, address, length):
     msg_buf = struct.pack("<IB", address, length)
     self._waiting_for_callback = True
     link.send_message(MSG_STM_FLASH_READ, msg_buf)
     while self._waiting_for_callback == True:
-      pass
+      time.sleep(0.01)
     return self._read_callback_data
 
   def _done_callback(self, data):
@@ -148,28 +200,25 @@ if __name__ == "__main__":
   # Send message to device to let it know we want to change the application
   link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00')
 
-  #Get program binary
-  binary = open(args.file, "rb").read()
+  ihx = IntelHex(args.file)
+  # Erase sector of Piksi's flash where binary is to go
+  # Don't erase sectors 0-3 or you'll erase the bootloader
+  for sector in sectors_used(ihx):
+    if sector in range(4, 12):
+      print "Erasing sector", sector
+      flash.erase_sector(sector)
+    else:
+      print "Sector", sector, "out of bounds, not erasing"
 
-  #Erase sector of Piksi's flash where binary is to go
-  #Don't erase sectors 0-3 or you'll erase the bootloader
-  #TODO : automatically erase correct number of sectors for program size
-  print "Erasing flash ...",
-  flash.erase_sector(4)
-  print "done"
-
-  #Write program binary to Piksi's flash
-  #Read back each address and validate as we go
-  addr = APP_ADDRESS
-  while binary:
-    print ("Programming flash at 0x%08X\r" % addr),
-    n_addrs = min([ADDRS_PER_OP,len(binary)])
-    flash.program(addr,binary[0:n_addrs])
-    flash_readback = flash.read(addr,n_addrs)
-    if flash_readback != [ord(i) for i in binary[0:n_addrs]]:
-      raise Exception('data read from flash != data written to flash')
-    binary = binary[n_addrs:]
-    addr += n_addrs
+  for start, end in ihx_ranges(ihx):
+    for addr in range(start, end, ADDRS_PER_OP):
+      print ("Programming flash at 0x%08X\r\n" % addr),
+      sys.stdout.flush()
+      binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
+      flash.program(addr, binary)
+      flash_readback = flash.read(addr, ADDRS_PER_OP)
+      if flash_readback != map(ord, binary):
+        raise Exception('data read from flash != data written to flash')
   print "\nDone programming flash, telling device to jump to application"
 
   # Tell STM to jump to application, as programming is finished
