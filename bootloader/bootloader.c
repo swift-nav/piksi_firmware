@@ -57,8 +57,8 @@ int main(void)
 {
   /* Setup and turn on LEDs */
   led_setup();
-  led_on(LED_GREEN);
-  led_on(LED_RED);
+  led_off(LED_GREEN);
+  led_off(LED_RED);
 
   /* Setup UART and debug interface for
    * transmitting and receiving callbacks */
@@ -93,15 +93,16 @@ int main(void)
    * TODO : might as well make this as long as FPGA takes to configure itself
    *        from the configuration flash, as it doesn't add to the startup time
    */
-	for (u64 i=0; i<300000; i++){
+	for (u64 i=0; i<200000; i++){
     DO_EVERY(3000,
-      led_toggle(LED_GREEN);
       led_toggle(LED_RED);
       debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
     );
     debug_process_messages(); /* to service pc_wants_bootload_callback */
     if (pc_wants_bootload) break;
   }
+  led_off(LED_GREEN);
+  led_off(LED_RED);
   if ((pc_wants_bootload) || !(current_app_valid)){
     /*
      * We expect PC application passing application data to call
@@ -110,17 +111,17 @@ int main(void)
      */
     while(1){
       debug_process_messages();
-      DO_EVERY(50000,
-        DO_EVERY(2,
-          led_toggle(LED_GREEN);
-        );
+      DO_EVERY(3000,
+        led_toggle(LED_GREEN);
         led_toggle(LED_RED);
         /*
          * In case PC application was started after we entered the loop. It
          * is expecting to get a bootloader handshake message before it will
          * send flash programming callbacks
          */
-        debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+        DO_EVERY(10,
+          debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+        );
       );
     }
   }
