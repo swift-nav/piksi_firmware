@@ -16,9 +16,9 @@
 #include "hw/spi.h"
 #include "hw/leds.h"
 #include "hw/m25_flash.h"
+#include "hw/stm_flash.h"
 
-int main(void)
-{
+int main(void) {
 
   led_setup();
   led_on(LED_GREEN);
@@ -33,6 +33,7 @@ int main(void)
   swift_nap_setup();
   debug_setup();
   m25_setup();
+  stm_flash_callbacks_setup();
 
   for (u32 i = 0; i < 600000; i++)
     __asm__("nop");
@@ -41,7 +42,7 @@ int main(void)
   printf("--- M25 FLASH TEST ---\n");
 
   while (1) {
-    for (u32 i = 0; i < 10000; i++) 
+    for (u32 i = 0; i < 10000; i++)
       __asm__("nop");
     DO_EVERY(20,
       led_toggle(LED_GREEN);

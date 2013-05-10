@@ -9,6 +9,7 @@ OBJS = flash_test.o \
        ../../src/track.o \
        ../../src/hw/max2769.o \
        ../../src/hw/m25_flash.o \
+       ../../src/hw/stm_flash.o \
        ../../src/hw/leds.o \
        ../../src/hw/spi.o \
        ../../src/hw/usart.o \
