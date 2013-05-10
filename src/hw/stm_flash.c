@@ -66,7 +66,7 @@ void stm_flash_program_byte_callback(u8 buff[]){
    *   and could use some #defines
    */
   flash_unlock();
-  flash_program_byte(address,data,0);
+  flash_program_byte(address, data);
   flash_lock();
 
   /* Send message back to PC to signal operation is finished */
@@ -87,7 +87,7 @@ void stm_flash_program_callback(u8 buff[]){
   flash_unlock();
   while (length) {
     /*program 1 byte at a time*/
-    flash_program_byte(address,*data,0x00000000);
+    flash_program_byte(address, *data);
     length -= 1;
     data += 1;
     address += 1;

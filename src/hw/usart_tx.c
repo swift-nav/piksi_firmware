@@ -174,16 +174,16 @@ static void dma_schedule(usart_tx_dma_state* s) {
 void usart_tx_dma_isr(usart_tx_dma_state* s)
 {
   if (dma_get_interrupt_flag(s->dma, s->stream,
-                             DMA_ISR_TEIF | DMA_ISR_DMEIF)) {
+                             DMA_TEIF | DMA_DMEIF)) {
     /* TODO: Handle error interrupts! */
     speaking_death("DMA TX error interrupt");
   }
 
-  if (dma_get_interrupt_flag(s->dma, s->stream, DMA_ISR_TCIF)) {
+  if (dma_get_interrupt_flag(s->dma, s->stream, DMA_TCIF)) {
     /* Interrupt is Transmit Complete. */
 
     /* Clear the DMA transmit complete and half complete interrupt flags. */
-    dma_clear_interrupt_flags(s->dma, s->stream, DMA_ISR_HTIF | DMA_ISR_TCIF);
+    dma_clear_interrupt_flags(s->dma, s->stream, DMA_HTIF | DMA_TCIF);
 
     /* Now that the transfer has finished we can increment the read index. */
     s->rd = (s->rd + s->xfer_len) % USART_TX_BUFFER_LEN;
@@ -194,9 +194,9 @@ void usart_tx_dma_isr(usart_tx_dma_state* s)
     }
   }
 
-  if (dma_get_interrupt_flag(s->dma, s->stream, DMA_ISR_FEIF)) {
+  if (dma_get_interrupt_flag(s->dma, s->stream, DMA_FEIF)) {
     /* Clear FIFO error flag */
-    dma_clear_interrupt_flags(s->dma, s->stream, DMA_ISR_HTIF | DMA_ISR_FEIF);
+    dma_clear_interrupt_flags(s->dma, s->stream, DMA_HTIF | DMA_FEIF);
     s->feif_isrs++;
   }
 }
@@ -241,7 +241,7 @@ u32 usart_write_dma(usart_tx_dma_state* s, u8 data[], u32 len)
    * transfer. Also, make sure that this is done atomically without a DMA
    * interrupt squeezing in there. */
   if (!((DMA_SCR(s->dma, s->stream) & DMA_SxCR_EN) ||
-        dma_get_interrupt_flag(s->dma, s->stream, DMA_ISR_TCIF)))
+        dma_get_interrupt_flag(s->dma, s->stream, DMA_TCIF)))
     dma_schedule(s);
 
   return len;

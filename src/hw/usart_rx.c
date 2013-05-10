@@ -134,7 +134,7 @@ void usart_rx_dma_disable(usart_rx_dma_state* s)
   usart_disable_rx_dma(s->usart);
 
   /* Clear the DMA transmit complete and half complete interrupt flags. */
-  dma_clear_interrupt_flags(s->dma, s->stream, DMA_ISR_HTIF | DMA_ISR_TCIF);
+  dma_clear_interrupt_flags(s->dma, s->stream, DMA_HTIF | DMA_TCIF);
 }
 
 /** USART RX DMA interrupt service routine.
@@ -144,17 +144,17 @@ void usart_rx_dma_disable(usart_rx_dma_state* s)
 void usart_rx_dma_isr(usart_rx_dma_state* s)
 {
   if (dma_get_interrupt_flag(s->dma, s->stream,
-                             DMA_ISR_TEIF | DMA_ISR_DMEIF | DMA_ISR_FEIF)) {
+                             DMA_TEIF | DMA_DMEIF | DMA_FEIF)) {
     /* TODO: Handle error interrupts! */
     speaking_death("USART RX DMA error interrupt");
   }
 
-  if (dma_get_interrupt_flag(s->dma, s->stream, DMA_ISR_HTIF | DMA_ISR_TCIF)) {
+  if (dma_get_interrupt_flag(s->dma, s->stream, DMA_HTIF | DMA_TCIF)) {
     /* Interrupt is Transmit Complete. We are in circular buffer mode so this
      * probably means we just wrapped the buffer. */
 
     /* Clear the DMA transmit complete and half complete interrupt flags. */
-    dma_clear_interrupt_flags(s->dma, s->stream, DMA_ISR_HTIF | DMA_ISR_TCIF);
+    dma_clear_interrupt_flags(s->dma, s->stream, DMA_HTIF | DMA_TCIF);
 
     /* Increment our write wrap counter. */
     s->wr_wraps++;
