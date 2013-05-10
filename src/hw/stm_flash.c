@@ -26,18 +26,18 @@ void stm_flash_erase_sector_callback(u8 buff[]){
   /* Msg format : 1 byte, sector number to erase (0-11)
    * See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual" */
   u8 sector = buff[0];
-  
+
   /* Check to make sure the sector to be erased is from 0-11,
    * and complain if it isn't */
-  if (sector > 11) 
+  if (sector > 11)
     speaking_death("flash_erase_callback received sector > 11\n");
 
-  /* Erase sector 
+  /* Erase sector
    * First argument is u32 that gets OR'd into the FLASH CR register,
    *   bits [6:3] of FLASH CR are sector to erase.
-   *   TODO : interface for this could be better, maybe this should 
+   *   TODO : interface for this could be better, maybe this should
    *   be changed in libopencm3
-   * Second argument is number of bytes to erase in parallel, shifted by 8 
+   * Second argument is number of bytes to erase in parallel, shifted by 8
    *   to be OR'd in at the appropriate place in the FLASH CR register [9:8].
    *   TODO : the interface for this could also be better in libopencm3,
    *   and could use some #defines
@@ -51,7 +51,7 @@ void stm_flash_erase_sector_callback(u8 buff[]){
 }
 
 void stm_flash_program_byte_callback(u8 buff[]){
-  /* Msg format : 4 bytes, address to program 
+  /* Msg format : 4 bytes, address to program
    *              1 byte, data to program at address */
   u32 address = *(u32 *)&buff[0];
   u8 data = buff[4];
@@ -59,7 +59,7 @@ void stm_flash_program_byte_callback(u8 buff[]){
   /* TODO : Add check to restrict addresses that can be programmed? */
 
   /* Program specified address with data
-   * Third argument is number of bytes to erase in parallel, shifted by 8 
+   * Third argument is number of bytes to erase in parallel, shifted by 8
    *   to be OR'd in at the appropriate place in the FLASH CR register [9:8].
    *   Currently we just put in 0 as we only program 1 byte at a time.
    *   TODO : the interface for this could also be better in libopencm3,
@@ -74,8 +74,8 @@ void stm_flash_program_byte_callback(u8 buff[]){
 }
 
 void stm_flash_program_callback(u8 buff[]){
-  /* Msg format : 4 bytes, address to program 
-   *              1 byte, number of addresses to program 
+  /* Msg format : 4 bytes, address to program
+   *              1 byte, number of addresses to program
    *              rest of bytes : data to program addr's with */
   u32 address = *(u32 *)&buff[0];
   u8 length = buff[4];
@@ -99,10 +99,10 @@ void stm_flash_program_callback(u8 buff[]){
 }
 
 void stm_flash_read_callback(u8 buff[]){
-  /* 
+  /*
    * Msg format : 4 bytes, starting address to read from
    *              1 byte, number of addresses to read
-   */  
+   */
   u32 address = *(u32 *)&buff[0];
   u8 length = buff[4];
 
