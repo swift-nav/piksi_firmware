@@ -172,7 +172,7 @@ void debug_process_messages()
           if (cb)
             (*cb)(msg_buff);
           else
-            printf("no callback registered for msg type %02X\n", msg_type);
+            puts("no firmware callback registered for msg type\n");
           state = WAITING_1;
         }
         break;
