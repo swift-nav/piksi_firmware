@@ -22,6 +22,8 @@
 #define USART_TX_BUFFER_LEN 4096
 #define USART_RX_BUFFER_LEN 4096
 
+#define USART_DEFUALT_BAUD 230400
+
 #include <libopencm3/cm3/common.h>
 
 typedef struct {
@@ -51,7 +53,14 @@ typedef struct {
 
 extern const u8 dma_irq_lookup[2][8];
 
-void usarts_setup();
+extern usart_tx_dma_state ftdi_tx_state;
+extern usart_rx_dma_state ftdi_rx_state;
+extern usart_tx_dma_state uarta_tx_state;
+extern usart_rx_dma_state uarta_rx_state;
+extern usart_tx_dma_state uartb_tx_state;
+extern usart_rx_dma_state uartb_rx_state;
+
+void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud);
 void usarts_disable();
 
 void usart_tx_dma_setup(usart_tx_dma_state* s, u32 usart,

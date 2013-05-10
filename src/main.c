@@ -97,7 +97,7 @@ int main(void)
   swift_nap_setup();
   swift_nap_reset();
 
-  debug_setup();
+  debug_setup(1);
 
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
 

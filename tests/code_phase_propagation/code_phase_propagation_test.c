@@ -52,7 +52,7 @@ int main(void)
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
 
-  debug_setup();
+  debug_setup(1);
 
   #ifndef PRN
     #error Please define the PRN to be used, e.g. make PRN=22

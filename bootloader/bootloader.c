@@ -62,7 +62,7 @@ int main(void)
 
   /* Setup UART and debug interface for
    * transmitting and receiving callbacks */
-  debug_setup();
+  debug_setup(0);
 
   /* Add callbacks for erasing, programming and reading flash */
   stm_flash_callbacks_setup();

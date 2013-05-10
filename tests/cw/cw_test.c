@@ -90,7 +90,7 @@ int main(void)
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
 
-  debug_setup();
+  debug_setup(1);
 
   printf("\n\n# Firmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
 

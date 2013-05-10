@@ -25,7 +25,7 @@ int main(void)
   led_on(LED_RED);
 
   swift_nap_setup();
-  debug_setup();
+  debug_setup(1);
   m25_setup();
 
   for (u32 i = 0; i < 600000; i++)

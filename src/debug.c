@@ -32,34 +32,28 @@ u8 msg_header[4] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2, 0, 0};
 
 u8 msg_buff[256];
 
-usart_rx_dma_state ftdi_rx_state;
-usart_tx_dma_state ftdi_tx_state;
-usart_rx_dma_state uarta_rx_state;
-usart_tx_dma_state uarta_tx_state;
-usart_rx_dma_state uartb_rx_state;
-usart_tx_dma_state uartb_tx_state;
-
 /* Store a pointer to the head of our linked list. */
 msg_callbacks_node_t* msg_callbacks_head = 0;
 
-void debug_setup()
+u8 debug_use_settings = 0;
+
+void debug_setup(u8 use_settings)
 {
-  usarts_setup();
-
-  /* FTDI (USART6) TX - DMA2, stream 6, channel 5. */
-  usart_tx_dma_setup(&ftdi_tx_state, USART6, DMA2, 6, 5);
-  /* FTDI (USART6) RX - DMA2, stream 1, channel 5. */
-  usart_rx_dma_setup(&ftdi_rx_state, USART6, DMA2, 1, 5);
-
-  /* UARTA (USART1) TX - DMA2, stream 7, channel 4. */
-  usart_tx_dma_setup(&uarta_tx_state, USART1, DMA2, 7, 4);
-  /* UARTA (USART1) RX - DMA2, stream 2, channel 4. */
-  usart_rx_dma_setup(&uarta_rx_state, USART1, DMA2, 2, 4);
-
-  /* UARTB (USART3) TX - DMA1, stream 3, channel 4. */
-  usart_tx_dma_setup(&uartb_tx_state, USART3, DMA1, 3, 4);
-  /* UARTB (USART3) RX - DMA1, stream 1, channel 4. */
-  usart_rx_dma_setup(&uartb_rx_state, USART3, DMA1, 1, 4);
+  if (use_settings && settings.settings_valid == VALID) {
+    debug_use_settings = 1;
+    usarts_setup(
+      settings.ftdi_usart.baud_rate,
+      settings.uarta_usart.baud_rate,
+      settings.uartb_usart.baud_rate
+    );
+  } else {
+    debug_use_settings = 0;
+    usarts_setup(
+      USART_DEFUALT_BAUD,
+      USART_DEFUALT_BAUD,
+      USART_DEFUALT_BAUD
+    );
+  }
 
   /* Disable input and output buffering. */
   setvbuf(stdin, NULL, _IONBF, 0);
@@ -69,38 +63,7 @@ void debug_setup()
 /** Disables the USART peripherals and DMA streams enabled by debug_setup(). */
 void debug_disable()
 {
-  usart_tx_dma_disable(&ftdi_tx_state);
-  usart_rx_dma_disable(&ftdi_rx_state);
-  usart_tx_dma_disable(&uarta_tx_state);
-  usart_rx_dma_disable(&uarta_rx_state);
-  usart_tx_dma_disable(&uartb_tx_state);
-  usart_rx_dma_disable(&uartb_rx_state);
   usarts_disable();
-}
-
-void dma2_stream6_isr(void)
-{
-  usart_tx_dma_isr(&ftdi_tx_state);
-}
-void dma2_stream1_isr(void)
-{
-  usart_rx_dma_isr(&ftdi_rx_state);
-}
-void dma2_stream7_isr(void)
-{
-  usart_tx_dma_isr(&uarta_tx_state);
-}
-void dma2_stream2_isr(void)
-{
-  usart_rx_dma_isr(&uarta_rx_state);
-}
-void dma1_stream3_isr(void)
-{
-  usart_tx_dma_isr(&uartb_tx_state);
-}
-void dma1_stream1_isr(void)
-{
-  usart_rx_dma_isr(&uartb_rx_state);
 }
 
 u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
@@ -111,24 +74,27 @@ u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
     msg_header[2] = msg_type;
     msg_header[3] = len;
 
-    if (settings.ftdi_usart.mode == PIKSI_BINARY &&
-        settings.ftdi_usart.message_mask & msg_type) {
+    if (debug_use_settings ||
+        (settings.ftdi_usart.mode == PIKSI_BINARY &&
+         settings.ftdi_usart.message_mask & msg_type)) {
       if (4 != usart_write_dma(&ftdi_tx_state, msg_header, 4))
         speaking_death("debug_send_message failed on FTDI");
       if (len != usart_write_dma(&ftdi_tx_state, buff, len))
         speaking_death("debug_send_message failed on FTDI");
     }
 
-    if (settings.uarta_usart.mode == PIKSI_BINARY &&
-        settings.uarta_usart.message_mask & msg_type) {
+    if (debug_use_settings ||
+        (settings.uarta_usart.mode == PIKSI_BINARY &&
+         settings.uarta_usart.message_mask & msg_type)) {
       if (4 != usart_write_dma(&uarta_tx_state, msg_header, 4))
         speaking_death("debug_send_message failed on UARTA");
       if (len != usart_write_dma(&uarta_tx_state, buff, len))
         speaking_death("debug_send_message failed on UARTA");
     }
 
-    if (settings.uartb_usart.mode == PIKSI_BINARY &&
-        settings.uartb_usart.message_mask & msg_type) {
+    if (debug_use_settings ||
+        (settings.uartb_usart.mode == PIKSI_BINARY &&
+         settings.uartb_usart.message_mask & msg_type)) {
       if (4 != usart_write_dma(&uartb_tx_state, msg_header, 4))
         speaking_death("debug_send_message failed on UARTB");
       if (len != usart_write_dma(&uartb_tx_state, buff, len))

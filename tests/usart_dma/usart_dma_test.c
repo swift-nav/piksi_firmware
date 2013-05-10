@@ -42,8 +42,6 @@ const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
   .apb2_frequency = 16368000,
 };
 
-usart_tx_dma_state ftdi_tx_state;
-
 int main(void)
 {
   for (u32 i = 0; i < 600000; i++)
@@ -53,8 +51,7 @@ int main(void)
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
 
-  usarts_setup();
-  usart_tx_dma_setup(&ftdi_tx_state, USART6, DMA2, 6, 5);
+  usarts_setup(USART_DEFUALT_BAUD, USART_DEFUALT_BAUD, USART_DEFUALT_BAUD);
 
   /*printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");*/
   /*printf("--- USART DMA TEST ---\n");*/
