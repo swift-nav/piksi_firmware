@@ -27,6 +27,11 @@ typedef struct {
 } usart_settings_t;
 
 typedef struct {
+  enum {
+    VALID = 0,
+    /* Settings area is erased, i.e. all 0xFF. */
+    INVALID = 0xFF
+  } settings_valid;
   usart_settings_t ftdi_usart;
   usart_settings_t uarta_usart;
   usart_settings_t uartb_usart;

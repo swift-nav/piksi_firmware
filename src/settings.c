@@ -20,6 +20,8 @@
 settings_t settings __attribute__ ((section (".settings_area"))) =
 /* Default settings: */
 {
+  .settings_valid = VALID,
+
   .ftdi_usart = {
     .mode = PIKSI_BINARY,
     .baud_rate = 230400,
