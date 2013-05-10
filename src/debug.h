@@ -19,6 +19,7 @@
 #define SWIFTNAV_DEBUG_H
 
 #include <libopencm3/cm3/common.h>
+#include "hw/usart.h"
 #include "debug_messages.h"
 
 #define DEBUG_MAGIC_1 0xBE
@@ -38,10 +39,28 @@ typedef struct msg_callbacks_node {
   struct msg_callbacks_node* next;
 } msg_callbacks_node_t;
 
-void debug_setup();
+typedef struct {
+  enum {
+    WAITING_1 = 0,
+    WAITING_2,
+    GET_TYPE,
+    GET_LEN,
+    GET_MSG,
+    GET_CRC
+  } state;
+  u8 msg_type;
+  u8 msg_len;
+  u8 msg_n_read;
+  u8 msg_buff[256];
+  usart_rx_dma_state* rx_state;
+} debug_process_messages_state_t;
+
+void debug_setup(u8 use_settings);
+void debug_disable();
 u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[]);
 void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_t* node);
 msg_callback_t debug_find_callback(u8 msg_id);
+void debug_process_usart(debug_process_messages_state_t* s);
 void debug_process_messages();
 
 #endif

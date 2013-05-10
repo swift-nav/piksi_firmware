@@ -24,7 +24,7 @@
 #include "debug.h"
 
 acq_prn_t acq_prn_param[32] = {
-  [0 ... 31] = { .state = ACQ_PRN_SKIP },
+  [0 ... 31] = { .state = ACQ_PRN_TRIED },
 };
 
 acq_manage_t acq_manage;
@@ -121,6 +121,8 @@ void manage_acq()
     case ACQ_MANAGE_LOADING_COARSE:
       if (timing_count() - acq_manage.coarse_timer_count > 2*SAMPLE_FREQ) {
         printf("Coarse loading error %u %u\n", (unsigned int)timing_count(), (unsigned int)acq_manage.coarse_timer_count);
+        acq_manage.state = ACQ_MANAGE_START;
+        acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
       /* Wait until we are done loading. */
       if (!acq_get_load_done())
@@ -168,6 +170,8 @@ void manage_acq()
     case ACQ_MANAGE_LOADING_FINE:
       if (timing_count() - acq_manage.fine_timer_count > 2*SAMPLE_FREQ) {
         printf("Fine loading error %u %u\n", (unsigned int)timing_count(), (unsigned int)acq_manage.fine_timer_count);
+        acq_manage.state = ACQ_MANAGE_START;
+        acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
       /* Wait until we are done loading. */
       if (!acq_get_load_done())
@@ -213,7 +217,8 @@ void manage_acq()
         /* TODO: Perhaps we can try to warm start this one
          * later using another fine acq.
          */
-        acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
+        printf("No channels free :(\n");
+        acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
         acq_manage.state = ACQ_MANAGE_START;
         break;
       }
@@ -240,7 +245,7 @@ u8 manage_track_new_acq(float snr __attribute__((unused)))
   /* Decide which (if any) tracking channel to put
    * a newly acquired satellite into.
    */
-  for (u8 i=0; i<TRACK_N_CHANNELS-1; i++) {
+  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
     if (tracking_channel[i].state == TRACKING_DISABLED) {
       return i;
     }

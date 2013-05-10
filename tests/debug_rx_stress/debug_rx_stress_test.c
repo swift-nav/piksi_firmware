@@ -20,7 +20,7 @@
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/timer.h>
-#include <libopencm3/stm32/nvic.h>
+#include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/f4/gpio.h>
 
 #include "main.h"
@@ -93,7 +93,7 @@ int main(void)
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
 
-  debug_setup();
+  debug_setup(1);
   timer_setup();
 
   // Debug pins (CC1111 TX/RX)

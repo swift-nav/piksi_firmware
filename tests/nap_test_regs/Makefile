@@ -2,6 +2,7 @@ BINARY = nap_test_regs_test
 
 OBJS = nap_test_regs_test.o \
        ../../src/debug.o \
+       ../../src/settings.o \
        ../../src/error.o \
        ../../src/swift_nap_io.o \
        ../../src/cw.o \

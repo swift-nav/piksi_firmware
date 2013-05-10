@@ -8,7 +8,7 @@ import struct
 import math
 import numpy as np
 
-TRACK_N_CHANNELS = 5
+TRACK_N_CHANNELS = 10
 
 MSG_SOLUTION = 0x50
 MSG_SOLUTION_DOPS = 0x51

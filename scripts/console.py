@@ -7,6 +7,9 @@ parser = argparse.ArgumentParser(description='Swift Nav Console.')
 parser.add_argument('-p', '--port',
                    default=[serial_link.DEFAULT_PORT], nargs=1,
                    help='specify the serial port to use.')
+parser.add_argument("-f", "--ftdi",
+                  help="use pylibftdi instead of pyserial.",
+                  action="store_true")
 args = parser.parse_args()
 serial_port = args.port[0]
 
@@ -45,18 +48,26 @@ class SwiftConsole(HasTraits):
   view = View(
     VSplit(
       Tabbed(
-        Item('solution_view', style='custom', show_label=False),
-        Item('tracking_view', style='custom', show_label=False),
-        Item('tracking_view', style='custom', show_label=False, editor=InstanceEditor(view='snr_line_view')),
-        Item('solution_view', style='custom', show_label=False, editor=InstanceEditor(view='prs_view')),
-        Item('almanac_view', style='custom', show_label=False),
-      ),
-      HSplit(
-        Item('python_console_env', editor=ShellEditor()),
-        Item('console_output', style='custom', editor=InstanceEditor()),
-        Item('tracking_view', style='custom', editor=InstanceEditor(view='snr_bar_view')),
+        Item('tracking_view', style='custom', label='Tracking'),
+        Item('almanac_view', style='custom', label='Almanac'),
+        Item('solution_view', style='custom'),
+        Item(
+          'solution_view', style='custom',
+          editor=InstanceEditor(view='prs_view')
+        ),
+        Item(
+          'python_console_env', style='custom',
+          label='Console', editor=ShellEditor()
+        ),
         show_labels=False
-      )
+      ),
+      Item(
+        'console_output',
+        style='custom',
+        editor=InstanceEditor(),
+        height=0.3,
+        show_label=False,
+      ),
     ),
     resizable = True,
     width = 1000,
@@ -69,10 +80,10 @@ class SwiftConsole(HasTraits):
     except UnicodeDecodeError:
       print "Oh crap!"
 
-  def __init__(self, port=serial_link.DEFAULT_PORT):
+  def __init__(self, *args, **kwargs):
     self.console_output = OutputStream()
 
-    self.link = serial_link.SerialLink(port)
+    self.link = serial_link.SerialLink(*args, **kwargs)
     self.link.add_callback(serial_link.MSG_PRINT, self.print_message_callback)
 
     self.tracking_view = TrackingView(self.link)
@@ -94,7 +105,7 @@ class SwiftConsole(HasTraits):
     self.flash.stop()
     self.link.close()
 
-console = SwiftConsole(serial_port)
+console = SwiftConsole(serial_port, use_ftdi=args.ftdi)
 
 console.configure_traits()
 console.stop()

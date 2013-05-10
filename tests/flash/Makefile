@@ -2,6 +2,7 @@ BINARY = flash_test
 
 OBJS = flash_test.o \
        ../../src/debug.o \
+       ../../src/settings.o \
        ../../src/error.o \
        ../../src/swift_nap_io.o \
        ../../src/cw.o \

@@ -14,15 +14,11 @@ else
 	MAKEFLAGS += PRN=$(PRN)
 endif
 
-.PHONY: all tests firmware bootloader docs libswiftnav
+.PHONY: all tests firmware bootloader docs
 
-all: libswiftnav firmware bootloader tests
+all: firmware bootloader tests
 
-libswiftnav:
-	@printf "BUILD   libswiftnav\n"; \
-	$(MAKE) -C libswiftnav $(MAKEFLAGS)
-
-firmware: libswiftnav
+firmware:
 	@printf "BUILD   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS)
 
@@ -30,7 +26,7 @@ bootloader:
 	@printf "BUILD   bootloader\n"; \
 	$(MAKE) -C bootloader $(MAKEFLAGS)
 
-tests: libswiftnav
+tests:
 	$(Q)for i in tests/*; do \
 		if [ -d $$i ]; then \
 			printf "BUILD   $$i\n"; \
@@ -39,8 +35,6 @@ tests: libswiftnav
 	done
 
 clean:
-	@printf "CLEAN   libswiftnav\n"; \
-	$(MAKE) -C libswiftnav $(MAKEFLAGS) clean
 	@printf "CLEAN   src\n"; \
 	$(MAKE) -C bootloader $(MAKEFLAGS) clean
 	@printf "CLEAN   bootloader\n"; \

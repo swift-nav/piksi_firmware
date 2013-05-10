@@ -18,14 +18,14 @@
 #include <math.h>
 #include <stdio.h>
 
+#include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/spi.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/exti.h>
-#include <libopencm3/stm32/nvic.h>
 #include <libopencm3/stm32/usart.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/dma.h>
-#include <libopencm3/stm32/f2/timer.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/dma.h>
+#include <libopencm3/stm32/f4/timer.h>
 
 #include "swift_nap_io.h"
 #include "track.h"
@@ -69,8 +69,8 @@ void swift_nap_setup()
   /* We don't want spi_setup() called until the FPGA has finished configuring
    * itself and has read the device hash out of the configuration flash.
    * (It uses the SPI2 bus for this.) */
-//  while (!(swift_nap_conf_done() && swift_nap_hash_rd_done()))
-//    __asm__("nop");
+  while (!(swift_nap_conf_done() && swift_nap_hash_rd_done()))
+    __asm__("nop");
 
   /* Initialise the SPI peripheral. */
   spi_setup();
@@ -126,12 +126,12 @@ void swift_nap_xfer_blocking(u8 spi_id, u16 n_bytes, u8 data_in[], const u8 data
 {
 
   // Check that there's no DMA transfer in progress
-  if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
+  //if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
     /* DMA transfer already in progress.
      * TODO: handle this gracefully, but for now...
      */
-    speaking_death("SPI DMA xfer already in progess");
-  }
+    //speaking_death("SPI DMA xfer already in progess");
+  //}
 
   spi_slave_select(SPI_SLAVE_FPGA);
 
@@ -238,6 +238,11 @@ void timing_strobe(u32 falling_edge_count)
   temp[2] = (falling_edge_count >> 8) & 0xFF;
   temp[3] = (falling_edge_count >> 0) & 0xFF;
   swift_nap_xfer_blocking(SPI_ID_TIMING_COMPARE,4,temp,temp);
+
+  /* TODO: need to wait until the timing strobe has finished but also don't
+   * want to spin in a busy loop. */
+  while(timing_count() < falling_edge_count);
+
   /* Add a little bit of delay before the next
    * timing strobe.
    */
@@ -446,7 +451,7 @@ void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]) {
    * + 16 bits sample count.
    */
   u8 temp[2*3*3+2];
-  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3, temp, temp);
+  swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CORR_OFFSET, 2*3*3+2, temp, temp);
   track_unpack_corr(temp, sample_count, corrs);
 }
 
@@ -533,6 +538,8 @@ void swift_nap_xfer_dma(u8 n_bytes) { // not yet updated for v2.2
   /* Enable DMA channels. */
   DMA1_S3CR |= DMA_SxCR_EN;
   DMA1_S4CR |= DMA_SxCR_EN;
+
+  while (DMA1_S4NDTR > 0);
 }
 
 void track_read_corr_dma(u8 channel) // not yet updated for v2.2
@@ -635,7 +642,7 @@ void get_nap_dna(u8 dna[]){
  * 0x01 = hashes do not match
  * 0x02 = one or more hashes are not ready to compare */
 u8 get_nap_hash_status(){
-  u8 temp[1];
+  u8 temp[1] = {0};
   swift_nap_xfer_blocking(SPI_ID_HASH_STATUS,1,temp,temp);
   return temp[0];
 }

@@ -29,29 +29,32 @@
 
 typedef enum {
   TRACKING_DISABLED = 0,
-  TRACKING_RUNNING
+  TRACKING_RUNNING = 1
 } tracking_state_t;
 
+typedef struct __attribute__((packed)) {
+  tracking_state_t state;
+  u8 prn;
+  float cn0;
+} tracking_state_msg_t;
+
 typedef struct {
-  tracking_state_t state; 
+  tracking_state_t state;
   u32 update_count;
-  u32 TOW_ms;
+  s32 TOW_ms;
   u32 snr_threshold_count;
   u8 prn;
 
   u32 sample_count;
   u32 code_phase_early;
 
+  /* Tracking loop filter state. */
+  comp_tl_state_t tl_state;
+
   double code_phase_rate;
   u32 code_phase_rate_fp;
   u32 code_phase_rate_fp_prev;
   double carrier_freq;
-
-  /* Loop filter state. */
-  double dll_igain, dll_pgain;
-  double pll_igain, pll_pgain;
-  double dll_disc;
-  double pll_disc;
 
   /* SNR filter state. */
   u32 I_filter, Q_filter;
@@ -63,7 +66,10 @@ typedef struct {
   nav_msg_t nav_msg;
 } tracking_channel_t;
 
-extern tracking_channel_t tracking_channel[MAX_TRACK_N_CHANNELS];
+/* Assuming we will never have a greater number of tracking channels than 12 
+ * We have to declare the number here as the number of tracking channels in
+ * the FPGA is read at runtime. */
+extern tracking_channel_t tracking_channel[12];
 
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sample_count);
@@ -73,5 +79,6 @@ void tracking_channel_update(u8 channel);
 void tracking_channel_disable(u8 channel);
 void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
 float tracking_channel_snr(u8 channel);
+void tracking_send_state();
 
 #endif

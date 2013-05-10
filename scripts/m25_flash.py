@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import struct
 import time
 from intelhex import IntelHex
@@ -196,15 +195,17 @@ if __name__ == "__main__":
   import serial_link
   #Command line arguments
   parser = argparse.ArgumentParser(description='FPGA Flash Utility')
-  parser.add_argument('-p', '--port',
-                      default=['/dev/ttyUSB0'], nargs=1,
-                      help='specify the serial port to use')
-  parser.add_argument('-c', '--configuration_file',
-                      default=['swift-nap_mcs.mcs'], nargs=1,
-                      help='hex file to program the flash with')
+  parser.add_argument("file",
+                      help="hex file to program the flash with")
+  parser.add_argument("-p", "--port",
+                      default=[serial_link.DEFAULT_PORT], nargs=1,
+                      help="specify the serial port to use")
+  parser.add_argument("-f", "--ftdi",
+                    help="use pylibftdi instead of pyserial.",
+                    action="store_true")
   args = parser.parse_args()
   serial_port = args.port[0]
-  flash_file = args.configuration_file[0]
+  flash_file = args.file
   #Check that final address of the hex file is not in the last sector of the flash
   ihx = IntelHex(flash_file)
   print "Checking to make sure hex file's maximum address is not in last sector"
@@ -213,7 +214,7 @@ if __name__ == "__main__":
   print "  Maximum address of hex file          =", hex(ihx.maxaddr())
   assert ihx.maxaddr() < (FLASHSIZE-SECTORSIZE), "Maximum address in hex file is in last sector"
   #Create SerialLink and Flash objects
-  link = serial_link.SerialLink(port=serial_port)
+  link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi)
   link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
   piksi_flash = M25Flash(link)
   piksi_flash.start()
@@ -223,3 +224,4 @@ if __name__ == "__main__":
   piksi_flash.stop()
   link.close()
   sys.exit()
+

@@ -1,3 +1,4 @@
+.gdbinit
 docs/html
 *.o
 *.a
@@ -20,3 +21,6 @@ docs/diagrams/*.aux
 docs/diagrams/*.log
 docs/diagrams/*.pdf
 docs/diagrams/*.png
+libswiftnav/python/build
+libswiftnav/python/swiftnav/*.c
+.DS_Store

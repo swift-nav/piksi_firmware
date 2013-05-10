@@ -5,9 +5,9 @@
  */
 
 #include <stdio.h>
-#include <libopencm3/stm32/f2/rcc.h>
-#include <libopencm3/stm32/f2/flash.h>
-#include <libopencm3/stm32/f2/gpio.h>
+#include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/flash.h>
+#include <libopencm3/stm32/f4/gpio.h>
 
 #include "main.h"
 #include "debug.h"
@@ -18,7 +18,8 @@
 #include "hw/m25_flash.h"
 #include "hw/stm_flash.h"
 
-int main(void) {
+int main(void)
+{
 
   led_setup();
   led_on(LED_GREEN);
@@ -31,7 +32,7 @@ int main(void) {
   gpio_clear(GPIOC, GPIO12);
 
   swift_nap_setup();
-  debug_setup();
+  debug_setup(1);
   m25_setup();
   stm_flash_callbacks_setup();
 

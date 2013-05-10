@@ -2,6 +2,7 @@ BINARY = bootloader
 
 OBJS = bootloader.o \
        ../src/debug.o \
+       ../src/settings.o \
        ../src/error.o \
        ../src/hw/usart.o \
        ../src/hw/usart_rx.o \

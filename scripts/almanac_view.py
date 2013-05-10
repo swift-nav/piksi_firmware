@@ -23,6 +23,7 @@ MSG_ACQUISITION_SETUP = 0x69
 class AlmanacView(HasTraits):
   python_console_cmds = Dict()
   download_almanac = Button(label='Download Alamanc')
+  load_almanac = Button(label='Load Alamanc File')
   warm_start = Button(label='Warm Start')
   alm = Instance(Almanac)
   alm_txt = Str
@@ -30,6 +31,7 @@ class AlmanacView(HasTraits):
   traits_view = View(
     Item('alm_txt', label='PRNs visible'),
     Item('download_almanac'),
+    Item('load_almanac'),
     Item('warm_start')
   )
 
@@ -57,6 +59,11 @@ class AlmanacView(HasTraits):
 
   def _download_almanac_fired(self):
     self.alm.download_almanac()
+    #self.timer.start()
+    self.update_alamanc_view()
+
+  def _load_almanac_fired(self):
+    self.alm.load_almanac_file('current.alm')
     #self.timer.start()
     self.update_alamanc_view()
 

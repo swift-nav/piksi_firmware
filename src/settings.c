@@ -20,6 +20,21 @@
 settings_t settings __attribute__ ((section (".settings_area"))) =
 /* Default settings: */
 {
-  .foo = 22
+  .settings_valid = VALID,
+
+  .ftdi_usart = {
+    .mode = PIKSI_BINARY,
+    .baud_rate = 230400,
+    .message_mask = 0xFF,
+  },
+  .uarta_usart = {
+    .mode = PIKSI_BINARY,
+    .baud_rate = 230400,
+    .message_mask = 0xFF,
+  },
+  .uartb_usart = {
+    .mode = NMEA,
+    .baud_rate = 115200,
+  },
 };
 

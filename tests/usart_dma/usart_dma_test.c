@@ -21,6 +21,8 @@
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/gpio.h>
+#include <libopencm3/stm32/f4/usart.h>
+#include <libopencm3/stm32/f4/dma.h>
 
 #include "error.h"
 #include "hw/leds.h"
@@ -49,8 +51,7 @@ int main(void)
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
 
-  usart_setup_common();
-  usart_tx_dma_setup();
+  usarts_setup(USART_DEFUALT_BAUD, USART_DEFUALT_BAUD, USART_DEFUALT_BAUD);
 
   /*printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");*/
   /*printf("--- USART DMA TEST ---\n");*/
@@ -74,7 +75,7 @@ int main(void)
     /* Random transmit length. */
     len = (u32)rand() % MAX_TX;
     while (len)
-      len -= usart_write_dma(buff_out, len);
+      len -= usart_write_dma(&ftdi_tx_state, buff_out, len);
 
     /* Check the guards for buffer over/underrun. */
     for (u8 i=0; i<30; i++) {

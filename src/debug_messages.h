@@ -37,7 +37,16 @@
 #define MSG_SOLUTION 0x50
 #define MSG_DOPS     0x51
 #define MSG_PR_ERRS  0x52
-#define MSG_SNRS     0x22
+
+#define MSG_TRACKING_STATE 0x22
+
+#define MSG_STM_FLASH_PROGRAM_BYTE 0xE0
+#define MSG_STM_FLASH_PROGRAM      0xE4
+#define MSG_STM_FLASH_READ         0xE1 //Callback in C and Python
+#define MSG_STM_FLASH_ERASE_SECTOR 0xE2
+#define MSG_STM_FLASH_COMPLETE     0xE0
+#define MSG_BOOTLOADER_HANDSHAKE   0xE3 //Callback in C and Python
+
 
 #define MSG_STM_FLASH_PROGRAM_BYTE 0xE0
 #define MSG_STM_FLASH_PROGRAM      0xE4

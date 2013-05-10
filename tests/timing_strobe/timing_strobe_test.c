@@ -45,7 +45,7 @@ int main(void)
 {
 
   led_setup();
-  debug_setup();
+  debug_setup(1);
 
   swift_nap_setup();
   swift_nap_reset();
