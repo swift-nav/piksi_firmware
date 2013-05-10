@@ -39,7 +39,7 @@ MSG_BOOTLOADER_HANDSHAKE   = 0xE3
 
 MSG_JUMP_TO_APP = 0xA0
 
-ADDRS_PER_OP = 128
+ADDRS_PER_OP = 250
 
 def sector_of_address(addr):
   if   addr >= 0x08000000 and addr < 0x08004000:
@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
   for start, end in ihx_ranges(ihx):
     for addr in range(start, end, ADDRS_PER_OP):
-      print ("Programming flash at 0x%08X\r\n" % addr),
+      print ("Programming flash at 0x%08X\r" % addr),
       sys.stdout.flush()
       binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
       flash.program(addr, binary)
