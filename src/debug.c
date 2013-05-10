@@ -30,8 +30,6 @@
 
 u8 msg_header[4] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2, 0, 0};
 
-u8 msg_buff[256];
-
 /* Store a pointer to the head of our linked list. */
 msg_callbacks_node_t* msg_callbacks_head = 0;
 
@@ -270,7 +268,7 @@ void debug_process_usart(debug_process_messages_state_t* s)
           /* Not received whole message yet, try and get some more. */
           s->msg_n_read += usart_read_dma(
               s->rx_state,
-              &msg_buff[s->msg_n_read],
+              &(s->msg_buff[s->msg_n_read]),
               s->msg_len - s->msg_n_read
           );
         }
@@ -283,13 +281,13 @@ void debug_process_usart(debug_process_messages_state_t* s)
           usart_read_dma(s->rx_state, (u8*)&crc_rx, 2);
           crc = crc16_ccitt(&(s->msg_type), 1, 0);
           crc = crc16_ccitt(&(s->msg_len), 1, crc);
-          crc = crc16_ccitt(msg_buff, s->msg_len, crc);
+          crc = crc16_ccitt(s->msg_buff, s->msg_len, crc);
           if (crc_rx == crc) {
             /* Message complete, process it. */
             /*printf("msg: %02X, len %d\n", s->msg_type, s->msg_len);*/
             msg_callback_t cb = debug_find_callback(s->msg_type);
             if (cb)
-              (*cb)(msg_buff);
+              (*cb)(s->msg_buff);
             else
               printf("no callback registered for msg type %02X\n", s->msg_type);
           } else {

@@ -51,6 +51,7 @@ typedef struct {
   u8 msg_type;
   u8 msg_len;
   u8 msg_n_read;
+  u8 msg_buff[256];
   usart_rx_dma_state* rx_state;
 } debug_process_messages_state_t;
 
