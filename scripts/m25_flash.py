@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import struct
 import time
 from intelhex import IntelHex
@@ -36,9 +37,7 @@ def roundup_multiple(x, multiple):
 def rounddown_multiple(x, multiple):
   return x if x % multiple == 0 else x - x % multiple
 
-class M25_flash(Thread):
-  _flash_ready = Event()
-  _command_queue = []
+class M25Flash(Thread):
   _wants_to_exit = False
   _commands_sent = 0
   _done_callbacks_received = 0
@@ -48,8 +47,8 @@ class M25_flash(Thread):
   _rd_cb_data = []
 
   def __init__(self, link):
-    super(M25_flash, self).__init__()
-    self._flash_ready.set()
+    super(M25Flash, self).__init__()
+    self._command_queue = []
     self.link = link
     self.link.add_callback(0xF0, self._flash_done_callback)
     self.link.add_callback(0xF1, self._flash_read_callback)
@@ -125,10 +124,17 @@ class M25_flash(Thread):
       self.link.send_message(0xF0, msg_header+data_to_send)
       addr += ADDR_PER_WR_CB
       data = data[ADDR_PER_WR_CB:]
-#    self._acquire_flash()
     msg_header = struct.pack("<IB", addr, len(data))
     self._commands_sent += 1
     self.link.send_message(0xF0, msg_header+data)
+
+  def simple_write(self, addr, data):
+    self.write(addr,bytearray(data))
+    self.read(addr,len(data))
+    while self.flash_operations_left() > 0:
+      time.sleep(0.1)
+    assert bytearray(self._rd_cb_data[-len(data):]) == bytearray(data), \
+           "Data read back from flash does not match data written"
 
   def write_ihx(self, filename):
     ihx = IntelHex(filename)
@@ -209,7 +215,7 @@ if __name__ == "__main__":
   #Create SerialLink and Flash objects
   link = serial_link.SerialLink(port=serial_port)
   link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
-  piksi_flash = M25_flash(link)
+  piksi_flash = M25Flash(link)
   piksi_flash.start()
   #Write configuration file to FPGA's flash
   piksi_flash.write_ihx(flash_file)
