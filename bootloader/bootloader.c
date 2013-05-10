@@ -93,7 +93,7 @@ int main(void)
    * TODO : might as well make this as long as FPGA takes to configure itself
    *        from the configuration flash, as it doesn't add to the startup time
    */
-	for (u64 i=0; i<100000; i++){
+	for (u64 i=0; i<300000; i++){
     DO_EVERY(3000,
       led_toggle(LED_GREEN);
       led_toggle(LED_RED);
