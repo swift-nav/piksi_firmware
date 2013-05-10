@@ -45,7 +45,8 @@ typedef struct {
     WAITING_2,
     GET_TYPE,
     GET_LEN,
-    GET_MSG
+    GET_MSG,
+    GET_CRC
   } state;
   u8 msg_type;
   u8 msg_len;

@@ -54,10 +54,13 @@ void speaking_death(char *msg) {
 
   #define ERR_MSG_N 64            /* Maximum length of error message */
 
-  static char err_msg[ERR_MSG_N+4] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2,
+  static char err_msg[ERR_MSG_N+6] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2,
                                       MSG_PRINT, ERR_MSG_N,
                                       'E', 'R', 'R', 'O', 'R', ':', ' ',
-                                      [11 ... ERR_MSG_N+3] = '!'};
+                                      [11 ... ERR_MSG_N+3] = '!',
+                                      /* TODO: Fill in CRC here. */
+                                      [ERR_MSG_N+4] = 0x69,
+                                      [ERR_MSG_N+5] = 0x69};
 
   err_msg[ERR_MSG_N+3]='\n';
 
@@ -69,7 +72,7 @@ void speaking_death(char *msg) {
   while (1) {
     while (!(USART6_SR & USART_SR_TXE));
     USART6_DR = err_msg[i];
-    if (++i == (ERR_MSG_N + 4)) {
+    if (++i == (ERR_MSG_N + 6)) {
       i = 0;
       led_toggle(LED_RED);
       for (u32 d = 0; d < 5000000; d++)
