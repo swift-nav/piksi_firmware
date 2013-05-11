@@ -18,39 +18,33 @@
 
 #include <stdio.h>
 #include <libopencm3/stm32/f4/flash.h>
+
 #include "stm_flash.h"
 #include "../debug.h"
 #include "../error.h"
 
-void stm_flash_erase_sector_callback(u8 buff[]){
+void stm_flash_erase_sector_callback(u8 buff[])
+{
   /* Msg format : 1 byte, sector number to erase (0-11)
    * See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual" */
   u8 sector = buff[0];
 
   /* Check to make sure the sector to be erased is from 0-11,
-   * and complain if it isn't */
+   * and complain if it isn't. */
   if (sector > 11)
     speaking_death("flash_erase_callback received sector > 11\n");
 
-  /* Erase sector
-   * First argument is u32 that gets OR'd into the FLASH CR register,
-   *   bits [6:3] of FLASH CR are sector to erase.
-   *   TODO : interface for this could be better, maybe this should
-   *   be changed in libopencm3
-   * Second argument is number of bytes to erase in parallel, shifted by 8
-   *   to be OR'd in at the appropriate place in the FLASH CR register [9:8].
-   *   TODO : the interface for this could also be better in libopencm3,
-   *   and could use some #defines
-   */
+  /* Erase sector. */
   flash_unlock();
-  flash_erase_sector(((sector << 3) & 0x78),((u32)2 << 8) & 0x00000300);
+  flash_erase_sector(sector, FLASH_CR_PROGRAM_X32);
   flash_lock();
 
   /* Send message back to PC to signal operation is finished */
-  debug_send_msg(MSG_STM_FLASH_COMPLETE,0,0);
+  debug_send_msg(MSG_STM_FLASH_COMPLETE, 0, 0);
 }
 
-void stm_flash_program_byte_callback(u8 buff[]){
+void stm_flash_program_byte_callback(u8 buff[])
+{
   /* Msg format : 4 bytes, address to program
    *              1 byte, data to program at address */
   u32 address = *(u32 *)&buff[0];
@@ -58,22 +52,17 @@ void stm_flash_program_byte_callback(u8 buff[]){
 
   /* TODO : Add check to restrict addresses that can be programmed? */
 
-  /* Program specified address with data
-   * Third argument is number of bytes to erase in parallel, shifted by 8
-   *   to be OR'd in at the appropriate place in the FLASH CR register [9:8].
-   *   Currently we just put in 0 as we only program 1 byte at a time.
-   *   TODO : the interface for this could also be better in libopencm3,
-   *   and could use some #defines
-   */
+  /* Program specified address with data. */
   flash_unlock();
   flash_program_byte(address, data);
   flash_lock();
 
   /* Send message back to PC to signal operation is finished */
-  debug_send_msg(MSG_STM_FLASH_COMPLETE,0,0);
+  debug_send_msg(MSG_STM_FLASH_COMPLETE, 0, 0);
 }
 
-void stm_flash_program_callback(u8 buff[]){
+void stm_flash_program_callback(u8 buff[])
+{
   /* Msg format : 4 bytes, address to program
    *              1 byte, number of addresses to program
    *              rest of bytes : data to program addr's with */
@@ -85,20 +74,15 @@ void stm_flash_program_callback(u8 buff[]){
 
   /* Program specified addresses with data */
   flash_unlock();
-  while (length) {
-    /*program 1 byte at a time*/
-    flash_program_byte(address, *data);
-    length -= 1;
-    data += 1;
-    address += 1;
-  }
+  flash_program(address, data, length);
   flash_lock();
 
   /* Send message back to PC to signal operation is finished */
-  debug_send_msg(MSG_STM_FLASH_COMPLETE,0,0);
+  debug_send_msg(MSG_STM_FLASH_COMPLETE, 0, 0);
 }
 
-void stm_flash_read_callback(u8 buff[]){
+void stm_flash_read_callback(u8 buff[])
+{
   /*
    * Msg format : 4 bytes, starting address to read from
    *              1 byte, number of addresses to read
@@ -119,16 +103,37 @@ void stm_flash_read_callback(u8 buff[]){
   }
 
   /* Send bytes to PC */
-  debug_send_msg(MSG_STM_FLASH_READ,length+5,callback_data);
+  debug_send_msg(MSG_STM_FLASH_READ, length+5, callback_data);
 }
 
-void stm_flash_callbacks_setup(){
+void stm_flash_callbacks_setup()
+{
   /* Create message callbacks node types to add to debug callback
    * linked list for each flash callback defined above */
-  static msg_callbacks_node_t stm_flash_erase_sector_node, stm_flash_program_node, stm_flash_program_byte_node, stm_flash_read_node;
+  static msg_callbacks_node_t stm_flash_erase_sector_node;
+  static msg_callbacks_node_t stm_flash_program_node;
+  static msg_callbacks_node_t stm_flash_program_byte_node;
+  static msg_callbacks_node_t stm_flash_read_node;
+
   /* Insert callbacks in debug callback linked list so they can be called */
-  debug_register_callback(MSG_STM_FLASH_ERASE_SECTOR, &stm_flash_erase_sector_callback, &stm_flash_erase_sector_node);
-  debug_register_callback(MSG_STM_FLASH_READ, &stm_flash_read_callback, &stm_flash_read_node);
-  debug_register_callback(MSG_STM_FLASH_PROGRAM_BYTE, &stm_flash_program_byte_callback, &stm_flash_program_byte_node);
-  debug_register_callback(MSG_STM_FLASH_PROGRAM, &stm_flash_program_callback, &stm_flash_program_node);
+  debug_register_callback(
+    MSG_STM_FLASH_ERASE_SECTOR,
+    &stm_flash_erase_sector_callback,
+    &stm_flash_erase_sector_node
+  );
+  debug_register_callback(
+    MSG_STM_FLASH_READ,
+    &stm_flash_read_callback,
+    &stm_flash_read_node
+  );
+  debug_register_callback(
+    MSG_STM_FLASH_PROGRAM_BYTE,
+    &stm_flash_program_byte_callback,
+    &stm_flash_program_byte_node
+  );
+  debug_register_callback(
+    MSG_STM_FLASH_PROGRAM,
+    &stm_flash_program_callback,
+    &stm_flash_program_node
+  );
 }
