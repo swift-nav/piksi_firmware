@@ -17,6 +17,7 @@ OBJS = main.o \
        hw/usart.o \
        hw/usart_tx.o \
        hw/usart_rx.o \
+       cfs/cfs-coffee.o
 
 include ../stm32/Makefile.include
 
