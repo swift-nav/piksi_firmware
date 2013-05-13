@@ -61,6 +61,9 @@
 #define IRQ_CW_LOAD_DONE  (1<<28)
 #define IRQ_TRACK_MASK    (~(IRQ_ACQ_DONE|IRQ_ACQ_LOAD_DONE|IRQ_CW_DONE|IRQ_CW_LOAD_DONE))
 
+/*max number of GPS L1 C/A code tracking channels NAP will ever have in it*/
+#define MAX_TRACK_N_CHANNELS 12
+
 /* NAP Parameters stored in the FPGA configuration flash */
 extern u8 ACQ_N_TAPS;
 extern u8 TRACK_N_CHANNELS;
@@ -89,7 +92,7 @@ typedef struct {
 
 void swift_nap_setup();
 void swift_nap_reset();
-void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_out[]);
+void swift_nap_xfer_blocking(u8 spi_id, u16 n_bytes, u8 data_in[], const u8 data_out[]);
 
 u8 swift_nap_conf_done();
 u8 swift_nap_hash_rd_done();
@@ -107,7 +110,6 @@ void spi_dma_setup();
 
 u32 swift_nap_read_irq_blocking();
 u32 swift_nap_read_error_blocking();
-
 
 void acq_set_load_enable_blocking();
 void acq_clear_load_enable_blocking();

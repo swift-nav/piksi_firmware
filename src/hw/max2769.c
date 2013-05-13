@@ -51,15 +51,20 @@ void max2769_setup()
   gpio_set(GPIOB, GPIO10);
 
   volatile u32 conf1 = 0;
-  conf1 = MAX2769_CONF1_CHIPEN |
-          MAX2769_CONF1_ILNA1(8) |
-          MAX2769_CONF1_ILNA2(2) |
-          MAX2769_CONF1_ILO(2) |
-          MAX2769_CONF1_IMIX(1) |
+  conf1 = 0 |
+          MAX2769_CONF1_CHIPEN |
+          MAX2769_CONF1_ILNA1(15) |
+          MAX2769_CONF1_ILNA2(3) |
+          MAX2769_CONF1_ILO(3) |
+          MAX2769_CONF1_IMIX(3) |
           MAX2769_CONF1_MIXPOLE_13MHZ |
           MAX2769_CONF1_MIXEN |
           MAX2769_CONF1_ANTEN |
-          MAX2769_CONF1_FCEN(13) |
+
+          //MAX2769_CONF1_FCEN(7) | //1mhz center
+//          MAX2769_CONF1_FCEN(43) | //2mhz center
+          MAX2769_CONF1_FCEN(21) | //4mhz center
+          //MAX2769_CONF1_FCEN(42) | //8mhz center
           MAX2769_CONF1_FBW_2_5MHZ |
           MAX2769_CONF1_F3OR5_5 |
           MAX2769_CONF1_FCENX_BP |
@@ -68,11 +73,12 @@ void max2769_setup()
   max2769_write(MAX2769_CONF1, conf1);
 
   max2769_write(MAX2769_CONF2,
-    MAX2769_CONF2_IQEN |
-    MAX2769_CONF2_GAINREF(170) |
+    //MAX2769_CONF2_IQEN |
+    MAX2769_CONF2_GAINREF(170) | //optimal for 2 bits
+    //MAX2769_CONF2_GAINREF(82) | //optimal for 3 bits
     MAX2769_CONF2_AGCMODE_INDEP |
     MAX2769_CONF2_FORMAT_SIGN_MAG |
-    MAX2769_CONF2_BITS_3 |
+    MAX2769_CONF2_BITS_1 |
     MAX2769_CONF2_DRVCFG_CMOS |
     MAX2769_CONF2_LOEN
   );
@@ -87,6 +93,7 @@ void max2769_setup()
     MAX2769_CONF3_FILTEN |
     MAX2769_CONF3_FHIPEN |
     MAX2769_CONF3_PGAIEN |
+    //MAX2769_CONF3_PGAQEN |
     /* STRM stuff was set before but its unused, can leave as zeros. */
     0
   );
@@ -95,16 +102,18 @@ void max2769_setup()
     MAX2769_PLLCONF_RESERVED |
     MAX2769_PLLCONF_VCOEN |
     MAX2769_PLLCONF_REFOUTEN |
+//    MAX2769_PLLCONF_REFDIV_DIV_2 |
     MAX2769_PLLCONF_REFDIV_DIV_NONE |
     MAX2769_PLLCONF_IXTAL_BUFF_NORMAL |
     MAX2769_PLLCONF_XTALCAP(0b10000) |
     MAX2769_PLLCONF_LDMUX(0) |
-    MAX2769_PLLCONF_ICP_0_5MA |
+    MAX2769_PLLCONF_ICP_1MA |
     MAX2769_PLLCONF_CPTEST(0) |
     MAX2769_PLLCONF_INTPLL
   );
 
   max2769_write(MAX2769_DIV,
+//    MAX2769_DIV_NDIV(1538) |
     MAX2769_DIV_NDIV(1536) |
     MAX2769_DIV_RDIV(16)
   );
@@ -114,8 +123,9 @@ void max2769_setup()
   );
 
   max2769_write(MAX2769_CLK,
-    MAX2769_CLK_L_CNT(256) |
-    MAX2769_CLK_M_CNT(1563) |
+    MAX2769_CLK_L_CNT(1) |
+    MAX2769_CLK_M_CNT(4095) |
     MAX2769_CLK_SERCLK
   );
+
 }

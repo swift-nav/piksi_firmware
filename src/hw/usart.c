@@ -140,3 +140,6 @@ void dma1_stream1_isr(void)
   usart_rx_dma_isr(&uartb_rx_state);
 }
 
+void usart_disable_common(void){
+  usart_disable(USART6);
+}

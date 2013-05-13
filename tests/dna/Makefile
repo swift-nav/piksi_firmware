@@ -1,8 +1,7 @@
-BINARY = flash_test
+BINARY = dna_test
 
-OBJS = flash_test.o \
+OBJS = dna_test.o \
        ../../src/debug.o \
-       ../../src/settings.o \
        ../../src/error.o \
        ../../src/swift_nap_io.o \
        ../../src/cw.o \
@@ -10,7 +9,6 @@ OBJS = flash_test.o \
        ../../src/track.o \
        ../../src/hw/max2769.o \
        ../../src/hw/m25_flash.o \
-       ../../src/hw/stm_flash.o \
        ../../src/hw/leds.o \
        ../../src/hw/spi.o \
        ../../src/hw/usart.o \
