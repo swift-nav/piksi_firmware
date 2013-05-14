@@ -31,7 +31,7 @@ int main(void)
   gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
   gpio_clear(GPIOC, GPIO12);
 
-  swift_nap_setup();
+  spi_setup();
   debug_setup(1);
   m25_setup();
   stm_flash_callbacks_setup();
