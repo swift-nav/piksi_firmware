@@ -1,6 +1,6 @@
-BINARY = flash_test
+BINARY = dna_test
 
-OBJS = flash_test.o
+OBJS = dna_test.o
 
 SWIFTNAV_ROOT = ../..
 

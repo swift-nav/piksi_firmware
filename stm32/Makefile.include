@@ -28,10 +28,33 @@ LD = $(PREFIX)-gcc
 OBJCOPY = $(PREFIX)-objcopy
 OBJDUMP = $(PREFIX)-objdump
 
-CFLAGS += -O3 -g -Wall -Wextra -Werror -std=gnu99 \
+OBJS += \
+	$(SWIFTNAV_ROOT)/src/init.o \
+	$(SWIFTNAV_ROOT)/src/debug.o \
+	$(SWIFTNAV_ROOT)/src/error.o \
+	$(SWIFTNAV_ROOT)/src/swift_nap_io.o \
+	$(SWIFTNAV_ROOT)/src/cw.o \
+	$(SWIFTNAV_ROOT)/src/track.o \
+	$(SWIFTNAV_ROOT)/src/acq.o \
+	$(SWIFTNAV_ROOT)/src/manage.o \
+	$(SWIFTNAV_ROOT)/src/settings.o \
+	$(SWIFTNAV_ROOT)/src/nmea.o \
+	$(SWIFTNAV_ROOT)/src/hw/m25_flash.o \
+	$(SWIFTNAV_ROOT)/src/hw/stm_flash.o \
+	$(SWIFTNAV_ROOT)/src/hw/max2769.o \
+	$(SWIFTNAV_ROOT)/src/hw/leds.o \
+	$(SWIFTNAV_ROOT)/src/hw/spi.o \
+	$(SWIFTNAV_ROOT)/src/hw/usart.o \
+	$(SWIFTNAV_ROOT)/src/hw/usart_tx.o \
+	$(SWIFTNAV_ROOT)/src/hw/usart_rx.o \
+	$(SWIFTNAV_ROOT)/src/cfs/cfs-coffee.o
+
+CFLAGS += -O0 -g -Wall -Wextra -Werror -std=gnu99 \
        -fno-common -MD -DSTM32F4 -DGIT_VERSION="\"$(GIT_VERSION)\"" \
 			 -mcpu=cortex-m4 -march=armv7e-m -mthumb \
 			 -mfloat-abi=hard -mfpu=fpv4-sp-d16
+
+CFLAGS += -I$(SWIFTNAV_ROOT)/src
 
 LDSCRIPT ?= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
 LDFLAGS += -lc -lnosys -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections \

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Fergus Noble <fergusnoble@gmail.com>
+ * Copyright (C) 2013 Fergus Noble <fergusnoble@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,28 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
+#ifndef SWIFTNAV_INIT_H
+#define SWIFTNAV_INIT_H
 
-#include "main.h"
-#include "hw/leds.h"
+#include <libopencm3/stm32/f4/rcc.h>
 
-int main(void)
-{
-  for (u32 i = 0; i < 600000; i++)
-    __asm__("nop");
+extern const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3;
+extern const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3;
+extern const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3;
 
-	led_setup();
-  led_on(LED_RED);
-  led_on(LED_GREEN);
+void init();
 
-  while(1)
-  {
-    led_toggle(LED_RED);
-    for (u32 i = 0; i < 600000; i++)
-      __asm__("nop");
-  }
+#endif
 
-  while (1);
-
-	return 0;
-}

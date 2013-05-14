@@ -48,5 +48,14 @@
 #define MSG_BOOTLOADER_HANDSHAKE   0xE3 //Callback in C and Python
 
 
+#define MSG_STM_FLASH_PROGRAM_BYTE 0xE0
+#define MSG_STM_FLASH_PROGRAM      0xE4
+#define MSG_STM_FLASH_READ         0xE1 //Callback in C and Python
+#define MSG_STM_FLASH_ERASE_SECTOR 0xE2
+#define MSG_STM_FLASH_COMPLETE     0xE0
+#define MSG_BOOTLOADER_HANDSHAKE   0xE3 //Callback in C and Python
+#define MSG_STM_UNIQUE_ID          0xE5
+
+
 #endif /* SWIFTNAV_DEBUG_MESSAGES_H */
 

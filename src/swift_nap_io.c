@@ -69,8 +69,8 @@ void swift_nap_setup()
   /* We don't want spi_setup() called until the FPGA has finished configuring
    * itself and has read the device hash out of the configuration flash.
    * (It uses the SPI2 bus for this.) */
-  while (!(swift_nap_conf_done() && swift_nap_hash_rd_done()))
-    __asm__("nop");
+  /* TODO: Timeout here? */
+  while (!(swift_nap_conf_done() && swift_nap_hash_rd_done()));
 
   /* Initialise the SPI peripheral. */
   spi_setup();
@@ -122,7 +122,7 @@ u8 swift_nap_hash_rd_done()
   return ~(((gpio_port_read(GPIOA))>>3) | 0xFE);
 }
 
-void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_out[])
+void swift_nap_xfer_blocking(u8 spi_id, u16 n_bytes, u8 data_in[], const u8 data_out[])
 {
 
   // Check that there's no DMA transfer in progress
@@ -139,10 +139,10 @@ void swift_nap_xfer_blocking(u8 spi_id, u8 n_bytes, u8 data_in[], const u8 data_
 
   /* If data_in is NULL then discard read data. */
   if (data_in)
-    for (u8 i=0; i < n_bytes; i++)
+    for (u16 i=0; i < n_bytes; i++)
       data_in[i] = spi_xfer(SPI_BUS_FPGA, data_out[i]);
   else
-    for (u8 i=0; i < n_bytes; i++)
+    for (u16 i=0; i < n_bytes; i++)
       spi_xfer(SPI_BUS_FPGA, data_out[i]);
 
   spi_slave_deselect();
