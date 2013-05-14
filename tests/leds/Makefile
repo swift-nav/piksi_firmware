@@ -1,12 +1,8 @@
 BINARY = leds_test
 
-OBJS = leds_test.o \
-       ../../src/error.o \
-       ../../src/hw/leds.o \
+OBJS = leds_test.o
 
-CFLAGS += -I../../src/
-
-SWIFTNAV_ROOT ?= ../..
+SWIFTNAV_ROOT = ../..
 
 include ../../stm32/Makefile.include
 

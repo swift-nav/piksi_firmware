@@ -19,28 +19,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <libopencm3/stm32/f4/rcc.h>
-#include <libopencm3/stm32/f4/flash.h>
-#include <libopencm3/stm32/f4/gpio.h>
-#include <libopencm3/stm32/f4/usart.h>
-#include <libopencm3/stm32/f4/dma.h>
 
+#include "init.h"
 #include "error.h"
 #include "hw/leds.h"
 #include "hw/usart.h"
-
-const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
-{ /* 65.472 MHz */
-  .pllm = 16,
-  .plln = 256,
-  .pllp = 4,
-  .pllq = 6,
-  .hpre = RCC_CFGR_HPRE_DIV_NONE,
-  .ppre1 = RCC_CFGR_PPRE_DIV_4,
-  .ppre2 = RCC_CFGR_PPRE_DIV_4,
-  .flash_config = FLASH_ICE | FLASH_DCE | FLASH_LATENCY_2WS,
-  .apb1_frequency = 16368000,
-  .apb2_frequency = 16368000,
-};
 
 int main(void)
 {

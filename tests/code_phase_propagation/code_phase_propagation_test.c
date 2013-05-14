@@ -17,10 +17,8 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <libopencm3/stm32/f4/rcc.h>
-#include <libopencm3/stm32/f4/flash.h>
-#include <libopencm3/stm32/f4/gpio.h>
 
+#include "init.h"
 #include "main.h"
 #include "debug.h"
 #include "swift_nap_io.h"
@@ -29,30 +27,9 @@
 #include "hw/leds.h"
 #include "hw/m25_flash.h"
 
-const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
-{ /* 65.472 MHz */
-  .pllm = 16,
-  .plln = 256,
-  .pllp = 4,
-  .pllq = 6,
-  .hpre = RCC_CFGR_HPRE_DIV_NONE,
-  .ppre1 = RCC_CFGR_PPRE_DIV_4,
-  .ppre2 = RCC_CFGR_PPRE_DIV_4,
-  .flash_config = FLASH_ICE | FLASH_DCE | FLASH_LATENCY_2WS,
-  .apb1_frequency = 16368000,
-  .apb2_frequency = 16368000,
-};
-
 int main(void)
 {
-  for (u32 i = 0; i < 600000; i++)
-    __asm__("nop");
-
-	led_setup();
-
-  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
-
-  debug_setup(1);
+  init();
 
   #ifndef PRN
     #error Please define the PRN to be used, e.g. make PRN=22
@@ -60,11 +37,6 @@ int main(void)
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- CODE PHASE PROPAGATION TEST ---\n");
-
-  swift_nap_setup();
-  swift_nap_reset();
-
-  m25_setup();
 
   while(1) {
     printf("\nPRN: %u\n", PRN);

@@ -69,8 +69,8 @@ void swift_nap_setup()
   /* We don't want spi_setup() called until the FPGA has finished configuring
    * itself and has read the device hash out of the configuration flash.
    * (It uses the SPI2 bus for this.) */
-  while (!(swift_nap_conf_done() && swift_nap_hash_rd_done()))
-    __asm__("nop");
+  /* TODO: Timeout here? */
+  while (!(swift_nap_conf_done() && swift_nap_hash_rd_done()));
 
   /* Initialise the SPI peripheral. */
   spi_setup();

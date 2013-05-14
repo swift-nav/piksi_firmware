@@ -1,17 +1,8 @@
 BINARY = debug_test
 
-OBJS = debug_test.o \
-       ../../src/debug.o \
-       ../../src/settings.o \
-       ../../src/error.o \
-       ../../src/hw/leds.o \
-       ../../src/hw/usart.o \
-       ../../src/hw/usart_tx.o \
-       ../../src/hw/usart_rx.o \
+OBJS = debug_test.o
 
-CFLAGS += -I../../src/
-
-SWIFTNAV_ROOT ?= ../..
+SWIFTNAV_ROOT = ../..
 
 include ../../stm32/Makefile.include
 

@@ -9,6 +9,7 @@
 #include <libopencm3/stm32/f2/flash.h>
 #include <libopencm3/stm32/f2/gpio.h>
 
+#include "init.h"
 #include "main.h"
 #include "debug.h"
 #include "swift_nap_io.h"
@@ -31,18 +32,13 @@ int main(void) {
     __asm__("nop");
   gpio_set(GPIOC, GPIO12);
 
-  while (!(swift_nap_conf_done() && swift_nap_hash_rd_done()))
-    __asm__("nop");
-
-  debug_setup();
-  swift_nap_setup();
-  m25_setup();
+  init();
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- DNA TEST ---\n");
 
   while (1) {
-    for (u32 i = 0; i < 10000; i++) 
+    for (u32 i = 0; i < 10000; i++)
       __asm__("nop");
     DO_EVERY(50,
       led_toggle(LED_GREEN);
