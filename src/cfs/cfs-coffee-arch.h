@@ -29,12 +29,14 @@
 /* Minimum erasable size, 128K for STM32F4. */
 #define COFFEE_SECTOR_SIZE        (128*1024)
 
-extern u32 coffee_fs_area;
-extern u32 ecoffee_fs_area;
+extern u32 _coffee_fs_area;
+extern u32 _ecoffee_fs_area;
 
-#define COFFEE_START              coffee_fs_area
+#define COFFEE_START              ((u32)&_coffee_fs_area)
 
-#define COFFEE_SIZE               (coffee_fs_area - ecoffee_fs_area)
+#define COFFEE_START_SECTOR       6
+
+#define COFFEE_SIZE               ((u32)&_ecoffee_fs_area - (u32)&_coffee_fs_area)
 
 /* The maximum filename length. */
 #define COFFEE_NAME_LENGTH        8
@@ -51,26 +53,19 @@ extern u32 ecoffee_fs_area;
 
 #define COFFEE_LOG_TABLE_LIMIT    256
 
+void coffee_write(u8* buf, u32 size, u32 offset);
+void coffee_read(u8* buf, u32 size, u32 offset);
+void coffee_erase(u8 sector);
 
-#define COFFEE_WRITE(buf, size, offset) \
-  do { \
-    flash_unlock(); \
-    flash_program(COFFEE_START+(offset), (u8*)(buf), (size)); \
-    flash_lock(); \
-  } while (0)
+#define COFFEE_WRITE(buf, size, offset) coffee_write((u8*)buf, size, offset)
 
-#define COFFEE_READ(buf, size, offset) \
-  memcpy((char *)(buf), (char *)(COFFEE_START+(offset)), (size))
+#define COFFEE_READ(buf, size, offset) coffee_read((u8*)buf, size, offset)
 
-#define COFFEE_ERASE(sector) \
-  do { \
-    flash_unlock(); \
-    flash_erase_sector((sector), FLASH_CR_PROGRAM_X32); \
-    flash_lock(); \
-  } while (0)
+#define COFFEE_ERASE(sector) coffee_erase(sector)
 
-#define coffee_page_t u16
+typedef u16 coffee_page_t;
 
 int coffee_file_test(void);
 
 #endif /* !COFFEE_ARCH_H */
+
