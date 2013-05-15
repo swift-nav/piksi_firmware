@@ -76,11 +76,12 @@ class ListenerThread (threading.Thread):
           if self.link.ser:
             self.link.ser.close()
           break
-        cb = self.link.get_callback(mt)
-        if cb:
-          cb(md)
-        else:
-          print "Unhandled message %02X" % mt
+        if mt is not None:
+          cb = self.link.get_callback(mt)
+          if cb:
+            cb(md)
+          else:
+            print "Unhandled message %02X" % mt
       except Exception, err:
         import traceback
         print traceback.format_exc()
@@ -114,6 +115,7 @@ class SerialLink:
     while True:
       if self.lt.wants_to_stop:
         return (None, None)
+
       # Sync with magic start bytes
       magic = self.ser.read(1)
       if magic:
@@ -147,6 +149,8 @@ class SerialLink:
 
     if crc != crc_received:
       print "CRC mismatch: 0x%04X 0x%04X" % (crc, crc_received)
+      return (None, None)
+
     return (msg_type, data)
 
   def send_message(self, msg_type, msg):
