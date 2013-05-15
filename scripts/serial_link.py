@@ -99,6 +99,10 @@ class SerialLink:
       import serial
       self.ser = serial.Serial(port, baud, timeout=1)
 
+    # Delay then flush the buffer to make sure the receive buffer starts empty.
+    time.sleep(0.2)
+    self.ser.flush()
+
     self.lt = ListenerThread(self)
     self.lt.start()
 
