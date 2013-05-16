@@ -60,8 +60,6 @@
 
 #define CCIF
 #define CFS_CONF_OFFSET_TYPE u32
-//#include "contiki.h"
-
 #include <libswiftnav/common.h>
 
 #ifndef CFS_CONF_OFFSET_TYPE

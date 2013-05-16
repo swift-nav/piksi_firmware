@@ -28,7 +28,6 @@ void coffee_read(u8* buf, u32 size, u32 offset)
 void coffee_write(u8* buf, u32 size, u32 offset)
 {
   flash_unlock();
-  printf("Coffee: write %u @ 0x%08lX\n", (unsigned int)size, COFFEE_START+offset);
 
   for (u32 i=0; i<size; i++)
     flash_program_byte(COFFEE_START+offset+i, ~buf[i]);

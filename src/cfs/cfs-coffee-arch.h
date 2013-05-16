@@ -18,8 +18,6 @@
 #ifndef CFS_COFFEE_ARCH_H
 #define CFS_COFFEE_ARCH_H
 
-//#include "contiki-conf.h"
-
 #include <libswiftnav/common.h>
 #include <libopencm3/stm32/f4/flash.h>
 
