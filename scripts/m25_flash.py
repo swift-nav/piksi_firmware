@@ -118,6 +118,7 @@ class M25Flash(Thread):
   def write(self, addr, data):
     self._schedule_command('_write', (addr,data))
   def _write(self, addr, data):
+    data = ''.join([chr(i) for i in data]) # convert to string
     while len(data) > ADDR_PER_WR_CB:
       data_to_send = data[:ADDR_PER_WR_CB]
       msg_header = struct.pack("<IB", addr, len(data_to_send))
