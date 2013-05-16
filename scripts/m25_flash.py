@@ -13,7 +13,7 @@ FLASHSIZE = 1024*1024
 
 #Maximum number of addresses returned by STM in a single read callback
 #Defined in m25_flash.c in the read callback
-ADDR_PER_RD_CB = 16
+ADDR_PER_RD_CB = 192
 
 #Maximum number of addresses written in a single write callback to STM
 #We would do 256 (pagesize), but currently max number of bytes in callbacks 

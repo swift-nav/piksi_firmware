@@ -42,6 +42,8 @@
 
 #define M25_FPGA_HASH_ADDR 0xFFFFF0
 
+#define M25_READ_SIZE 192
+
 void m25_write_enable(void);
 void m25_write_disable(void);
 u32 m25_read_id(void);
