@@ -89,7 +89,7 @@ class M25Flash(Thread):
       else:
         time.sleep(0.01)
 
-  #Check that we received continuous addresses from the 
+  #Check that we received continuous addresses from the
   #beginning of the flash read to the end, and that this
   #matches the length of the received data from those addrs
   def read_cb_sanity_check(self):
@@ -115,6 +115,7 @@ class M25Flash(Thread):
     self._commands_sent += 1
     self.link.send_message(0xF2, msg_buf)
 
+  #data a bytestring
   def write(self, addr, data):
     self._schedule_command('_write', (addr,data))
   def _write(self, addr, data):
@@ -129,8 +130,10 @@ class M25Flash(Thread):
     self._commands_sent += 1
     self.link.send_message(0xF0, msg_header+data)
 
+  #data a list
   def simple_write(self, addr, data):
-    self.write(addr,bytearray(data))
+    data = ''.join([chr(i) for i in bytearray(data)])
+    self.write(addr,data)
     self.read(addr,len(data))
     while self.flash_operations_left() > 0:
       time.sleep(0.1)
