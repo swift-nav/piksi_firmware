@@ -49,7 +49,7 @@ extern u32 _ecoffee_fs_area;
 
 #define COFFEE_DYN_SIZE           (4*COFFEE_PAGE_SIZE)
 
-#define COFFEE_LOG_SIZE           (COFFEE_PAGE_SIZE/4)
+#define COFFEE_LOG_SIZE           (8*COFFEE_PAGE_SIZE)
 
 #define COFFEE_LOG_TABLE_LIMIT    256
 
