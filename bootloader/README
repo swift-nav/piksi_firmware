@@ -1,4 +1,2 @@
-Use stm32_flash.py (in scripts directory) to upload new firmware using 
-the bootloader, via
-
-  "./stm32flash.py [filename.bin]"
+Use stm32_flash.py (in ../scripts directory) to upload new firmware using the
+bootloader.
