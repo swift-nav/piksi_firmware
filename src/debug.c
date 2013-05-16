@@ -107,9 +107,46 @@ void debug_disable()
   usarts_disable();
 }
 
+/** Checks if the message should be sent from a particular USART. */
+static inline u32 use_usart(usart_settings_t* us, u8 msg_type)
+{
+  if (debug_use_settings) {
+    if (us->mode != PIKSI_BINARY)
+      /* This USART is not in Piksi Binary mode. */
+      return 0;
+    if (!(us->message_mask & msg_type))
+      /* This message type is masked out on this USART. */
+      return 0;
+  }
+  return 1;
+}
+
+/** Check if USART has room in its buffer. */
+static inline u32 check_usart(usart_settings_t* us, usart_tx_dma_state* s,
+                              u8 msg_type, u8 len)
+{
+  return (use_usart(us, msg_type) && usart_tx_n_free(s) < len + 4U + 2U + 1U);
+}
+
+static inline u32 send_msg_helper(usart_settings_t* us, usart_tx_dma_state* s,
+                                  u8 msg_type, u8 len, u8 buff[], u16 crc)
+{
+  if (!use_usart(us, msg_type))
+    return 0;
+
+  if ((4 != usart_write_dma(s, msg_header, 4)) ||
+      (len != usart_write_dma(s, buff, len)) ||
+      (2 != usart_write_dma(s, (u8*)&crc, 2))) {
+    /* Error during USART write. */
+    return -1;
+  }
+  return 0;
+}
+
+
 u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
 {
-  /* Global interrupt disable to avoid concurrency/reentrance problems. */
+  /* Global interrupt disable to avoid concurrency/reentrancy problems. */
   __asm__("CPSID i;");
 
     msg_header[2] = msg_type;
@@ -118,41 +155,27 @@ u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
     u16 crc = crc16_ccitt(&msg_header[2], 2, 0);
     crc = crc16_ccitt(buff, len, crc);
 
-    if (debug_use_settings ||
-        (settings.ftdi_usart.mode == PIKSI_BINARY &&
-         settings.ftdi_usart.message_mask & msg_type)) {
-      if (4 != usart_write_dma(&ftdi_tx_state, msg_header, 4))
-        speaking_death("debug_send_message failed on FTDI");
-      if (len != usart_write_dma(&ftdi_tx_state, buff, len))
-        speaking_death("debug_send_message failed on FTDI");
-      if (2 != usart_write_dma(&ftdi_tx_state, (u8*)&crc, 2))
-        speaking_death("debug_send_message failed on FTDI");
+    /* Check if required USARTs have room in their buffers. */
+    if (check_usart(&settings.ftdi_usart, &ftdi_tx_state, len, msg_type) ||
+        check_usart(&settings.uarta_usart, &uarta_tx_state, len, msg_type) ||
+        check_usart(&settings.uartb_usart, &uartb_tx_state, len, msg_type)) {
+      __asm__("CPSIE i;");  // Re-enable interrupts
+      return -1;
     }
 
-    if (debug_use_settings ||
-        (settings.uarta_usart.mode == PIKSI_BINARY &&
-         settings.uarta_usart.message_mask & msg_type)) {
-      if (4 != usart_write_dma(&uarta_tx_state, msg_header, 4))
-        speaking_death("debug_send_message failed on UARTA");
-      if (len != usart_write_dma(&uarta_tx_state, buff, len))
-        speaking_death("debug_send_message failed on UARTA");
-      if (2 != usart_write_dma(&uarta_tx_state, (u8*)&crc, 2))
-        speaking_death("debug_send_message failed on UARTA");
-    }
-
-    if (debug_use_settings ||
-        (settings.uartb_usart.mode == PIKSI_BINARY &&
-         settings.uartb_usart.message_mask & msg_type)) {
-      if (4 != usart_write_dma(&uartb_tx_state, msg_header, 4))
-        speaking_death("debug_send_message failed on UARTB");
-      if (len != usart_write_dma(&uartb_tx_state, buff, len))
-        speaking_death("debug_send_message failed on UARTB");
-      if (2 != usart_write_dma(&uartb_tx_state, (u8*)&crc, 2))
-        speaking_death("debug_send_message failed on UARTB");
+    /* Now send message. */
+    if (send_msg_helper(&settings.ftdi_usart, &ftdi_tx_state,
+                        msg_type, len, buff, crc) ||
+        send_msg_helper(&settings.uarta_usart, &uarta_tx_state,
+                        msg_type, len, buff, crc) ||
+        send_msg_helper(&settings.uartb_usart, &uartb_tx_state,
+                        msg_type, len, buff, crc)) {
+      __asm__("CPSIE i;");  // Re-enable interrupts
+      return -1;
     }
 
   __asm__("CPSIE i;");  // Re-enable interrupts
-  return 0; // Successfully written to buffer.
+  return 0;
 }
 
 /** Register a callback for a message type.
@@ -291,7 +314,7 @@ void debug_process_usart(debug_process_messages_state_t* s)
             else
               printf("no callback registered for msg type %02X\n", s->msg_type);
           } else {
-            printf("CRC error 0x%08X 0x%08X\n", crc, crc_rx);
+            printf("CRC error 0x%04X 0x%04X\n", crc, crc_rx);
           }
           s->state = WAITING_1;
         }
