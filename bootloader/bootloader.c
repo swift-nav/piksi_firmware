@@ -27,10 +27,12 @@
 #include <libopencm3/cm3/scb.h>
 
 #include "main.h"
-#include "hw/leds.h"
+#include "swift_nap_io.h"
 #include "debug.h"
+#include "hw/leds.h"
 #include "hw/stm_flash.h"
 #include "hw/usart.h"
+#include "hw/m25_flash.h"
 
 #define APP_ADDRESS	0x08010000
 #define STACK_ADDRESS 0x10010000
@@ -38,7 +40,10 @@
 u8 pc_wants_bootload = 0;
 u8 current_app_valid = 0;
 
-void jump_to_app_callback(u8 buff[] __attribute__((unused))){
+void jump_to_app_callback(u8 buff[] __attribute__((unused)))
+{
+  /* Set the FPGA CONF B line high to allow the FPGA to configure */
+  swift_nap_conf_b_set();
   /* Disable peripherals used in the bootloader */
   debug_disable();
   /* Set vector table base address */
@@ -49,7 +54,12 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused))){
   (*(void(**)())(APP_ADDRESS + 4))();
 }
 
-void pc_wants_bootload_callback(u8 buff[] __attribute__((unused))){
+void pc_wants_bootload_callback(u8 buff[])
+{
+  /* If buff != 0 we are flashing the M25 and must keep the FPGA from
+   * configuring as it will contest the M25 SPI bus */
+  if (buff[0])
+    swift_nap_conf_b_clear();
   pc_wants_bootload = 1;
 }
 
@@ -64,8 +74,13 @@ int main(void)
    * transmitting and receiving callbacks */
   debug_setup(0);
 
-  /* Add callbacks for erasing, programming and reading flash */
+  /* Add callbacks for erasing, programming and reading STM and M25 flash */
   stm_flash_callbacks_setup();
+  m25_setup();
+
+  /* Setup FPGA CONF B line - we may be flashing the M25 and need to keep the
+   * FPGA from contesting the M25 SPI bus */
+  swift_nap_conf_b_setup();
 
   /* Add callback for jumping to application after bootloading is finished */
   static msg_callbacks_node_t jump_to_app_node;
@@ -104,7 +119,7 @@ int main(void)
   led_off(LED_RED);
   if ((pc_wants_bootload) || !(current_app_valid)){
     /*
-     * We expect PC application passing application data to call
+     * We expect PC application passing firmware data to call
      * jump_to_app_callback to break us out of this while loop after it has
      * finished sending flash programming callbacks
      */

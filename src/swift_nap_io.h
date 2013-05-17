@@ -94,6 +94,10 @@ void swift_nap_setup();
 void swift_nap_reset();
 void swift_nap_xfer_blocking(u8 spi_id, u16 n_bytes, u8 data_in[], const u8 data_out[]);
 
+void swift_nap_conf_b_setup();
+void swift_nap_conf_b_set();
+void swift_nap_conf_b_clear();
+
 u8 swift_nap_conf_done();
 u8 swift_nap_hash_rd_done();
 
