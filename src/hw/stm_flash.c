@@ -43,24 +43,6 @@ void stm_flash_erase_sector_callback(u8 buff[])
   debug_send_msg(MSG_STM_FLASH_COMPLETE, 0, 0);
 }
 
-void stm_flash_program_byte_callback(u8 buff[])
-{
-  /* Msg format : 4 bytes, address to program
-   *              1 byte, data to program at address */
-  u32 address = *(u32 *)&buff[0];
-  u8 data = buff[4];
-
-  /* TODO : Add check to restrict addresses that can be programmed? */
-
-  /* Program specified address with data. */
-  flash_unlock();
-  flash_program_byte(address, data);
-  flash_lock();
-
-  /* Send message back to PC to signal operation is finished */
-  debug_send_msg(MSG_STM_FLASH_COMPLETE, 0, 0);
-}
-
 void stm_flash_program_callback(u8 buff[])
 {
   /* Msg format : 4 bytes, address to program
@@ -116,9 +98,8 @@ void stm_flash_callbacks_setup()
   /* Create message callbacks node types to add to debug callback
    * linked list for each flash callback defined above */
   static msg_callbacks_node_t stm_flash_erase_sector_node;
-  static msg_callbacks_node_t stm_flash_program_node;
-  static msg_callbacks_node_t stm_flash_program_byte_node;
   static msg_callbacks_node_t stm_flash_read_node;
+  static msg_callbacks_node_t stm_flash_program_node;
   static msg_callbacks_node_t stm_unique_id_node;
 
   /* Insert callbacks in debug callback linked list so they can be called */
@@ -128,9 +109,6 @@ void stm_flash_callbacks_setup()
   debug_register_callback(MSG_STM_FLASH_READ,
                           &stm_flash_read_callback,
                           &stm_flash_read_node);
-  debug_register_callback(MSG_STM_FLASH_PROGRAM_BYTE,
-                          &stm_flash_program_byte_callback,
-                          &stm_flash_program_byte_node);
   debug_register_callback(MSG_STM_FLASH_PROGRAM,
                           &stm_flash_program_callback,
                           &stm_flash_program_node);
