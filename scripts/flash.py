@@ -35,8 +35,6 @@ MSG_STM_FLASH_READ  = 0xE1 # Callback in both C and Python
 MSG_STM_FLASH_ERASE = 0xE2 # Callback in C
 MSG_STM_FLASH_DONE  = 0xE0 # Callback in Python
 
-MSG_STM_UNIQUE_ID = 0xE5 # Callback in both C and Python
-
 MSG_M25_FLASH_WRITE = 0xF0 # Callback in C
 MSG_M25_FLASH_READ  = 0xF1 # Callback in both C and Python
 MSG_M25_FLASH_ERASE = 0xF2 # Callback in C
