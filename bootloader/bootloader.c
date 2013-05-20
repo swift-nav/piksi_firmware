@@ -33,6 +33,7 @@
 #include "hw/stm_flash.h"
 #include "hw/usart.h"
 #include "hw/m25_flash.h"
+#include "hw/spi.h"
 
 #define APP_ADDRESS	0x08010000
 #define STACK_ADDRESS 0x10010000
@@ -79,6 +80,7 @@ int main(void)
 
   /* Setup FPGA CONF B line - we may be flashing the M25 and need to keep the
    * FPGA from contesting the M25 SPI bus */
+  spi_setup();
   swift_nap_conf_b_setup();
 
   /* Add callback for jumping to application after bootloading is finished */
