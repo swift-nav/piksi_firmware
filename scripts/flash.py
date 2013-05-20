@@ -7,7 +7,7 @@
 # Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
 #
 # Contacts: Colin Beighley <colin@swift-nav.com>
-#           Fergus Noble   <fergus@swift-nav.com>
+#           Fergus Noble <fergus@swift-nav.com>
 #
 # Based on luftboot, a bootloader for the Paparazzi UAV project.
 #
@@ -27,7 +27,6 @@
 import serial_link
 import struct
 import time
-import sys
 from intelhex import IntelHex
 from itertools import groupby
 
@@ -46,7 +45,7 @@ MSG_M25_FLASH_DONE  = 0xF0 # Callback in Python
 MSG_BOOTLOADER_HANDSHAKE   = 0xC0 # Callback in both C and Python
 MSG_BOOTLOADER_JUMP_TO_APP = 0xC1 # Callback in C
 
-ADDRS_PER_OP = 250
+ADDRS_PER_OP = 128
 
 def stm_addr_sector_map(addr):
   if   addr >= 0x08000000 and addr < 0x08004000:
@@ -83,11 +82,11 @@ def m25_addr_sector_map(addr):
 
 def ihx_ranges(ihx):
   def first_last(x):
-      first = x.next()
-      last = first
-      for last in x:
-          pass
-      return (first[1], last[1])
+    first = x.next()
+    last = first
+    for last in x:
+      pass
+    return (first[1], last[1])
   return [first_last(v) for k, v in
           groupby(enumerate(ihx.addresses()), lambda (i, x) : i - x)]
 
@@ -120,13 +119,13 @@ class Flash():
     else:
       raise ValueError
 
-  def sectors_used(addrs):
+  def sectors_used(self, addrs):
     sectors = set()
     for s, e in addrs:
       sectors |= set(range(self.addr_sector_map(s), self.addr_sector_map(e)+1))
     return sorted(list(sectors))
 
-  def sector_restricted(self,sector):
+  def sector_restricted(self, sector):
     if self.flash_type == "STM":
       if sector < 4: # assuming bootloader occupies sectors 0-3
         return True
@@ -142,6 +141,7 @@ class Flash():
   def erase_sector(self, sector):
     if self.sector_restricted(sector):
       raise Exception("Tried to erase restricted sector")
+    msg_buf = struct.pack("B", sector)
     self._waiting_for_callback = True
     link.send_message(self.flash_msg_erase, msg_buf)
     while self._waiting_for_callback == True:
@@ -177,6 +177,7 @@ class Flash():
 
 if __name__ == "__main__":
   import argparse
+  import sys
 
   parser = argparse.ArgumentParser(description='Piksi Bootloader')
   parser.add_argument("file",
@@ -187,14 +188,21 @@ if __name__ == "__main__":
   parser.add_argument('-s', '--stm',
                       help='write the file to the STM flash.',
                       action="store_true")
-  parser.add_argument('-p', '--port',
-                      default=[serial_link.DEFAULT_PORT], nargs=1,
-                      help='specify the serial port to use.')
   parser.add_argument("-f", "--ftdi",
                       help="use pylibftdi instead of pyserial.",
                       action="store_true")
+  parser.add_argument('-p', '--port',
+                      default=[serial_link.DEFAULT_PORT], nargs=1,
+                      help='specify the serial port to use.')
   args = parser.parse_args()
   serial_port = args.port[0]
+  if args.stm and args.m25:
+    parser.error("Only one of -s or -m options may be chosen")
+    sys.exit(2)
+  elif not args.stm and not args.m25:
+    parser.error("One of -s or -m options must be chosen")
+    sys.exit(2)
+  ihx = IntelHex(args.file)
 
   print "Waiting for device to be plugged in ...",
   sys.stdout.flush()
@@ -216,21 +224,17 @@ if __name__ == "__main__":
   link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
 
   # Create Flash object and pass Piksi serial link to it
-  if args.stm and args.m25:
-    raise Exception("Only one of -s or -m options may be chosen")
-  elif args.stm:
+  if args.stm:
     flash = Flash(link, flash_type="STM")
   elif args.m25:
     flash = Flash(link, flash_type="M25")
-  else:
-    raise Exception("One of -s or -m options must be chosen")
 
   # Wait until device informs us that it is ready to receive program
   print "Waiting for device to tell us it is ready to bootload ...",
   sys.stdout.flush()
   try:
     while not flash.bootloader_ready:
-      time.sleep(0.1)
+      time.sleep(0.01)
   except KeyboardInterrupt:
     # Clean up and exit
     link.close()
@@ -238,17 +242,21 @@ if __name__ == "__main__":
   print "received handshake signal."
 
   # Send message to device to let it know we want to change the application
-  link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00')
+  if flash.flash_type == "STM":
+    link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00') # dont disable SPI bus
+  elif flash.flash_type == "M25":
+    link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x01') # disable SPI bus
 
-  ihx = IntelHex(args.file)
-
-  #Erase sectors
+  # Erase sectors
   ihx_addrs = ihx_ranges(ihx)
   for sector in flash.sectors_used(ihx_addrs):
-    print "Erasing sector", sector
+    print ("Erasing sector %d\r" % sector),
+    sys.stdout.flush()
     flash.erase_sector(sector)
+  print ""
 
-  #Write data to flash and validate
+  # Write data to flash and validate
+  start_time = time.time()
   for start, end in ihx_ranges(ihx):
     for addr in range(start, end, ADDRS_PER_OP):
       print ("Programming flash at 0x%08X\r" % addr),
@@ -258,9 +266,10 @@ if __name__ == "__main__":
       flash_readback = flash.read(addr, ADDRS_PER_OP)
       if flash_readback != map(ord, binary):
         raise Exception('data read from flash != data written to flash')
-  print "\nDone programming flash, telling device to jump to application"
+  print "\nDone programming flash, total time = %d seconds" % int(time.time()-start_time)
 
   # Tell STM to jump to application, as programming is finished
+  print "Telling device to jump to application"
   link.send_message(MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
 
   # Wait for ctrl+C until we exit
