@@ -174,7 +174,7 @@ void flash_read_callback(u8 buff[])
 
   addr = *(u32 *)&buff[0];
   len  = *(u32 *)&buff[4];
-  u8 callback_data[M25_READ_SIZE+4];
+  u8 callback_data[M25_READ_SIZE+5];
 
   u8 chunk_len;
   while (len > 0) {
@@ -184,17 +184,18 @@ void flash_read_callback(u8 buff[])
 
     /* Pack data for read callback back to host.
      * 3 bytes starting address, 1 byte length, chunk_len byes data */
-    callback_data[0] = (addr >> 16) & 0xFF;
-    callback_data[1] = (addr >> 8) & 0xFF;
-    callback_data[2] = (addr >> 0) & 0xFF;
-    callback_data[3] = chunk_len;
+    callback_data[0] = (addr >> 24) & 0xFF;
+    callback_data[1] = (addr >> 16) & 0xFF;
+    callback_data[2] = (addr >> 8) & 0xFF;
+    callback_data[3] = (addr >> 0) & 0xFF;
+    callback_data[4] = chunk_len;
 
     for (u8 i=0; i<chunk_len; i++) {
-      callback_data[i+4] = flash_data[i];
+      callback_data[i+5] = flash_data[i];
     }
 
     /* Keep trying to send message until we succeed. */
-    while(debug_send_msg(MSG_M25_FLASH_READ,4 + chunk_len,callback_data));
+    while(debug_send_msg(MSG_M25_FLASH_READ,5 + chunk_len,callback_data));
 
     len -= chunk_len;
     addr += chunk_len;
