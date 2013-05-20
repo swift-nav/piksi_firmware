@@ -84,8 +84,8 @@ void stm_flash_read_callback(u8 buff[])
     callback_data[5+i] = *(u8 *)(address+i);
   }
 
-  /* Send bytes to PC */
-  debug_send_msg(MSG_STM_FLASH_READ, length+5, callback_data);
+  /* If sending message fails (buffer is full), keep trying until successful */
+  while(debug_send_msg(MSG_STM_FLASH_READ, length+5, callback_data));
 }
 
 void stm_unique_id_callback()
