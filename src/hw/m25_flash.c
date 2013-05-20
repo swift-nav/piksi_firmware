@@ -167,13 +167,13 @@ void flash_write_callback(u8 buff[])
 
 void flash_read_callback(u8 buff[])
 {
-  /* Msg format:  u32 addr, u32 len */
+  /* Msg format:  u32 addr, u8 len */
 
   u32 addr, len;
   static char flash_data[M25_READ_SIZE];
 
   addr = *(u32 *)&buff[0];
-  len  = *(u32 *)&buff[4];
+  len = buff[4];
   u8 callback_data[M25_READ_SIZE+5];
 
   u8 chunk_len;
