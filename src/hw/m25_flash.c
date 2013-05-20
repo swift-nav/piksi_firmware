@@ -73,15 +73,11 @@ void m25_read(u32 addr, u32 len, u8 *buff)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
 
-//  spi_xfer(SPI_BUS_FLASH, M25_FAST_READ);
   spi_xfer(SPI_BUS_FLASH, M25_READ);
 
   spi_xfer(SPI_BUS_FLASH, (addr >> 16) & 0xFF);
   spi_xfer(SPI_BUS_FLASH, (addr >> 8) & 0xFF);
   spi_xfer(SPI_BUS_FLASH, addr & 0xFF);
-
-//  spi_xfer(SPI_BUS_FLASH, 0x00); // Dummy byte
-
 
   for(u32 i=0; i < len; i++)
     buff[i] = spi_xfer(SPI_BUS_FLASH, 0x00);
@@ -207,10 +203,10 @@ void flash_read_callback(u8 buff[])
 
 void flash_erase_callback(u8 buff[])
 {
-  /* Msg format: u32 addr
-   * Erases a 65536-byte sector. Any address within the sector will work. */
+  /* Msg format: u8 sector. Erases one of the 16 sectors in the flash. */
 
-  u32 addr = *(u32*)buff;
+  u8 sector = buff[0];
+  u32 addr = ((u32)sector) << 16;
 
   m25_write_enable();
   m25_sector_erase(addr);
