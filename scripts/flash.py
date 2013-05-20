@@ -98,7 +98,7 @@ class Flash():
   def __init__(self, link, flash_type):
     self.link = link
     self.flash_type = flash_type
-    if flash_type == "STM":
+    if self.flash_type == "STM":
       self.link.add_callback(MSG_STM_FLASH_DONE, self._done_callback)
       self.link.add_callback(MSG_STM_FLASH_READ, self._read_callback)
       self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE,
@@ -107,7 +107,7 @@ class Flash():
       self.flash_msg_erase = MSG_STM_FLASH_ERASE
       self.flash_msg_write = MSG_STM_FLASH_WRITE
       self.addr_sector_map = stm_addr_sector_map
-    elif flash_type == "M25":
+    elif self.flash_type == "M25":
       self.link.add_callback(MSG_M25_FLASH_DONE, self._done_callback)
       self.link.add_callback(MSG_M25_FLASH_READ, self._read_callback)
       self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE,
@@ -118,6 +118,21 @@ class Flash():
       self.addr_sector_map = m25_addr_sector_map
     else:
       raise ValueError
+    # Wait for device to send handshake message
+    try:
+      while not self.bootloader_ready:
+        time.sleep(0.01)
+    except KeyboardInterrupt:
+      # Clean up and exit
+      self.link.close()
+      sys.exit()
+    # Send message to device to let it know we want to change the flash data
+    if self.flash_type == "STM":
+      # dont stop FPGA configuration process
+      self.link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00')
+    elif self.flash_type == "M25":
+      # stop FPGA configuration process (so it doesn't contest M25 flash bus)
+      self.link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x01')
 
   def sectors_used(self, addrs):
     sectors = set()
@@ -145,21 +160,21 @@ class Flash():
     self._waiting_for_callback = True
     link.send_message(self.flash_msg_erase, msg_buf)
     while self._waiting_for_callback == True:
-      time.sleep(0.001)
+      time.sleep(0.0001)
 
   def program(self, address, data):
     msg_buf = struct.pack("<IB", address, len(data))
     self._waiting_for_callback = True
     link.send_message(self.flash_msg_write, msg_buf + data)
     while self._waiting_for_callback == True:
-      time.sleep(0.001)
+      time.sleep(0.0001)
 
   def read(self, address, length):
     msg_buf = struct.pack("<IB", address, length)
     self._waiting_for_callback = True
     link.send_message(self.flash_msg_read, msg_buf)
     while self._waiting_for_callback == True:
-      time.sleep(0.001)
+      time.sleep(0.0001)
     return self._read_callback_data
 
   def _done_callback(self, data):
@@ -204,9 +219,9 @@ if __name__ == "__main__":
     sys.exit(2)
   ihx = IntelHex(args.file)
 
+  # Create serial link with device
   print "Waiting for device to be plugged in ...",
   sys.stdout.flush()
-
   found_device = False
   while not found_device:
     try:
@@ -219,7 +234,6 @@ if __name__ == "__main__":
     except:
       # Couldn't find device
       time.sleep(0.01)
-
   print "link with device successfully created."
   link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
 
@@ -228,24 +242,7 @@ if __name__ == "__main__":
     flash = Flash(link, flash_type="STM")
   elif args.m25:
     flash = Flash(link, flash_type="M25")
-
-  # Wait until device informs us that it is ready to receive program
-  print "Waiting for device to tell us it is ready to bootload ...",
-  sys.stdout.flush()
-  try:
-    while not flash.bootloader_ready:
-      time.sleep(0.01)
-  except KeyboardInterrupt:
-    # Clean up and exit
-    link.close()
-    sys.exit()
-  print "received handshake signal."
-
-  # Send message to device to let it know we want to change the application
-  if flash.flash_type == "STM":
-    link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00') # dont disable SPI bus
-  elif flash.flash_type == "M25":
-    link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x01') # disable SPI bus
+  print "Received handshake signal from device."
 
   # Erase sectors
   ihx_addrs = ihx_ranges(ihx)
