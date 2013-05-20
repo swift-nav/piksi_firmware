@@ -6,7 +6,8 @@
 # Copyright (C) 2011 Piotr Esden-Tempski <piotr@esden.net>
 # Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
 #
-# Contact: Colin Beighley <colin@swift-nav.com>
+# Contacts: Colin Beighley <colin@swift-nav.com>
+#           Fergus Noble   <fergus@swift-nav.com>
 #
 # Based on luftboot, a bootloader for the Paparazzi UAV project.
 #
@@ -30,10 +31,10 @@ import sys
 from intelhex import IntelHex
 from itertools import groupby
 
-MSG_STM_FLASH_PROGRAM = 0xE0 # Callback in C
-MSG_STM_FLASH_READ    = 0xE1 # Callback in both C and Python
-MSG_STM_FLASH_ERASE   = 0xE2 # Callback in C
-MSG_STM_FLASH_DONE    = 0xE0 # Callback in Python
+MSG_STM_FLASH_WRITE = 0xE0 # Callback in C
+MSG_STM_FLASH_READ  = 0xE1 # Callback in both C and Python
+MSG_STM_FLASH_ERASE = 0xE2 # Callback in C
+MSG_STM_FLASH_DONE  = 0xE0 # Callback in Python
 
 MSG_STM_UNIQUE_ID = 0xE5 # Callback in both C and Python
 
@@ -80,12 +81,6 @@ def m25_addr_sector_map(addr):
     raise ValueError
   return addr >> 16
 
-def roundup_multiple(x, multiple):
-  return x if x % multiple == 0 else x + multiple - x % multiple
-
-def rounddown_multiple(x, multiple):
-  return x if x % multiple == 0 else x - x % multiple
-
 def ihx_ranges(ihx):
   def first_last(x):
       first = x.next()
@@ -101,7 +96,7 @@ class Flash():
   _waiting_for_callback = False
   _read_callback_data = []
 
-  def __init__(self, flash_type, link):
+  def __init__(self, link, flash_type):
     self.link = link
     self.flash_type = flash_type
     if flash_type == "STM":
@@ -124,8 +119,6 @@ class Flash():
       self.addr_sector_map = m25_addr_sector_map
     else:
       raise ValueError
-    while not self.bootloader_ready:
-      time.sleep(0.01)
 
   def sectors_used(addrs):
     sectors = set()
@@ -187,7 +180,13 @@ if __name__ == "__main__":
 
   parser = argparse.ArgumentParser(description='Piksi Bootloader')
   parser.add_argument("file",
-                      help="the sample data file to process")
+                      help="the sample data file to process.")
+  parser.add_argument('-m', '--m25',
+                      help='write the file to the M25 flash.',
+                      action="store_true")
+  parser.add_argument('-s', '--stm',
+                      help='write the file to the STM flash.',
+                      action="store_true")
   parser.add_argument('-p', '--port',
                       default=[serial_link.DEFAULT_PORT], nargs=1,
                       help='specify the serial port to use.')
@@ -217,13 +216,20 @@ if __name__ == "__main__":
   link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
 
   # Create Flash object and pass Piksi serial link to it
-  stm_flash = Flash(link, flash_type="STM")
+  if args.stm and args.m25:
+    raise Exception("Only one of -s or -m options may be chosen")
+  elif args.stm:
+    flash = Flash(link, flash_type="STM")
+  elif args.m25:
+    flash = Flash(link, flash_type="M25")
+  else:
+    raise Exception("One of -s or -m options must be chosen")
 
   # Wait until device informs us that it is ready to receive program
   print "Waiting for device to tell us it is ready to bootload ...",
   sys.stdout.flush()
   try:
-    while not stm_flash.bootloader_ready:
+    while not flash.bootloader_ready:
       time.sleep(0.1)
   except KeyboardInterrupt:
     # Clean up and exit
@@ -235,19 +241,21 @@ if __name__ == "__main__":
   link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00')
 
   ihx = IntelHex(args.file)
-  # Erase sector of Piksi's flash where binary is to go
-  addrs = ihx_ranges(ihx)
-  for sector in stm_flash.sectors_used(addrs):
-    print "Erasing sector", sector
-    stm_flash.erase_sector(sector)
 
+  #Erase sectors
+  ihx_addrs = ihx_ranges(ihx)
+  for sector in flash.sectors_used(ihx_addrs):
+    print "Erasing sector", sector
+    flash.erase_sector(sector)
+
+  #Write data to flash and validate
   for start, end in ihx_ranges(ihx):
     for addr in range(start, end, ADDRS_PER_OP):
       print ("Programming flash at 0x%08X\r" % addr),
       sys.stdout.flush()
       binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
-      stm_flash.program(addr, binary)
-      flash_readback = stm_flash.read(addr, ADDRS_PER_OP)
+      flash.program(addr, binary)
+      flash_readback = flash.read(addr, ADDRS_PER_OP)
       if flash_readback != map(ord, binary):
         raise Exception('data read from flash != data written to flash')
   print "\nDone programming flash, telling device to jump to application"
