@@ -159,5 +159,5 @@ class Flash():
         flash_readback = self.read(addr, ADDRS_PER_OP)
         if flash_readback != map(ord, binary):
           raise Exception('data read from flash != data written to flash')
-    print "\nDone programming flash, total time = %d seconds" % int(time.time()-start_time)
+    print "\nSuccessfully programmed flash, total time = %d seconds" % int(time.time()-start_time)
 
