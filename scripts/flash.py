@@ -116,21 +116,6 @@ class Flash():
       self.addr_sector_map = m25_addr_sector_map
     else:
       raise ValueError
-    # Wait for device to send handshake message
-    try:
-      while not self.bootloader_ready:
-        time.sleep(0.01)
-    except KeyboardInterrupt:
-      # Clean up and exit
-      self.link.close()
-      sys.exit()
-    # Send message to device to let it know we want to change the flash data
-    if self.flash_type == "STM":
-      # dont stop FPGA configuration process
-      self.link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00')
-    elif self.flash_type == "M25":
-      # stop FPGA configuration process (so it doesn't contest M25 flash bus)
-      self.link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x01')
 
   def sectors_used(self, addrs):
     sectors = set()
@@ -241,6 +226,22 @@ if __name__ == "__main__":
   elif args.m25:
     flash = Flash(link, flash_type="M25")
   print "Received handshake signal from device."
+
+  # Wait for device to send handshake message
+  try:
+    while not flash.bootloader_ready:
+      time.sleep(0.01)
+  except KeyboardInterrupt:
+    # Clean up and exit
+    link.close()
+    sys.exit()
+  # Send message to device to let it know we want to change the flash data
+  if flash.flash_type == "STM":
+    # dont stop FPGA configuration process
+    link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00')
+  elif self.flash_type == "M25":
+    # stop FPGA configuration process (so it doesn't contest M25 flash bus)
+    link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x01')
 
   # Erase sectors
   ihx_addrs = ihx_ranges(ihx)
