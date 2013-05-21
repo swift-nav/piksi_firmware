@@ -34,26 +34,22 @@ import time
 MSG_BOOTLOADER_HANDSHAKE   = 0xC0 # Callback in both C and Python
 MSG_BOOTLOADER_JUMP_TO_APP = 0xC1 # Callback in C
 
-HANDSHAKE_STM = '\x00' # MSG_BOOTLOADER_HANDSHAKE data, dont enable spi
-HANDSHAKE_M25 = '\x01' # MSG_BOOTLOADER_HANDSHAKE data, enable spi, conf b, etc
-
 class Bootloader():
-  bootloader_ready = False
+  _handshake_received = False
 
   def __init__(self, link):
     self.link = link
-    self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE,self._bootloader_ready_callback)
+    self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE,self._bootloader_handshake_callback)
 
-  def _bootloader_ready_callback(self, data):
-    self.bootloader_ready = True
+  def _bootloader_handshake_callback(self, data):
+    self._handshake_received = True
 
-  def wait_handshake(self):
-    while not self.bootloader_ready:
+  def wait_for_handshake(self):
+    while not self._handshake_received:
       time.sleep(0.1)
 
   def reply_handshake(self):
-    #for now always send M25 handshake
-    self.link.send_message(MSG_BOOTLOADER_HANDSHAKE, HANDSHAKE_M25)
+    self.link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00')
 
   def jump_to_app(self):
     self.link.send_message(MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
@@ -61,9 +57,9 @@ class Bootloader():
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Piksi Bootloader')
   parser.add_argument("file",
-                      help="the sample data file to process.")
+                      help="the Intel hex file to write to flash.")
   parser.add_argument('-m', '--m25',
-                      help='write the file to the M25 flash.',
+                      help='write the file to the M25 (FPGA) flash.',
                       action="store_true")
   parser.add_argument('-s', '--stm',
                       help='write the file to the STM flash.',
@@ -104,7 +100,7 @@ if __name__ == "__main__":
 
   # Tell Bootloader we want to change flash data
   piksi_bootloader = Bootloader(link)
-  piksi_bootloader.wait_handshake()
+  piksi_bootloader.wait_for_handshake()
   print "Received handshake signal from device."
   piksi_bootloader.reply_handshake()
 
@@ -117,13 +113,9 @@ if __name__ == "__main__":
   # Write data in ihx to flash
   piksi_flash.write_ihx(ihx)
 
-  # Programming is finished - tell STM to jump to application if we flashed
-  # STM flash, if we flashed M25, tell user to replug device
-  if piksi_flash.flash_type == "STM":
-    print "Telling device to jump to application"
-    piksi_bootloader.jump_to_app()
-  elif piksi_flash.flash_type == "M25":
-    print "Please replug your device to allow FPGA to reconfigure"
+  # Flash programming is finished - tell STM to jump to application
+  print "Telling device to jump to application"
+  piksi_bootloader.jump_to_app()
 
   # Wait for ctrl+C until we exit
   try:
