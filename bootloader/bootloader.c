@@ -43,8 +43,6 @@ u8 current_app_valid = 0;
 
 void jump_to_app_callback(u8 buff[] __attribute__((unused)))
 {
-  /* Set the FPGA CONF B line high to allow the FPGA to configure */
-  swift_nap_conf_b_set();
   /* Disable peripherals used in the bootloader */
   debug_disable();
   /* Set vector table base address */
@@ -57,10 +55,18 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
 
 void pc_wants_bootload_callback(u8 buff[])
 {
-  /* If buff != 0 we are flashing the M25 and must keep the FPGA from
-   * configuring as it will contest the M25 SPI bus */
-  if (buff[0])
+  if (buff[0]) {
+    /*
+     * We are flashing the M25 - setup SPI, callbacks, disable FPGA conf.
+     * Note that setting up SPI GPIO pins as outputs makes FPGA unable to
+     * configure when firmware starts - device must be restarted.
+     * TODO : set SPI pins to High-Z inputs before jumping to firmware
+     */
+    swift_nap_conf_b_setup();
     swift_nap_conf_b_clear();
+    spi_setup();
+    m25_setup();
+  }
   pc_wants_bootload = 1;
 }
 
@@ -76,12 +82,6 @@ int main(void)
 
   /* Add callbacks for erasing, programming and reading STM and M25 flash */
   stm_flash_callbacks_setup();
-  m25_setup();
-
-  /* Setup FPGA CONF B line - we may be flashing the M25 and need to keep the
-   * FPGA from contesting the M25 SPI bus */
-  spi_setup();
-  swift_nap_conf_b_setup();
 
   /* Add callback for jumping to application after bootloading is finished */
   static msg_callbacks_node_t jump_to_app_node;
