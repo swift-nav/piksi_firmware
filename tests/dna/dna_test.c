@@ -25,12 +25,11 @@ int main(void) {
   led_on(LED_RED);
 
   /* Force FPGA to configure itself by driving PROGRAM_B low, then high */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
-  gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
-  gpio_clear(GPIOC, GPIO12);
+  swift_nap_conf_b_setup();
+  swift_nap_conf_b_clear();
   for (u32 i = 0; i < 50; i++)
     __asm__("nop");
-  gpio_set(GPIOC, GPIO12);
+  swift_nap_conf_b_set();
 
   init();
 
