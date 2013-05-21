@@ -45,6 +45,8 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
 {
   /* Disable peripherals used in the bootloader */
   debug_disable();
+  spi_deactivate();
+  swift_nap_conf_b_set();
   /* Set vector table base address */
   SCB_VTOR = APP_ADDRESS & 0x1FFFFF00;
   /* Initialise master stack pointer */
@@ -53,20 +55,13 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
   (*(void(**)())(APP_ADDRESS + 4))();
 }
 
-void pc_wants_bootload_callback(u8 buff[])
+void pc_wants_bootload_callback(u8 buff[] __attribute__((unused)))
 {
-  if (buff[0]) {
-    /*
-     * We are flashing the M25 - setup SPI, callbacks, disable FPGA conf.
-     * Note that setting up SPI GPIO pins as outputs makes FPGA unable to
-     * configure when firmware starts - device must be restarted.
-     * TODO : set SPI pins to High-Z inputs before jumping to firmware
-     */
-    swift_nap_conf_b_setup();
-    swift_nap_conf_b_clear();
-    spi_setup();
-    m25_setup();
-  }
+  /* Disable FPGA configuration and set up SPI in case we want to flash M25 */
+  swift_nap_conf_b_setup();
+  swift_nap_conf_b_clear();
+  spi_setup();
+  m25_setup();
   pc_wants_bootload = 1;
 }
 
@@ -80,7 +75,7 @@ int main(void)
   /* Setup UART and debug interface for transmitting and receiving callbacks */
   debug_setup(0);
 
-  /* Add callbacks for erasing, programming and reading STM and M25 flash */
+  /* STM flash erase/write/read callbacks */
   stm_flash_callbacks_setup();
 
   /* Add callback for jumping to application after bootloading is finished */
