@@ -1,34 +1,10 @@
 #!/usr/bin/env python
-#
-# Bootloader for the Swift Navigation Piksi GPS Receiver
-#
-# Copyright (C) 2010 Gareth McMullin <gareth@blacksphere.co.nz>
-# Copyright (C) 2011 Piotr Esden-Tempski <piotr@esden.net>
 # Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
-#
-# Contacts: Colin Beighley <colin@swift-nav.com>
-#           Fergus Noble <fergus@swift-nav.com>
-#
-# Based on luftboot, a bootloader for the Paparazzi UAV project.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import serial_link
 import struct
 import time
 import sys
-from intelhex import IntelHex
 from itertools import groupby
 
 MSG_STM_FLASH_WRITE = 0xE0 # Callback in C
@@ -40,12 +16,6 @@ MSG_M25_FLASH_WRITE = 0xF0 # Callback in C
 MSG_M25_FLASH_READ  = 0xF1 # Callback in both C and Python
 MSG_M25_FLASH_ERASE = 0xF2 # Callback in C
 MSG_M25_FLASH_DONE  = 0xF0 # Callback in Python
-
-MSG_BOOTLOADER_HANDSHAKE   = 0xC0 # Callback in both C and Python
-MSG_BOOTLOADER_JUMP_TO_APP = 0xC1 # Callback in C
-
-HANDSHAKE_STM = 0 # data for MSG_BOOTLOADER_HANDSHAKE, dont enable spi
-HANDSHAKE_M25 = 1 # data for MSG_BOOTLOADER_HANDSHAKE, enable spi, conf b, etc
 
 ADDRS_PER_OP = 128
 
@@ -93,7 +63,6 @@ def ihx_ranges(ihx):
           groupby(enumerate(ihx.addresses()), lambda (i, x) : i - x)]
 
 class Flash():
-  bootloader_ready = False
   _waiting_for_callback = False
   _read_callback_data = []
 
@@ -103,8 +72,6 @@ class Flash():
     if self.flash_type == "STM":
       self.link.add_callback(MSG_STM_FLASH_DONE, self._done_callback)
       self.link.add_callback(MSG_STM_FLASH_READ, self._read_callback)
-      self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE,
-                             self._bootloader_ready_callback)
       self.flash_msg_read = MSG_STM_FLASH_READ
       self.flash_msg_erase = MSG_STM_FLASH_ERASE
       self.flash_msg_write = MSG_STM_FLASH_WRITE
@@ -112,8 +79,6 @@ class Flash():
     elif self.flash_type == "M25":
       self.link.add_callback(MSG_M25_FLASH_DONE, self._done_callback)
       self.link.add_callback(MSG_M25_FLASH_READ, self._read_callback)
-      self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE,
-                             self._bootloader_ready_callback)
       self.flash_msg_read = MSG_M25_FLASH_READ
       self.flash_msg_erase = MSG_M25_FLASH_ERASE
       self.flash_msg_write = MSG_M25_FLASH_WRITE
@@ -172,9 +137,6 @@ class Flash():
     self._read_callback_data = list(struct.unpack(str(length)+'B', data[5:]))
     self._waiting_for_callback = False
 
-  def _bootloader_ready_callback(self, data):
-    self.bootloader_ready = True
-
   def write_ihx(self, ihx):
     # Erase sectors
     ihx_addrs = ihx_ranges(ihx)
@@ -198,93 +160,4 @@ class Flash():
         if flash_readback != map(ord, binary):
           raise Exception('data read from flash != data written to flash')
     print "\nDone programming flash, total time = %d seconds" % int(time.time()-start_time)
-
-if __name__ == "__main__":
-  import argparse
-
-  parser = argparse.ArgumentParser(description='Piksi Bootloader')
-  parser.add_argument("file",
-                      help="the sample data file to process.")
-  parser.add_argument('-m', '--m25',
-                      help='write the file to the M25 flash.',
-                      action="store_true")
-  parser.add_argument('-s', '--stm',
-                      help='write the file to the STM flash.',
-                      action="store_true")
-  parser.add_argument("-f", "--ftdi",
-                      help="use pylibftdi instead of pyserial.",
-                      action="store_true")
-  parser.add_argument('-p', '--port',
-                      default=[serial_link.DEFAULT_PORT], nargs=1,
-                      help='specify the serial port to use.')
-  args = parser.parse_args()
-  serial_port = args.port[0]
-  if args.stm and args.m25:
-    parser.error("Only one of -s or -m options may be chosen")
-    sys.exit(2)
-  elif not args.stm and not args.m25:
-    parser.error("One of -s or -m options must be chosen")
-    sys.exit(2)
-  ihx = IntelHex(args.file)
-
-  # Create serial link with device
-  print "Waiting for device to be plugged in ...",
-  sys.stdout.flush()
-  found_device = False
-  while not found_device:
-    try:
-      link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi)
-      found_device = True
-    except KeyboardInterrupt:
-      # Clean up and exit
-      link.close()
-      sys.exit()
-    except:
-      # Couldn't find device
-      time.sleep(0.01)
-  print "link with device successfully created."
-  link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
-
-  # Create Flash object and pass Piksi serial link to it
-  if args.stm:
-    flash = Flash(link, flash_type="STM")
-  elif args.m25:
-    flash = Flash(link, flash_type="M25")
-
-  # Wait for device to send handshake message
-  try:
-    while not flash.bootloader_ready:
-      time.sleep(0.01)
-  except KeyboardInterrupt:
-    # Clean up and exit
-    link.close()
-    sys.exit()
-  print "Received handshake signal from device."
-  # Send message to device to let it know we want to change the flash data
-  if flash.flash_type == "STM":
-    link.send_message(MSG_BOOTLOADER_HANDSHAKE, HANDSHAKE_STM)
-  elif flash.flash_type == "M25":
-    link.send_message(MSG_BOOTLOADER_HANDSHAKE, HANDSHAKE_M25)
-
-  # Write data in ihx to flash
-  flash.write_ihx(ihx)
-
-  # Programming is finished - tell STM to jump to application if we flashed
-  # STM flash, if we flashed M25, tell user to replug device
-  if flash.flash_type == "STM":
-    print "Telling device to jump to application"
-    link.send_message(MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
-  elif flash.flash_type == "M25":
-    print "Please replug your device to allow FPGA to reconfigure"
-
-  # Wait for ctrl+C until we exit
-  try:
-    while(1):
-      time.sleep(0.1)
-  except KeyboardInterrupt:
-    pass
-
-  # Clean up and exit
-  link.close()
-  sys.exit()
 
