@@ -27,6 +27,7 @@
 import serial_link
 import struct
 import time
+import sys
 from intelhex import IntelHex
 from itertools import groupby
 
@@ -42,6 +43,9 @@ MSG_M25_FLASH_DONE  = 0xF0 # Callback in Python
 
 MSG_BOOTLOADER_HANDSHAKE   = 0xC0 # Callback in both C and Python
 MSG_BOOTLOADER_JUMP_TO_APP = 0xC1 # Callback in C
+
+HANDSHAKE_STM = 0 # data for MSG_BOOTLOADER_HANDSHAKE, dont enable spi
+HANDSHAKE_M25 = 1 # data for MSG_BOOTLOADER_HANDSHAKE, enable spi, conf b, etc
 
 ADDRS_PER_OP = 128
 
@@ -137,25 +141,23 @@ class Flash():
     return None
 
   def erase_sector(self, sector):
-    if self.sector_restricted(sector):
-      raise Exception("Tried to erase restricted sector")
     msg_buf = struct.pack("B", sector)
     self._waiting_for_callback = True
-    link.send_message(self.flash_msg_erase, msg_buf)
+    self.link.send_message(self.flash_msg_erase, msg_buf)
     while self._waiting_for_callback == True:
       time.sleep(0.0001)
 
-  def program(self, address, data):
+  def write(self, address, data):
     msg_buf = struct.pack("<IB", address, len(data))
     self._waiting_for_callback = True
-    link.send_message(self.flash_msg_write, msg_buf + data)
+    self.link.send_message(self.flash_msg_write, msg_buf + data)
     while self._waiting_for_callback == True:
       time.sleep(0.0001)
 
   def read(self, address, length):
     msg_buf = struct.pack("<IB", address, length)
     self._waiting_for_callback = True
-    link.send_message(self.flash_msg_read, msg_buf)
+    self.link.send_message(self.flash_msg_read, msg_buf)
     while self._waiting_for_callback == True:
       time.sleep(0.0001)
     return self._read_callback_data
@@ -173,9 +175,32 @@ class Flash():
   def _bootloader_ready_callback(self, data):
     self.bootloader_ready = True
 
+  def write_ihx(self, ihx):
+    # Erase sectors
+    ihx_addrs = ihx_ranges(ihx)
+    for sector in self.sectors_used(ihx_addrs):
+      if self.sector_restricted(sector):
+        raise Exception("Tried to erase restricted sector")
+      print ("Erasing sector %d\r" % sector),
+      sys.stdout.flush()
+      self.erase_sector(sector)
+    print ""
+
+    # Write data to flash and validate
+    start_time = time.time()
+    for start, end in ihx_addrs:
+      for addr in range(start, end, ADDRS_PER_OP):
+        print ("Programming flash at 0x%08X\r" % addr),
+        sys.stdout.flush()
+        binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
+        self.write(addr, binary)
+        flash_readback = self.read(addr, ADDRS_PER_OP)
+        if flash_readback != map(ord, binary):
+          raise Exception('data read from flash != data written to flash')
+    print "\nDone programming flash, total time = %d seconds" % int(time.time()-start_time)
+
 if __name__ == "__main__":
   import argparse
-  import sys
 
   parser = argparse.ArgumentParser(description='Piksi Bootloader')
   parser.add_argument("file",
@@ -225,7 +250,6 @@ if __name__ == "__main__":
     flash = Flash(link, flash_type="STM")
   elif args.m25:
     flash = Flash(link, flash_type="M25")
-  print "Received handshake signal from device."
 
   # Wait for device to send handshake message
   try:
@@ -235,38 +259,23 @@ if __name__ == "__main__":
     # Clean up and exit
     link.close()
     sys.exit()
+  print "Received handshake signal from device."
   # Send message to device to let it know we want to change the flash data
   if flash.flash_type == "STM":
-    # dont stop FPGA configuration process
-    link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00')
-  elif self.flash_type == "M25":
-    # stop FPGA configuration process (so it doesn't contest M25 flash bus)
-    link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x01')
+    link.send_message(MSG_BOOTLOADER_HANDSHAKE, HANDSHAKE_STM)
+  elif flash.flash_type == "M25":
+    link.send_message(MSG_BOOTLOADER_HANDSHAKE, HANDSHAKE_M25)
 
-  # Erase sectors
-  ihx_addrs = ihx_ranges(ihx)
-  for sector in flash.sectors_used(ihx_addrs):
-    print ("Erasing sector %d\r" % sector),
-    sys.stdout.flush()
-    flash.erase_sector(sector)
-  print ""
+  # Write data in ihx to flash
+  flash.write_ihx(ihx)
 
-  # Write data to flash and validate
-  start_time = time.time()
-  for start, end in ihx_ranges(ihx):
-    for addr in range(start, end, ADDRS_PER_OP):
-      print ("Programming flash at 0x%08X\r" % addr),
-      sys.stdout.flush()
-      binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
-      flash.program(addr, binary)
-      flash_readback = flash.read(addr, ADDRS_PER_OP)
-      if flash_readback != map(ord, binary):
-        raise Exception('data read from flash != data written to flash')
-  print "\nDone programming flash, total time = %d seconds" % int(time.time()-start_time)
-
-  # Tell STM to jump to application, as programming is finished
-  print "Telling device to jump to application"
-  link.send_message(MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
+  # Programming is finished - tell STM to jump to application if we flashed
+  # STM flash, if we flashed M25, tell user to replug device
+  if flash.flash_type == "STM":
+    print "Telling device to jump to application"
+    link.send_message(MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
+  elif flash.flash_type == "M25":
+    print "Please replug your device to allow FPGA to reconfigure"
 
   # Wait for ctrl+C until we exit
   try:
