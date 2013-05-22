@@ -23,6 +23,11 @@
 #include "debug.h"
 #include "error.h"
 
+/** Last resort, low-level error function.
+ * Halts the program while continually sending a non-descript error message in
+ * debug message format, in a way that should get the message through to the
+ * Python console even if it's interrupting another transmission.
+ */
 void screaming_death(void)
 {
   /* Disable ALL interrupts. */
@@ -49,9 +54,11 @@ void screaming_death(void)
 };
 
 /** Last resort, low-level error message function.
- * Halts the program while continually sending a fixed string in debug message
- * format, in a way that should get the message through to the Python console
- * even if it's interrupting another transmission.
+ * Halts the program while continually sending a fixed error message in debug
+ * message format, in a way that should get the message through to the Python
+ * console even if it's interrupting another transmission.
+ *
+ * \param msg A pointer to an array of chars containing the error message.
  */
 void speaking_death(char *msg)
 {
