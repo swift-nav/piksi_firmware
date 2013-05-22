@@ -18,7 +18,7 @@
 #ifndef SWIFTNAV_STM_FLASH_H
 #define SWIFTNAV_STM_FLASH_H
 
-#define STM_UNIQUE_ID_ADDR 0x1FFF7A10
+#define STM_UNIQUE_ID_ADDR 0x1FFF7A10 /* TODO : put this in libopencm3 */
 
 void stm_flash_callbacks_setup();
 
