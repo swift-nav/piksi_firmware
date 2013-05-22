@@ -21,7 +21,6 @@
 #include <libopencm3/cm3/common.h>
 
 #define SPECTRUM_LEN 301
-//#define SPECTRUM_LEN 501
 
 typedef enum {
   CW_DISABLED = 0,
@@ -53,6 +52,5 @@ void cw_start(float cf_min, float cf_max, float cf_bin_width);
 void cw_service_irq();
 void cw_send_result(float carrier_freq, u64 power);
 void cw_get_spectrum_point(float* freq, u64* power, u16 index);
-//void cw_get_spectrum_point(float* freq, float* power, u16 index);
 
 #endif

@@ -27,7 +27,6 @@ cw_state_t cw_state;
 void cw_start_callback(u8 msg[])
 {
   cw_start_msg_t* start_msg = (cw_start_msg_t*)msg;
-  printf("starting CW run %f %f %f\n", start_msg->cf_min, start_msg->cf_max, start_msg->cf_step);
   cw_start(start_msg->cf_min, start_msg->cf_max, start_msg->cf_step);
 }
 
@@ -66,13 +65,9 @@ void cw_start(float cf_min, float cf_max, float cf_bin_width)
    * the range to the nearest multiple of the step size to make sure
    * we cover at least the specified range.
    */
-//  cw_state.cf_step = cf_bin_width*CW_CARRIER_FREQ_UNITS_PER_HZ;
-//  cw_state.cf_min = cw_state.cf_step*floor(cf_min*CW_CARRIER_FREQ_UNITS_PER_HZ / (float)cw_state.cf_step);
-//  cw_state.cf_max = cw_state.cf_step*ceil(cf_max*CW_CARRIER_FREQ_UNITS_PER_HZ / (float)cw_state.cf_step);
   cw_state.cf_step = ceil(cf_bin_width*CW_CARRIER_FREQ_UNITS_PER_HZ);
   cw_state.cf_min = cf_min*CW_CARRIER_FREQ_UNITS_PER_HZ;
   cw_state.cf_max = cf_max*CW_CARRIER_FREQ_UNITS_PER_HZ;
-//	printf("%d %d %d\n",(int)cw_state.cf_min,(int)cw_state.cf_max,(int)cw_state.cf_step);
 
   /* Initialise our cw state struct. */
   cw_state.state = CW_RUNNING;
@@ -93,9 +88,9 @@ void cw_service_irq()
   switch(cw_state.state)
   {
     default:
-      /* If we get an interrupt when we are not running,
-       * disable the cw channel which helpfully also
-       * clears the IRQ.
+      /*
+       * If we get an interrupt when we are not running, disable the CW channel.
+       * This will also clear the interrupt.
        */
       cw_disable_blocking();
       break;
@@ -112,20 +107,21 @@ void cw_service_irq()
       }
       cw_state.count++;
 
-      /* Write parameters for 2 cycles time for cw pipelining apart
-       * from the last two cycles where we want to write disable.
-       * The first time to disable and the second time really just
-       * to clear the interrupt from the last cycle.
+      /*
+       * Write the next pipelined CW carrier frequency to NAP's CW channel. If
+       * this is one of the final two interrupts to be serviced, write to set
+       * the CW's channel INIT register disable bit.
        */
-      cw_state.carrier_freq += cw_state.cf_step; //carrier freq corresponding to correlations
-																								 //that will be read from channel next cycle
-																								 //(unless we are writing second disable)
-			if (cw_state.carrier_freq >= (cw_state.cf_max + cw_state.cf_step)) { //second disable, lower cw channel
-        cw_disable_blocking();                                             //interrupt and transition state
+      cw_state.carrier_freq += cw_state.cf_step;
+			if (cw_state.carrier_freq >= (cw_state.cf_max + cw_state.cf_step)) {
+        /* 2nd disable write. Transition state. */
+        cw_disable_blocking();
         cw_state.state = CW_RUNNING_DONE;
-			} else if (cw_state.carrier_freq >= cw_state.cf_max) { //first disable, disable cw channel
+			} else if (cw_state.carrier_freq >= cw_state.cf_max) {
+        /* 1st disable write */
         cw_disable_blocking();
 			} else {
+        /* Write next pipelined CW carrier frequency */
         cw_write_init_blocking(cw_state.carrier_freq + cw_state.cf_step);
 			}
 
@@ -143,14 +139,12 @@ void cw_send_result(float carrier_freq, u64 power)
   msg.cf = carrier_freq;
   msg.power = power;
 
+  /* TODO : does sizeof(msg) = sizeof(float) + sizeof(u64)? */
   debug_send_msg(MSG_CW_RESULTS, sizeof(msg), (u8*)&msg);
 }
 
 void cw_get_spectrum_point(float* freq, u64* power, u16 index)
-//void cw_get_spectrum_point(float* freq, float* power, u16 index)
 {
-	*freq = 0; //(float)cw_state.spectrum_freq[index] / CW_CARRIER_FREQ_UNITS_PER_HZ;
+	*freq = 0;
 	*power = cw_state.spectrum_power[index];
-//	*power = (float)cw_state.spectrum_power[index];
 }
-
