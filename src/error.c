@@ -30,7 +30,11 @@ void screaming_death(void)
 
   led_on(LED_RED);
 
-  u8 error_string[] = "Error!\n";
+  static char err_msg[13] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2,
+                             MSG_PRINT, 13,
+                             'E', 'R', 'R', 'O', 'R', '!', '\n',
+                             [11] = 0xAD, /* hard coded CRC for this message */
+                             [12] = 0x28};
   u8 i = 0;
 
   while(1) {
@@ -44,10 +48,11 @@ void screaming_death(void)
   }
 };
 
-/** Last resort, low-level error message function.  Halts the program while
- * continually sending a fixed string in debug message format, in a way that
- * should get the message through to the Python console even if it's
- * interrupting another transmission. */
+/** Last resort, low-level error message function.
+ * Halts the program while continually sending a fixed string in debug message
+ * format, in a way that should get the message through to the Python console
+ * even if it's interrupting another transmission.
+ */
 void speaking_death(char *msg)
 {
   __asm__("CPSID if;");           /* Disable all interrupts and faults */
@@ -71,8 +76,8 @@ void speaking_death(char *msg)
     err_msg[11+(i++)] = *msg++;
 
   /* Insert CRC into last two indices */
-  u16 crc = crc16_ccitt(err_msg, 2, 0);
-  crc = crc16_ccitt(err_msg+4, ERR_MSG_N, crc);
+  u16 crc = crc16_ccitt(&err_msg[2], 2, 0);
+  crc = crc16_ccitt(&err_msg[4], ERR_MSG_N, crc);
   err_msg[ERR_MSG_N+4] = (crc >> 8) & 0xFF;
   err_msg[ERR_MSG_N+5] = crc & 0xFF;
 
