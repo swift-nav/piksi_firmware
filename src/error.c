@@ -23,7 +23,8 @@
 #include "debug.h"
 #include "error.h"
 
-void screaming_death(void) {
+void screaming_death(void)
+{
   /* Disable ALL interrupts. */
   __asm__("CPSID if;");
 
@@ -47,7 +48,8 @@ void screaming_death(void) {
  * continually sending a fixed string in debug message format, in a way that
  * should get the message through to the Python console even if it's
  * interrupting another transmission. */
-void speaking_death(char *msg) {
+void speaking_death(char *msg)
+{
   __asm__("CPSID if;");           /* Disable all interrupts and faults */
   DMA2_S7CR = 0;                  /* Disable USART TX DMA */
   USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
@@ -57,16 +59,22 @@ void speaking_death(char *msg) {
   static char err_msg[ERR_MSG_N+6] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2,
                                       MSG_PRINT, ERR_MSG_N,
                                       'E', 'R', 'R', 'O', 'R', ':', ' ',
-                                      [11 ... ERR_MSG_N+3] = '!',
-                                      /* TODO: Fill in CRC here. */
-                                      [ERR_MSG_N+4] = 0x69,
-                                      [ERR_MSG_N+5] = 0x69};
+                                      [11 ... ERR_MSG_N+2] = '!',
+                                      [ERR_MSG_N+3] = '\n',
+                                      /* Placeholders, CRC calculated below */
+                                      [ERR_MSG_N+4] = 0x00,
+                                      [ERR_MSG_N+5] = 0x00};
 
-  err_msg[ERR_MSG_N+3]='\n';
-
+  /* Insert message */
   u8 i=0;
   while (*msg && i < ERR_MSG_N)   /* Don't want to use C library memcpy */
     err_msg[11+(i++)] = *msg++;
+
+  /* Insert CRC into last two indices */
+  u16 crc = crc16_ccitt(err_msg, 2, 0);
+  crc = crc16_ccitt(err_msg+4, ERR_MSG_N, crc);
+  err_msg[ERR_MSG_N+4] = (crc >> 8) & 0xFF;
+  err_msg[ERR_MSG_N+5] = crc & 0xFF;
 
   i=0;
   while (1) {
@@ -79,7 +87,4 @@ void speaking_death(char *msg) {
         __asm__("nop");
     }
   }
-
 }
-
-
