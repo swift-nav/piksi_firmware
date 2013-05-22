@@ -31,17 +31,17 @@ import sys
 from intelhex import IntelHex
 import time
 
-MSG_BOOTLOADER_HANDSHAKE   = 0xC0 # Callback in both C and Python
-MSG_BOOTLOADER_JUMP_TO_APP = 0xC1 # Callback in C
+MSG_BOOTLOADER_HANDSHAKE   = 0xB0 # Callback in both C and Python
+MSG_BOOTLOADER_JUMP_TO_APP = 0xB1 # Callback in C
 
 class Bootloader():
   _handshake_received = False
 
   def __init__(self, link):
     self.link = link
-    self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE,self._bootloader_handshake_callback)
+    self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE,self._handshake_callback)
 
-  def _bootloader_handshake_callback(self, data):
+  def _handshake_callback(self, data):
     self._handshake_received = True
 
   def wait_for_handshake(self):
@@ -104,16 +104,13 @@ if __name__ == "__main__":
   print "Received handshake signal from device."
   piksi_bootloader.reply_handshake()
 
-  # Create Flash object and pass serial link to it
   if args.stm:
     piksi_flash = flash.Flash(link, flash_type="STM")
   elif args.m25:
     piksi_flash = flash.Flash(link, flash_type="M25")
 
-  # Write data in ihx to flash
   piksi_flash.write_ihx(ihx)
 
-  # Flash programming is finished - tell STM to jump to application
   print "Telling device to jump to application"
   piksi_bootloader.jump_to_app()
 

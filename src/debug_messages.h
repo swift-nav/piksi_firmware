@@ -22,11 +22,11 @@
 
 #define MSG_ACQ_SETUP 0x69
 
+#define MSG_BOOTLOADER_HANDSHAKE   0xB0 /* Callback in C and Python */
+#define MSG_BOOTLOADER_JUMP_TO_APP 0xB1 /* Callback in C */
+
 #define MSG_CW_START   0xC1
 #define MSG_CW_RESULTS 0xC0
-
-#define MSG_BOOTLOADER_HANDSHAKE   0xC0 /* Callback in C and Python */
-#define MSG_BOOTLOADER_JUMP_TO_APP 0xC1 /* Callback in C */
 
 #define MSG_NAP_DEVICE_DNA 0xDD /* Callback in C and Python */
 
