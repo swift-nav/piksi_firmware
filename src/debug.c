@@ -90,9 +90,9 @@ void debug_setup(u8 use_settings)
   } else {
     debug_use_settings = 0;
     usarts_setup(
-      USART_DEFUALT_BAUD,
-      USART_DEFUALT_BAUD,
-      USART_DEFUALT_BAUD
+      USART_DEFAULT_BAUD,
+      USART_DEFAULT_BAUD,
+      USART_DEFAULT_BAUD
     );
   }
 
