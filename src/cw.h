@@ -32,14 +32,14 @@ typedef enum {
 
 typedef struct {
   cw_status_t state;
-  s32 cf_step, cf_min, cf_max;
-  s32 carrier_freq;
+  s32 freq_step, freq_min, freq_max;
+  s32 freq;
 	u16 count;
 	u64 spectrum_power[SPECTRUM_LEN];
 } cw_state_t;
 
 typedef struct {
-  float cf_min, cf_max, cf_step;
+  float freq_min, freq_max, freq_step;
 } cw_start_msg_t;
 
 void cw_schedule_load(u32 count);
@@ -48,9 +48,9 @@ u8 cw_get_load_done();
 u8 cw_get_running_done();
 
 void cw_setup();
-void cw_start(float cf_min, float cf_max, float cf_bin_width);
+void cw_start(float freq_min, float freq_max, float freq_bin_width);
 void cw_service_irq();
-void cw_send_result(float carrier_freq, u64 power);
+void cw_send_result(float freq, u64 power);
 void cw_get_spectrum_point(float* freq, u64* power, u16 index);
 
 #endif

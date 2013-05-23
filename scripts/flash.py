@@ -105,7 +105,9 @@ class Flash():
         return False
     return None
 
-  def erase_sector(self, sector):
+  def erase_sector(self, sector, check_sector=True):
+    if check_sector and self.sector_restricted(sector):
+      raise Exception("Tried to erase restricted sector")
     msg_buf = struct.pack("B", sector)
     self._waiting_for_callback = True
     self.link.send_message(self.flash_msg_erase, msg_buf)
@@ -141,8 +143,6 @@ class Flash():
     # Erase sectors
     ihx_addrs = ihx_ranges(ihx)
     for sector in self.sectors_used(ihx_addrs):
-      if self.sector_restricted(sector):
-        raise Exception("Tried to erase restricted sector")
       print ("Erasing sector %d\r" % sector),
       sys.stdout.flush()
       self.erase_sector(sector)
