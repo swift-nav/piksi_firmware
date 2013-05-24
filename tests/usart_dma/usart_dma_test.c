@@ -23,7 +23,15 @@
 #include "init.h"
 #include "error.h"
 #include "hw/leds.h"
+#include "debug.h"
 #include "hw/usart.h"
+#include "swift_nap_io.h"
+
+#define MSG_ECHO 0xEC
+
+//void echo_callback(u8 buff[]){
+//  printf("%c\r",(char)buff[0]);
+//}
 
 int main(void)
 {
@@ -31,46 +39,46 @@ int main(void)
     __asm__("nop");
 
 	led_setup();
+  led_on(LED_GREEN);
+  led_on(LED_RED);
 
-  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
+  swift_nap_conf_b_setup();
+  swift_nap_conf_b_clear();
 
-  usarts_setup(USART_DEFUALT_BAUD, USART_DEFUALT_BAUD, USART_DEFUALT_BAUD);
+  debug_setup(0);
 
-  /*printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");*/
-  /*printf("--- USART DMA TEST ---\n");*/
+//  static msg_callbacks_node_t echo_node;
+//  debug_register_callback(MSG_ECHO, &echo_callback, &echo_node);
 
-  #define MAX_TX ((u32)(USART_TX_BUFFER_LEN*1.2))
-
-  u8 guard_below[30];
-  u8 buff_out[MAX_TX];
-  u8 guard_above[30];
-  u32 len;
-
-  for (u8 i=0; i<30; i++) {
-    guard_below[i] = 0;
-    guard_above[i] = 0;
+  #define CHECK_N 500
+  u8 received_chars[CHECK_N];
+  u8 expected_chars[CHECK_N];
+  for (u16 i=0;i<CHECK_N;i++){
+    expected_chars[i] = i;
   }
-
-  for (u32 i=0; i<MAX_TX; i++)
-    buff_out[i] = (u8)i;
+  u64 n_received = 0;
+  u32 n_read;
 
   while(1) {
-    /* Random transmit length. */
-    len = (u32)rand() % MAX_TX;
-    while (len)
-      len -= usart_write_dma(&ftdi_tx_state, buff_out, len);
-
-    /* Check the guards for buffer over/underrun. */
-    for (u8 i=0; i<30; i++) {
-      if (guard_below[i] != 0)
-        screaming_death();
-      if (guard_above[i] != 0)
-        screaming_death();
+//    if (usart_n_read_dma(&ftdi_rx_state)) {
+    n_read = usart_read_dma(&ftdi_rx_state,received_chars,CHECK_N);
+    while (!n_read){
+      n_read = usart_read_dma(&ftdi_rx_state,received_chars,CHECK_N);
     }
-
-    /* Introduce some timing jitter. */
-    for (u32 i = 0; i < ((u32)rand() % 10000); i++)
-      __asm__("nop");
+    for (u16 i=0;i<CHECK_N;i++) {
+      if (received_chars[i] != expected_chars[i])
+        speaking_death("NOT EQUAL =( ");
+    }
+    for (u16 i=0;i<CHECK_N;i++){
+      expected_chars[i] = expected_chars[CHECK_N-1]+1+i;
+    }
+    n_received += CHECK_N;
+//    }
+//    DO_EVERY(30,
+      led_toggle(LED_RED);
+      led_toggle(LED_GREEN);
+//    );
+//    debug_process_messages();
   }
 
   while (1);

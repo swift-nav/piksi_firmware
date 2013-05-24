@@ -8,7 +8,13 @@ import sys
 
 
 DEFAULT_PORT = '/dev/ttyUSB0'
-DEFAULT_BAUD = 230400
+#DEFAULT_BAUD = 115200
+#DEFAULT_BAUD = 230400
+#DEFAULT_BAUD = 460800
+#DEFAULT_BAUD = 500000
+#DEFAULT_BAUD = 576000
+DEFAULT_BAUD = 921600
+#DEFAULT_BAUD = 1000000
 
 DEBUG_MAGIC_1 = 0xBE
 DEBUG_MAGIC_2 = 0xEF
@@ -56,7 +62,6 @@ def crc16(s, crc=0):
     crc = ((crc<<8)&0xFFFF) ^ crc16_tab[ ((crc>>8)&0xFF) ^ (ord(ch)&0xFF) ]
     crc &= 0xFFFF
   return crc
-
 
 class ListenerThread (threading.Thread):
   wants_to_stop = False
@@ -159,8 +164,8 @@ class SerialLink:
 
   def send_message(self, msg_type, msg):
     crc = crc16(map(chr, [msg_type, len(msg)]), 0)
-    crc = crc16(msg, crc)
-    crc = struct.pack('<H', crc)
+    crc_int = crc16(msg, crc)
+    crc = struct.pack('<H', crc_int)
 
     self.ser.write(chr(DEBUG_MAGIC_1))
     self.ser.write(chr(DEBUG_MAGIC_2))
@@ -168,6 +173,9 @@ class SerialLink:
     self.ser.write(chr(len(msg)))
     self.ser.write(msg)
     self.ser.write(crc)
+
+  def send_char(self, char):
+    self.ser.write(char)
 
   def add_callback(self, msg_type, callback):
     self.callbacks[msg_type] = callback
@@ -180,6 +188,7 @@ class SerialLink:
 
 def default_print_callback(data):
   sys.stdout.write(data)
+#  return
 
 if __name__ == "__main__":
   import argparse
@@ -194,9 +203,15 @@ if __name__ == "__main__":
   serial_port = args.port[0]
   link = SerialLink(serial_port, use_ftdi=args.ftdi)
   link.add_callback(MSG_PRINT, default_print_callback)
+  char = 0
   try:
     while True:
-      time.sleep(1)
+#      print chr(char + 65), "\r",
+#      sys.stdout.flush()
+#      link.send_message(0xEC,chr(char+65))
+      link.send_char(chr(char))
+      char = (char + 1) % 256
+      time.sleep(0.001)
   except KeyboardInterrupt:
     pass
   finally:
