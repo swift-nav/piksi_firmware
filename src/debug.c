@@ -268,56 +268,50 @@ void debug_process_usart(debug_process_messages_state_t* s)
 
     switch(s->state) {
       case WAITING_1:
-        usart_read_dma(s->rx_state, &temp, 1);
+        while(!(usart_read_dma(s->rx_state, &temp, 1)));
         if (temp == DEBUG_MAGIC_1)
           s->state = WAITING_2;
         break;
       case WAITING_2:
-        usart_read_dma(s->rx_state, &temp, 1);
+        while(!(usart_read_dma(s->rx_state, &temp, 1)));
         if (temp == DEBUG_MAGIC_2)
           s->state = GET_TYPE;
         break;
       case GET_TYPE:
-        usart_read_dma(s->rx_state, &(s->msg_type), 1);
+        while(!(usart_read_dma(s->rx_state, &(s->msg_type), 1)));
         s->state = GET_LEN;
         break;
       case GET_LEN:
-        usart_read_dma(s->rx_state, &(s->msg_len), 1);
+        while(!(usart_read_dma(s->rx_state, &(s->msg_len), 1)));
         s->msg_n_read = 0;
         s->state = GET_MSG;
         break;
       case GET_MSG:
-        if (s->msg_len - s->msg_n_read > 0) {
-          /* Not received whole message yet, try and get some more. */
-          s->msg_n_read += usart_read_dma(
+        while(!(usart_read_dma(
               s->rx_state,
               &(s->msg_buff[s->msg_n_read]),
-              s->msg_len - s->msg_n_read
-          );
-        }
-        if (s->msg_len - s->msg_n_read <= 0) {
-          s->state = GET_CRC;
-        }
+              s->msg_len)));
+        s->state = GET_CRC;
         break;
       case GET_CRC:
-        if (len >= 2) {
-          usart_read_dma(s->rx_state, (u8*)&crc_rx, 2);
-          crc = crc16_ccitt(&(s->msg_type), 1, 0);
-          crc = crc16_ccitt(&(s->msg_len), 1, crc);
-          crc = crc16_ccitt(s->msg_buff, s->msg_len, crc);
-          if (crc_rx == crc) {
-            /* Message complete, process it. */
-            /*printf("msg: %02X, len %d\n", s->msg_type, s->msg_len);*/
-            msg_callback_t cb = debug_find_callback(s->msg_type);
-            if (cb)
-              (*cb)(s->msg_buff);
-            else
-              printf("no callback registered for msg type %02X\n", s->msg_type);
-          } else {
-            printf("CRC error 0x%04X 0x%04X\n", crc, crc_rx);
-          }
-          s->state = WAITING_1;
+//        if (len >= 2) {
+        while(!(usart_read_dma(s->rx_state, (u8*)&crc_rx, 2)));
+        crc = crc16_ccitt(&(s->msg_type), 1, 0);
+        crc = crc16_ccitt(&(s->msg_len), 1, crc);
+        crc = crc16_ccitt(s->msg_buff, s->msg_len, crc);
+        if (crc_rx == crc) {
+          /* Message complete, process it. */
+          /*printf("msg: %02X, len %d\n", s->msg_type, s->msg_len);*/
+          msg_callback_t cb = debug_find_callback(s->msg_type);
+          if (cb)
+            (*cb)(s->msg_buff);
+          else
+            printf("no callback registered for msg type %02X\n", s->msg_type);
+        } else {
+          printf("CRC error 0x%04X 0x%04X\n", crc, crc_rx);
         }
+        s->state = WAITING_1;
+//        }
         break;
       default:
         s->state = WAITING_1;
