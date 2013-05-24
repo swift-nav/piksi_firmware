@@ -29,9 +29,9 @@
 
 #define MSG_ECHO 0xEC
 
-//void echo_callback(u8 buff[]){
-//  printf("%c\r",(char)buff[0]);
-//}
+void echo_callback(u8 buff[]){
+  printf("%c\r",(char)buff[0]);
+}
 
 int main(void)
 {
@@ -47,38 +47,15 @@ int main(void)
 
   debug_setup(0);
 
-//  static msg_callbacks_node_t echo_node;
-//  debug_register_callback(MSG_ECHO, &echo_callback, &echo_node);
-
-  #define CHECK_N 500
-  u8 received_chars[CHECK_N];
-  u8 expected_chars[CHECK_N];
-  for (u16 i=0;i<CHECK_N;i++){
-    expected_chars[i] = i;
-  }
-  u64 n_received = 0;
-  u32 n_read;
+  static msg_callbacks_node_t echo_node;
+  debug_register_callback(MSG_ECHO, &echo_callback, &echo_node);
 
   while(1) {
-//    if (usart_n_read_dma(&ftdi_rx_state)) {
-    n_read = usart_read_dma(&ftdi_rx_state,received_chars,CHECK_N);
-    while (!n_read){
-      n_read = usart_read_dma(&ftdi_rx_state,received_chars,CHECK_N);
-    }
-    for (u16 i=0;i<CHECK_N;i++) {
-      if (received_chars[i] != expected_chars[i])
-        speaking_death("NOT EQUAL =( ");
-    }
-    for (u16 i=0;i<CHECK_N;i++){
-      expected_chars[i] = expected_chars[CHECK_N-1]+1+i;
-    }
-    n_received += CHECK_N;
-//    }
-//    DO_EVERY(30,
+    DO_EVERY(3000,
       led_toggle(LED_RED);
       led_toggle(LED_GREEN);
-//    );
-//    debug_process_messages();
+    );
+    debug_process_messages();
   }
 
   while (1);

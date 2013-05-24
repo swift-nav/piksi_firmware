@@ -208,10 +208,12 @@ if __name__ == "__main__":
     while True:
 #      print chr(char + 65), "\r",
 #      sys.stdout.flush()
-#      link.send_message(0xEC,chr(char+65))
-      link.send_char(chr(char))
-      char = (char + 1) % 256
+      link.send_message(0xEC,chr(char+65))
+#      link.send_char(chr(char))
+#      char = (char + 1) % 256
+      char = (char + 1) % 25
       time.sleep(0.001)
+#      pass
   except KeyboardInterrupt:
     pass
   finally:
