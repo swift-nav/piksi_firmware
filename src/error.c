@@ -41,8 +41,8 @@ void screaming_death(void)
                                             MSG_PRINT, SCREAMING_MSG_N,
                                             'E', 'R', 'R', 'O', 'R', '!', '\n',
                                             /* Hard coded CRC */
-                                            [SCREAMING_MSG_N+4] = 0x3c,
-                                            [SCREAMING_MSG_N+5] = 0x54};
+                                            [SCREAMING_MSG_N+4] = 0x54,
+                                            [SCREAMING_MSG_N+5] = 0x3c};
 
   u8 i = 0;
   while (1) {
@@ -89,8 +89,8 @@ void speaking_death(char *msg)
   /* Insert CRC */
   u16 crc = crc16_ccitt((u8 *)&err_msg[2], 2, 0);
   crc = crc16_ccitt((u8 *)&err_msg[4], SPEAKING_MSG_N, crc);
-  err_msg[SPEAKING_MSG_N+4] = (crc >> 8) & 0xFF;
-  err_msg[SPEAKING_MSG_N+5] = crc & 0xFF;
+  err_msg[SPEAKING_MSG_N+4] = crc & 0xFF;
+  err_msg[SPEAKING_MSG_N+5] = (crc >> 8) & 0xFF;
 
   /* Continuously send error message */
   i=0;
