@@ -19,12 +19,9 @@
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/usart.h>
 #include <libopencm3/stm32/f4/dma.h>
-//#include <libopencm3/cm3/nvic.h>
-#include <libopencm3/stm32/f4/nvic.h>
 
 #include "../settings.h"
 #include "usart.h"
-#include "error.h"
 
 usart_rx_dma_state ftdi_rx_state;
 usart_tx_dma_state ftdi_tx_state;
@@ -44,30 +41,9 @@ void usart_set_parameters(u32 usart, u32 baud)
 	usart_set_parity(usart, USART_PARITY_NONE);
 	usart_set_flow_control(usart, USART_FLOWCONTROL_NONE);
 	usart_set_mode(usart, USART_MODE_TX_RX);
-//  USART_CR1(usart) |= USART_CR1_PEIE | USART_CR1_TXEIE | USART_CR1_TCIE |
-//                      USART_CR1_RXNEIE | USART_CR1_IDLEIE;
-//  USART_CR2(usart) |= USART_CR2_LBDIE;
-//  USART_CR3(usart) |= USART_CR3_CTSIE | USART_CR3_RTSE;
-  USART_CR1(usart) |= USART_CR1_PEIE;
-  USART_CR2(usart) |= USART_CR2_LBDIE;
-  USART_CR3(usart) |= USART_CR3_CTSIE | USART_CR3_RTSE;
-  usart_enable_error_interrupt(usart);
 
 	/* Enable the USART. */
 	usart_enable(usart);
-}
-
-void usart1_isr(void){
-  static char err_msg[] = {"usart1_isr"};
-  speaking_death(err_msg);
-}
-void usart3_isr(void){
-  static char err_msg[] = {"usart3_isr"};
-  speaking_death(err_msg);
-}
-void usart6_isr(void){
-  static char err_msg[] = {"usart6_isr"};
-  speaking_death(err_msg);
 }
 
 /** Set up the USART peripherals.
@@ -106,10 +82,6 @@ void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
   usart_set_parameters(USART6, ftdi_baud);
   usart_set_parameters(USART1, uarta_baud);
   usart_set_parameters(USART3, uartb_baud);
-
-//  nvic_enable_irq(NVIC_USART1_IRQ);
-//  nvic_enable_irq(NVIC_USART3_IRQ);
-  nvic_enable_irq(NVIC_USART6_IRQ);
 
   /* FTDI (USART6) TX - DMA2, stream 6, channel 5. */
   usart_tx_dma_setup(&ftdi_tx_state, USART6, DMA2, 6, 5);
