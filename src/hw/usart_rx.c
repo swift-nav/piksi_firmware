@@ -200,8 +200,6 @@ u32 usart_n_read_dma(usart_rx_dma_state* s)
 u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len)
 {
   u32 n_available = usart_n_read_dma(s);
-  if (n_available < len)
-    return 0;
   u16 n = (len > n_available) ? n_available : len;
 
   if (s->rd + n < USART_RX_BUFFER_LEN) {
