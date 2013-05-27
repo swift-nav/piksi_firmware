@@ -42,8 +42,6 @@ int main(void)
 {
   init();
 
-  m25_setup();
-
   manage_acq_setup();
   cw_setup();
 
