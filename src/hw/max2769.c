@@ -61,10 +61,10 @@ void max2769_setup()
           MAX2769_CONF1_MIXEN |
           MAX2769_CONF1_ANTEN |
 
-          //MAX2769_CONF1_FCEN(7) | //1mhz center
-//          MAX2769_CONF1_FCEN(43) | //2mhz center
-          MAX2769_CONF1_FCEN(21) | //4mhz center
-          //MAX2769_CONF1_FCEN(42) | //8mhz center
+          //MAX2769_CONF1_FCEN(7) | /* 1MHz IF filter center frequency */
+          //MAX2769_CONF1_FCEN(43) | /* 2mhz IF filter center frequency */
+          MAX2769_CONF1_FCEN(21) | /* 4mhz IF filter center frequency */
+          //MAX2769_CONF1_FCEN(42) | /* 8mhz IF filter center frequency */
           MAX2769_CONF1_FBW_2_5MHZ |
           MAX2769_CONF1_F3OR5_5 |
           MAX2769_CONF1_FCENX_BP |
@@ -74,8 +74,8 @@ void max2769_setup()
 
   max2769_write(MAX2769_CONF2,
     //MAX2769_CONF2_IQEN |
-    MAX2769_CONF2_GAINREF(170) | //optimal for 2 bits
-    //MAX2769_CONF2_GAINREF(82) | //optimal for 3 bits
+    MAX2769_CONF2_GAINREF(170) | /* optimal for 2 bits */
+    //MAX2769_CONF2_GAINREF(82) | /* optimal for 3 bits */
     MAX2769_CONF2_AGCMODE_INDEP |
     MAX2769_CONF2_FORMAT_SIGN_MAG |
     MAX2769_CONF2_BITS_1 |
@@ -102,8 +102,8 @@ void max2769_setup()
     MAX2769_PLLCONF_RESERVED |
     MAX2769_PLLCONF_VCOEN |
     MAX2769_PLLCONF_REFOUTEN |
-//    MAX2769_PLLCONF_REFDIV_DIV_2 |
-    MAX2769_PLLCONF_REFDIV_DIV_NONE |
+    //MAX2769_PLLCONF_REFDIV_DIV_2 | /* 8.184 MHz sample rate */
+    MAX2769_PLLCONF_REFDIV_DIV_NONE | /* 16.368 MHz sample rate */
     MAX2769_PLLCONF_IXTAL_BUFF_NORMAL |
     MAX2769_PLLCONF_XTALCAP(0b10000) |
     MAX2769_PLLCONF_LDMUX(0) |
@@ -113,8 +113,8 @@ void max2769_setup()
   );
 
   max2769_write(MAX2769_DIV,
-//    MAX2769_DIV_NDIV(1538) |
-    MAX2769_DIV_NDIV(1536) |
+    //MAX2769_DIV_NDIV(1538) | /* 2*1.023MHz IF */
+    MAX2769_DIV_NDIV(1536) | /* 4*1.023MHz IF */
     MAX2769_DIV_RDIV(16)
   );
   max2769_write(MAX2769_FDIV,
