@@ -108,6 +108,12 @@ class Sat:
       return doppler_shift
     else:
       return None
+  def packed(self):
+    import struct
+    return struct.pack("<ddddddddddHBBB",
+      self.ecc, self.toa, self.inc, self.rora, self.a, self.raaw, self.argp,
+      self.ma, self.af0, self.af1, self.week, self.prn, self.healthy, 1
+    )
 
   def __str__(self):
     dopp = self.calc_vis_dopp(time_of_week(), WPR)
