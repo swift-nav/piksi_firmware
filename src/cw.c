@@ -166,6 +166,8 @@ void cw_service_irq()
 
 /** Send results of a CW search point back to the PC via the debug interface.
  *
+ * \param freq  Frequency of the CW correlation
+ * \param power Magnitude of the CW correlation
  */
 void cw_send_result(float freq, u64 power)
 {
@@ -177,10 +179,15 @@ void cw_send_result(float freq, u64 power)
   msg.freq = freq;
   msg.power = power;
 
-  /* TODO : does sizeof(msg) = sizeof(float) + sizeof(u64)? */
   debug_send_msg(MSG_CW_RESULTS, sizeof(msg), (u8*)&msg);
 }
 
+/** Get a point from the CW correlations array
+ *
+ * \param freq  float pointer at which frequency of the index correlation will be put
+ * \param power u64 pointer at which magnitude of the index correlation will be put
+ * \param index correlation array index to get the frequency and power from
+ */
 void cw_get_spectrum_point(float* freq, u64* power, u16 index)
 {
 	*freq = 0;
