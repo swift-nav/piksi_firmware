@@ -21,6 +21,7 @@
 #define MSG_PRINT 0x01
 
 #define MSG_ACQ_SETUP   0x69
+#define MSG_SET_TIME   0x68
 
 #define MSG_CW_START    0xC1
 #define MSG_CW_RESULTS  0xC0

@@ -28,6 +28,7 @@
 #include "acq.h"
 #include "nmea.h"
 #include "manage.h"
+#include "timing.h"
 #include "hw/leds.h"
 #include "hw/spi.h"
 #include "hw/m25_flash.h"
@@ -46,6 +47,7 @@ int main(void)
 
   manage_acq_setup();
   cw_setup();
+  time_setup();
 
   led_toggle(LED_RED);
 
