@@ -102,7 +102,7 @@ u32 last_exti_count();
 void wait_for_exti();
 
 //void timing_strobe_setup();
-u32 timing_count();
+u64 timing_count();
 u32 timing_count_latched();
 void timing_strobe(u32 falling_edge_count);
 

@@ -241,7 +241,7 @@ void timing_strobe(u32 falling_edge_count)
 
   /* TODO: need to wait until the timing strobe has finished but also don't
    * want to spin in a busy loop. */
-  while(timing_count() < falling_edge_count);
+  while((u32)timing_count() < falling_edge_count);
 
   /* Add a little bit of delay before the next
    * timing strobe.
@@ -250,10 +250,22 @@ void timing_strobe(u32 falling_edge_count)
     __asm__("nop");
 }
 
-u32 timing_count(){
-  u8 temp[4] = {0,0,0,0};
-  swift_nap_xfer_blocking(SPI_ID_TIMING_COUNT,4,temp,temp);
-  return (temp[0]<<24)|(temp[1]<<16)|(temp[2]<<8)|temp[3];
+u64 timing_count()
+{
+  static u32 rollover_count = 0;
+  static u32 prev_count = 0;
+
+  u8 temp[4] = {0, 0, 0, 0};
+  swift_nap_xfer_blocking(SPI_ID_TIMING_COUNT, 4, temp, temp);
+
+  u32 count = (temp[0]<<24) | (temp[1]<<16) | (temp[2]<<8) | temp[3];
+
+  if (count < prev_count)
+    rollover_count++;
+
+  prev_count = count;
+
+  return (u64)count | ((u64)rollover_count << 32);
 }
 
 u32 timing_count_latched(){
