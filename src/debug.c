@@ -90,9 +90,9 @@ void debug_setup(u8 use_settings)
   } else {
     debug_use_settings = 0;
     usarts_setup(
-      USART_DEFUALT_BAUD,
-      USART_DEFUALT_BAUD,
-      USART_DEFUALT_BAUD
+      USART_DEFAULT_BAUD,
+      USART_DEFAULT_BAUD,
+      USART_DEFAULT_BAUD
     );
   }
 
@@ -268,23 +268,28 @@ void debug_process_usart(debug_process_messages_state_t* s)
 
     switch(s->state) {
       case WAITING_1:
-        usart_read_dma(s->rx_state, &temp, 1);
-        if (temp == DEBUG_MAGIC_1)
-          s->state = WAITING_2;
+        if (usart_read_dma(s->rx_state, &temp, 1)) {
+          if (temp == DEBUG_MAGIC_1)
+            s->state = WAITING_2;
+        }
         break;
       case WAITING_2:
-        usart_read_dma(s->rx_state, &temp, 1);
-        if (temp == DEBUG_MAGIC_2)
-          s->state = GET_TYPE;
+        if (usart_read_dma(s->rx_state, &temp, 1)) {
+          if (temp == DEBUG_MAGIC_2)
+            s->state = GET_TYPE;
+          else
+            s->state = WAITING_1;
+        }
         break;
       case GET_TYPE:
-        usart_read_dma(s->rx_state, &(s->msg_type), 1);
-        s->state = GET_LEN;
+        if (usart_read_dma(s->rx_state, &(s->msg_type), 1))
+          s->state = GET_LEN;
         break;
       case GET_LEN:
-        usart_read_dma(s->rx_state, &(s->msg_len), 1);
-        s->msg_n_read = 0;
-        s->state = GET_MSG;
+        if (usart_read_dma(s->rx_state, &(s->msg_len), 1)) {
+          s->msg_n_read = 0;
+          s->state = GET_MSG;
+        }
         break;
       case GET_MSG:
         if (s->msg_len - s->msg_n_read > 0) {
@@ -295,19 +300,31 @@ void debug_process_usart(debug_process_messages_state_t* s)
               s->msg_len - s->msg_n_read
           );
         }
+        /*
+         * TODO : <= ? change to == and have a separate case for < ?
+         * CRC should catch this though.
+         */
         if (s->msg_len - s->msg_n_read <= 0) {
+          s->crc_n_read = 0;
           s->state = GET_CRC;
         }
         break;
       case GET_CRC:
-        if (len >= 2) {
-          usart_read_dma(s->rx_state, (u8*)&crc_rx, 2);
+        if (s->crc_n_read < 2) {
+          s->crc_n_read += usart_read_dma(
+              s->rx_state,
+              &(s->crc[s->crc_n_read]),
+              2 - s->crc_n_read
+          );
+        }
+        if (s->crc_n_read >= 2) {
           crc = crc16_ccitt(&(s->msg_type), 1, 0);
           crc = crc16_ccitt(&(s->msg_len), 1, crc);
           crc = crc16_ccitt(s->msg_buff, s->msg_len, crc);
+          crc_rx = (s->crc[0]) |
+                  ((s->crc[1] & 0xFF) << 8);
           if (crc_rx == crc) {
             /* Message complete, process it. */
-            /*printf("msg: %02X, len %d\n", s->msg_type, s->msg_len);*/
             msg_callback_t cb = debug_find_callback(s->msg_type);
             if (cb)
               (*cb)(s->msg_buff);

@@ -27,12 +27,11 @@ int main(void)
 
   /* Setup and hold the FPGA PROGRAM_B line low so that the FPGA does not
    * contest the flash SPI bus */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
-  gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
-  gpio_clear(GPIOC, GPIO12);
+  swift_nap_conf_b_setup();
+  swift_nap_conf_b_clear();
 
   spi_setup();
-  debug_setup(1);
+  debug_setup(0);
   m25_setup();
   stm_flash_callbacks_setup();
 
@@ -43,9 +42,7 @@ int main(void)
   printf("--- M25 FLASH TEST ---\n");
 
   while (1) {
-    for (u32 i = 0; i < 10000; i++)
-      __asm__("nop");
-    DO_EVERY(20,
+    DO_EVERY(300,
       led_toggle(LED_GREEN);
       led_toggle(LED_RED);
     );

@@ -40,25 +40,7 @@ void stm_flash_erase_sector_callback(u8 buff[])
   flash_lock();
 
   /* Send message back to PC to signal operation is finished */
-  debug_send_msg(MSG_STM_FLASH_COMPLETE, 0, 0);
-}
-
-void stm_flash_program_byte_callback(u8 buff[])
-{
-  /* Msg format : 4 bytes, address to program
-   *              1 byte, data to program at address */
-  u32 address = *(u32 *)&buff[0];
-  u8 data = buff[4];
-
-  /* TODO : Add check to restrict addresses that can be programmed? */
-
-  /* Program specified address with data. */
-  flash_unlock();
-  flash_program_byte(address, data);
-  flash_lock();
-
-  /* Send message back to PC to signal operation is finished */
-  debug_send_msg(MSG_STM_FLASH_COMPLETE, 0, 0);
+  debug_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
 void stm_flash_program_callback(u8 buff[])
@@ -78,7 +60,7 @@ void stm_flash_program_callback(u8 buff[])
   flash_lock();
 
   /* Send message back to PC to signal operation is finished */
-  debug_send_msg(MSG_STM_FLASH_COMPLETE, 0, 0);
+  debug_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
 void stm_flash_read_callback(u8 buff[])
@@ -102,8 +84,8 @@ void stm_flash_read_callback(u8 buff[])
     callback_data[5+i] = *(u8 *)(address+i);
   }
 
-  /* Send bytes to PC */
-  debug_send_msg(MSG_STM_FLASH_READ, length+5, callback_data);
+  /* If sending message fails (buffer is full), keep trying until successful */
+  while(debug_send_msg(MSG_STM_FLASH_READ, length+5, callback_data));
 }
 
 void stm_unique_id_callback()
@@ -116,22 +98,18 @@ void stm_flash_callbacks_setup()
   /* Create message callbacks node types to add to debug callback
    * linked list for each flash callback defined above */
   static msg_callbacks_node_t stm_flash_erase_sector_node;
-  static msg_callbacks_node_t stm_flash_program_node;
-  static msg_callbacks_node_t stm_flash_program_byte_node;
   static msg_callbacks_node_t stm_flash_read_node;
+  static msg_callbacks_node_t stm_flash_program_node;
   static msg_callbacks_node_t stm_unique_id_node;
 
   /* Insert callbacks in debug callback linked list so they can be called */
-  debug_register_callback(MSG_STM_FLASH_ERASE_SECTOR,
+  debug_register_callback(MSG_STM_FLASH_ERASE,
                           &stm_flash_erase_sector_callback,
                           &stm_flash_erase_sector_node);
   debug_register_callback(MSG_STM_FLASH_READ,
                           &stm_flash_read_callback,
                           &stm_flash_read_node);
-  debug_register_callback(MSG_STM_FLASH_PROGRAM_BYTE,
-                          &stm_flash_program_byte_callback,
-                          &stm_flash_program_byte_node);
-  debug_register_callback(MSG_STM_FLASH_PROGRAM,
+  debug_register_callback(MSG_STM_FLASH_WRITE,
                           &stm_flash_program_callback,
                           &stm_flash_program_node);
   debug_register_callback(MSG_STM_UNIQUE_ID,

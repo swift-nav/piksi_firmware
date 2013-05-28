@@ -73,15 +73,11 @@ void m25_read(u32 addr, u32 len, u8 *buff)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
 
-//  spi_xfer(SPI_BUS_FLASH, M25_FAST_READ);
   spi_xfer(SPI_BUS_FLASH, M25_READ);
 
   spi_xfer(SPI_BUS_FLASH, (addr >> 16) & 0xFF);
   spi_xfer(SPI_BUS_FLASH, (addr >> 8) & 0xFF);
   spi_xfer(SPI_BUS_FLASH, addr & 0xFF);
-
-//  spi_xfer(SPI_BUS_FLASH, 0x00); // Dummy byte
-
 
   for(u32 i=0; i < len; i++)
     buff[i] = spi_xfer(SPI_BUS_FLASH, 0x00);
@@ -166,19 +162,19 @@ void flash_write_callback(u8 buff[])
   m25_write_enable();
   m25_page_program(addr, len, data);
 
-  debug_send_msg(MSG_FLASH_COMPLETE, 0, 0);
+  debug_send_msg(MSG_M25_FLASH_DONE, 0, 0);
 }
 
 void flash_read_callback(u8 buff[])
 {
-  /* Msg format:  u32 addr, u32 len */
+  /* Msg format:  u32 addr, u8 len */
 
   u32 addr, len;
   static char flash_data[M25_READ_SIZE];
 
   addr = *(u32 *)&buff[0];
-  len  = *(u32 *)&buff[4];
-  u8 callback_data[M25_READ_SIZE+4];
+  len = buff[4];
+  u8 callback_data[M25_READ_SIZE+5];
 
   u8 chunk_len;
   while (len > 0) {
@@ -188,17 +184,18 @@ void flash_read_callback(u8 buff[])
 
     /* Pack data for read callback back to host.
      * 3 bytes starting address, 1 byte length, chunk_len byes data */
-    callback_data[0] = (addr >> 16) & 0xFF;
-    callback_data[1] = (addr >> 8) & 0xFF;
-    callback_data[2] = (addr >> 0) & 0xFF;
-    callback_data[3] = chunk_len;
+    callback_data[0] = (addr >> 24) & 0xFF;
+    callback_data[1] = (addr >> 16) & 0xFF;
+    callback_data[2] = (addr >> 8) & 0xFF;
+    callback_data[3] = (addr >> 0) & 0xFF;
+    callback_data[4] = chunk_len;
 
     for (u8 i=0; i<chunk_len; i++) {
-      callback_data[i+4] = flash_data[i];
+      callback_data[i+5] = flash_data[i];
     }
 
     /* Keep trying to send message until we succeed. */
-    while(debug_send_msg(MSG_FLASH_READ,4 + chunk_len,callback_data));
+    while(debug_send_msg(MSG_M25_FLASH_READ,5 + chunk_len,callback_data));
 
     len -= chunk_len;
     addr += chunk_len;
@@ -207,15 +204,15 @@ void flash_read_callback(u8 buff[])
 
 void flash_erase_callback(u8 buff[])
 {
-  /* Msg format: u32 addr
-   * Erases a 65536-byte sector. Any address within the sector will work. */
+  /* Msg format: u8 sector. Erases one of the 16 sectors in the flash. */
 
-  u32 addr = *(u32*)buff;
+  u8 sector = buff[0];
+  u32 addr = ((u32)sector) << 16;
 
   m25_write_enable();
   m25_sector_erase(addr);
 
-  debug_send_msg(MSG_FLASH_COMPLETE, 0, 0);
+  debug_send_msg(MSG_M25_FLASH_DONE, 0, 0);
 }
 
 void m25_setup(void)
@@ -226,17 +223,17 @@ void m25_setup(void)
   static msg_callbacks_node_t flash_erase_node;
 
   debug_register_callback(
-    MSG_FLASH_WRITE,
+    MSG_M25_FLASH_WRITE,
     &flash_write_callback,
     &flash_write_node
   );
   debug_register_callback(
-    MSG_FLASH_READ,
+    MSG_M25_FLASH_READ,
     &flash_read_callback,
     &flash_read_node
   );
   debug_register_callback(
-    MSG_FLASH_ERASE,
+    MSG_M25_FLASH_ERASE,
     &flash_erase_callback,
     &flash_erase_node
   );

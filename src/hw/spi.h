@@ -30,6 +30,7 @@
 #define SPI_BUS_FRONTEND SPI2
 
 void spi_setup(void);
+void spi_deactivate(void);
 void spi_slave_select(u8 slave);
 void spi_slave_deselect(void);
 

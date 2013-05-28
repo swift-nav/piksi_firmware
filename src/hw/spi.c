@@ -59,6 +59,30 @@ void spi_setup(void)
 	spi_enable(SPI2);
 }
 
+void spi_deactivate(){
+  /* Wait until transfers are done per RM0090 page 811 */
+  //while (!(SPI1_SR & SPI_SR_RXNE)); /* RM0090 says to do this but it hangs */
+  //while (!(SPI1_SR & SPI_SR_TXE));
+  while (SPI1_SR & SPI_SR_BSY);
+  spi_disable(SPI1);
+  /* Disable SPI1 periperal clock */
+  RCC_APB2ENR &= ~RCC_APB2ENR_SPI1EN;
+  //while (!(SPI2_SR & SPI_SR_RXNE));
+  //while (!(SPI2_SR & SPI_SR_TXE));
+  while (SPI2_SR & SPI_SR_BSY);
+  spi_disable(SPI2);
+  /* Disble SPI2 periperal clock */
+  RCC_APB1ENR &= ~RCC_APB1ENR_SPI2EN;
+  /* Set all SPI GPIOs to inputs with no pull up/down resistors */
+	gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO4);
+	gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO12);
+	gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO11);
+	gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO5 | GPIO6 | GPIO7);
+  gpio_mode_setup(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO13 | GPIO14 | GPIO15);
+  /* Disble GPIO clocks for CS lines */
+	RCC_AHB1ENR &= ~(RCC_AHB1ENR_IOPAEN | RCC_AHB1ENR_IOPBEN);
+}
+
 void spi_slave_select(u8 slave)
 {
 

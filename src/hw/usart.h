@@ -22,7 +22,7 @@
 #define USART_TX_BUFFER_LEN 4096
 #define USART_RX_BUFFER_LEN 4096
 
-#define USART_DEFUALT_BAUD 230400
+#define USART_DEFAULT_BAUD 1000000
 
 #include <libopencm3/cm3/common.h>
 

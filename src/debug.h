@@ -52,6 +52,8 @@ typedef struct {
   u8 msg_len;
   u8 msg_n_read;
   u8 msg_buff[256];
+  u8 crc_n_read;
+  u8 crc[2];
   usart_rx_dma_state* rx_state;
 } debug_process_messages_state_t;
 
@@ -62,5 +64,6 @@ void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_
 msg_callback_t debug_find_callback(u8 msg_id);
 void debug_process_usart(debug_process_messages_state_t* s);
 void debug_process_messages();
+u16 crc16_ccitt(const u8* buf, u8 len, u16 crc);
 
 #endif

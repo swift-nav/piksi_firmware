@@ -24,12 +24,12 @@ settings_t settings __attribute__ ((section (".settings_area"))) =
 
   .ftdi_usart = {
     .mode = PIKSI_BINARY,
-    .baud_rate = 230400,
+    .baud_rate = 1000000,
     .message_mask = 0xFF,
   },
   .uarta_usart = {
     .mode = PIKSI_BINARY,
-    .baud_rate = 230400,
+    .baud_rate = 1000000,
     .message_mask = 0xFF,
   },
   .uartb_usart = {

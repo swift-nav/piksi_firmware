@@ -23,17 +23,25 @@
 #define MSG_ALMANAC   0x69
 #define MSG_SET_TIME   0x68
 
-#define MSG_CW_START    0xC1
-#define MSG_CW_RESULTS  0xC0
+#define MSG_BOOTLOADER_HANDSHAKE   0xB0 /* Callback in C and Python */
+#define MSG_BOOTLOADER_JUMP_TO_APP 0xB1 /* Callback in C */
 
-#define MSG_NAP_DEVICE_DNA 0xDD //Callback in C and Python
+#define MSG_CW_START   0xC1
+#define MSG_CW_RESULTS 0xC0
 
-#define MSG_FLASH_COMPLETE 0xF0 //Callback in Python
-#define MSG_FLASH_WRITE 0xF0    //Callback in C
-#define MSG_FLASH_READ  0xF1    //Callback in C and Python
-#define MSG_FLASH_ERASE 0xF2    //Callback in C
+#define MSG_NAP_DEVICE_DNA 0xDD /* Callback in C and Python */
 
-#define MSG_JUMP_TO_APP 0xA0
+#define MSG_STM_FLASH_WRITE 0xE0 /* Callback in C */
+#define MSG_STM_FLASH_READ  0xE1 /* Callback in C and Python */
+#define MSG_STM_FLASH_ERASE 0xE2 /* Callback in C */
+#define MSG_STM_FLASH_DONE  0xE0 /* Callback in Python */
+
+#define MSG_STM_UNIQUE_ID 0xE5
+
+#define MSG_M25_FLASH_WRITE 0xF0 /* Callback in C */
+#define MSG_M25_FLASH_READ  0xF1 /* Callback in C and Python */
+#define MSG_M25_FLASH_ERASE 0xF2 /* Callback in C */
+#define MSG_M25_FLASH_DONE  0xF0 /* Callback in Python */
 
 #define MSG_SOLUTION 0x50
 #define MSG_DOPS     0x51
@@ -41,22 +49,4 @@
 
 #define MSG_TRACKING_STATE 0x22
 
-#define MSG_STM_FLASH_PROGRAM_BYTE 0xE0
-#define MSG_STM_FLASH_PROGRAM      0xE4
-#define MSG_STM_FLASH_READ         0xE1 //Callback in C and Python
-#define MSG_STM_FLASH_ERASE_SECTOR 0xE2
-#define MSG_STM_FLASH_COMPLETE     0xE0
-#define MSG_BOOTLOADER_HANDSHAKE   0xE3 //Callback in C and Python
-
-
-#define MSG_STM_FLASH_PROGRAM_BYTE 0xE0
-#define MSG_STM_FLASH_PROGRAM      0xE4
-#define MSG_STM_FLASH_READ         0xE1 //Callback in C and Python
-#define MSG_STM_FLASH_ERASE_SECTOR 0xE2
-#define MSG_STM_FLASH_COMPLETE     0xE0
-#define MSG_BOOTLOADER_HANDSHAKE   0xE3 //Callback in C and Python
-#define MSG_STM_UNIQUE_ID          0xE5
-
-
 #endif /* SWIFTNAV_DEBUG_MESSAGES_H */
-

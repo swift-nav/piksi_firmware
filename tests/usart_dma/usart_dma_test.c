@@ -23,7 +23,15 @@
 #include "init.h"
 #include "error.h"
 #include "hw/leds.h"
+#include "debug.h"
 #include "hw/usart.h"
+#include "swift_nap_io.h"
+
+#define MSG_ECHO 0xEC
+
+void echo_callback(u8 buff[]){
+  printf("%c\r",(char)buff[0]);
+}
 
 int main(void)
 {
@@ -31,46 +39,23 @@ int main(void)
     __asm__("nop");
 
 	led_setup();
+  led_on(LED_GREEN);
+  led_on(LED_RED);
 
-  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_65_472MHz_out_3v3);
+  swift_nap_conf_b_setup();
+  swift_nap_conf_b_clear();
 
-  usarts_setup(USART_DEFUALT_BAUD, USART_DEFUALT_BAUD, USART_DEFUALT_BAUD);
+  debug_setup(0);
 
-  /*printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");*/
-  /*printf("--- USART DMA TEST ---\n");*/
-
-  #define MAX_TX ((u32)(USART_TX_BUFFER_LEN*1.2))
-
-  u8 guard_below[30];
-  u8 buff_out[MAX_TX];
-  u8 guard_above[30];
-  u32 len;
-
-  for (u8 i=0; i<30; i++) {
-    guard_below[i] = 0;
-    guard_above[i] = 0;
-  }
-
-  for (u32 i=0; i<MAX_TX; i++)
-    buff_out[i] = (u8)i;
+  static msg_callbacks_node_t echo_node;
+  debug_register_callback(MSG_ECHO, &echo_callback, &echo_node);
 
   while(1) {
-    /* Random transmit length. */
-    len = (u32)rand() % MAX_TX;
-    while (len)
-      len -= usart_write_dma(&ftdi_tx_state, buff_out, len);
-
-    /* Check the guards for buffer over/underrun. */
-    for (u8 i=0; i<30; i++) {
-      if (guard_below[i] != 0)
-        screaming_death();
-      if (guard_above[i] != 0)
-        screaming_death();
-    }
-
-    /* Introduce some timing jitter. */
-    for (u32 i = 0; i < ((u32)rand() % 10000); i++)
-      __asm__("nop");
+    DO_EVERY(3000,
+      led_toggle(LED_RED);
+      led_toggle(LED_GREEN);
+    );
+    debug_process_messages();
   }
 
   while (1);

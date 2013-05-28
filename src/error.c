@@ -19,67 +19,89 @@
 #include <libopencm3/stm32/f4/dma.h>
 
 #include "hw/leds.h"
+#include "hw/usart.h"
 
 #include "debug.h"
 #include "error.h"
 
-void screaming_death(void) {
-  /* Disable ALL interrupts. */
-  __asm__("CPSID if;");
+/** Last resort, low-level error function.
+ * Halts the program while continually sending a non-descript error message in
+ * debug message format to the FTDI USART, in a way that should get the message
+ * through to the Python console even if it's interrupting another transmission.
+ */
+void screaming_death(void)
+{
+  __asm__("CPSID if;");           /* Disable ALL interrupts. */
+  DMA2_S7CR = 0;                  /* Disable USART TX DMA. */
+  USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA. */
 
-  led_on(LED_RED);
+  #define SCREAMING_MSG_N 7       /* Length of error message */
 
-  u8 error_string[] = "Error!\n";
+  static char err_msg[SCREAMING_MSG_N+6] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2,
+                                            MSG_PRINT, SCREAMING_MSG_N,
+                                            'E', 'R', 'R', 'O', 'R', '!', '\n',
+                                            /* Hard coded CRC */
+                                            [SCREAMING_MSG_N+4] = 0x54,
+                                            [SCREAMING_MSG_N+5] = 0x3c};
+
   u8 i = 0;
-
-  while(1) {
-    while(error_string[i] != 0) {
-      usart_send_blocking(USART6, error_string[i]);
-      i++;
-    }
-
-    for (u32 i = 0; i < 600000; i++)
-      __asm__("nop");
-  }
-};
-
-/** Last resort, low-level error message function.  Halts the program while
- * continually sending a fixed string in debug message format, in a way that
- * should get the message through to the Python console even if it's
- * interrupting another transmission. */
-void speaking_death(char *msg) {
-  __asm__("CPSID if;");           /* Disable all interrupts and faults */
-  DMA2_S7CR = 0;                  /* Disable USART TX DMA */
-  USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
-
-  #define ERR_MSG_N 64            /* Maximum length of error message */
-
-  static char err_msg[ERR_MSG_N+6] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2,
-                                      MSG_PRINT, ERR_MSG_N,
-                                      'E', 'R', 'R', 'O', 'R', ':', ' ',
-                                      [11 ... ERR_MSG_N+3] = '!',
-                                      /* TODO: Fill in CRC here. */
-                                      [ERR_MSG_N+4] = 0x69,
-                                      [ERR_MSG_N+5] = 0x69};
-
-  err_msg[ERR_MSG_N+3]='\n';
-
-  u8 i=0;
-  while (*msg && i < ERR_MSG_N)   /* Don't want to use C library memcpy */
-    err_msg[11+(i++)] = *msg++;
-
-  i=0;
   while (1) {
     while (!(USART6_SR & USART_SR_TXE));
     USART6_DR = err_msg[i];
-    if (++i == (ERR_MSG_N + 6)) {
+    if (++i == (SCREAMING_MSG_N + 6)) {
       i = 0;
       led_toggle(LED_RED);
       for (u32 d = 0; d < 5000000; d++)
         __asm__("nop");
     }
   }
+};
 
+/** Last resort, low-level error message function.
+ * Halts the program while continually sending a fixed error message in debug
+ * message format to the FTDI USART, in a way that should get the message
+ * through to the Python console even if it's interrupting another transmission.
+ *
+ * \param msg A pointer to an array of chars containing the error message.
+ */
+void speaking_death(char *msg)
+{
+  __asm__("CPSID if;");           /* Disable all interrupts and faults */
+  DMA2_S7CR = 0;                  /* Disable USART TX DMA */
+  USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
+
+  #define SPEAKING_MSG_N 64       /* Maximum length of error message */
+
+  static char err_msg[SPEAKING_MSG_N+6] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2,
+                                           MSG_PRINT, SPEAKING_MSG_N,
+                                           'E', 'R', 'R', 'O', 'R', ':', ' ',
+                                           [11 ... SPEAKING_MSG_N+2] = '!',
+                                           [SPEAKING_MSG_N+3] = '\n',
+                                           /* CRC calculated below */
+                                           [SPEAKING_MSG_N+4] = 0x00,
+                                           [SPEAKING_MSG_N+5] = 0x00};
+
+  /* Insert message */
+  u8 i=0;
+  while (*msg && i < SPEAKING_MSG_N)   /* Don't want to use C library memcpy */
+    err_msg[11+(i++)] = *msg++;
+
+  /* Insert CRC */
+  u16 crc = crc16_ccitt((u8 *)&err_msg[2], 2, 0);
+  crc = crc16_ccitt((u8 *)&err_msg[4], SPEAKING_MSG_N, crc);
+  err_msg[SPEAKING_MSG_N+4] = crc & 0xFF;
+  err_msg[SPEAKING_MSG_N+5] = (crc >> 8) & 0xFF;
+
+  /* Continuously send error message */
+  i=0;
+  while (1) {
+    while (!(USART6_SR & USART_SR_TXE));
+    USART6_DR = err_msg[i];
+    if (++i == (SPEAKING_MSG_N + 6)) {
+      i = 0;
+      led_toggle(LED_RED);
+      for (u32 d = 0; d < 5000000; d++)
+        __asm__("nop");
+    }
+  }
 }
-
-

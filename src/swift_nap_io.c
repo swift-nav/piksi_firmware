@@ -108,14 +108,31 @@ void swift_nap_reset()
     __asm__("nop");
 }
 
-/* Check if configuration is finished. Returns 1 if configuration is finished 
+/* Check if configuration is finished. Returns 1 if configuration is finished
  * (line high), 0 if not finished (line low) */
 u8 swift_nap_conf_done()
 {
   return ((gpio_port_read(GPIOC))>>1) & 0x01;
 }
- 
-/* Check if FPGA has finished reading hash from configuration flash. Returns 1 
+
+void swift_nap_conf_b_setup()
+{
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
+  gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
+  gpio_set(GPIOC, GPIO12);
+}
+
+void swift_nap_conf_b_set()
+{
+  gpio_set(GPIOC, GPIO12);
+}
+
+void swift_nap_conf_b_clear()
+{
+  gpio_clear(GPIOC, GPIO12);
+}
+
+/* Check if FPGA has finished reading hash from configuration flash. Returns 1
  * if configuration is finished (line low), 0 if not finished (line high) */
 u8 swift_nap_hash_rd_done()
 {

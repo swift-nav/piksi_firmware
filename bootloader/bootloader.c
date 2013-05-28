@@ -1,6 +1,6 @@
 /*
  * bootloader for the Swift Navigation Piksi GPS Receiver
- * 
+ *
  * Copyright (C) 2010 Gareth McMullin <gareth@blacksphere.co.nz>
  * Copyright (C) 2011 Piotr Esden-Tempski <piotr@esden.net>
  * Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
@@ -27,10 +27,13 @@
 #include <libopencm3/cm3/scb.h>
 
 #include "main.h"
-#include "hw/leds.h"
+#include "swift_nap_io.h"
 #include "debug.h"
+#include "hw/leds.h"
 #include "hw/stm_flash.h"
 #include "hw/usart.h"
+#include "hw/m25_flash.h"
+#include "hw/spi.h"
 
 #define APP_ADDRESS	0x08010000
 #define STACK_ADDRESS 0x10010000
@@ -38,9 +41,12 @@
 u8 pc_wants_bootload = 0;
 u8 current_app_valid = 0;
 
-void jump_to_app_callback(u8 buff[] __attribute__((unused))){
+void jump_to_app_callback(u8 buff[] __attribute__((unused)))
+{
   /* Disable peripherals used in the bootloader */
   debug_disable();
+  spi_deactivate();
+  swift_nap_conf_b_set();
   /* Set vector table base address */
   SCB_VTOR = APP_ADDRESS & 0x1FFFFF00;
   /* Initialise master stack pointer */
@@ -49,7 +55,13 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused))){
   (*(void(**)())(APP_ADDRESS + 4))();
 }
 
-void pc_wants_bootload_callback(u8 buff[] __attribute__((unused))){
+void pc_wants_bootload_callback(u8 buff[] __attribute__((unused)))
+{
+  /* Disable FPGA configuration and set up SPI in case we want to flash M25 */
+  swift_nap_conf_b_setup();
+  swift_nap_conf_b_clear();
+  spi_setup();
+  m25_setup();
   pc_wants_bootload = 1;
 }
 
@@ -60,36 +72,34 @@ int main(void)
   led_off(LED_GREEN);
   led_off(LED_RED);
 
-  /* Setup UART and debug interface for
-   * transmitting and receiving callbacks */
+  /* Setup UART and debug interface for transmitting and receiving callbacks */
   debug_setup(0);
 
-  /* Add callbacks for erasing, programming and reading flash */
+  /* STM flash erase/write/read callbacks */
   stm_flash_callbacks_setup();
 
   /* Add callback for jumping to application after bootloading is finished */
   static msg_callbacks_node_t jump_to_app_node;
-  debug_register_callback(MSG_JUMP_TO_APP, &jump_to_app_callback,
-    &jump_to_app_node);
+  debug_register_callback(MSG_BOOTLOADER_JUMP_TO_APP, &jump_to_app_callback,
+                          &jump_to_app_node);
 
   /* Add callback for PC to tell bootloader it wants to load program */
   static msg_callbacks_node_t pc_wants_bootload_node;
   debug_register_callback(MSG_BOOTLOADER_HANDSHAKE,&pc_wants_bootload_callback,
-    &pc_wants_bootload_node);
+                          &pc_wants_bootload_node);
 
-	/* rom (rx) : ORIGIN = 0x08010000, LENGTH = 896K */
   /* Send message to PC indicating bootloader is ready to load program */
   debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
 
-  /* Is current application we are programmed with valid? Check this
-   * by seeing if the first address of the application contains the
-   * correct stack address */
+  /* Is current application we are programmed with valid? Check this by seeing
+   * if the first address of the application contains the correct stack address
+   */
   current_app_valid = (*(volatile u32*)APP_ADDRESS == STACK_ADDRESS) ? 1:0;
 
   /*
    * Wait a bit for response from PC. If it doesn't respond by calling
-   * pc_wants_bootload_callback and we have a valid application,
-   * then boot the application
+   * pc_wants_bootload_callback and we have a valid application, then boot the
+   * application.
    * TODO : might as well make this as long as FPGA takes to configure itself
    *        from the configuration flash, as it doesn't add to the startup time
    */
@@ -105,7 +115,7 @@ int main(void)
   led_off(LED_RED);
   if ((pc_wants_bootload) || !(current_app_valid)){
     /*
-     * We expect PC application passing application data to call
+     * We expect PC application passing firmware data to call
      * jump_to_app_callback to break us out of this while loop after it has
      * finished sending flash programming callbacks
      */
@@ -115,9 +125,9 @@ int main(void)
         led_toggle(LED_GREEN);
         led_toggle(LED_RED);
         /*
-         * In case PC application was started after we entered the loop. It
-         * is expecting to get a bootloader handshake message before it will
-         * send flash programming callbacks
+         * In case PC application was started after we entered the loop. It is
+         * expecting to get a bootloader handshake message before it will send
+         * flash programming callbacks
          */
         DO_EVERY(10,
           debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);

@@ -25,6 +25,15 @@
 
 acq_state_t acq_state;
 
+/** Schedule a load of samples into the acquisition channel's sample ram.
+ * The load starts at the end of the next timing strobe and continues until the
+ * ram is full, at which time an interrupt is raised to the STM. This interrupt
+ * is cleared by clearing the load enable bit of the acquisition channel's
+ * LOAD ENABLE register.
+ *
+ * \param count The value of the NAP's internal counter at which the timing
+ *              strobe is to go low.
+ */
 void acq_schedule_load(u32 count)
 {
   acq_state.state = ACQ_LOADING;
@@ -32,18 +41,36 @@ void acq_schedule_load(u32 count)
   timing_strobe(count);
 }
 
+/** Handle an acquisition load done interrupt from the NAP acquisition channel.
+ * Clear the enable bit of the acquisition channel load register and change
+ * the acquisition state to ACQ_LOADING_DONE.
+ */
 void acq_service_load_done()
 {
-  //printf("Load done IRQ\n");
   acq_clear_load_enable_blocking();
   acq_state.state = ACQ_LOADING_DONE;
 }
 
+/** Query the state of the acquisition channel sample ram loading.
+ * \return 1 if loading has finished, 0 otherwise
+ */
 u8 acq_get_load_done()
 {
   return (acq_state.state == ACQ_LOADING_DONE);
 }
 
+/** Start acquisitions for a PRN over a code phase / carrier frequency range.
+ * Translate the passed code phase and carrier frequency float values into
+ * acquisition register values. Write values for the first acquisition to the
+ * channel, and then write values for the next pipelined acquisition.
+ *
+ * \param prn      PRN to search (acq_write_code_blocking must be called prior)
+ * \param cp_min   Starting code phase of the first acquisition. (chips)
+ * \param cp_max   Starting code phase of the last acquisition. (chips)
+ * \param cf_min   Carrier frequency of the first acquisition. (Hz)
+ * \param cf_max   Carrier frequency of the last acquisition. (Hz)
+ * \param cf_bin_width Step size between each carrier frequency to search. (Hz)
+ */
 void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width)
 {
   /* Calculate the range parameters in acq units. Explicitly expand
@@ -73,6 +100,15 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
   acq_write_init_blocking(prn, acq_state.cp_min+ACQ_N_TAPS, acq_state.cf_min);
 }
 
+/** Handle an acquisition done interrupt from the NAP acquisition channel.
+ * If acq_state.state =
+ *   ACQ_RUNNING :
+ *     write the next set of pipelined acquisition parameters.
+ *   ACQ_RUNNING_FINISHING :
+ *     channel is currently doing the final acquisition of the set of
+ *     acquisitions, write a pipelined disable to stop the channel after this
+ *     final acquisition.
+ */
 void acq_service_irq()
 {
   u64 power;
@@ -144,11 +180,22 @@ void acq_service_irq()
   }
 }
 
+/** Query the state of the acquisition sequence.
+ * \return 1 if acq_state = ACQ_RUNNING_DONE, 0 otherwise
+ */
 u8 acq_get_done()
 {
   return (acq_state.state == ACQ_RUNNING_DONE);
 }
 
+/** Get the results of the set of acquisitions last performed.
+ * Get the code phase, carrier frequency, and SNR of the acquisition with the
+ * highest SNR of set of acquisitions last performed.
+ *
+ * \param cp  Code phase of the acquisition result
+ * \param cf  Carrier frequency of the acquisition result
+ * \param snr SNR of the acquisition result
+ */
 void acq_get_results(float* cp, float* cf, float* snr)
 {
   *cp = (float)acq_state.best_cp / ACQ_CODE_PHASE_UNITS_PER_CHIP;
@@ -157,6 +204,16 @@ void acq_get_results(float* cp, float* cf, float* snr)
   *snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
 }
 
+/** Do a blocking acquisition in two stages : coarse and fine.
+ * Do a coarse acqusition to find the approximate code phase and carrier
+ * frequency, and then a more fine grained acquisition to find the code phase
+ * and carrier frequency more precisely.
+ *
+ * \param prn PRN to search (acq_write_code_blocking must be called prior)
+ * \param cp  Code phase of the acquisition result
+ * \param cf  Carrier frequency of the acquisition result
+ * \param snr SNR of the acquisition result
+ */
 u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
 {
   /* Initial coarse acq. */
@@ -191,7 +248,7 @@ u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
  * the code phase and carrier frequency of the largest peak in the search space together
  * with the "SNR" value for that peak defined as (peak_magnitude - mean) / std_deviation.
  *
- * \param prn    PRN number - 1 (0..31) to attempt to aqcuire.
+ * \param prn    PRN number - 1 (0..31) to attempt to acquire (acq_write_code_blocking must be called prior).
  * \param cp_min Lower bound for code phase search range in chips.
  * \param cp_max Upper bound for code phase search range in chips.
  * \param cf_min Lower bound for carrier freq. search range in Hz.
