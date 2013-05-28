@@ -57,7 +57,7 @@ class Sat:
     # Begin calc for True Analomay and Argument of Latitude
     tempd2 = m.sqrt(1.0 - self.ecc * self.ecc)
     # [rad] Argument of Latitude = True Anomaly + Argument of Perigee
-    al = m.atan2(tempd2 * m.sin(ea), m.cos(ea) - self.ecc) + self.argp  
+    al = m.atan2(tempd2 * m.sin(ea), m.cos(ea) - self.ecc) + self.argp
     al_dot = tempd2 * ea_dot / tempd1
 
     # Calculate corrected radius based on argument of latitude
@@ -84,14 +84,14 @@ class Sat:
     sat_pos[0] = x * m.cos(om) - y * m.cos(inc) * m.sin(om)
     sat_pos[1] = x * m.sin(om) + y * m.cos(inc) * m.cos(om)
     sat_pos[2] = y * m.sin(inc)
-    
-    tempd3 = y_dot * m.cos(inc) 
+
+    tempd3 = y_dot * m.cos(inc)
 
     # Compute the satellite's velocity in Earth-Centered Eart-Fixed coordiates
     sat_vel[0] = -om_dot * sat_pos[1] + x_dot * m.cos(om) - tempd3 * m.sin(om)
     sat_vel[1] = om_dot * sat_pos[0] + x_dot * m.sin(om) + tempd3 * m.cos(om)
-    sat_vel[2] = y_dot * m.sin(inc) 
-    
+    sat_vel[2] = y_dot * m.sin(inc)
+
     # Compute the angle that a satellite makes with the horizon for
     # the passed receiver location
     vec_rec_sat = sat_pos - receiver_pos
@@ -103,11 +103,12 @@ class Sat:
     # velocity of the satellite in the axis of the vector from receiver to satellite
     radial_velocity = n.vdot(vec_rec_sat, sat_vel)
     doppler_shift = GPS_L1_HZ * -radial_velocity / NAV_C
-    
+
     if (angle_to_horizon > elevation_mask*(m.pi/180)) and (self.healthy):
-      return doppler_shift
+      return (doppler_shift, angle_to_horizon)
     else:
-      return None
+      return (None, None)
+
   def packed(self):
     import struct
     return struct.pack("<ddddddddddHBBB",
@@ -116,7 +117,7 @@ class Sat:
     )
 
   def __str__(self):
-    dopp = self.calc_vis_dopp(time_of_week(), WPR)
+    dopp, _ = self.calc_vis_dopp(time_of_week(), WPR)
     if dopp != None:
       return "PRN%02d\t@ %+7.1f Hz\n" % (self.prn, dopp)
     else:
@@ -154,8 +155,8 @@ class Almanac:
       tow = time_of_week()
 
     if self.sats:
-      dopps = map(lambda s: (s.prn, s.calc_vis_dopp(tow, location)), self.sats)
-      dopps = filter(lambda (prn, dopp): (dopp != None), dopps)
+      dopps = map(lambda s: (s.prn,)+s.calc_vis_dopp(tow, location, elevation_mask=0.0), self.sats)
+      dopps = filter(lambda (prn, dopp, el): (dopp != None), dopps)
       return dopps
     else:
       return None
