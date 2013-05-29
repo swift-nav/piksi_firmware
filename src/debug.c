@@ -71,6 +71,15 @@ static const u16 crc16tab[256] = {
   0x6e17,0x7e36,0x4e55,0x5e74,0x2e93,0x3eb2,0x0ed1,0x1ef0
 };
 
+/** Calculate CCITT 16 bit cyclical redundancy check for a message
+ *
+ * \param buf Array of data to calculate CRC from
+ * \param len Length of array of data
+ * \param crc Initial CRC
+ *
+ * \return 16 bit CRC to append to message
+ */
+/* TODO : add params to doxygen comment */
 u16 crc16_ccitt(const u8* buf, u8 len, u16 crc)
 {
   for (u8 i=0; i<len; i++)
@@ -78,6 +87,10 @@ u16 crc16_ccitt(const u8* buf, u8 len, u16 crc)
   return crc;
 }
 
+/** Setup USARTs and disable stdio buffering for the debug interface
+ *
+ * \param use_settings If 0 use #define baud rates, else use baud rates in flash settings
+ */
 void debug_setup(u8 use_settings)
 {
   if (use_settings && settings.settings_valid == VALID) {
@@ -128,6 +141,20 @@ static inline u32 check_usart(usart_settings_t* us, usart_tx_dma_state* s,
   return (use_usart(us, msg_type) && usart_tx_n_free(s) < len + 4U + 2U + 1U);
 }
 
+/** Handle writing of debug message into TX DMA buffer
+ * Returns 0 (successful) if this USART is not used to send this message type,
+ * or if it is and the message is succesfully written into the TX buffer.
+ * Returns -1 if the message is not successfully written to the TX buffer.
+ *
+ * \param us       Pointer to usart_settings_t struct
+ * \param s        Pointer to usart_tx_dma_state struct
+ * \param msg_type Message ID
+ * \param len      Message data length
+ * \param buff     Pointer to message data array
+ * \param crc      CRC for the message
+ *
+ * \return         Error code
+ */
 static inline u32 send_msg_helper(usart_settings_t* us, usart_tx_dma_state* s,
                                   u8 msg_type, u8 len, u8 buff[], u16 crc)
 {
@@ -143,7 +170,14 @@ static inline u32 send_msg_helper(usart_settings_t* us, usart_tx_dma_state* s,
   return 0;
 }
 
-
+/** Send a debug message out over all applicable USARTs
+ *
+ * \param msg_type Message ID (defined in debug_messages.h)
+ * \param len      Length of message data
+ * \param buff     Pointer to message data array
+ *
+ * \return         Error code
+ */
 u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
 {
   /* Global interrupt disable to avoid concurrency/reentrancy problems. */
@@ -182,10 +216,9 @@ u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
  * Register a callback that is called when a message
  * with type msg_type is received.
  *
- * This function must be passed a pointer to a
- * STATICALLY ALLOCATED msg_callback_node_t which it
- * will use to store a reference to your callback.
- * This struct need not be initialised.
+ * \param msg_type Message ID associated with callback
+ * \param cb       Pointer to message callback function
+ * \param node     Statically allocated msg_callbacks_node_t struct
  */
 void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_t* node)
 {
@@ -215,6 +248,14 @@ void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_
   p->next = node;
 }
 
+/** Find the callback function associated with a message type
+ * Searches through the list of registered callbacks to find the callback
+ * associated with the passed message type.
+ *
+ * \param msg_type Message ID to find callback for
+ *
+ * \return Pointer to callback function (msg_callback_t)
+ */
 msg_callback_t debug_find_callback(u8 msg_type)
 {
   /* If our list is empty, return NULL. */
@@ -235,6 +276,10 @@ msg_callback_t debug_find_callback(u8 msg_type)
   return 0;
 }
 
+/** Process debug messages received through the USARTs.
+ * This function should be called periodically to clear the USART DMA RX
+ * buffers and handle the debug callbacks in them.
+ */
 void debug_process_messages()
 {
   static debug_process_messages_state_t ftdi_s = {
@@ -255,6 +300,13 @@ void debug_process_messages()
   debug_process_usart(&uartb_s);
 }
 
+/** Process debug messages for a particular USART.
+ * Extract data from the USART DMA buffer and parse debug messages in the data.
+ * When a valid debug message is found (callback is registered for the message
+ * ID and CRC is valid), call the callback function for it.
+ *
+ * \param s debug_process_messages_state_t pointer of the USART to process.
+ */
 void debug_process_usart(debug_process_messages_state_t* s)
 {
   u8 len, temp;
@@ -343,6 +395,7 @@ void debug_process_usart(debug_process_messages_state_t* s)
   }
 }
 
+/** Directs printf's output to the debug interface */
 int _write (int file, char *ptr, int len)
 {
 	switch (file) {
