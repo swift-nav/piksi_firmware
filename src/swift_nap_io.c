@@ -332,8 +332,8 @@ void acq_clear_load_enable_blocking()
  * \param carrier_freq Carrier frequency i.e. Doppler in acquisition
  *                     units.
  */
-void acq_pack_init(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq){
-
+void acq_pack_init(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq)
+{
   /* Modulo 1023*4 in case adding ACQ_N_TAPS-1 rolls us over a
    * code phase boundary.
    */
@@ -373,8 +373,8 @@ void acq_disable_blocking()
 }
 
 /* Unpack correlations read from acquisition channel */
-void acq_unpack_corr(u8 packed[], corr_t corrs[]) {
-
+void acq_unpack_corr(u8 packed[], corr_t corrs[])
+{
   struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
 
   for (u8 i=0; i<ACQ_N_TAPS; i++) {
@@ -393,17 +393,20 @@ void acq_unpack_corr(u8 packed[], corr_t corrs[]) {
   }
 }
 
-void acq_read_corr_blocking(corr_t corrs[]) {
+void acq_read_corr_blocking(corr_t corrs[])
+{
   u8 temp[2*ACQ_N_TAPS * 3];
   swift_nap_xfer_blocking(SPI_ID_ACQ_CORR, 2*ACQ_N_TAPS*3, temp, temp);
   acq_unpack_corr(temp, corrs);
 }
 
-void acq_write_code_blocking(u8 prn) {
+void acq_write_code_blocking(u8 prn)
+{
   swift_nap_xfer_blocking(SPI_ID_ACQ_CODE, 128, 0, ca_code(prn));
 }
 
-void track_pack_init(u8 pack[], u8 prn, s32 carrier_phase, u16 code_phase){
+void track_pack_init(u8 pack[], u8 prn, s32 carrier_phase, u16 code_phase)
+{
   /* for length(prn) = 5,
    *     length(carrier_phase) = 24,
    *     length(code_phase) = 14
@@ -416,13 +419,15 @@ void track_pack_init(u8 pack[], u8 prn, s32 carrier_phase, u16 code_phase){
   pack[5] = (prn & 0x1F) | (carrier_phase << 5 & 0xE0);
 }
 
-void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase) {
+void track_write_init_blocking(u8 channel, u8 prn, s32 carrier_phase, u16 code_phase)
+{
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
   track_pack_init(temp, prn, carrier_phase, code_phase);
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_INIT_OFFSET, 6, 0, temp);
 }
 
-void track_pack_update(u8 pack[], s32 carrier_freq, u32 code_phase_rate){
+void track_pack_update(u8 pack[], s32 carrier_freq, u32 code_phase_rate)
+{
   /* for length(prn) = 5,
    *     length(carrier_phase) = 24,
    *     length(code_phase) = 14
@@ -435,13 +440,15 @@ void track_pack_update(u8 pack[], s32 carrier_freq, u32 code_phase_rate){
   pack[5] = carrier_freq;
 }
 
-void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate) {
+void track_write_update_blocking(u8 channel, s32 carrier_freq, u32 code_phase_rate)
+{
   u8 temp[6] = {0, 0, 0, 0, 0, 0};
   track_pack_update(temp, carrier_freq, code_phase_rate);
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_UPDATE_OFFSET, 6, 0, temp);
 }
 
-void track_unpack_corr(u8 packed[], u16* sample_count, corr_t corrs[]) {
+void track_unpack_corr(u8 packed[], u16* sample_count, corr_t corrs[])
+{
 
   struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
 
@@ -463,7 +470,8 @@ void track_unpack_corr(u8 packed[], u16* sample_count, corr_t corrs[]) {
   }
 }
 
-void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]) {
+void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[])
+{
   /* 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8)
    * + 16 bits sample count.
    */
@@ -472,7 +480,8 @@ void track_read_corr_blocking(u8 channel, u16* sample_count, corr_t corrs[]) {
   track_unpack_corr(temp, sample_count, corrs);
 }
 
-void track_unpack_phase(u8 packed[], u32* carrier_phase, u64* code_phase){
+void track_unpack_phase(u8 packed[], u32* carrier_phase, u64* code_phase)
+{
   *carrier_phase = packed[8] |
                    (packed[7] << 8) |
                    (packed[6] << 16);
@@ -539,7 +548,8 @@ void spi_dma_setup() { // not yet updated for v2.2
 
 }
 
-void swift_nap_xfer_dma(u8 n_bytes) { // not yet updated for v2.2
+void swift_nap_xfer_dma(u8 n_bytes) // not yet updated for v2.2
+{
 
   if (DMA1_S3CR & DMA_SxCR_EN || DMA1_S4CR & DMA_SxCR_EN) {
     /* DMA transfer already in progress.
@@ -588,7 +598,8 @@ void track_unpack_corr_dma(corr_t corrs[]) // not yet updated for v2.2
   }
 }
 
-void track_write_code_blocking(u8 channel,u8 prn) {
+void track_write_code_blocking(u8 channel,u8 prn)
+{
   swift_nap_xfer_blocking(SPI_ID_TRACK_BASE + channel*TRACK_SIZE + TRACK_CODE_OFFSET, 128, 0, ca_code(prn));
 }
 
@@ -604,7 +615,8 @@ void cw_clear_load_enable_blocking()
   swift_nap_xfer_blocking(SPI_ID_CW_LOAD_ENABLE, 1, 0, temp);
 }
 
-void cw_pack_init(u8 pack[], s32 carrier_freq){
+void cw_pack_init(u8 pack[], s32 carrier_freq)
+{
   pack[0] = (1<<3) |                        // cw enabled
             ((carrier_freq >> 30) & 0x04) | // carrier freq [sign]
             ((carrier_freq >> 16) & 0x03);  // carrier freq [17:16]
@@ -625,7 +637,8 @@ void cw_disable_blocking()
   swift_nap_xfer_blocking(SPI_ID_CW_INIT, 3, 0, temp);
 }
 
-void cw_unpack_corr(u8 packed[], corr_t* corrs) {
+void cw_unpack_corr(u8 packed[], corr_t* corrs)
+{
 
 	//should 24 instead be a macro constant?
   struct {s32 xtend:24;} sign; // graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
@@ -643,28 +656,32 @@ void cw_unpack_corr(u8 packed[], corr_t* corrs) {
   corrs->I = sign.xtend; /* Sign extend! */
 }
 
-void cw_read_corr_blocking(corr_t* corrs) {
+void cw_read_corr_blocking(corr_t* corrs)
+{
   u8 temp[6]; //6 u8 = 48 bits = 2*(24 bits)
   cw_unpack_corr(temp,corrs);
   swift_nap_xfer_blocking(SPI_ID_CW_CORR, 6, temp, temp);
 }
 
 /* Spartan 6 Device DNA is 57 bits, padded to 64 (with 0's) within FPGA */
-void get_nap_dna(u8 dna[]){
+void get_nap_dna(u8 dna[])
+{
   swift_nap_xfer_blocking(SPI_ID_DNA,8,dna,dna);
 }
 
-/* Returns status of device hash comparison inside FPGA 
+/* Returns status of device hash comparison inside FPGA
  * 0x00 = hashes match
  * 0x01 = hashes do not match
  * 0x02 = one or more hashes are not ready to compare */
-u8 get_nap_hash_status(){
+u8 get_nap_hash_status()
+{
   u8 temp[1] = {0};
   swift_nap_xfer_blocking(SPI_ID_HASH_STATUS,1,temp,temp);
   return temp[0];
 }
 
-void get_nap_dna_callback(){
+void get_nap_dna_callback()
+{
   /* Retrieves Spartan 6 Device DNA and sends back over UART */
   u8 dna[8];
   get_nap_dna(dna);
@@ -672,14 +689,16 @@ void get_nap_dna_callback(){
   debug_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
 }
 
-void swift_nap_callbacks_setup(){
+void swift_nap_callbacks_setup()
+{
   static msg_callbacks_node_t swift_nap_dna_node;
   debug_register_callback(MSG_NAP_DEVICE_DNA, &get_nap_dna_callback, &swift_nap_dna_node);
 }
 
-void get_nap_parameters(){
+void get_nap_parameters()
+{
   /* Define parameters that need to be read from FPGA configuration flash.
-   * Pointers in the array should be in the same order they're stored in the 
+   * Pointers in the array should be in the same order they're stored in the
    * configuration flash. */
   u8 * nap_parameters[2] = {
                             &ACQ_N_TAPS,
@@ -692,11 +711,13 @@ void get_nap_parameters(){
   /* Other parameters that are derived from NAP parameters */
 }
 
-void get_nap_git_hash(u8 git_hash[]){
+void get_nap_git_hash(u8 git_hash[])
+{
   m25_read(FLASH_NAP_GIT_HASH_ADDR,20,git_hash);
 }
 
-u8 get_nap_git_unclean(){
+u8 get_nap_git_unclean()
+{
   u8 unclean;
   m25_read(FLASH_NAP_GIT_UNCLEAN_ADDR, 1, &unclean);
   return unclean;
