@@ -49,6 +49,9 @@ int main(void)
 
   led_toggle(LED_RED);
 
+  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n\r");
+  printf("FPGA configured with %d tracking channels\n", TRACK_N_CHANNELS);
+
   const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
 
   double WPR_ecef[3];
@@ -71,7 +74,6 @@ int main(void)
 
     for (u8 i=0; i<TRACK_N_CHANNELS; i++)
       if (tracking_channel[i].state == TRACKING_RUNNING && tracking_channel[i].nav_msg.subframe_start_index) {
-        printf("PRN %d new subframe\n",tracking_channel[i].prn + 1);
         process_subframe(&tracking_channel[i].nav_msg, &es[tracking_channel[i].prn]);
       }
 

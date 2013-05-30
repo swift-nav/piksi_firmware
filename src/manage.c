@@ -140,7 +140,7 @@ void manage_acq()
        * into the acquisition ram on the Swift NAP for
        * an initial coarse acquisition.
        */
-      printf("Acq choosing PRN: %d\n", best_prn+1);
+      /*printf("Acq choosing PRN: %d\n", best_prn+1);*/
       acq_manage.prn = best_prn;
       acq_prn_param[best_prn].state = ACQ_PRN_ACQUIRING;
       acq_manage.state = ACQ_MANAGE_LOADING_COARSE;
@@ -169,7 +169,9 @@ void manage_acq()
   wgsllh2ecef(WPR_llh, ref_ecef);
 
         double dopp = -calc_sat_doppler_almanac(&almanac[acq_manage.prn], t.tow, t.wn, ref_ecef);
-        printf("Expecting PRN %02d @ %.1f\n", acq_manage.prn+1, dopp);
+        /* TODO: look into accuracy of prediction and possibilities for
+         * improvement, e.g. use clock bias estimated by PVT solution. */
+        /*printf("Expecting PRN %02d @ %.1f\n", acq_manage.prn+1, dopp);*/
         acq_start(acq_manage.prn, 0, 1023, dopp-4000, dopp+4000, ACQ_FULL_CF_STEP);
       } else {
         acq_start(acq_manage.prn, 0, 1023,

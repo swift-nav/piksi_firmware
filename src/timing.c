@@ -35,8 +35,6 @@ gps_time_t get_current_time()
   /* TODO: Think about what happens when timing_count overflows. */
   u64 tc = timing_count();
   gps_time_t t = rx2gpstime(tc);
-  time_t unix_t = gps2time(t);
-  printf("Time is: %s (tc: %u, wn: %d, tow: %.1f)\n", ctime(&unix_t), (unsigned int)tc, t.wn, t.tow);
   return t;
 }
 
@@ -74,7 +72,6 @@ double gps2rxtime(gps_time_t t)
 void set_time_callback(u8 buff[])
 {
   gps_time_t* t = (gps_time_t*)buff;
-  printf("Received GPS time %04d:%.1f\n", t->wn, t->tow);
   set_time_coarse(*t);
 }
 
