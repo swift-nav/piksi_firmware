@@ -65,6 +65,12 @@ u8 nmea_checksum(char* s)
   return sum;
 }
 
+/** Assemble a NMEA GPGGA message and send it out NMEA USARTs.
+ * NMEA GPGGA message contains Global Positioning System Fix Data.
+ *
+ * \param soln Pointer to gnss_solution struct.
+ * \param dops Pointer to dops_t struct.
+ */
 void nmea_gpgga(gnss_solution* soln, dops_t* dops)
 {
   time_t unix_t;
@@ -104,6 +110,12 @@ void nmea_gpgga(gnss_solution* soln, dops_t* dops)
   nmea_output(buf);
 }
 
+/** Assemble a NMEA GPGSA message and send it out NMEA USARTs.
+ * NMEA GPGSA message contains DOP and active satellites.
+ *
+ * \param chans Pointer to tracking_channel_t struct.
+ * \param dops  Pointer to dops_t struct.
+ */
 void nmea_gpgsa(tracking_channel_t* chans, dops_t* dops)
 {
   char buf[80] = "$GPGSA,A,3,";
@@ -129,6 +141,13 @@ void nmea_gpgsa(tracking_channel_t* chans, dops_t* dops)
   nmea_output(buf);
 }
 
+/** Assemble a NMEA GPGSV message and send it out NMEA USARTs.
+ * NMEA GPGSV message contains GPS satellites in view.
+ *
+ * \param n_used   Number of satellites currently being tracked.
+ * \param nav_meas Pointer to navigation_measurement struct.
+ * \param soln     Pointer to gnss_solution struct.
+ */
 void nmea_gpgsv(u8 n_used, navigation_measurement_t* nav_meas,
                 gnss_solution* soln)
 {
