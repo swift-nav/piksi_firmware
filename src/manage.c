@@ -30,6 +30,11 @@ acq_prn_t acq_prn_param[32] = {
 acq_manage_t acq_manage;
 
 msg_callbacks_node_t acq_setup_callback_node;
+/** Sets acquisition search state.
+ * Allows host to set PRNs to search for and in what frequency range.
+ *
+ * \param buff Array of 32 acq_prn_t structs, one for each SV
+ */
 void acq_setup_callback(u8 buff[])
 {
   acq_prn_t *acq_prn_param_new = (acq_prn_t*)buff;
@@ -40,16 +45,15 @@ void acq_setup_callback(u8 buff[])
   for (u8 prn=0; prn<32; prn++) {
     if (acq_prn_param[prn].state != ACQ_PRN_ACQUIRING
         && acq_prn_param[prn].state != ACQ_PRN_TRACKING) {
-      /*printf("Setting PRN %02d, %d %d ... %d\n", prn+1,*/
-          /*acq_prn_param_new[prn].state,*/
-          /*acq_prn_param_new[prn].carrier_freq_min,*/
-          /*acq_prn_param_new[prn].carrier_freq_max*/
-      /*);*/
       memcpy(&acq_prn_param[prn], &acq_prn_param_new[prn], sizeof(acq_prn_t));
     }
   }
 }
 
+/** Initializes acquisition search state.
+ * Sets carrier frequency search range for all SV's to maximum range and
+ * registers acq_setup_callback.
+ */
 void manage_acq_setup()
 {
   for (u8 prn=0; prn<32; prn++) {
@@ -59,6 +63,7 @@ void manage_acq_setup()
   debug_register_callback(MSG_ACQ_SETUP, &acq_setup_callback, &acq_setup_callback_node);
 }
 
+/** Manages acquisition searches and starts tracking channels after successful acquisitions. */
 void manage_acq()
 {
   switch (acq_manage.state) {
@@ -240,6 +245,11 @@ void manage_acq()
   }
 }
 
+/** Find an available tracking channel to start tracking an acquired PRN with.
+ *
+ * \param snr SNR of the acquisition.
+ * \return Index of first unused tracking channel.
+ */
 u8 manage_track_new_acq(float snr __attribute__((unused)))
 {
   /* Decide which (if any) tracking channel to put
@@ -254,6 +264,7 @@ u8 manage_track_new_acq(float snr __attribute__((unused)))
   return MANAGE_NO_CHANNELS_FREE;
 }
 
+/** Disable any tracking channel whose SNR is below a certain margin. */
 void manage_track()
 {
   for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
