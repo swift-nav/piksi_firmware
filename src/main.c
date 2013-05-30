@@ -77,65 +77,60 @@ int main(void)
         process_subframe(&tracking_channel[i].nav_msg, &es[tracking_channel[i].prn]);
       }
 
-    u8 n_ready = 0;
-    for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
-      if (es[tracking_channel[i].prn].valid == 1 && \
-          es[tracking_channel[i].prn].healthy == 1 && \
-          tracking_channel[i].state == TRACKING_RUNNING && \
-          tracking_channel[i].TOW_ms > 0) {
-        __asm__("CPSID i;");
-        tracking_update_measurement(i, &meas[n_ready]);
-        __asm__("CPSIE i;");
+    /*u32 foo;*/
 
-        n_ready++;
-      }
-    }
-    if (n_ready >= 4) {
-      /* Got enough sats/ephemerides, do a solution. */
-      calc_navigation_measurement(n_ready, meas, nav_meas, (double)timing_count()/SAMPLE_FREQ, es);
+    DO_EVERY_COUNTS(TICK_FREQ/5,
 
-      gnss_solution soln;
-      dops_t dops;
-      calc_PVT(n_ready, nav_meas, &soln, &dops);
+      u8 n_ready = 0;
+      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+        if (es[tracking_channel[i].prn].valid == 1 && \
+            es[tracking_channel[i].prn].healthy == 1 && \
+            tracking_channel[i].state == TRACKING_RUNNING && \
+            tracking_channel[i].TOW_ms > 0) {
+          __asm__("CPSID i;");
+          tracking_update_measurement(i, &meas[n_ready]);
+          __asm__("CPSIE i;");
 
-      double mean_range = 0;
-      double ranges[n_ready];
-      for (u8 i=0; i<n_ready; i++) {
-        ranges[i] = predict_range(WPR_ecef, nav_meas[i].tot, &es[meas[i].prn]);
-        mean_range += ranges[i];
-      }
-      mean_range /= n_ready;
-      double pr_errs[TRACK_N_CHANNELS];
-      double mean = 0;
-      for (u8 i=0; i<n_ready; i++) {
-        pr_errs[i] = nav_meas[i].pseudorange - (ranges[i] - mean_range + NOMINAL_RANGE);
-        mean += pr_errs[i];
-      }
-      mean /= n_ready;
-      for (u8 i=0; i<n_ready; i++) {
-        pr_errs[i] -= mean;
-      }
-      for (u8 i=n_ready; i<TRACK_N_CHANNELS; i++) {
-        pr_errs[i] = 0;
+          n_ready++;
+        }
       }
 
-      wgsecef2ned_d(soln.pos_ecef, WPR_ecef, soln.pos_ned);
-      DO_EVERY_COUNTS(SAMPLE_FREQ/4,
-        /*debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);*/
-        /*debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);*/
+      if (n_ready >= 4) {
+        /* Got enough sats/ephemerides, do a solution. */
+        /* TODO: Instead of passing 32 LSBs of timing_count do something more
+         * intelligent with the solution time. */
 
-        /*debug_send_msg(MSG_PR_ERRS, sizeof(pr_errs), (u8 *) pr_errs);*/
-        nmea_gpgga(&soln, &dops);
-      );
-      DO_EVERY_COUNTS(SAMPLE_FREQ,
-        nmea_gpgsv(n_ready, nav_meas, &soln);
-      );
-    }
+        /*printf("n_ready = %d\n", n_ready);*/
+        /*foo = time_ticks();*/
 
-    DO_EVERY_COUNTS(SAMPLE_FREQ,
+        calc_navigation_measurement(n_ready, meas, nav_meas, (double)((u32)timing_count())/SAMPLE_FREQ, es);
+
+        /*printf("Nav meas took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
+        /*foo = time_ticks();*/
+
+        gnss_solution soln;
+        dops_t dops;
+        if (calc_PVT(n_ready, nav_meas, &soln, &dops) == 0) {
+          /*printf("calc_PVT took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
+          /*foo = time_ticks();*/
+
+          wgsecef2ned_d(soln.pos_ecef, WPR_ecef, soln.pos_ned);
+
+          debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
+          /*nmea_gpgga(&soln, &dops);*/
+
+          /*DO_EVERY(1,*/
+            /*debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);*/
+            /*nmea_gpgsv(n_ready, nav_meas, &soln);*/
+          /*);*/
+        }
+      }
+    );
+
+    DO_EVERY_COUNTS(TICK_FREQ,
       nmea_gpgsa(tracking_channel, 0);
     );
-    DO_EVERY_COUNTS(SAMPLE_FREQ/10, // 10 Hz update
+    DO_EVERY_COUNTS(TICK_FREQ/10, // 10 Hz update
       tracking_send_state();
     );
 
