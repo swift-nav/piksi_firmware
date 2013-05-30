@@ -72,7 +72,6 @@ class TrackingView(HasTraits):
     self.cn0_history = self.cn0_history[-1000:]
 
     chans = np.transpose(self.cn0_history[-200:])
-    print map(len, chans)
     plot_labels = []
     for n in range(TRACK_N_CHANNELS):
       self.plot_data.set_data('ch'+str(n), chans[n])
