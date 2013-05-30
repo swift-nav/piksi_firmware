@@ -29,6 +29,8 @@
 #include "timing.h"
 #include "manage.h"
 #include "debug.h"
+#include "cfs/cfs.h"
+#include "cfs/cfs-coffee.h"
 
 acq_prn_t acq_prn_param[32];
 almanac_t almanac[32];
@@ -42,6 +44,18 @@ void almanac_callback(u8 buff[])
 
   printf("Received alamanc for PRN %02d\n", new_almanac->prn);
   memcpy(&almanac[new_almanac->prn-1], new_almanac, sizeof(almanac_t));
+
+  int fd = cfs_open("almanac", CFS_WRITE);
+  if (fd != -1) {
+    cfs_seek(fd, (new_almanac->prn-1)*sizeof(almanac_t), CFS_SEEK_SET);
+    if (cfs_write(fd, new_almanac, sizeof(almanac_t)) != sizeof(almanac_t))
+      printf("Error writing to almanac file\n");
+    else
+      printf("Saved almanac to flash\n");
+    cfs_close(fd);
+  } else {
+    printf("Error opening almanac file\n");
+  }
 }
 
 void manage_acq_setup()
@@ -49,8 +63,21 @@ void manage_acq_setup()
   for (u8 prn=0; prn<32; prn++) {
     acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
     acq_prn_param[prn].score = 0;
+  }
 
-    almanac[prn].valid = 0;
+  int fd = cfs_open("almanac", CFS_READ);
+  if (fd != -1) {
+    cfs_read(fd, almanac, 32*sizeof(almanac_t));
+    printf("Loaded almanac from flash\n");
+    cfs_close(fd);
+  } else {
+    printf("No almanac file present in flash, create an empty one\n");
+    cfs_coffee_reserve("almanac", 32*sizeof(almanac_t));
+    cfs_coffee_configure_log("almanac", 256, sizeof(almanac_t));
+
+    for (u8 prn=0; prn<32; prn++) {
+      almanac[prn].valid = 0;
+    }
   }
 
   debug_register_callback(
