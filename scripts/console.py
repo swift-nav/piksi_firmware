@@ -33,7 +33,6 @@ from output_stream import OutputStream
 from tracking_view import TrackingView
 from almanac_view import AlmanacView
 from solution_view import SolutionView
-import flash
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -90,19 +89,15 @@ class SwiftConsole(HasTraits):
     self.almanac_view = AlmanacView(self.link)
     self.solution_view = SolutionView(self.link)
 
-    self.flash = flash.Flash(self.link)
-    self.flash.start()
     self.python_console_env = {
         'send_message': self.link.send_message,
         'link': self.link,
-        'flash': self.flash
     }
     self.python_console_env.update(self.tracking_view.python_console_cmds)
     self.python_console_env.update(self.almanac_view.python_console_cmds)
     self.python_console_env.update(self.solution_view.python_console_cmds)
 
   def stop(self):
-    self.flash.stop()
     self.link.close()
 
 console = SwiftConsole(serial_port, use_ftdi=args.ftdi)
