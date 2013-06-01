@@ -32,6 +32,9 @@
  */
 void nmea_output(char* s)
 {
+  /* Global interrupt disable to avoid concurrency/reentrancy problems. */
+  __asm__("CPSID i;");
+
   if (settings.ftdi_usart.mode == NMEA)
     usart_write_dma(&ftdi_tx_state, (u8*)s, strlen(s));
 
@@ -40,6 +43,8 @@ void nmea_output(char* s)
 
   if (settings.uartb_usart.mode == NMEA)
     usart_write_dma(&uartb_tx_state, (u8*)s, strlen(s));
+
+  __asm__("CPSIE i;"); /* Re-enable interrupts. */
 }
 
 /** Calculate the checksum of an NMEA sentence.
@@ -95,8 +100,8 @@ void nmea_gpgga(gnss_solution* soln, dops_t* dops)
 
   char buf[80];
   u8 n = sprintf(buf,
-    "$GPGGA,%02d%02d%05.3f,"
-    "%02d%09.6f,%c,%03d%09.6f,%c,"
+    "$GPGGA,%02d%02d%06.3f,"
+    "%02d%010.7f,%c,%03d%010.7f,%c,"
     "%01d,%02d,%.1f,%1.f,M,,M,,",
     t.tm_hour, t.tm_min, t.tm_sec + frac_s,
     lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,

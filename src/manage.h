@@ -59,9 +59,8 @@ typedef struct {
 #define ACQ_PRN_TRACKING  4
 
 typedef struct __attribute__((packed)) {
-  s16 carrier_freq_min; /* Integer Hz. */
-  s16 carrier_freq_max;
   u8 state;
+  s8 score;
 } acq_prn_t;
 
 void manage_acq_setup();

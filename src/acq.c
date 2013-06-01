@@ -126,7 +126,6 @@ void acq_service_irq()
       break;
 
     case ACQ_RUNNING_FINISHING:
-      printf("Acq finishing\n");
       acq_disable_blocking();
       acq_state.state = ACQ_RUNNING_DONE;
       break;

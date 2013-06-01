@@ -72,8 +72,6 @@ class TrackingView(HasTraits):
     self.cn0_history = self.cn0_history[-1000:]
 
     chans = np.transpose(self.cn0_history[-200:])
-    t = range(len(chans[0]))
-    self.plot_data.set_data('t', t)
     plot_labels = []
     for n in range(TRACK_N_CHANNELS):
       self.plot_data.set_data('ch'+str(n), chans[n])
@@ -99,6 +97,8 @@ class TrackingView(HasTraits):
     self.plot.value_range.bounds_func = lambda l, h, m, tb: (0, h*(1+m))
     self.plot.value_axis.orientation = 'right'
     self.plot.value_axis.axis_line_visible = False
+    t = range(200)
+    self.plot_data.set_data('t', t)
     for n in range(TRACK_N_CHANNELS):
       self.plot_data.set_data('ch'+str(n), [0.0])
       pl = self.plot.plot(('t', 'ch'+str(n)), type='line', color='auto')

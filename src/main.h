@@ -45,12 +45,4 @@
   } \
 } while(0)
 
-#define DO_EVERY_COUNTS(n, cmd) do { \
-  static u32 last_count = 0; \
-  if (timing_count() - last_count > n) { \
-    last_count = timing_count(); \
-    cmd; \
-  } \
-} while(0)
-
 #endif

@@ -15,52 +15,113 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
+#include <libswiftnav/almanac.h>
+#include <libswiftnav/pvt.h>
+#include <libswiftnav/coord_system.h>
+
+#include "main.h"
 #include "acq.h"
 #include "track.h"
+#include "timing.h"
 #include "manage.h"
 #include "debug.h"
+#include "cfs/cfs.h"
+#include "cfs/cfs-coffee.h"
 
-acq_prn_t acq_prn_param[32] = {
-  [0 ... 31] = { .state = ACQ_PRN_TRIED },
-};
+acq_prn_t acq_prn_param[32];
+almanac_t almanac[32];
 
 acq_manage_t acq_manage;
 
-msg_callbacks_node_t acq_setup_callback_node;
-/** Sets acquisition search state.
- * Allows host to set PRNs to search for and in what frequency range.
- *
- * \param buff Array of 32 acq_prn_t structs, one for each SV
- */
-void acq_setup_callback(u8 buff[])
+msg_callbacks_node_t almanac_callback_node;
+void almanac_callback(u8 buff[])
 {
-  acq_prn_t *acq_prn_param_new = (acq_prn_t*)buff;
+  almanac_t *new_almanac = (almanac_t*)buff;
 
-  /* Copy PRN parameters from the setup message for all the PRNs
-   * that are not either tracking or acquiring.
-   */
-  for (u8 prn=0; prn<32; prn++) {
-    if (acq_prn_param[prn].state != ACQ_PRN_ACQUIRING
-        && acq_prn_param[prn].state != ACQ_PRN_TRACKING) {
-      memcpy(&acq_prn_param[prn], &acq_prn_param_new[prn], sizeof(acq_prn_t));
-    }
+  printf("Received alamanc for PRN %02d\n", new_almanac->prn);
+  memcpy(&almanac[new_almanac->prn-1], new_almanac, sizeof(almanac_t));
+
+  int fd = cfs_open("almanac", CFS_WRITE);
+  if (fd != -1) {
+    cfs_seek(fd, (new_almanac->prn-1)*sizeof(almanac_t), CFS_SEEK_SET);
+    if (cfs_write(fd, new_almanac, sizeof(almanac_t)) != sizeof(almanac_t))
+      printf("Error writing to almanac file\n");
+    else
+      printf("Saved almanac to flash\n");
+    cfs_close(fd);
+  } else {
+    printf("Error opening almanac file\n");
   }
 }
 
-/** Initializes acquisition search state.
- * Sets carrier frequency search range for all SV's to maximum range and
- * registers acq_setup_callback.
- */
 void manage_acq_setup()
 {
   for (u8 prn=0; prn<32; prn++) {
-    acq_prn_param[prn].carrier_freq_min = ACQ_FULL_CF_MIN;
-    acq_prn_param[prn].carrier_freq_max = ACQ_FULL_CF_MAX;
+    acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
+    acq_prn_param[prn].score = 0;
   }
-  debug_register_callback(MSG_ACQ_SETUP, &acq_setup_callback, &acq_setup_callback_node);
+
+  int fd = cfs_open("almanac", CFS_READ);
+  if (fd != -1) {
+    cfs_read(fd, almanac, 32*sizeof(almanac_t));
+    printf("Loaded almanac from flash\n");
+    cfs_close(fd);
+  } else {
+    printf("No almanac file present in flash, create an empty one\n");
+    cfs_coffee_reserve("almanac", 32*sizeof(almanac_t));
+    cfs_coffee_configure_log("almanac", 256, sizeof(almanac_t));
+
+    for (u8 prn=0; prn<32; prn++) {
+      almanac[prn].valid = 0;
+    }
+  }
+
+  debug_register_callback(
+    MSG_ALMANAC,
+    &almanac_callback,
+    &almanac_callback_node
+  );
+}
+
+void manage_calc_scores()
+{
+  double az, el;
+  gps_time_t t;
+
+  if (time_quality != TIME_UNKNOWN)
+    t = get_current_time();
+
+  const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
+  double ref_ecef[3];
+  wgsllh2ecef(WPR_llh, ref_ecef);
+
+  for (u8 prn=0; prn<32; prn++) {
+    if (!almanac[prn].valid || time_quality == TIME_UNKNOWN) {
+      /* No almanac or position/time information, give it the benefit of the
+       * doubt. */
+      acq_prn_param[prn].score = 0;
+    } else {
+      calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024, ref_ecef, &az, &el);
+      acq_prn_param[prn].score = (s8)(el/D2R);
+
+      gps_time_t toa;
+      toa.wn = almanac[prn].week + 1024;
+      toa.tow = almanac[prn].toa;
+
+      double dt = fabs(gpsdifftime(t, toa));
+
+      if (time_quality == TIME_GUESS || dt > 2*24*3600) {
+        /* Don't exclude other sats if our time is just a guess or our almanac
+         * is old. */
+        if (acq_prn_param[prn].score < 0)
+          acq_prn_param[prn].score = 0;
+      }
+    }
+  }
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
@@ -79,44 +140,37 @@ void manage_acq()
         /* No tracking channels free :( */
         break;
 
-      /* Acquisition channel is free, decide which PRN
-       * to try and then start it acquiring.
-       */
-      u8 prn;
-      for (prn=0; prn<32; prn++) {
-        if (acq_prn_param[prn].state == ACQ_PRN_UNTRIED)
-          break;
-      }
-
-      if (prn == 32) {
-        /* Didn't find any untried PRNs, reset all tried
-         * PRNs to untried and then pick the first one.
-         */
-        for (u8 n=0; n<32; n++) {
-          if (acq_prn_param[n].state == ACQ_PRN_TRIED) {
-            /* Choose the first tried PRN to be our next
-             * to acquire.
-             */
-            if (prn == 32)
-              prn = n;
-            acq_prn_param[n].state = ACQ_PRN_UNTRIED;
-          }
+      /* Tracking channel is free, decide which PRN
+       * to try and then start it acquiring. */
+      s8 best_prn = -1;
+      s8 best_score = -1;
+      manage_calc_scores();
+      for (u8 prn=0; prn<32; prn++) {
+        if ((acq_prn_param[prn].state != ACQ_PRN_TRACKING) &&
+            (acq_prn_param[prn].state != ACQ_PRN_TRIED) &&
+            (acq_prn_param[prn].score > best_score)) {
+          best_prn = prn;
+          best_score = acq_prn_param[prn].score;
         }
       }
 
-      /* If we still can't find any PRNs to try then we must be
-       * tracking them all? Lets try again in a bit.
-       */
-      if (prn == 32)
+      if (best_score < 0) {
+        /* No good satellites right now. Set all back to untried and try again
+         * later. */
+        for (u8 prn=0; prn<32; prn++) {
+          if (acq_prn_param[prn].state == ACQ_PRN_TRIED)
+            acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
+        }
         break;
+      }
 
       /* We have our PRN chosen, now load some fresh data
        * into the acquisition ram on the Swift NAP for
        * an initial coarse acquisition.
        */
-     // printf("Acq choosing PRN: %d\n", prn+1);
-      acq_manage.prn = prn;
-      acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
+      /*printf("Acq choosing PRN: %d\n", best_prn+1);*/
+      acq_manage.prn = best_prn;
+      acq_prn_param[best_prn].state = ACQ_PRN_ACQUIRING;
       acq_manage.state = ACQ_MANAGE_LOADING_COARSE;
       acq_manage.coarse_timer_count = timing_count() + 1000;
       acq_schedule_load(acq_manage.coarse_timer_count);
@@ -124,7 +178,8 @@ void manage_acq()
     }
 
     case ACQ_MANAGE_LOADING_COARSE:
-      if (timing_count() - acq_manage.coarse_timer_count > 2*SAMPLE_FREQ) {
+      /* TODO: Loading should be part of the acq code not the manage code. */
+      if ((u32)timing_count() - acq_manage.coarse_timer_count > 2*SAMPLE_FREQ) {
         printf("Coarse loading error %u %u\n", (unsigned int)timing_count(), (unsigned int)acq_manage.coarse_timer_count);
         acq_manage.state = ACQ_MANAGE_START;
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
@@ -134,15 +189,25 @@ void manage_acq()
         break;
       /* Done loading, now lets set that coarse acquisition going. */
       acq_write_code_blocking(acq_manage.prn);
-      acq_start(acq_manage.prn, 0, 1023,
-          acq_prn_param[acq_manage.prn].carrier_freq_min,
-          acq_prn_param[acq_manage.prn].carrier_freq_max,
-          ACQ_FULL_CF_STEP);
-      acq_manage.state = ACQ_MANAGE_RUNNING_COARSE;
+      if (almanac[acq_manage.prn].valid && time_quality == TIME_COARSE) {
+        gps_time_t t = rx2gpstime(acq_manage.coarse_timer_count);
 
-      /* Reset the carrier frequency window for the next pass. */
-      acq_prn_param[acq_manage.prn].carrier_freq_min = ACQ_FULL_CF_MIN;
-      acq_prn_param[acq_manage.prn].carrier_freq_max = ACQ_FULL_CF_MAX;
+  const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
+  double ref_ecef[3];
+  wgsllh2ecef(WPR_llh, ref_ecef);
+
+        double dopp = -calc_sat_doppler_almanac(&almanac[acq_manage.prn], t.tow, t.wn, ref_ecef);
+        /* TODO: look into accuracy of prediction and possibilities for
+         * improvement, e.g. use clock bias estimated by PVT solution. */
+        /*printf("Expecting PRN %02d @ %.1f\n", acq_manage.prn+1, dopp);*/
+        acq_start(acq_manage.prn, 0, 1023, dopp-4000, dopp+4000, ACQ_FULL_CF_STEP);
+      } else {
+        acq_start(acq_manage.prn, 0, 1023,
+            ACQ_FULL_CF_MIN,
+            ACQ_FULL_CF_MAX,
+            ACQ_FULL_CF_STEP);
+      }
+      acq_manage.state = ACQ_MANAGE_RUNNING_COARSE;
       break;
 
     case ACQ_MANAGE_RUNNING_COARSE:
@@ -173,7 +238,7 @@ void manage_acq()
       break;
 
     case ACQ_MANAGE_LOADING_FINE:
-      if (timing_count() - acq_manage.fine_timer_count > 2*SAMPLE_FREQ) {
+      if ((u32)timing_count() - acq_manage.fine_timer_count > 2*SAMPLE_FREQ) {
         printf("Fine loading error %u %u\n", (unsigned int)timing_count(), (unsigned int)acq_manage.fine_timer_count);
         acq_manage.state = ACQ_MANAGE_START;
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;

@@ -38,6 +38,7 @@ OBJS += \
 	$(SWIFTNAV_ROOT)/src/acq.o \
 	$(SWIFTNAV_ROOT)/src/manage.o \
 	$(SWIFTNAV_ROOT)/src/settings.o \
+	$(SWIFTNAV_ROOT)/src/timing.o \
 	$(SWIFTNAV_ROOT)/src/nmea.o \
 	$(SWIFTNAV_ROOT)/src/hw/m25_flash.o \
 	$(SWIFTNAV_ROOT)/src/hw/stm_flash.o \

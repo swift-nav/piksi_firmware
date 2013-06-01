@@ -113,16 +113,18 @@ class SolutionView(HasTraits):
       self.pr_plot_data.set_data('pred_prs'+str(n), err)
 
   def solution_callback(self, data):
-    soln = struct.unpack('<3d3d3d3d3d7ddBB', data)
+    print len(data)
+    soln = struct.unpack('<3d3d3d3d3d7ddHBB', data)
     self.pos_llh = [soln[0]*(180/math.pi), soln[1]*(180/math.pi), soln[2]]
     pos_xyz = soln[3:6]
     self.pos_ned = soln[6:9]
     vel_xyz = soln[9:12]
     vel_ned = soln[12:15]
     err_cov = soln[15:22]
-    time = soln[22]
-    soln_valid = soln[23]
-    self.n_used = soln[24]
+    tow = soln[22]
+    week_num = soln[23]
+    soln_valid = soln[24]
+    self.n_used = soln[25]
 
     self.dist = math.sqrt(self.pos_ned[0]**2 + self.pos_ned[1]**2 + self.pos_ned[2]**2)
 
@@ -132,7 +134,7 @@ class SolutionView(HasTraits):
       self.ds.append(self.pos_ned[2])
     else:
       print "Whacky solution detected!"
-    
+
     self.mean_ns = sum(self.ns[:self.mean_len])/len(self.ns[:self.mean_len])
     self.mean_es = sum(self.es[:self.mean_len])/len(self.es[:self.mean_len])
     self.mean_ds = sum(self.ds[:self.mean_len])/len(self.ds[:self.mean_len])

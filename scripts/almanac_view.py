@@ -25,6 +25,7 @@ class AlmanacView(HasTraits):
   download_almanac = Button(label='Download Alamanc')
   load_almanac = Button(label='Load Alamanc File')
   warm_start = Button(label='Warm Start')
+  send_time = Button(label='Send Time')
   alm = Instance(Almanac)
   alm_txt = Str
 
@@ -32,30 +33,27 @@ class AlmanacView(HasTraits):
     Item('alm_txt', label='PRNs visible'),
     Item('download_almanac'),
     Item('load_almanac'),
-    Item('warm_start')
+    Item('warm_start'),
+    Item('send_time')
   )
+
+  def _send_time_fired(self):
+    gps_secs = time.time() - (315964800 - 16)
+    gps_week = int(gps_secs / (7*24*3600))
+    gps_tow = gps_secs % (7*24*3600)
+    print gps_week, gps_tow
+    buff = struct.pack("<dH", gps_tow, gps_week)
+    self.link.send_message(0x68, buff)
 
   def _warm_start_fired(self):
     self.update_alamanc_view()
 
-    acq_prn_t = struct.Struct('<hhB')
-    buff = create_string_buffer(32*acq_prn_t.size)
-    dopps = dict(self.alm.get_dopps())
-
-    for prn in range(1, 33):
-      state = 0 #ACQ_PRN_SKIP
-      cf_min = cf_max = 0.0
-      if prn in dopps.keys():
-        state = 1 #ACQ_PRN_UNTRIED
-        cf_min = round(dopps[prn] - 3500)
-        cf_max = round(dopps[prn] + 3500)
-      acq_prn_t.pack_into(buff, (prn-1)*acq_prn_t.size, cf_min, cf_max, state)
-
-    self.link.send_message(0x69, buff.raw)
+    for sat in self.alm.sats:
+      self.link.send_message(0x69, sat.packed())
 
   def update_alamanc_view(self):
-    prns, dopps = zip(*self.alm.get_dopps())
-    self.alm_txt = str(prns)
+    #prns, dopps = zip(*self.alm.get_dopps())
+    self.alm_txt = str(self.alm.get_dopps())
 
   def _download_almanac_fired(self):
     self.alm.download_almanac()
