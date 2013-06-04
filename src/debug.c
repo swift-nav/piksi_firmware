@@ -190,9 +190,9 @@ u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
     crc = crc16_ccitt(buff, len, crc);
 
     /* Check if required USARTs have room in their buffers. */
-    if (check_usart(&settings.ftdi_usart, &ftdi_tx_state, len, msg_type) ||
-        check_usart(&settings.uarta_usart, &uarta_tx_state, len, msg_type) ||
-        check_usart(&settings.uartb_usart, &uartb_tx_state, len, msg_type)) {
+    if (check_usart(&settings.ftdi_usart, &ftdi_tx_state, msg_type, len) ||
+        check_usart(&settings.uarta_usart, &uarta_tx_state, msg_type, len) ||
+        check_usart(&settings.uartb_usart, &uartb_tx_state, msg_type, len)) {
       __asm__("CPSIE i;");  // Re-enable interrupts
       return -1;
     }
