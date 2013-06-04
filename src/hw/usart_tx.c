@@ -220,7 +220,7 @@ u32 usart_write_dma(usart_tx_dma_state* s, u8 data[], u32 len)
    * the end of the buffer. */
   u32 n_free = usart_tx_n_free(s);
   if (len > n_free)
-    len = n_free;
+    return 0;
 
   u32 old_wr = s->wr;
   s->wr = (s->wr + len) % USART_TX_BUFFER_LEN;
