@@ -20,7 +20,7 @@
 #include "init.h"
 #include "main.h"
 #include "debug.h"
-#include "swift_nap_io.h"
+#include "nap/nap_common.h"
 #include "acq.h"
 #include "hw/leds.h"
 
@@ -39,8 +39,8 @@ int main(void)
   u32 beef_bad = 0;
 
   /* First read should give "DECAFBAD", */
-  swift_nap_xfer_blocking(254, 4, rdwr_in, rdwr_out);
-  if (rdwr_in[0] != 0xDD ||
+  nap_xfer_blocking(254, 4, rdwr_in, rdwr_out);
+  if (rdwr_in[0] != 0xDE ||
       rdwr_in[1] != 0xCA ||
       rdwr_in[2] != 0xFB ||
       rdwr_in[3] != 0xAD) {
@@ -57,7 +57,7 @@ int main(void)
     rdwr_out[1] = i;
     rdwr_out[2] = i;
     rdwr_out[3] = i;
-    swift_nap_xfer_blocking(254, 4, rdwr_in, rdwr_out);
+    nap_xfer_blocking(254, 4, rdwr_in, rdwr_out);
     if (rdwr_in[0] != (u8)(i-1) ||
         rdwr_in[1] != (u8)(i-1) ||
         rdwr_in[2] != (u8)(i-1) ||
@@ -70,7 +70,7 @@ int main(void)
     }
     i++;
 
-    swift_nap_xfer_blocking(255, 4, rdwr_in, NULL);
+    nap_xfer_blocking(255, 4, rdwr_in, NULL);
     if (rdwr_in[0] != 0xDE ||
         rdwr_in[1] != 0xAD ||
         rdwr_in[2] != 0xBE ||

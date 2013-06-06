@@ -20,7 +20,7 @@
 #include "init.h"
 #include "main.h"
 #include "debug.h"
-#include "swift_nap_io.h"
+#include "nap/acq_channel.h"
 #include "acq.h"
 #include "hw/leds.h"
 #include "hw/m25_flash.h"
@@ -37,7 +37,7 @@ int main(void)
   float carrier_freq;
   float snr;
 
-  acq_schedule_load(timing_count() + 1000);
+  acq_schedule_load(nap_timing_count() + 1000);
   while(!(acq_get_load_done()));
   led_off(LED_GREEN);
   led_off(LED_RED);

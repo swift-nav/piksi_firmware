@@ -11,7 +11,7 @@
 
 #include "main.h"
 #include "debug.h"
-#include "swift_nap_io.h"
+#include "nap/nap_common.h"
 #include "acq.h"
 #include "hw/spi.h"
 #include "hw/leds.h"
@@ -27,8 +27,8 @@ int main(void)
 
   /* Setup and hold the FPGA PROGRAM_B line low so that the FPGA does not
    * contest the flash SPI bus */
-  swift_nap_conf_b_setup();
-  swift_nap_conf_b_clear();
+  nap_conf_b_setup();
+  nap_conf_b_clear();
 
   spi_setup();
   debug_setup(0);

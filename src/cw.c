@@ -18,7 +18,7 @@
 #include <math.h>
 #include <stdio.h>
 
-#include "swift_nap_io.h"
+#include "nap/cw_channel.h"
 #include "debug.h"
 #include "cw.h"
 
@@ -53,7 +53,7 @@ void cw_schedule_load(u32 count)
 {
   cw_state.state = CW_LOADING;
   cw_set_load_enable_blocking();
-  timing_strobe(count);
+  nap_timing_strobe(count);
 }
 
 /** Handle a CW load done interrupt from the NAP CW channel.

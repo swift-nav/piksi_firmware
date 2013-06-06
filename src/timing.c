@@ -19,9 +19,10 @@
 #include <time.h>
 #include <stdio.h>
 
+#include "main.h"
 #include "timing.h"
 #include "debug.h"
-#include "swift_nap_io.h"
+#include "nap/nap_common.h"
 
 time_quality_t time_quality = TIME_UNKNOWN;
 
@@ -32,15 +33,15 @@ static double rx_dt = RX_DT_NOMINAL;
 gps_time_t get_current_time()
 {
   /* TODO: Return invalid when TIME_UNKNOWN. */
-  /* TODO: Think about what happens when timing_count overflows. */
-  u64 tc = timing_count();
+  /* TODO: Think about what happens when nap_timing_count overflows. */
+  u64 tc = nap_timing_count();
   gps_time_t t = rx2gpstime(tc);
   return t;
 }
 
 void set_time_coarse(gps_time_t t)
 {
-  set_time_fine(timing_count(), t);
+  set_time_fine(nap_timing_count(), t);
   time_quality = TIME_COARSE;
   time_t unix_t = gps2time(t);
   printf("Time set to: %s (coarse)\n", ctime(&unix_t));
@@ -77,7 +78,7 @@ void set_time_callback(u8 buff[])
 
 void time_setup()
 {
-  /* TODO: Perhaps setup something to check for timing_count overflows
+  /* TODO: Perhaps setup something to check for nap_timing_count overflows
    * periodically. */
   static msg_callbacks_node_t set_time_node;
   debug_register_callback(MSG_SET_TIME, &set_time_callback, &set_time_node);

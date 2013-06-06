@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <libopencm3/stm32/f4/gpio.h>
 
-#include "swift_nap_io.h"
+#include "nap/acq_channel.h"
 #include "acq.h"
 #include "track.h"
 
@@ -38,7 +38,7 @@ void acq_schedule_load(u32 count)
 {
   acq_state.state = ACQ_LOADING;
   acq_set_load_enable_blocking();
-  timing_strobe(count);
+  nap_timing_strobe(count);
 }
 
 /** Handle an acquisition load done interrupt from the NAP acquisition channel.
@@ -220,7 +220,7 @@ u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
   float coarse_carrier_freq;
   float coarse_snr;
 
-  u32 coarse_count = timing_count() + 1000;
+  u32 coarse_count = nap_timing_count() + 1000;
   acq_schedule_load(coarse_count);
   while(!acq_get_load_done());
 
@@ -229,7 +229,7 @@ u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
   acq_get_results(&coarse_code_phase, &coarse_carrier_freq, &coarse_snr);
 
   /* Fine acq. */
-  u32 fine_count = timing_count() + 2000;
+  u32 fine_count = nap_timing_count() + 2000;
   acq_schedule_load(fine_count);
   while(!acq_get_load_done());
 
@@ -260,10 +260,10 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
 {
   acq_start(prn, cp_min, cp_max, cf_min, cf_max, cf_bin_width);
   while(acq_state.state == ACQ_RUNNING) {
-    wait_for_exti();
+    nap_wait_for_exti();
     acq_service_irq();
   }
-  wait_for_exti();
+  nap_wait_for_exti();
   acq_service_irq();
   acq_get_results(cp, cf, snr);
 }

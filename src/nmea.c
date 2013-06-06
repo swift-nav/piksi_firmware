@@ -22,6 +22,7 @@
 
 #include <libswiftnav/coord_system.h>
 
+#include "nap/track_channel.h"
 #include "nmea.h"
 #include "debug.h"
 #include "settings.h"

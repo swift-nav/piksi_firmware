@@ -24,6 +24,8 @@
 #include <libswiftnav/coord_system.h>
 
 #include "main.h"
+#include "nap/track_channel.h"
+#include "nap/acq_channel.h"
 #include "acq.h"
 #include "track.h"
 #include "timing.h"
@@ -172,15 +174,15 @@ void manage_acq()
       acq_manage.prn = best_prn;
       acq_prn_param[best_prn].state = ACQ_PRN_ACQUIRING;
       acq_manage.state = ACQ_MANAGE_LOADING_COARSE;
-      acq_manage.coarse_timer_count = timing_count() + 1000;
+      acq_manage.coarse_timer_count = nap_timing_count() + 1000;
       acq_schedule_load(acq_manage.coarse_timer_count);
       break;
     }
 
     case ACQ_MANAGE_LOADING_COARSE:
       /* TODO: Loading should be part of the acq code not the manage code. */
-      if ((u32)timing_count() - acq_manage.coarse_timer_count > 2*SAMPLE_FREQ) {
-        printf("Coarse loading error %u %u\n", (unsigned int)timing_count(), (unsigned int)acq_manage.coarse_timer_count);
+      if ((u32)nap_timing_count() - acq_manage.coarse_timer_count > 2*SAMPLE_FREQ) {
+        printf("Coarse loading error %u %u\n", (unsigned int)nap_timing_count(), (unsigned int)acq_manage.coarse_timer_count);
         acq_manage.state = ACQ_MANAGE_START;
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
@@ -222,9 +224,9 @@ void manage_acq()
       acq_get_results(&acq_manage.coarse_cp,
                       &acq_manage.coarse_cf,
                       &acq_manage.coarse_snr);
-      printf("PRN %d coarse @ %+.0f Hz, %.1f SNR\n", acq_manage.prn + 1,
-                                    acq_manage.coarse_cf,
-                                    acq_manage.coarse_snr);
+      printf("PRN %d coarse @ %d Hz, %d SNR\n", acq_manage.prn + 1,
+                                    (int)acq_manage.coarse_cf,
+                                    (int)acq_manage.coarse_snr);
       if (acq_manage.coarse_snr < ACQ_THRESHOLD) {
         /* Didn't find the satellite :( */
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
@@ -233,13 +235,13 @@ void manage_acq()
       }
       /* Looks like we have a winner! */
       acq_manage.state = ACQ_MANAGE_LOADING_FINE;
-      acq_manage.fine_timer_count = timing_count() + 1000;
+      acq_manage.fine_timer_count = nap_timing_count() + 1000;
       acq_schedule_load(acq_manage.fine_timer_count);
       break;
 
     case ACQ_MANAGE_LOADING_FINE:
-      if ((u32)timing_count() - acq_manage.fine_timer_count > 2*SAMPLE_FREQ) {
-        printf("Fine loading error %u %u\n", (unsigned int)timing_count(), (unsigned int)acq_manage.fine_timer_count);
+      if ((u32)nap_timing_count() - acq_manage.fine_timer_count > 2*SAMPLE_FREQ) {
+        printf("Fine loading error %u %u\n", (unsigned int)nap_timing_count(), (unsigned int)acq_manage.fine_timer_count);
         acq_manage.state = ACQ_MANAGE_START;
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
@@ -293,7 +295,7 @@ void manage_acq()
         break;
       }
       /* Transition to tracking. */
-      u32 track_count = timing_count() + 20000;
+      u32 track_count = nap_timing_count() + 20000;
       float track_cp = propagate_code_phase(fine_cp, fine_cf, track_count - acq_manage.fine_timer_count);
 
       // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)

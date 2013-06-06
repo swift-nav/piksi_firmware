@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2012 Fergus Noble <fergusnoble@gmail.com>
+ * Copyright (C) 2011 Fergus Noble <fergusnoble@gmail.com>
+ * Copyright (C) 2013 Colin Beighley <colinbeighley@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,31 +16,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SWIFTNAV_SETTINGS_H
-#define SWIFTNAV_SETTINGS_H
+#ifndef SWIFTNAV_NAP_CONF_H
+#define SWIFTNAV_NAP_CONF_H
 
-#include "settings.h"
-#include "hw/usart.h"
+#include <libopencm3/cm3/common.h>
 
-settings_t settings __attribute__ ((section (".settings_area"))) =
-/* Default settings: */
-{
-  .settings_valid = VALID,
+/* Configuration flash addresses of interest. */
+#define FLASH_NAP_PARAMS_ADDR 0xD0000
+#define FLASH_NAP_GIT_HASH_ADDR 0xE0000
+#define FLASH_NAP_GIT_UNCLEAN_ADDR (FLASH_NAP_GIT_HASH_ADDR + 20)
 
-  .ftdi_usart = {
-    .mode = PIKSI_BINARY,
-    .baud_rate = USART_DEFAULT_BAUD,
-    .message_mask = 0xFF,
-  },
-  .uarta_usart = {
-    .mode = PIKSI_BINARY,
-    .baud_rate = USART_DEFAULT_BAUD,
-    .message_mask = 0xFF,
-  },
-  .uartb_usart = {
-    .mode = NMEA,
-    .baud_rate = 115200,
-  },
-};
+void get_nap_parameters();
 
-#endif /* SWIFTNAV_SETTINGS_H */
+void get_nap_git_hash(u8 git_hash[]);
+u8 get_nap_git_unclean();
+
+#endif /* SWIFTNAV_NAP_CONF_H */

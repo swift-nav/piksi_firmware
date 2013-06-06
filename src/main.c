@@ -23,7 +23,8 @@
 #include "main.h"
 #include "cw.h"
 #include "debug.h"
-#include "swift_nap_io.h"
+#include "nap/nap_common.h"
+#include "nap/track_channel.h"
 #include "track.h"
 #include "acq.h"
 #include "nmea.h"
@@ -61,6 +62,8 @@ int main(void)
   navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
 
   static ephemeris_t es[32];
+
+
   while(1)
   {
     for (u32 i = 0; i < 3000; i++)
@@ -80,7 +83,6 @@ int main(void)
     /*u32 foo;*/
 
     DO_EVERY_COUNTS(TICK_FREQ/5,
-
       u8 n_ready = 0;
       for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
         if (es[tracking_channel[i].prn].valid == 1 && \
@@ -97,13 +99,14 @@ int main(void)
 
       if (n_ready >= 4) {
         /* Got enough sats/ephemerides, do a solution. */
-        /* TODO: Instead of passing 32 LSBs of timing_count do something more
-         * intelligent with the solution time. */
+        /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
+         * more intelligent with the solution time.
+         */
 
         /*printf("n_ready = %d\n", n_ready);*/
         /*foo = time_ticks();*/
 
-        calc_navigation_measurement(n_ready, meas, nav_meas, (double)((u32)timing_count())/SAMPLE_FREQ, es);
+        calc_navigation_measurement(n_ready, meas, nav_meas, (double)((u32)nap_timing_count())/SAMPLE_FREQ, es);
 
         /*printf("Nav meas took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
         /*foo = time_ticks();*/
@@ -127,6 +130,14 @@ int main(void)
       }
     );
 
+    /* USART TX testing */
+    gnss_solution soln;
+    dops_t dops;
+//    DO_EVERY(5,
+    debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
+    debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
+//    );
+
     DO_EVERY_COUNTS(TICK_FREQ,
       nmea_gpgsa(tracking_channel, 0);
     );
@@ -134,7 +145,7 @@ int main(void)
       tracking_send_state();
     );
 
-    u32 err = swift_nap_read_error_blocking();
+    u32 err = nap_read_error_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);
   }

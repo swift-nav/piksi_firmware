@@ -19,7 +19,7 @@
 #include <libopencm3/stm32/f4/rcc.h>
 
 #include "debug.h"
-#include "swift_nap_io.h"
+#include "nap/nap_common.h"
 #include "hw/leds.h"
 #include "hw/m25_flash.h"
 
@@ -75,8 +75,8 @@ void init()
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
 
-  swift_nap_setup();
-  swift_nap_reset();
+  nap_setup();
+  nap_reset();
 
   debug_setup(1);
 

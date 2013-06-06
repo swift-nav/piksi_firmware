@@ -27,7 +27,7 @@
 #include <libopencm3/cm3/scb.h>
 
 #include "main.h"
-#include "swift_nap_io.h"
+#include "nap/nap_common.h"
 #include "debug.h"
 #include "hw/leds.h"
 #include "hw/stm_flash.h"
@@ -46,7 +46,7 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
   /* Disable peripherals used in the bootloader */
   debug_disable();
   spi_deactivate();
-  swift_nap_conf_b_set();
+  nap_conf_b_set();
   /* Set vector table base address */
   SCB_VTOR = APP_ADDRESS & 0x1FFFFF00;
   /* Initialise master stack pointer */
@@ -58,8 +58,8 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
 void pc_wants_bootload_callback(u8 buff[] __attribute__((unused)))
 {
   /* Disable FPGA configuration and set up SPI in case we want to flash M25 */
-  swift_nap_conf_b_setup();
-  swift_nap_conf_b_clear();
+  nap_conf_b_setup();
+  nap_conf_b_clear();
   spi_setup();
   m25_setup();
   pc_wants_bootload = 1;

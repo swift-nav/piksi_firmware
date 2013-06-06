@@ -32,7 +32,11 @@ OBJS += \
 	$(SWIFTNAV_ROOT)/src/init.o \
 	$(SWIFTNAV_ROOT)/src/debug.o \
 	$(SWIFTNAV_ROOT)/src/error.o \
-	$(SWIFTNAV_ROOT)/src/swift_nap_io.o \
+	$(SWIFTNAV_ROOT)/src/nap/nap_common.o \
+	$(SWIFTNAV_ROOT)/src/nap/conf.o \
+	$(SWIFTNAV_ROOT)/src/nap/acq_channel.o \
+	$(SWIFTNAV_ROOT)/src/nap/track_channel.o \
+	$(SWIFTNAV_ROOT)/src/nap/cw_channel.o \
 	$(SWIFTNAV_ROOT)/src/cw.o \
 	$(SWIFTNAV_ROOT)/src/track.o \
 	$(SWIFTNAV_ROOT)/src/acq.o \
@@ -50,6 +54,7 @@ OBJS += \
 	$(SWIFTNAV_ROOT)/src/hw/usart_rx.o \
 	$(SWIFTNAV_ROOT)/src/cfs/cfs-coffee.o \
 	$(SWIFTNAV_ROOT)/src/cfs/cfs-coffee-arch.o
+	#$(SWIFTNAV_ROOT)/src/swift_nap_io.o \
 
 CFLAGS += -O0 -g -Wall -Wextra -Werror -std=gnu99 \
        -fno-common -MD -DSTM32F4 -DGIT_VERSION="\"$(GIT_VERSION)\"" \

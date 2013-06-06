@@ -24,7 +24,7 @@
 #include <libopencm3/stm32/exti.h>
 
 #include "main.h"
-#include "swift_nap_io.h"
+#include "nap/track_channel.h"
 #include "debug.h"
 #include "track.h"
 
@@ -132,7 +132,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
                      tracking_channel[channel].code_phase_rate_fp);
 
   /* Schedule the timing strobe for start_sample_count. */
-  timing_strobe(start_sample_count);
+  nap_timing_strobe(start_sample_count);
 }
 
 void tracking_channel_get_corrs(u8 channel)

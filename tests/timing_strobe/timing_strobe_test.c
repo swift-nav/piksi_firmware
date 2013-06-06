@@ -20,7 +20,7 @@
 #include "init.h"
 #include "main.h"
 #include "debug.h"
-#include "swift_nap_io.h"
+#include "nap/nap_common.h"
 #include "acq.h"
 #include "hw/leds.h"
 #include "hw/m25_flash.h"
@@ -37,12 +37,12 @@ int main(void)
   u32 tcls;
   u32 strobe_offset = 2000;
 
-  tcs = timing_count();
+  tcs = nap_timing_count();
   acq_schedule_load(tcs + strobe_offset);
-  tcls = timing_count_latched();
+  tcls = nap_timing_count_latched();
 
-  printf("timing_count[%d]          = %u\n", 0, (unsigned int)tcs);
-  printf("timing_count_latched[%d]  = %u\n", 0, (unsigned int)tcls);
+  printf("nap_timing_count[%d]          = %u\n", 0, (unsigned int)tcs);
+  printf("nap_timing_count_latched[%d]  = %u\n", 0, (unsigned int)tcls);
   printf("difference = %u\n", (unsigned int)(tcls-tcs));
 
   led_off(LED_GREEN);
