@@ -37,7 +37,7 @@ acq_state_t acq_state;
 void acq_schedule_load(u32 count)
 {
   acq_state.state = ACQ_LOADING;
-  acq_set_load_enable_blocking();
+  nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
 }
 
@@ -47,7 +47,7 @@ void acq_schedule_load(u32 count)
  */
 void acq_service_load_done()
 {
-  acq_clear_load_enable_blocking();
+  nap_acq_load_wr_disable_blocking();
   acq_state.state = ACQ_LOADING_DONE;
 }
 
@@ -64,7 +64,7 @@ u8 acq_get_load_done()
  * acquisition register values. Write values for the first acquisition to the
  * channel, and then write values for the next pipelined acquisition.
  *
- * \param prn      PRN to search (acq_write_code_blocking must be called prior)
+ * \param prn      PRN to search (nap_acq_code_wr_blocking must be called prior)
  * \param cp_min   Starting code phase of the first acquisition. (chips)
  * \param cp_max   Starting code phase of the last acquisition. (chips)
  * \param cf_min   Carrier frequency of the first acquisition. (Hz)
@@ -77,12 +77,12 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
    * the range to the nearest multiple of the step size to make sure
    * we cover at least the specified range.
    */
-  acq_state.cf_step = cf_bin_width*ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-  acq_state.cf_min = acq_state.cf_step*floor(cf_min*ACQ_CARRIER_FREQ_UNITS_PER_HZ / (float)acq_state.cf_step);
-  acq_state.cf_max = acq_state.cf_step*ceil(cf_max*ACQ_CARRIER_FREQ_UNITS_PER_HZ / (float)acq_state.cf_step);
-  /* cp_step = ACQ_N_TAPS */
-  acq_state.cp_min = ACQ_N_TAPS*floor(cp_min*ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)ACQ_N_TAPS);
-  acq_state.cp_max = ACQ_N_TAPS*ceil(cp_max*ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)ACQ_N_TAPS);
+  acq_state.cf_step = cf_bin_width*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+  acq_state.cf_min = acq_state.cf_step*floor(cf_min*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ / (float)acq_state.cf_step);
+  acq_state.cf_max = acq_state.cf_step*ceil(cf_max*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ / (float)acq_state.cf_step);
+  /* cp_step = nap_acq_n_taps */
+  acq_state.cp_min = nap_acq_n_taps*floor(cp_min*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)nap_acq_n_taps);
+  acq_state.cp_max = nap_acq_n_taps*ceil(cp_max*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)nap_acq_n_taps);
 
 
   /* Initialise our acquisition state struct. */
@@ -95,9 +95,9 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
   acq_state.code_phase = acq_state.cp_min;
 
   /* Write first and second sets of acq parameters (for pipelining). */
-  acq_write_init_blocking(prn, acq_state.cp_min, acq_state.cf_min);
+  nap_acq_init_wr_params_blocking(prn, acq_state.cp_min, acq_state.cf_min);
   /* TODO: If we are only doing a single acq then write disable here. */
-  acq_write_init_blocking(prn, acq_state.cp_min+ACQ_N_TAPS, acq_state.cf_min);
+  nap_acq_init_wr_params_blocking(prn, acq_state.cp_min+nap_acq_n_taps, acq_state.cf_min);
 }
 
 /** Handle an acquisition done interrupt from the NAP acquisition channel.
@@ -112,7 +112,7 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
 void acq_service_irq()
 {
   u64 power;
-  corr_t cs[ACQ_N_TAPS];
+  corr_t cs[nap_acq_n_taps];
 
   switch(acq_state.state)
   {
@@ -122,17 +122,17 @@ void acq_service_irq()
        * clears the IRQ.
        */
       printf("!!! Acq state error? %d\n", acq_state.state);
-      acq_disable_blocking();
+      nap_acq_init_wr_disable_blocking();
       break;
 
     case ACQ_RUNNING_FINISHING:
-      acq_disable_blocking();
+      nap_acq_init_wr_disable_blocking();
       acq_state.state = ACQ_RUNNING_DONE;
       break;
 
     case ACQ_RUNNING:
       /* Read in correlations. */
-      acq_read_corr_blocking(cs);
+      nap_acq_corr_rd_blocking(cs);
 
       /* Write parameters for 2 cycles time for acq pipelining apart
        * from the last two cycles where we want to write disable.
@@ -144,23 +144,23 @@ void acq_service_irq()
        * time will be with the next carrier freq value and a small
        * code phase value.
        */
-      if (acq_state.code_phase < acq_state.cp_max - 2*ACQ_N_TAPS) {
-        acq_write_init_blocking(acq_state.prn, \
-          acq_state.code_phase+2*ACQ_N_TAPS, \
+      if (acq_state.code_phase < acq_state.cp_max - 2*nap_acq_n_taps) {
+        nap_acq_init_wr_params_blocking(acq_state.prn, \
+          acq_state.code_phase+2*nap_acq_n_taps, \
           acq_state.carrier_freq);
       } else {
         if (acq_state.carrier_freq >= acq_state.cf_max && \
-            acq_state.code_phase >= (acq_state.cp_max-2*ACQ_N_TAPS)) {
-          acq_disable_blocking();
+            acq_state.code_phase >= (acq_state.cp_max-2*nap_acq_n_taps)) {
+          nap_acq_init_wr_disable_blocking();
           acq_state.state = ACQ_RUNNING_FINISHING;
         } else {
-          acq_write_init_blocking(acq_state.prn, \
-            acq_state.cp_min + acq_state.code_phase - acq_state.cp_max + 2*ACQ_N_TAPS, \
+          nap_acq_init_wr_params_blocking(acq_state.prn, \
+            acq_state.cp_min + acq_state.code_phase - acq_state.cp_max + 2*nap_acq_n_taps, \
             acq_state.carrier_freq+acq_state.cf_step);
         }
       }
 
-      for (u8 i=0; i<ACQ_N_TAPS; i++) {
+      for (u8 i=0; i<nap_acq_n_taps; i++) {
         power = (u64)cs[i].I*(u64)cs[i].I + (u64)cs[i].Q*(u64)cs[i].Q;
         acq_state.power_acc += power;
         if (power > acq_state.best_power) {
@@ -169,8 +169,8 @@ void acq_service_irq()
           acq_state.best_cp = acq_state.code_phase + i;
         }
       }
-      acq_state.count += ACQ_N_TAPS;
-      acq_state.code_phase += ACQ_N_TAPS;
+      acq_state.count += nap_acq_n_taps;
+      acq_state.code_phase += nap_acq_n_taps;
       if (acq_state.code_phase >= acq_state.cp_max) {
         acq_state.code_phase = acq_state.cp_min;
         acq_state.carrier_freq += acq_state.cf_step;
@@ -197,8 +197,8 @@ u8 acq_get_done()
  */
 void acq_get_results(float* cp, float* cf, float* snr)
 {
-  *cp = (float)acq_state.best_cp / ACQ_CODE_PHASE_UNITS_PER_CHIP;
-  *cf = (float)acq_state.best_cf / ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+  *cp = (float)acq_state.best_cp / NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP;
+  *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   *snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
 }
@@ -208,7 +208,7 @@ void acq_get_results(float* cp, float* cf, float* snr)
  * frequency, and then a more fine grained acquisition to find the code phase
  * and carrier frequency more precisely.
  *
- * \param prn PRN to search (acq_write_code_blocking must be called prior)
+ * \param prn PRN to search (nap_acq_code_wr_blocking must be called prior)
  * \param cp  Code phase of the acquisition result
  * \param cf  Carrier frequency of the acquisition result
  * \param snr SNR of the acquisition result
@@ -247,7 +247,7 @@ u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
  * the code phase and carrier frequency of the largest peak in the search space together
  * with the "SNR" value for that peak defined as (peak_magnitude - mean) / std_deviation.
  *
- * \param prn    PRN number - 1 (0..31) to attempt to acquire (acq_write_code_blocking must be called prior).
+ * \param prn    PRN number - 1 (0..31) to attempt to acquire (nap_acq_code_wr_blocking must be called prior).
  * \param cp_min Lower bound for code phase search range in chips.
  * \param cp_max Upper bound for code phase search range in chips.
  * \param cf_min Lower bound for carrier freq. search range in Hz.

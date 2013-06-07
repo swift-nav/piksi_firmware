@@ -190,7 +190,7 @@ void manage_acq()
       if (!acq_get_load_done())
         break;
       /* Done loading, now lets set that coarse acquisition going. */
-      acq_write_code_blocking(acq_manage.prn);
+      nap_acq_code_wr_blocking(acq_manage.prn);
       if (almanac[acq_manage.prn].valid && time_quality == TIME_COARSE) {
         gps_time_t t = rx2gpstime(acq_manage.coarse_timer_count);
 

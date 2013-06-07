@@ -43,7 +43,7 @@ int main(void)
   led_off(LED_RED);
 
   for (u8 prn=0; prn<32; prn++) {
-    acq_write_code_blocking(prn);
+    nap_acq_code_wr_blocking(prn);
     acq_start(prn, 0, 1023, -7000, 7000, 300);
     while(!(acq_get_done()));
     acq_get_results(&code_phase, &carrier_freq, &snr);

@@ -32,7 +32,7 @@ void get_nap_parameters()
    * Pointers in the array should be in the same order they're stored in the
    * configuration flash. */
   u8 * nap_parameters[2] = {
-                            &ACQ_N_TAPS,
+                            &nap_acq_n_taps,
                             &TRACK_N_CHANNELS
                            };
   /* Get parameters from FPGA configuration flash */

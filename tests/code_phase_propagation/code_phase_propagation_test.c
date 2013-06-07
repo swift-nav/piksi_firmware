@@ -46,11 +46,11 @@ int main(void)
     float coarse_acq_code_phase;
     float coarse_acq_carrier_freq;
     float coarse_snr;
-    acq_set_load_enable_blocking();
+    nap_acq_load_wr_enable_blocking();
     u32 coarse_acq_cnt = nap_timing_count() + 1000;
     nap_timing_strobe(coarse_acq_cnt);
     nap_wait_for_exti();
-    acq_clear_load_enable_blocking();
+    nap_acq_load_wr_disable_blocking();
 
     do_acq(PRN-1, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
     printf("Coarse:\n  Code phase: %7.2f, Carrier freq % 7.1f, SNR %5.2f\n", coarse_acq_code_phase, coarse_acq_carrier_freq, coarse_snr);
@@ -65,11 +65,11 @@ int main(void)
     float fine_acq_code_phase;
     float fine_acq_carrier_freq;
     float fine_snr;
-    acq_set_load_enable_blocking();
+    nap_acq_load_wr_enable_blocking();
     u32 fine_acq_cnt = nap_timing_count() + 2000;
     nap_timing_strobe(fine_acq_cnt);
     nap_wait_for_exti();
-    acq_clear_load_enable_blocking();
+    nap_acq_load_wr_disable_blocking();
 
     float fine_cp = propagate_code_phase(coarse_acq_code_phase, coarse_acq_carrier_freq, fine_acq_cnt - coarse_acq_cnt);
 
@@ -84,11 +84,11 @@ int main(void)
     float fine2_acq_code_phase;
     float fine2_acq_carrier_freq;
     float fine2_snr;
-    acq_set_load_enable_blocking();
+    nap_acq_load_wr_enable_blocking();
     u32 fine2_acq_cnt = nap_timing_count() + 2000;
     nap_timing_strobe(fine2_acq_cnt);
     nap_wait_for_exti();
-    acq_clear_load_enable_blocking();
+    nap_acq_load_wr_disable_blocking();
 
     float fine2_cp = propagate_code_phase(fine_acq_code_phase, fine_acq_carrier_freq, fine2_acq_cnt - fine_acq_cnt);
 

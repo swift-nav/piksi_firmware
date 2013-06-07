@@ -20,7 +20,7 @@
 
 #include <libopencm3/cm3/common.h>
 
-/* NOTE: Minimum bin width 1/ACQ_CARRIER_FREQ_UNITS_PER_HZ (~16 Hz) */
+/* NOTE: Minimum bin width 1/NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ (~16 Hz) */
 #define ACQ_CARRIER_BIN_WIDTH 300
 
 typedef enum {

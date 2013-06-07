@@ -22,17 +22,18 @@
 #include <libswiftnav/prns.h>
 
 /*
- * Number of acquisition channel code phase taps that NAP configuration was
- * built with - read from configuration flash at runtime with nap_setup().
+ * Number of acquisition channel code phase taps that NAP
+ * configuration was built with - read from configuration
+ * flash at runtime in get_nap_parameters().
  */
-u8 ACQ_N_TAPS;
+u8 nap_acq_n_taps;
 
 /** Set the LOAD ENABLE bit of the NAP acquisition channel's LOAD register.
  * When the LOAD ENABLE bit is set, the acquisition channel will start loading
  * samples into its sample ram, starting at the first clock cycle after the
  * NAP's internal timing strobe goes low.
  */
-void acq_set_load_enable_blocking()
+void nap_acq_load_wr_enable_blocking()
 {
   u8 temp[1] = {0xFF};
   nap_xfer_blocking(NAP_REG_ACQ_LOAD, 1, 0, temp);
@@ -42,7 +43,7 @@ void acq_set_load_enable_blocking()
  * After a load to the acquisition channel's sample ram, the LOAD ENABLE bit
  * must be cleared, or future timing strobes will cause the ram to be re-loaded.
  */
-void acq_clear_load_enable_blocking()
+void nap_acq_load_wr_disable_blocking()
 {
   u8 temp[1] = {0x00};
   nap_xfer_blocking(NAP_REG_ACQ_LOAD, 1, 0, temp);
@@ -51,22 +52,22 @@ void acq_clear_load_enable_blocking()
 /** Pack data for writing to NAP acquisition channel INIT register.
  *
  * NOTE: Swift NAP returns corrs corresponding to code phases from
- * code_phase_reg_value-ACQ_N_TAPS-1 to code_phase_reg_value where
+ * code_phase_reg_value-nap_acq_n_taps-1 to code_phase_reg_value where
  * code_phase_reg_value is the raw value written into the code phase
  * portion of the init register.
  *
  * <ul>
- *   <li> corrs[0] -> code_phase_reg_value-ACQ_N_TAPS+1
+ *   <li> corrs[0] -> code_phase_reg_value-nap_acq_n_taps+1
  *   <li> corrs[AQC_N_TAPS-1] -> code_phase_reg_value
  * </ul>
  *
- * Lets take account of this here by writing code_phase+ACQ_N_TAPS-1
+ * Lets take account of this here by writing code_phase+nap_acq_n_taps-1
  * to the code phase register on the Swift NAP. This means the
  * correlations returned will be:
  *
  * <ul>
  *   <li> corrs[0] -> code_phase
- *   <li> corrs[ACQ_N_TAPS] -> code_phase-ACQ_N_TAPS+1
+ *   <li> corrs[nap_acq_n_taps] -> code_phase-nap_acq_n_taps+1
  * </ul>
  *
  * \param prn          PRN number - (0..31) (deprecated)
@@ -75,12 +76,12 @@ void acq_clear_load_enable_blocking()
  * \param carrier_freq Carrier frequency i.e. Doppler in acquisition
  *                     units.
  */
-void acq_pack_init(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq)
+void nap_acq_init_pack(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq)
 {
-  /* Modulo 1023*4 in case adding ACQ_N_TAPS-1 rolls us over a
+  /* Modulo 1023*4 in case adding nap_acq_n_taps-1 rolls us over a
    * code phase boundary.
    */
-  u16 code_phase_reg_value = (code_phase+ACQ_N_TAPS-1) % (1023*4);
+  u16 code_phase_reg_value = (code_phase+nap_acq_n_taps-1) % (1023*4);
 
   pack[0] = (1<<5) |                      /* Acq enabled */
             ((carrier_freq >> 7) & 0x1F); /* Carrier freq [11:7] */
@@ -103,7 +104,7 @@ void acq_pack_init(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq)
  * the second set of acquisition parameters should be written into the channel
  * as soon as possible after the first set, as they are pipelined and used
  * immediately after the first acquisition finishes. If only searching one
- * point, acq_disable_blocking should be called as soon as possible after the
+ * point, nap_acq_init_wr_disable_blocking should be called as soon as possible after the
  * first set of acquisition parameters are written, and again after the
  * ACQ_DONE interrupt occurs to clear the interrupt.
  *
@@ -112,10 +113,10 @@ void acq_pack_init(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq)
  * \param carrier_freq Carrier frequency i.e. Doppler in acquisition units.
  */
 /* TODO : remove writing of PRN number to init register */
-void acq_write_init_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
+void nap_acq_init_wr_params_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
 {
   u8 temp[4];
-  acq_pack_init(temp, prn, code_phase, carrier_freq);
+  nap_acq_init_pack(temp, prn, code_phase, carrier_freq);
   nap_xfer_blocking(NAP_REG_ACQ_INIT, 4, 0, temp);
 }
 
@@ -125,7 +126,7 @@ void acq_write_init_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
  * correlations, and then a second time to clear the ACQ_DONE IRQ after the
  * last correlation has finished.
  */
-void acq_disable_blocking()
+void nap_acq_init_wr_disable_blocking()
 {
   u8 temp[4] = {0,0,0,0};
   nap_xfer_blocking(NAP_REG_ACQ_INIT, 4, 0, temp);
@@ -134,14 +135,14 @@ void acq_disable_blocking()
 /** Unpack correlations read from acquisition channel.
  *
  * \param packed Array of u8 data read from NAP acq channel CORR register.
- * \param corrs  Array of corr_t's of length ACQ_N_TAPS.
+ * \param corrs  Array of corr_t's of length nap_acq_n_taps.
  */
-void acq_unpack_corr(u8 packed[], corr_t corrs[])
+void nap_acq_corr_unpack(u8 packed[], corr_t corrs[])
 {
   /* graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
   struct {s32 xtend:24;} sign;
 
-  for (u8 i=0; i<ACQ_N_TAPS; i++) {
+  for (u8 i=0; i<nap_acq_n_taps; i++) {
 
     sign.xtend  = (packed[6*i]   << 16)    /* MSB */
                 | (packed[6*i+1] << 8)     /* Middle byte */
@@ -161,13 +162,13 @@ void acq_unpack_corr(u8 packed[], corr_t corrs[])
  * Must be called after the NAP IRQ register IRQ_ACQ_DONE bit goes high, before
  * the next acquisition cycle is complete.
  *
- * \param corrs Array of corr_t of length ACQ_N_TAPS.
+ * \param corrs Array of corr_t of length nap_acq_n_taps.
  */
-void acq_read_corr_blocking(corr_t corrs[])
+void nap_acq_corr_rd_blocking(corr_t corrs[])
 {
-  u8 temp[2*ACQ_N_TAPS * 3];
-  nap_xfer_blocking(NAP_REG_ACQ_CORR, 2*ACQ_N_TAPS*3, temp, temp);
-  acq_unpack_corr(temp, corrs);
+  u8 temp[2*nap_acq_n_taps * 3];
+  nap_xfer_blocking(NAP_REG_ACQ_CORR, 2*nap_acq_n_taps*3, temp, temp);
+  nap_acq_corr_unpack(temp, corrs);
 }
 
 /** Write CA code to acquisition channel's code ram.
@@ -176,7 +177,7 @@ void acq_read_corr_blocking(corr_t corrs[])
  *
  * \param prn PRN number (0-31) of CA code to be written.
  */
-void acq_write_code_blocking(u8 prn)
+void nap_acq_code_wr_blocking(u8 prn)
 {
   nap_xfer_blocking(NAP_REG_ACQ_CODE, 128, 0, ca_code(prn));
 }
