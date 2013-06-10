@@ -1,5 +1,5 @@
 from traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button
-from traitsui.api import Item, View, HGroup, VGroup
+from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor
 
 from chaco.api import BarPlot, ArrayDataSource, DataRange1D, LinearMapper, OverlayPlotContainer, LabelAxis, PlotAxis, ArrayPlotData, Plot
 from enable.api import ComponentEditor, Component
@@ -12,8 +12,6 @@ TRACK_N_CHANNELS = 10
 
 MSG_SOLUTION = 0x50
 MSG_SOLUTION_DOPS = 0x51
-MSG_SOLUTION_PRS = 0x52
-MSG_SOLUTION_PRED_PRS = 0x53
 
 colours_list = ['red', 'blue']
 
@@ -24,27 +22,15 @@ class SolutionView(HasTraits):
   tdop = Float()
   hdop = Float()
   vdop = Float()
-  pos_llh = Array(dtype=float, shape=(3,))
-  pos_ned = Array(dtype=float, shape=(3,))
-  ns = List()
-  mean_ns = Float()
-  es = List()
-  mean_es = Float()
-  ds = List()
-  mean_ds = Float()
-  mean_len = Int(50)
-  mean_dist = Float()
+  pos_llh = Array(dtype=float, shape=(1,3,))
+  lats = List()
+  lngs = List()
+  alts = List()
   n_used = Int()
-  dist = Float()
 
   plot = Instance(Plot)
   plot_data = Instance(ArrayPlotData)
   clear = Button()
-
-  pr_plot = Instance(Plot)
-  pr_plot_data = Instance(ArrayPlotData)
-  prs = List()
-  pred_prs = List()
 
   traits_view = View(
     HGroup(
@@ -54,99 +40,45 @@ class SolutionView(HasTraits):
       Item('hdop', label='HDOP', format_str='%.1f'),
       Item('vdop', label='VDOP', format_str='%.1f'),
     ),
-    Item('clear'),
+    Item('clear', show_label = False),
     HGroup(
-      Item('pos_llh'),
-      Item('pos_ned'),
-      VGroup(
-        Item('dist'),
-        Item('mean_len'),
-        Item('mean_dist'),
-      ),
-      VGroup(
-        Item('mean_ns'),
-        Item('mean_es'),
-        Item('mean_ds'),
-      ),
+      Item('pos_llh', editor = ArrayEditor(width = 80)),
       Item('n_used')
     ),
     Item(
       'plot',
-      editor = ComponentEditor(bgcolor = (0.8,0.8,0.8)),
-    )
-  )
-
-  prs_view = View(
-    Item(
-      'pr_plot',
-      editor = ComponentEditor(bgcolor = (0.8,0.8,0.8)),
       show_label = False,
+      editor = ComponentEditor(bgcolor = (0.8,0.8,0.8)),
     )
   )
-
 
   def _clear_fired(self):
-    self.ns = []
-    self.es = []
-    self.ds = []
-
-  def prs_callback(self, data):
-    fmt = '<' + str(TRACK_N_CHANNELS) + 'd'
-    self.prs.append(struct.unpack(fmt, data))
-    prs = np.transpose(self.prs[-500:])
-    t = range(len(prs[0]))
-    self.pr_plot_data.set_data('t', t)
-    for n in range(TRACK_N_CHANNELS):
-      self.pr_plot_data.set_data('prs'+str(n), prs[n])
-
-  def pred_prs_callback(self, data):
-    return
-    fmt = '<' + str(TRACK_N_CHANNELS) + 'd'
-    self.pred_prs.append(struct.unpack(fmt, data))
-    pred_prs = np.array(np.transpose(self.pred_prs[-500:]))
-    prs = np.array(np.transpose(self.prs[-500:]))
-    t = range(len(pred_prs[0]))
-    self.pr_plot_data.set_data('t', t)
-    for n in range(TRACK_N_CHANNELS):
-      err = prs[n]-pred_prs[n]
-      #err = err - (sum(err)/len(err))
-      self.pr_plot_data.set_data('pred_prs'+str(n), err)
+    self.lats = []
+    self.lngs = []
+    self.alts = []
 
   def solution_callback(self, data):
-    print len(data)
-    soln = struct.unpack('<3d3d3d3d3d7ddHBB', data)
-    self.pos_llh = [soln[0]*(180/math.pi), soln[1]*(180/math.pi), soln[2]]
+    soln = struct.unpack('<3d3d3d3d7ddHBB', data)
+    self.pos_llh = [[soln[0]*(180/math.pi), soln[1]*(180/math.pi), soln[2]]]
     pos_xyz = soln[3:6]
-    self.pos_ned = soln[6:9]
+    vel_ned = soln[6:9]
     vel_xyz = soln[9:12]
-    vel_ned = soln[12:15]
-    err_cov = soln[15:22]
-    tow = soln[22]
-    week_num = soln[23]
-    soln_valid = soln[24]
-    self.n_used = soln[25]
+    err_cov = soln[12:19]
+    tow = soln[19]
+    week_num = soln[20]
+    soln_valid = soln[21]
 
-    self.dist = math.sqrt(self.pos_ned[0]**2 + self.pos_ned[1]**2 + self.pos_ned[2]**2)
+    self.lats.append(self.pos_llh[0][0])
+    self.lngs.append(self.pos_llh[0][1])
+    self.alts.append(self.pos_llh[0][2])
 
-    if self.dist < 3000:
-      self.ns.append(self.pos_ned[0])
-      self.es.append(self.pos_ned[1])
-      self.ds.append(self.pos_ned[2])
-    else:
-      print "Whacky solution detected!"
-
-    self.mean_ns = sum(self.ns[:self.mean_len])/len(self.ns[:self.mean_len])
-    self.mean_es = sum(self.es[:self.mean_len])/len(self.es[:self.mean_len])
-    self.mean_ds = sum(self.ds[:self.mean_len])/len(self.ds[:self.mean_len])
-    self.mean_dist = math.sqrt(self.mean_ns**2 + self.mean_es**2 + self.mean_ds**2)
-
-    self.plot_data.set_data('n', self.ns)
-    self.plot_data.set_data('e', self.es)
-    self.plot_data.set_data('h', self.ds)
-    self.plot_data.set_data('ref_n', [0.0, self.mean_ns])
-    self.plot_data.set_data('ref_e', [0.0, self.mean_es])
-    t = range(len(self.ds))
+    self.plot_data.set_data('lat', self.lats)
+    self.plot_data.set_data('lng', self.lngs)
+    self.plot_data.set_data('alt', self.alts)
+    t = range(len(self.lats))
     self.plot_data.set_data('t', t)
+
+    self.n_used = soln[22]
 
   def dops_callback(self, data):
     self.pdop, self.dgop, self.tdop, self.hdop, self.vdop = struct.unpack('<ddddd', data)
@@ -157,30 +89,18 @@ class SolutionView(HasTraits):
     self.link = link
     self.link.add_callback(MSG_SOLUTION, self.solution_callback)
     self.link.add_callback(MSG_SOLUTION_DOPS, self.dops_callback)
-    self.link.add_callback(MSG_SOLUTION_PRS, self.prs_callback)
-    self.link.add_callback(MSG_SOLUTION_PRED_PRS, self.pred_prs_callback)
 
-    self.plot_data = ArrayPlotData(n=[0.0], e=[0.0], h=[0.0], t=[0.0], ref_n=[0.0], ref_e=[0.0])
+    self.plot_data = ArrayPlotData(lat=[0.0], lng=[0.0], alt=[0.0], t=[0.0])
     self.plot = Plot(self.plot_data) #, auto_colors=colours_list)
-    self.plot.plot(('n', 'e'), type='scatter', color='blue', marker='plus')
-    self.plot.plot(('ref_n', 'ref_e'),
-        type='scatter',
-        color='red',
-        marker='cross',
-        marker_size=10,
-        line_width=1.5
-    )
-    #self.plot.plot(('h', 'e'), type='line', color='red')
+    self.plot.plot(('lat', 'lng'), type='scatter', color='blue', marker='plus')
 
-    self.pr_plot_data = ArrayPlotData(t=[0.0])
-    self.pr_plot = Plot(self.pr_plot_data, auto_colors=colours_list)
-    self.pr_plot.value_range.tight_bounds = False
-    #self.pr_plot.value_range.low_setting = 0.0
-    for n in range(TRACK_N_CHANNELS):
-      self.pr_plot_data.set_data('prs'+str(n), [0.0])
-      self.pr_plot.plot(('t', 'prs'+str(n)), type='line', color='auto')
-      #self.pr_plot_data.set_data('pred_prs'+str(n), [0.0])
-      #self.pr_plot.plot(('t', 'pred_prs'+str(n)), type='line', color='auto')
+    #self.plot.plot(('ref_n', 'ref_e'),
+        #type='scatter',
+        #color='red',
+        #marker='cross',
+        #marker_size=10,
+        #line_width=1.5
+    #)
 
     self.python_console_cmds = {
       'solution': self
