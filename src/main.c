@@ -52,11 +52,6 @@ int main(void)
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n\r");
   printf("FPGA configured with %d tracking channels\n", TRACK_N_CHANNELS);
 
-  const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
-
-  double WPR_ecef[3];
-  wgsllh2ecef(WPR_llh, WPR_ecef);
-
   channel_measurement_t meas[TRACK_N_CHANNELS];
   navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
 
@@ -114,15 +109,13 @@ int main(void)
           /*printf("calc_PVT took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
           /*foo = time_ticks();*/
 
-          wgsecef2ned_d(soln.pos_ecef, WPR_ecef, soln.pos_ned);
-
           debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
           /*nmea_gpgga(&soln, &dops);*/
 
-          /*DO_EVERY(1,*/
-            /*debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);*/
+          DO_EVERY(10,
+            debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
             /*nmea_gpgsv(n_ready, nav_meas, &soln);*/
-          /*);*/
+          );
         }
       }
     );
