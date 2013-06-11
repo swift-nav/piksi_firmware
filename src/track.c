@@ -30,6 +30,13 @@
 
 #include <libswiftnav/pvt.h>
 
+/** \addtogroup manage
+ * \{ */
+
+/** \defgroup track Track
+ * Functions, structs, and interrupt service routines for managing tracking.
+ * \{ */
+
 /* Initialiser using GNU extension, see
  * http://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html
  * tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS] = \
@@ -272,7 +279,8 @@ float tracking_channel_snr(u8 channel)
                 (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
 }
 
-void tracking_send_state() {
+void tracking_send_state()
+{
   tracking_state_msg_t states[nap_track_n_channels];
   for (u8 i=0; i<nap_track_n_channels; i++) {
     states[i].state = tracking_channel[i].state;
@@ -285,3 +293,6 @@ void tracking_send_state() {
   debug_send_msg(MSG_TRACKING_STATE, sizeof(states), (u8*)states);
 }
 
+/** \} */
+
+/** \} */

@@ -22,6 +22,14 @@
 #include "debug.h"
 #include "cw.h"
 
+/** \addtogroup manage
+ * \{ */
+
+/** \defgroup cw CW Interference
+ * Functions, structs, interrupt service routines for managing CW interference
+ * searches.
+ * \{ */
+
 cw_state_t cw_state;
 
 /** Callback to start a set of CW searches.
@@ -193,3 +201,7 @@ void cw_get_spectrum_point(float* freq, u64* power, u16 index)
 	*freq = 0;
 	*power = cw_state.spectrum_power[index];
 }
+
+/** \} */
+
+/** \} */
