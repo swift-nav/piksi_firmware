@@ -21,10 +21,17 @@
 
 #include <libswiftnav/prns.h>
 
+/** \addtogroup nap
+ * \{ */
+
+/** \defgroup acq_channel Acquisition Channel
+ * Functions to interact with the NAP acquisition channel.
+ * \{ */
+
 /*
  * Number of acquisition channel code phase taps that NAP
  * configuration was built with - read from configuration
- * flash at runtime in get_nap_parameters().
+ * flash at runtime in nap_conf_rd_parameters().
  */
 u8 nap_acq_n_taps;
 
@@ -56,19 +63,15 @@ void nap_acq_load_wr_disable_blocking()
  * code_phase_reg_value is the raw value written into the code phase
  * portion of the init register.
  *
- * <ul>
- *   <li> corrs[0] -> code_phase_reg_value-nap_acq_n_taps+1
- *   <li> corrs[AQC_N_TAPS-1] -> code_phase_reg_value
- * </ul>
+ * - corrs[0] -> code_phase_reg_value-nap_acq_n_taps+1
+ * - corrs[AQC_N_TAPS-1] -> code_phase_reg_value
  *
  * Lets take account of this here by writing code_phase+nap_acq_n_taps-1
  * to the code phase register on the Swift NAP. This means the
  * correlations returned will be:
  *
- * <ul>
- *   <li> corrs[0] -> code_phase
- *   <li> corrs[nap_acq_n_taps] -> code_phase-nap_acq_n_taps+1
- * </ul>
+ * - corrs[0] -> code_phase
+ * - corrs[nap_acq_n_taps] -> code_phase-nap_acq_n_taps+1
  *
  * \param prn          PRN number - (0..31) (deprecated)
  * \param code_phase   Code phase of the first correlation returned
@@ -181,3 +184,6 @@ void nap_acq_code_wr_blocking(u8 prn)
 {
   nap_xfer_blocking(NAP_REG_ACQ_CODE, 128, 0, ca_code(prn));
 }
+
+/** \} */
+/** \} */

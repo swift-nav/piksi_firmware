@@ -20,24 +20,31 @@
 #include "nap_common.h"
 #include "track_channel.h"
 #include "acq_channel.h"
-#include "../hw/m25_flash.h"
+#include "../m25_flash.h"
+
+/** \addtogroup nap
+ * \{ */
+
+/** \defgroup conf Configuration
+ * Functions to get information about the NAP configuration.
+ * \{ */
 
 /** Get NAP configuration parameters from FPGA configuration flash.
  * Gets information about the NAP configuration (number of code phase taps in
  * the acquisition channel, number of tracking channels, etc).
  */
-void get_nap_parameters()
+void nap_conf_rd_parameters()
 {
   /* Define parameters that need to be read from FPGA configuration flash.
    * Pointers in the array should be in the same order they're stored in the
    * configuration flash. */
   u8 * nap_parameters[2] = {
                             &nap_acq_n_taps,
-                            &TRACK_N_CHANNELS
+                            &nap_track_n_channels
                            };
   /* Get parameters from FPGA configuration flash */
   for (u8 i=0; i<(sizeof(nap_parameters)/sizeof(nap_parameters[0])); i++){
-    m25_read(FLASH_NAP_PARAMS_ADDR + i, 1, nap_parameters[i]);
+    m25_read(NAP_FLASH_PARAMS_ADDR + i, 1, nap_parameters[i]);
   }
 }
 
@@ -47,9 +54,9 @@ void get_nap_parameters()
  *
  * \param git_hash Array of u8 (length 20) in which git hash will be put.
  */
-void get_nap_git_hash(u8 git_hash[])
+void nap_conf_rd_git_hash(u8 git_hash[])
 {
-  m25_read(FLASH_NAP_GIT_HASH_ADDR, 20, git_hash);
+  m25_read(NAP_FLASH_GIT_HASH_ADDR, 20, git_hash);
 }
 
 /** Return git repository cleanliness status from NAP configuration build.
@@ -58,9 +65,13 @@ void get_nap_git_hash(u8 git_hash[])
  *
  * \return 1 if repository was unclean, 0 if clean
  */
-u8 get_nap_git_unclean()
+u8 nap_conf_rd_git_unclean()
 {
   u8 unclean;
-  m25_read(FLASH_NAP_GIT_UNCLEAN_ADDR, 1, &unclean);
+  m25_read(NAP_FLASH_GIT_UNCLEAN_ADDR, 1, &unclean);
   return unclean;
 }
+
+/** \} */
+
+/** \} */

@@ -19,13 +19,20 @@
 #include "cw_channel.h"
 #include "nap_common.h"
 
+/** \addtogroup nap
+ * \{ */
+
+/** \defgroup cw_channel CW Channel
+ * Functions to interact with the NAP CW channel.
+ * \{ */
+
 /** Set the LOAD ENABLE bit of the NAP CW channel's LOAD register.
  * When the LOAD ENABLE bit is set, the CW channel will start loading samples
  * into its sample ram, starting at the first sample clock cycle after the
  * NAP's internal timing strobe goes low. Writing to the LOAD register will
  * clear the CW_LOAD interrupt.
  */
-void cw_set_load_enable_blocking()
+void nap_cw_load_wr_enable_blocking()
 {
   u8 temp[1] = {0xFF};
   nap_xfer_blocking(NAP_REG_CW_LOAD, 1, 0, temp);
@@ -36,7 +43,7 @@ void cw_set_load_enable_blocking()
  * cleared, or future timing strobes will cause the ram to be re-loaded.
  * Writing to the LOAD register will clear the CW_LOAD interrupt.
  */
-void cw_clear_load_enable_blocking()
+void nap_cw_load_wr_disable_blocking()
 {
   u8 temp[1] = {0x00};
   nap_xfer_blocking(NAP_REG_CW_LOAD, 1, 0, temp);
@@ -47,7 +54,7 @@ void cw_clear_load_enable_blocking()
  * \param prn          PRN number - (0..31) (deprecated)
  * \param carrier_freq CW frequency in CW INIT register units.
  */
-void cw_pack_init(u8 pack[], s32 carrier_freq)
+void nap_cw_init_pack(u8 pack[], s32 carrier_freq)
 {
   pack[0] = (1<<3) |                        /* cw enabled */
             ((carrier_freq >> 30) & 0x04) | /* carrier freq [sign] */
@@ -63,17 +70,17 @@ void cw_pack_init(u8 pack[], s32 carrier_freq)
  * NOTE: If searching more than one spectrum point, the second set of CW search
  * parameters should be written into the channel as soon as possible after the
  * first set, as they are pipelined and used immediately after the first
- * CW correlation finishes. If only searching one point, cw_disable_blocking
+ * CW correlation finishes. If only searching one point, nap_cw_init_wr_disable_blocking
  * should be called as soon as possible after the first set of CW parameters
  * are written, and again after the CW_DONE interrupt occurs to clear the
  * interrupt.
  *
  * \param carrier_freq CW frequency in CW INIT register units.
  */
-void cw_write_init_blocking(s32 carrier_freq)
+void nap_cw_init_wr_params_blocking(s32 carrier_freq)
 {
   u8 temp[3];
-  cw_pack_init(temp, carrier_freq);
+  nap_cw_init_pack(temp, carrier_freq);
   nap_xfer_blocking(NAP_REG_CW_INIT, 3, 0, temp);
 }
 
@@ -83,7 +90,7 @@ void cw_write_init_blocking(s32 carrier_freq)
  * and then a second time to clear the CW_DONE IRQ after the last correlation
  * has finished.
  */
-void cw_disable_blocking()
+void nap_cw_init_wr_disable_blocking()
 {
   u8 temp[3] = {0,0,0};
   nap_xfer_blocking(NAP_REG_CW_INIT, 3, 0, temp);
@@ -94,7 +101,7 @@ void cw_disable_blocking()
  * \param packed Array of u8 data read from NAP CW channel CORR register.
  * \param corrs  Pointer to single corr_t.
  */
-void cw_unpack_corr(u8 packed[], corr_t* corrs)
+void nap_cw_corr_unpack(u8 packed[], corr_t* corrs)
 {
 	/* should 24 instead be a macro constant? */
   /* graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
@@ -119,9 +126,13 @@ void cw_unpack_corr(u8 packed[], corr_t* corrs)
  *
  * \param corrs Pointer to single corr_t.
  */
-void cw_read_corr_blocking(corr_t* corrs)
+void nap_cw_corr_rd_blocking(corr_t* corrs)
 {
   u8 temp[6]; /* 6 u8 = 48 bits = 2*(24 bits) */
-  cw_unpack_corr(temp,corrs);
+  nap_cw_corr_unpack(temp,corrs);
   nap_xfer_blocking(NAP_REG_CW_CORR, 6, temp, temp);
 }
+
+/** \} */
+
+/** \} */

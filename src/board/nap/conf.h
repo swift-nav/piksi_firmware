@@ -21,14 +21,19 @@
 
 #include <libopencm3/cm3/common.h>
 
+/** \addtogroup conf
+ * \{ */
+
 /* Configuration flash addresses of interest. */
-#define FLASH_NAP_PARAMS_ADDR 0xD0000
-#define FLASH_NAP_GIT_HASH_ADDR 0xE0000
-#define FLASH_NAP_GIT_UNCLEAN_ADDR (FLASH_NAP_GIT_HASH_ADDR + 20)
+#define NAP_FLASH_PARAMS_ADDR 0xD0000
+#define NAP_FLASH_GIT_HASH_ADDR 0xE0000
+#define NAP_FLASH_GIT_UNCLEAN_ADDR (NAP_FLASH_GIT_HASH_ADDR + 20)
 
-void get_nap_parameters();
+/** \} */
 
-void get_nap_git_hash(u8 git_hash[]);
-u8 get_nap_git_unclean();
+void nap_conf_rd_parameters();
+
+void nap_conf_rd_git_hash(u8 git_hash[]);
+u8 nap_conf_rd_git_unclean();
 
 #endif /* SWIFTNAV_NAP_CONF_H */

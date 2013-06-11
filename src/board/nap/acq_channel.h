@@ -22,7 +22,10 @@
 #include <libopencm3/cm3/common.h>
 
 #include "nap_common.h"
-#include "../main.h"
+#include "../../main.h"
+
+/** \addtogroup acq_channel
+ * \{ */
 
 #define NAP_REG_ACQ_BASE 0x06
 #define NAP_REG_ACQ_INIT (NAP_REG_ACQ_BASE+0x00)
@@ -35,10 +38,12 @@
 #define NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP (1<<(NAP_ACQ_CODE_PHASE_WIDTH-10))
 #define NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ ((1<<NAP_ACQ_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ)
 
+/** \} */
+
 /*
  * Number of acquisition channel code phase taps that NAP
  * configuration was built with - read from configuration
- * flash at runtime in get_nap_parameters().
+ * flash at runtime in nap_conf_rd_parameters().
  */
 extern u8 nap_acq_n_taps;
 

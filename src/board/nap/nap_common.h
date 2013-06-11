@@ -21,6 +21,9 @@
 
 #include <libopencm3/cm3/common.h>
 
+/** \addtogroup nap
+ * \{ */
+
 /* NAP Register Addresses. */
 #define NAP_REG_IRQ                0x00
 #define NAP_REG_ERROR              0x01
@@ -44,10 +47,13 @@
 #define NAP_IRQ_CW_LOAD_DONE  (1<<28)
 #define NAP_IRQ_TRACK_MASK    (~(NAP_IRQ_ACQ_DONE|NAP_IRQ_ACQ_LOAD_DONE|NAP_IRQ_CW_DONE|NAP_IRQ_CW_LOAD_DONE))
 
+/** Structure containing a complex IQ correlation. */
 typedef struct {
-  s32 I;
-  s32 Q;
+  s32 I; /**< In-phase correlation. */
+  s32 Q; /**< Quadrature correlation. */
 } corr_t;
+
+/** \} */
 
 void nap_setup();
 void nap_reset();
@@ -60,18 +66,18 @@ void nap_conf_b_set();
 void nap_conf_b_clear();
 
 void nap_exti_setup();
-u32 nap_last_exti_count();
-void nap_wait_for_exti();
+u32 last_nap_exti_count();
+void wait_for_nap_exti();
 
 void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[], const u8 data_out[]);
 
-u32 nap_read_irq_blocking();
-u32 nap_read_error_blocking();
+u32 nap_irq_rd_blocking();
+u32 nap_error_rd_blocking();
 
 u8 nap_hash_status();
 
-void get_nap_dna(u8 dna[]);
-void get_nap_dna_callback();
+void nap_rd_dna(u8 dna[]);
+void nap_rd_dna_callback();
 
 void nap_callbacks_setup();
 

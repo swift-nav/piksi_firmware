@@ -24,13 +24,24 @@
 #include "nap_common.h"
 #include "conf.h"
 #include "track_channel.h"
-#include "../hw/spi.h"
-#include "../hw/max2769.h"
-#include "../debug_messages.h"
-#include "debug.h"
-#include "../acq.h"
-#include "../track.h"
-#include "../cw.h"
+#include "../max2769.h"
+#include "../../peripherals/spi.h"
+#include "../../debug_messages.h"
+#include "../../debug.h"
+#include "../../acq.h"
+#include "../../track.h"
+#include "../../cw.h"
+
+/** \addtogroup board
+ * \{ */
+
+/** \defgroup nap NAP
+ * Functions to interact with the Swift Navigation Acceleration Peripheral.
+ * Contains functions for interacting with FPGA specific aspects of the
+ * SwiftNAP (e.g. controlling when it configures itself, retrieving
+ * information about the configuration, resetting the internal logic) and
+ * functions for interacting with the SwiftNAP internal register interface.
+ * \{ */
 
 /* Number of NAP exti ISR's that have been run. */
 u32 nap_exti_count = 0;
@@ -78,7 +89,7 @@ void nap_setup()
   /* Get NAP parameters (number of acquisition taps, number of tracking
    * channels, etc) from flash.
    */
-  get_nap_parameters();
+  nap_conf_rd_parameters();
 }
 
 /** Reset NAP logic.
@@ -151,16 +162,16 @@ u8 nap_hash_status()
  *
  * \param dna Array to insert DNA into (length 8).
  */
-void get_nap_dna(u8 dna[])
+void nap_rd_dna(u8 dna[])
 {
   nap_xfer_blocking(NAP_REG_DNA,8,dna,dna);
 }
 
 /** Send Device DNA from Spartan 6 FPGA over Piksi binary USARTs. */
-void get_nap_dna_callback()
+void nap_rd_dna_callback()
 {
   u8 dna[8];
-  get_nap_dna(dna);
+  nap_rd_dna(dna);
   debug_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
 }
 
@@ -168,7 +179,7 @@ void get_nap_dna_callback()
 void nap_callbacks_setup()
 {
   static msg_callbacks_node_t nap_dna_node;
-  debug_register_callback(MSG_NAP_DEVICE_DNA, &get_nap_dna_callback, &nap_dna_node);
+  debug_register_callback(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback, &nap_dna_node);
 }
 
 
@@ -202,7 +213,7 @@ void exti1_isr()
 
   exti_reset_request(EXTI1);
 
-  u32 irq = nap_read_irq_blocking();
+  u32 irq = nap_irq_rd_blocking();
 
   if (irq & NAP_IRQ_ACQ_DONE) {
     acq_service_irq();
@@ -224,7 +235,7 @@ void exti1_isr()
   irq &= NAP_IRQ_TRACK_MASK;
 
   /* Loop over tracking irq bit flags. */
-  for(u8 n=0; n<TRACK_N_CHANNELS; n++) {
+  for(u8 n=0; n<nap_track_n_channels; n++) {
     /* Save a bit of time by seeing if the rest of the bits
      * are zero in one go so we don't have to loop over all
      * of them.
@@ -254,16 +265,16 @@ void exti1_isr()
  *
  * \return Latest NAP ISR count.
  */
-u32 nap_last_exti_count()
+u32 last_nap_exti_count()
 {
   return nap_exti_count;
 }
 
 /** Wait until next NAP ISR has occurred. */
-void nap_wait_for_exti()
+void wait_for_nap_exti()
 {
-  u32 last_last_exti = nap_last_exti_count();
-  while(nap_last_exti_count() == last_last_exti);
+  u32 last_last_exti = last_nap_exti_count();
+  while(last_nap_exti_count() == last_last_exti);
 }
 
 /** Do an SPI transfer to/from one of the NAP's internal registers.
@@ -289,7 +300,6 @@ void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[], const u8 data_out[]
 
   spi_slave_deselect();
 }
-
 
 /** Get the current NAP internal sample clock count.
  * NAP's internal count of sample clocks + (number of NAP's counter rollovers)
@@ -366,7 +376,7 @@ void nap_timing_strobe(u32 falling_edge_count)
  *
  * \return 32 bit value from NAP's IRQ register.
  */
-u32 nap_read_irq_blocking()
+u32 nap_irq_rd_blocking()
 {
   u8 temp[4] = {0, 0, 0, 0};
   nap_xfer_blocking(NAP_REG_IRQ, 4, temp, temp);
@@ -379,10 +389,13 @@ u32 nap_read_irq_blocking()
  *
  * \return 32 bit value from NAP's error register.
  */
-u32 nap_read_error_blocking()
+u32 nap_error_rd_blocking()
 {
   u8 temp[4] = {0, 0, 0, 0};
   nap_xfer_blocking(NAP_REG_ERROR, 4, temp, temp);
   return (temp[0]<<24)|(temp[1]<<16)|(temp[2]<<8)|temp[3];
 }
 
+/** \} */
+
+/** \} */
