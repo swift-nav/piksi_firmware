@@ -27,6 +27,12 @@
 #include "../error.h"
 #include "usart.h"
 
+/** \addtogroup peripherals
+ * \{ */
+
+/** \addtogroup usart
+ * \{ */
+
 const u8 dma_irq_lookup[2][8] = {
   {11, 12, 13, 14, 15, 16, 17, 47}, /* DMA1 Stream 0..7. */
   {56, 57, 58, 59, 60, 68, 69, 70}, /* DMA2 Stream 0..7. */
@@ -216,3 +222,6 @@ u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len)
   return n;
 }
 
+/** \} */
+
+/** \} */

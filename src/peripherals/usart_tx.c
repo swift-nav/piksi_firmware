@@ -27,6 +27,12 @@
 #include "../error.h"
 #include "usart.h"
 
+/** \addtogroup peripherals
+ * \{ */
+
+/** \addtogroup usart
+ * \{ */
+
 /** Setup the USART for transmission with DMA.
  * This function sets up the DMA controller and additional USART parameters for
  * DMA transmit. The USART must already be configured for normal operation.
@@ -247,3 +253,6 @@ u32 usart_write_dma(usart_tx_dma_state* s, u8 data[], u32 len)
   return len;
 }
 
+/** \} */
+
+/** \} */

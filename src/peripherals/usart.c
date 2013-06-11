@@ -23,6 +23,13 @@
 #include "../settings.h"
 #include "usart.h"
 
+/** \addtogroup peripherals
+ * \{ */
+
+/** \defgroup usart USART
+ * Functions to setup and use STM32F4 USART peripherals with DMA.
+ * \{ */
+
 usart_rx_dma_state ftdi_rx_state;
 usart_tx_dma_state ftdi_tx_state;
 usart_rx_dma_state uarta_rx_state;
@@ -143,3 +150,7 @@ void dma1_stream1_isr(void)
 void usart_disable_common(void){
   usart_disable(USART6);
 }
+
+/** \} */
+
+/** \} */

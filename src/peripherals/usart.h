@@ -19,12 +19,18 @@
 #ifndef SWIFTNAV_USART_H
 #define SWIFTNAV_USART_H
 
+#include <libopencm3/cm3/common.h>
+
+/** \addtogroup peripherals
+ * \{ */
+
+/** \addtogroup usart
+ * \{ */
+
 #define USART_TX_BUFFER_LEN 4096
 #define USART_RX_BUFFER_LEN 4096
 
 #define USART_DEFAULT_BAUD 1000000
-
-#include <libopencm3/cm3/common.h>
 
 typedef struct {
   u8 buff[USART_RX_BUFFER_LEN];
@@ -50,6 +56,10 @@ typedef struct {
   u8 stream;
   u8 channel;
 } usart_tx_dma_state;
+
+/** \} */
+
+/** \} */
 
 extern const u8 dma_irq_lookup[2][8];
 

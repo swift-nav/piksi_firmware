@@ -21,6 +21,9 @@
 #include <libopencm3/cm3/common.h>
 #include <libopencm3/stm32/spi.h>
 
+/** \addtogroup spi
+ * \{ */
+
 #define SPI_SLAVE_FPGA     0x01
 #define SPI_SLAVE_FLASH    0x02
 #define SPI_SLAVE_FRONTEND 0x03
@@ -28,6 +31,8 @@
 #define SPI_BUS_FLASH    SPI2
 #define SPI_BUS_FPGA     SPI1
 #define SPI_BUS_FRONTEND SPI2
+
+/** \} */
 
 void spi_setup(void);
 void spi_deactivate(void);

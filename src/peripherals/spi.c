@@ -21,6 +21,13 @@
 
 #include "spi.h"
 
+/** \addtogroup peripherals
+ * \{ */
+
+/** \defgroup spi SPI
+ * Functions to setup and use STM32F4 SPI peripherals.
+ * \{ */
+
 void spi_setup(void)
 {
   /* Enable SPI1 periperal clock */
@@ -87,12 +94,7 @@ void spi_slave_select(u8 slave)
 {
 
   spi_slave_deselect();
-  __asm__("CPSID i;");    // Disable interrupts
-
- /*
-    for (u8 i = 0; i < 160; i++)
-    __asm__("nop");
- */
+  __asm__("CPSID i;"); /* Disable interrupts */
 
   switch (slave) {
     case SPI_SLAVE_FPGA:
@@ -105,11 +107,6 @@ void spi_slave_select(u8 slave)
       gpio_clear(GPIOB, GPIO11);
       break;
   }
-
-  /*
-  for (u8 i = 0; i < 160; i++)
-    __asm__("nop");
-  */
 }
 
 void spi_slave_deselect(void)
@@ -121,3 +118,6 @@ void spi_slave_deselect(void)
   __asm__("CPSIE i;");    // Re-enable interrupts
 }
 
+/** \} */
+
+/** \} */

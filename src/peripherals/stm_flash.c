@@ -23,10 +23,26 @@
 #include "../debug.h"
 #include "../error.h"
 
+/** \defgroup peripherals Peripherals
+ * Functions to interact with the on-chip STM32F4 peripherals.
+ *
+ * \{ */
+
+/** \defgroup stm_flash STM Flash
+ * Callback functions to read, write, and erase the STM32F4 flash memory.
+ *
+ * \{ */
+
+/** Callback to erase a sector of the STM32F4 flash memory.
+ *
+ * \param buff Array of u8 (length 1) :
+ * <ul>
+ *   <li> [0] flash sector number to erase.
+ * </ul>
+ */
 void stm_flash_erase_sector_callback(u8 buff[])
 {
-  /* Msg format : 1 byte, sector number to erase (0-11)
-   * See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual" */
+  /* See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual" */
   u8 sector = buff[0];
 
   /* Check to make sure the sector to be erased is from 0-11,
@@ -43,16 +59,22 @@ void stm_flash_erase_sector_callback(u8 buff[])
   debug_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
+/** Callback to program a set of addresses of the STM32F4 flash memory.
+ * Note : sector containing addresses must be erased before addresses can be
+ * programmed.
+ *
+ * \param buff Array of u8 (length >= 6) :
+ *             - [0:3]   starting address of set to program
+ *             - [4]     length of set of addresses to program - counts up
+ *                       from starting address
+ *             - [5:end] data to program addresses with
+ */
 void stm_flash_program_callback(u8 buff[])
 {
-  /* Msg format : 4 bytes, address to program
-   *              1 byte, number of addresses to program
-   *              rest of bytes : data to program addr's with */
+  /* TODO : Add check to restrict addresses that can be programmed? */
   u32 address = *(u32 *)&buff[0];
   u8 length = buff[4];
   u8 *data = &buff[5];
-
-  /* TODO : Add check to restrict addresses that can be programmed? */
 
   /* Program specified addresses with data */
   flash_unlock();
@@ -63,12 +85,15 @@ void stm_flash_program_callback(u8 buff[])
   debug_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
+/** Callback to read a set of addresses of the STM32F4 flash memory.
+ *
+ * \param buff Array of u8 (length 5) :
+ *             - [0:3] starting address of set to read
+ *             - [4]   length of set of addresses to read - counts up from
+ *                     starting address
+ */
 void stm_flash_read_callback(u8 buff[])
 {
-  /*
-   * Msg format : 4 bytes, starting address to read from
-   *              1 byte, number of addresses to read
-   */
   u32 address = *(u32 *)&buff[0];
   u8 length = buff[4];
 
@@ -88,21 +113,27 @@ void stm_flash_read_callback(u8 buff[])
   while(debug_send_msg(MSG_STM_FLASH_READ, length+5, callback_data));
 }
 
+/** Callback to read STM32F4's hardcoded unique ID.
+ * Sends STM32F4 unique ID (12 bytes) back to host.
+ */
 void stm_unique_id_callback()
 {
   debug_send_msg(MSG_STM_UNIQUE_ID,12,(u8 *)STM_UNIQUE_ID_ADDR);
 }
 
+/** Setup STM flash callbacks. */
 void stm_flash_callbacks_setup()
 {
-  /* Create message callbacks node types to add to debug callback
-   * linked list for each flash callback defined above */
+  /*
+   * Create message callbacks node types to add to debug callback
+   * linked list for each flash callback defined above.
+   */
   static msg_callbacks_node_t stm_flash_erase_sector_node;
   static msg_callbacks_node_t stm_flash_read_node;
   static msg_callbacks_node_t stm_flash_program_node;
   static msg_callbacks_node_t stm_unique_id_node;
 
-  /* Insert callbacks in debug callback linked list so they can be called */
+  /* Insert callbacks in debug callback linked list so they can be called. */
   debug_register_callback(MSG_STM_FLASH_ERASE,
                           &stm_flash_erase_sector_callback,
                           &stm_flash_erase_sector_node);
@@ -116,3 +147,7 @@ void stm_flash_callbacks_setup()
                           &stm_unique_id_callback,
                           &stm_unique_id_node);
 }
+
+/** \} */
+
+/** \} */
