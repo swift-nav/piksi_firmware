@@ -18,10 +18,15 @@
 #ifndef SWIFTNAV_LEDS_H
 #define SWIFTNAV_LEDS_H
 
+/** \addtogroup leds
+ * \{ */
+
 #define LED_GREEN LED_1
 #define LED_RED   LED_2
 #define LED_1 1
 #define LED_2 2
+
+/** \} */
 
 void led_setup(void);
 void led_on(u8 led);

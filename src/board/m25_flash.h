@@ -20,6 +20,9 @@
 
 #include <libopencm3/cm3/common.h>
 
+/** \addtogroup m25
+ * \{ */
+
 #define M25_WREN 0x06
 #define M25_WRDI 0x04
 #define M25_RDID 0x9F
@@ -43,6 +46,8 @@
 #define M25_FPGA_HASH_ADDR 0xFFFFF0
 
 #define M25_READ_SIZE 192
+
+/** \} */
 
 void m25_write_enable(void);
 void m25_write_disable(void);

@@ -20,6 +20,14 @@
 
 #include "leds.h"
 
+/** \defgroup board Board
+ * Functions to interact with the rest of the Piksi hardware.
+ * \{ */
+
+/** \defgroup leds LEDs
+ * Functions to light the on-board LEDs.
+ * \{ */
+
 void led_setup(void)
 {
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
@@ -70,3 +78,7 @@ void led_toggle(u8 led)
       break;
   }
 }
+
+/** \} */
+
+/** \} */

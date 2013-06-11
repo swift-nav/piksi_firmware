@@ -15,12 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "spi.h"
+#include <stdio.h>
+
 #include "m25_flash.h"
 #include "../debug.h"
-#include "usart.h"
-#include <stdio.h>
 #include "../error.h"
+#include "../peripherals/spi.h"
+#include "../peripherals/usart.h"
+
+/** \addtogroup board
+ * \{ */
+
+/** \defgroup m25 M25P80 Flash
+ * Functions to read, write, and erase sectors of the M25P80 FPGA configuration flash.
+ * \{ */
 
 void m25_write_enable(void)
 {
@@ -239,3 +247,6 @@ void m25_setup(void)
   );
 }
 
+/** \} */
+
+/** \} */

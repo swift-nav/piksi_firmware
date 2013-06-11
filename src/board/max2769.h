@@ -20,6 +20,9 @@
 
 #include <libopencm3/cm3/common.h>
 
+/** \addtogroup max
+ * \{ */
+
 #define MAX2769_CONF1   0x00
 #define MAX2769_CONF2   0x01
 #define MAX2769_CONF3   0x02
@@ -180,6 +183,7 @@
 #define MAX2769_CLK_SERCLK   (1<<1)
 #define MAX2769_CLK_MODE     (1<<0)
 
+/** \} */
 
 void max2769_write(u8 addr, u32 data);
 void max2769_setup();
