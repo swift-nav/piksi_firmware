@@ -22,6 +22,9 @@
 #include "peripherals/usart.h"
 #include "sbp_messages.h"
 
+/** \addtogroup sbp
+ * \{ */
+
 #define SBP_HEADER_1 0xBE
 #define SBP_HEADER_2 0xEF
 
@@ -56,6 +59,8 @@ typedef struct {
   u8 crc[2];
   usart_rx_dma_state* rx_state;
 } sbp_process_messages_state_t;
+
+/** \} */
 
 void sbp_setup(u8 use_settings);
 void sbp_disable();

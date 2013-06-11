@@ -28,6 +28,14 @@
 #include "board/m25_flash.h"
 #include "peripherals/usart.h"
 
+/** \defgroup io Input/Output
+ * Communications to and from host.
+ * \{ */
+
+/** \defgroup sbp Swift Binary Protocol
+ * Send and receive messages using Swift Binary Protocol.
+ * \{ */
+
 u8 msg_header[4] = {SBP_HEADER_1, SBP_HEADER_2, 0, 0};
 
 /* Store a pointer to the head of our linked list. */
@@ -414,3 +422,7 @@ int _write (int file, char *ptr, int len)
       return -1;
 	}
 }
+
+/** \} */
+
+/** \} */
