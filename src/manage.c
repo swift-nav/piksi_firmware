@@ -24,8 +24,8 @@
 #include <libswiftnav/coord_system.h>
 
 #include "main.h"
-#include "nap/track_channel.h"
-#include "nap/acq_channel.h"
+#include "board/nap/track_channel.h"
+#include "board/nap/acq_channel.h"
 #include "acq.h"
 #include "track.h"
 #include "timing.h"
@@ -33,6 +33,10 @@
 #include "debug.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
+
+/** \defgroup manage Manage
+ * Processes and functions for managing acquisitions and tracking.
+ * \{ */
 
 acq_prn_t acq_prn_param[32];
 almanac_t almanac[32];
@@ -134,11 +138,11 @@ void manage_acq()
     case ACQ_MANAGE_START: {
       /* Check if there are tracking channels free first. */
       u8 i;
-      for (i=0; i<TRACK_N_CHANNELS; i++) {
+      for (i=0; i<nap_track_n_channels; i++) {
         if (tracking_channel[i].state == TRACKING_DISABLED)
           break;
       }
-      if (i == TRACK_N_CHANNELS)
+      if (i == nap_track_n_channels)
         /* No tracking channels free :( */
         break;
 
@@ -322,7 +326,7 @@ u8 manage_track_new_acq(float snr __attribute__((unused)))
   /* Decide which (if any) tracking channel to put
    * a newly acquired satellite into.
    */
-  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+  for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracking_channel[i].state == TRACKING_DISABLED) {
       return i;
     }
@@ -334,7 +338,7 @@ u8 manage_track_new_acq(float snr __attribute__((unused)))
 /** Disable any tracking channel whose SNR is below a certain margin. */
 void manage_track()
 {
-  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+  for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracking_channel[i].state == TRACKING_RUNNING) {
       if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
         if (tracking_channel[i].update_count > TRACK_SNR_INIT_COUNT &&
@@ -350,3 +354,5 @@ void manage_track()
     }
   }
 }
+
+/** \} */

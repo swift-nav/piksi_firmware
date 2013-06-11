@@ -18,8 +18,8 @@
 #include <libopencm3/stm32/f4/usart.h>
 #include <libopencm3/stm32/f4/dma.h>
 
-#include "hw/leds.h"
-#include "hw/usart.h"
+#include "board/leds.h"
+#include "peripherals/usart.h"
 
 #include "debug.h"
 #include "error.h"

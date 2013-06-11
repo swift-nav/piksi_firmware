@@ -19,7 +19,7 @@
 #define SWIFTNAV_DEBUG_H
 
 #include <libopencm3/cm3/common.h>
-#include "hw/usart.h"
+#include "peripherals/usart.h"
 #include "debug_messages.h"
 
 #define DEBUG_MAGIC_1 0xBE

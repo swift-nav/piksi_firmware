@@ -24,9 +24,9 @@
 #include "error.h"
 #include "settings.h"
 #include "debug.h"
-#include "hw/m25_flash.h"
-#include "hw/leds.h"
-#include "hw/usart.h"
+#include "board/leds.h"
+#include "board/m25_flash.h"
+#include "peripherals/usart.h"
 
 u8 msg_header[4] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2, 0, 0};
 

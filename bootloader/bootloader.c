@@ -27,13 +27,13 @@
 #include <libopencm3/cm3/scb.h>
 
 #include "main.h"
-#include "nap/nap_common.h"
 #include "debug.h"
-#include "hw/leds.h"
-#include "hw/stm_flash.h"
-#include "hw/usart.h"
-#include "hw/m25_flash.h"
-#include "hw/spi.h"
+#include "board/leds.h"
+#include "peripherals/stm_flash.h"
+#include "peripherals/usart.h"
+#include "peripherals/spi.h"
+#include "board/m25_flash.h"
+#include "board/nap/nap_common.h"
 
 #define APP_ADDRESS	0x08010000
 #define STACK_ADDRESS 0x10010000

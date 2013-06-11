@@ -22,7 +22,7 @@
 #include <libswiftnav/nav_msg.h>
 #include <libswiftnav/track.h>
 
-#include "nap/nap_common.h"
+#include "board/nap/nap_common.h"
 
 #define I_FILTER_COEFF 4
 #define Q_FILTER_COEFF 10

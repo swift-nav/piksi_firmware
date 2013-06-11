@@ -23,10 +23,10 @@
 #include "main.h"
 #include "init.h"
 #include "error.h"
-#include "hw/leds.h"
 #include "debug.h"
-#include "hw/usart.h"
-#include "nap/nap_common.h"
+#include "board/leds.h"
+#include "board/nap/nap_common.h"
+#include "peripherals/usart.h"
 
 #define MSG_ECHO 0xEC
 

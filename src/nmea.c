@@ -22,11 +22,11 @@
 
 #include <libswiftnav/coord_system.h>
 
-#include "nap/track_channel.h"
+#include "board/nap/track_channel.h"
 #include "nmea.h"
 #include "debug.h"
 #include "settings.h"
-#include "hw/usart.h"
+#include "peripherals/usart.h"
 
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
  * \param s The NMEA sentence to output.
@@ -128,7 +128,7 @@ void nmea_gpgsa(tracking_channel_t* chans, dops_t* dops)
   char* bufp = buf + strlen(buf);
 
   for (u8 i=0; i<12; i++) {
-    if (i < TRACK_N_CHANNELS && chans[i].state == TRACKING_RUNNING) {
+    if (i < nap_track_n_channels && chans[i].state == TRACKING_RUNNING) {
       bufp += sprintf(bufp, "%02d,", chans[i].prn+1);
     } else {
       *bufp++ = ',';

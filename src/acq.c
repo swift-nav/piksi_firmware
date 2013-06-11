@@ -19,9 +19,16 @@
 #include <stdio.h>
 #include <libopencm3/stm32/f4/gpio.h>
 
-#include "nap/acq_channel.h"
+#include "board/nap/acq_channel.h"
 #include "acq.h"
 #include "track.h"
+
+/** \addtogroup manage
+ * \{ */
+
+/** \defgroup acq Acquisition
+ * Functions and interrupt service routines to manage acquisition searches.
+ * \{ */
 
 acq_state_t acq_state;
 
@@ -260,11 +267,14 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
 {
   acq_start(prn, cp_min, cp_max, cf_min, cf_max, cf_bin_width);
   while(acq_state.state == ACQ_RUNNING) {
-    nap_wait_for_exti();
+    wait_for_nap_exti();
     acq_service_irq();
   }
-  nap_wait_for_exti();
+  wait_for_nap_exti();
   acq_service_irq();
   acq_get_results(cp, cf, snr);
 }
 
+/** \} */
+
+/** \} */

@@ -22,7 +22,7 @@
 #include "main.h"
 #include "timing.h"
 #include "debug.h"
-#include "nap/nap_common.h"
+#include "board/nap/nap_common.h"
 
 time_quality_t time_quality = TIME_UNKNOWN;
 

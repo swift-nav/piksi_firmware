@@ -20,6 +20,9 @@
 
 #include <libopencm3/cm3/common.h>
 
+/** \addtogroup acq
+ * \{ */
+
 /* NOTE: Minimum bin width 1/NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ (~16 Hz) */
 #define ACQ_CARRIER_BIN_WIDTH 300
 
@@ -45,6 +48,8 @@ typedef struct {
   u16 best_cp;
   u32 count;
 } acq_state_t;
+
+/** \} */
 
 void acq_schedule_load(u32 count);
 void acq_service_load_done();

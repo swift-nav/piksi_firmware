@@ -20,10 +20,10 @@
 #include "init.h"
 #include "main.h"
 #include "debug.h"
-#include "nap/nap_common.h"
 #include "acq.h"
-#include "hw/leds.h"
-#include "hw/m25_flash.h"
+#include "board/leds.h"
+#include "board/m25_flash.h"
+#include "board/nap/nap_common.h"
 
 int main(void)
 {

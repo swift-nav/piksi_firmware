@@ -23,16 +23,16 @@
 #include "main.h"
 #include "cw.h"
 #include "debug.h"
-#include "nap/nap_common.h"
-#include "nap/track_channel.h"
+#include "board/nap/nap_common.h"
+#include "board/nap/track_channel.h"
 #include "track.h"
 #include "acq.h"
 #include "nmea.h"
 #include "manage.h"
 #include "timing.h"
-#include "hw/leds.h"
-#include "hw/spi.h"
-#include "hw/m25_flash.h"
+#include "peripherals/spi.h"
+#include "board/leds.h"
+#include "board/m25_flash.h"
 
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/track.h>
@@ -51,15 +51,15 @@ int main(void)
   led_toggle(LED_RED);
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n\r");
-  printf("FPGA configured with %d tracking channels\n", TRACK_N_CHANNELS);
+  printf("FPGA configured with %d tracking channels\n", nap_track_n_channels);
 
   const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
 
   double WPR_ecef[3];
   wgsllh2ecef(WPR_llh, WPR_ecef);
 
-  channel_measurement_t meas[TRACK_N_CHANNELS];
-  navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
+  channel_measurement_t meas[nap_track_n_channels];
+  navigation_measurement_t nav_meas[nap_track_n_channels];
 
   static ephemeris_t es[32];
 
@@ -75,7 +75,7 @@ int main(void)
     // Check if there is a new nav msg subframe to process.
     // TODO: move this into a function
 
-    for (u8 i=0; i<TRACK_N_CHANNELS; i++)
+    for (u8 i=0; i<nap_track_n_channels; i++)
       if (tracking_channel[i].state == TRACKING_RUNNING && tracking_channel[i].nav_msg.subframe_start_index) {
         process_subframe(&tracking_channel[i].nav_msg, &es[tracking_channel[i].prn]);
       }
@@ -84,7 +84,7 @@ int main(void)
 
     DO_EVERY_COUNTS(TICK_FREQ/5,
       u8 n_ready = 0;
-      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+      for (u8 i=0; i<nap_track_n_channels; i++) {
         if (es[tracking_channel[i].prn].valid == 1 && \
             es[tracking_channel[i].prn].healthy == 1 && \
             tracking_channel[i].state == TRACKING_RUNNING && \
@@ -145,7 +145,7 @@ int main(void)
       tracking_send_state();
     );
 
-    u32 err = nap_read_error_blocking();
+    u32 err = nap_error_rd_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);
   }

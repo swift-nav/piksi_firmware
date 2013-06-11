@@ -19,9 +19,9 @@
 #include <libopencm3/stm32/f4/rcc.h>
 
 #include "debug.h"
-#include "nap/nap_common.h"
-#include "hw/leds.h"
-#include "hw/m25_flash.h"
+#include "board/leds.h"
+#include "board/m25_flash.h"
+#include "board/nap/nap_common.h"
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */

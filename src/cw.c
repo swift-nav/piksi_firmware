@@ -18,7 +18,7 @@
 #include <math.h>
 #include <stdio.h>
 
-#include "nap/cw_channel.h"
+#include "board/nap/cw_channel.h"
 #include "debug.h"
 #include "cw.h"
 
@@ -52,7 +52,7 @@ void cw_setup()
 void cw_schedule_load(u32 count)
 {
   cw_state.state = CW_LOADING;
-  cw_set_load_enable_blocking();
+  nap_cw_load_wr_enable_blocking();
   nap_timing_strobe(count);
 }
 
@@ -62,7 +62,7 @@ void cw_schedule_load(u32 count)
  */
 void cw_service_load_done()
 {
-  cw_clear_load_enable_blocking();
+  nap_cw_load_wr_disable_blocking();
   cw_state.state = CW_LOADING_DONE;
 }
 
@@ -95,9 +95,9 @@ void cw_start(float freq_min, float freq_max, float freq_bin_width)
    * the range to the nearest multiple of the step size to make sure
    * we cover at least the specified range.
    */
-  cw_state.freq_step = ceil(freq_bin_width*CW_FREQ_UNITS_PER_HZ);
-  cw_state.freq_min = freq_min*CW_FREQ_UNITS_PER_HZ;
-  cw_state.freq_max = freq_max*CW_FREQ_UNITS_PER_HZ;
+  cw_state.freq_step = ceil(freq_bin_width*NAP_CW_FREQ_UNITS_PER_HZ);
+  cw_state.freq_min = freq_min*NAP_CW_FREQ_UNITS_PER_HZ;
+  cw_state.freq_max = freq_max*NAP_CW_FREQ_UNITS_PER_HZ;
 
   /* Initialise our cw state struct. */
   cw_state.state = CW_RUNNING;
@@ -105,9 +105,9 @@ void cw_start(float freq_min, float freq_max, float freq_bin_width)
   cw_state.freq = cw_state.freq_min;
 
   /* Write first and second sets of detection parameters (for pipelining). */
-  cw_write_init_blocking(cw_state.freq_min);
+  nap_cw_init_wr_params_blocking(cw_state.freq_min);
   /* TODO: If we are only searching one point then write disable here. */
-  cw_write_init_blocking(cw_state.freq + cw_state.freq_step);
+  nap_cw_init_wr_params_blocking(cw_state.freq + cw_state.freq_step);
 }
 
 /** Handle a CW DONE interrupt from the CW channel.
@@ -127,12 +127,12 @@ void cw_service_irq()
        * If we get an interrupt when we are not running, disable the CW channel.
        * This will also clear the interrupt.
        */
-      cw_disable_blocking();
+      nap_cw_init_wr_disable_blocking();
       break;
 
     case CW_RUNNING:
       /* Read in correlations. */
-      cw_read_corr_blocking(&cs);
+      nap_cw_corr_rd_blocking(&cs);
 
       power = (u64)cs.I*(u64)cs.I + (u64)cs.Q*(u64)cs.Q;
 
@@ -150,14 +150,14 @@ void cw_service_irq()
       cw_state.freq += cw_state.freq_step;
 			if (cw_state.freq >= (cw_state.freq_max + cw_state.freq_step)) {
         /* 2nd disable write. Transition state. */
-        cw_disable_blocking();
+        nap_cw_init_wr_disable_blocking();
         cw_state.state = CW_RUNNING_DONE;
 			} else if (cw_state.freq>= cw_state.freq_max) {
         /* 1st disable write */
-        cw_disable_blocking();
+        nap_cw_init_wr_disable_blocking();
 			} else {
         /* Write next pipelined CW frequency */
-        cw_write_init_blocking(cw_state.freq + cw_state.freq_step);
+        nap_cw_init_wr_params_blocking(cw_state.freq + cw_state.freq_step);
 			}
 
       break;

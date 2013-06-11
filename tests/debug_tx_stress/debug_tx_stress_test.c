@@ -25,8 +25,8 @@
 #include "main.h"
 #include "debug.h"
 #include "error.h"
-#include "hw/leds.h"
-#include "hw/usart.h"
+#include "board/leds.h"
+#include "peripherals/usart.h"
 
 u8 guard_below[30];
 u8 buff_out[256];

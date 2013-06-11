@@ -24,7 +24,7 @@
 #include <libopencm3/stm32/exti.h>
 
 #include "main.h"
-#include "nap/track_channel.h"
+#include "board/nap/track_channel.h"
 #include "debug.h"
 #include "track.h"
 
@@ -32,14 +32,14 @@
 
 /* Initialiser using GNU extension, see
  * http://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html
- * tracking_channel_t tracking_channel[MAX_TRACK_N_CHANNELS] = \
- *   {[0 ... TRACK_N_CHANNELS-1] = {.state = TRACKING_DISABLED}};
+ * tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS] = \
+ *   {[0 ... nap_track_n_channels-1] = {.state = TRACKING_DISABLED}};
  */
 
 /* Initialiser actually not needed, static array inits to zero
  * and TRACKING_DISABLED = 0.
  */
-tracking_channel_t tracking_channel[MAX_TRACK_N_CHANNELS];
+tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
 
 /** Calculate the future code phase after N samples.
  * Calculate the expected code phase in N samples time with carrier aiding.
@@ -54,7 +54,7 @@ tracking_channel_t tracking_channel[MAX_TRACK_N_CHANNELS];
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
 {
   /* Calculate the code phase rate with carrier aiding. */
-  u32 code_phase_rate = (1.0 + carrier_freq/L1_HZ) * TRACK_NOMINAL_CODE_PHASE_RATE;
+  u32 code_phase_rate = (1.0 + carrier_freq/L1_HZ) * NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
 
   /* Internal Swift NAP code phase is in chips*2^32:
    *
@@ -111,7 +111,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
   tracking_channel[channel].code_phase_early = 0;
-  tracking_channel[channel].code_phase_rate_fp = code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  tracking_channel[channel].code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   tracking_channel[channel].code_phase_rate_fp_prev = tracking_channel[channel].code_phase_rate_fp;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
   tracking_channel[channel].carrier_freq = carrier_freq;
@@ -125,10 +125,10 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   /* Start with code phase of zero as we have conspired for the
    * channel to be initialised on an EARLY code phase rollover.
    */
-  track_write_code_blocking(channel, prn);
-  track_write_init_blocking(channel, prn, 0, 0);
-  track_write_update_blocking(channel, \
-                     carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+  nap_track_code_wr_blocking(channel, prn);
+  nap_track_init_wr_blocking(channel, prn, 0, 0);
+  nap_track_update_wr_blocking(channel, \
+                     carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
                      tracking_channel[channel].code_phase_rate_fp);
 
   /* Schedule the timing strobe for start_sample_count. */
@@ -144,7 +144,7 @@ void tracking_channel_get_corrs(u8 channel)
   {
     case TRACKING_RUNNING:
       /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
-      track_read_corr_blocking(channel, &chan->corr_sample_count, chan->cs);
+      nap_track_corr_rd_blocking(channel, &chan->corr_sample_count, chan->cs);
       break;
 
     case TRACKING_DISABLED:
@@ -176,7 +176,7 @@ void tracking_channel_update(u8 channel)
 
       /*u64 cp;*/
       /*u32 cf;*/
-      /*track_read_phase_blocking(channel, &cf, &cp);*/
+      /*nap_track_phase_rd_blocking(channel, &cf, &cp);*/
       /*if ((cp&0xFFFFFFFF) != chan->code_phase_early) {*/
         /*DO_ONLY(100,*/
           /*printf("%d %u CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->update_count, (unsigned int)chan->code_phase_rate_fp_prev, (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);*/
@@ -223,10 +223,10 @@ void tracking_channel_update(u8 channel)
       }
 
       chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
-      chan->code_phase_rate_fp = chan->code_phase_rate*TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+      chan->code_phase_rate_fp = chan->code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
-      track_write_update_blocking(channel, \
-                         chan->carrier_freq*TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+      nap_track_update_wr_blocking(channel, \
+                         chan->carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
                          chan->code_phase_rate_fp);
       break;
     }
@@ -244,7 +244,7 @@ void tracking_channel_disable(u8 channel)
   /* Write zero to the code phase rate to stop the channel
    * from generating interrupts.
    */
-  track_write_update_blocking(channel, 0, 0);
+  nap_track_update_wr_blocking(channel, 0, 0);
   tracking_channel[channel].state = TRACKING_DISABLED;
 }
 
@@ -254,8 +254,8 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
 
   /* Update our channel measurement. */
   meas->prn = chan->prn;
-  meas->code_phase_chips = (double)chan->code_phase_early / TRACK_CODE_PHASE_UNITS_PER_CHIP;
-  //meas->code_phase_rate = (double)chan->code_phase_rate_fp_prev / TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  meas->code_phase_chips = (double)chan->code_phase_early / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
+  //meas->code_phase_rate = (double)chan->code_phase_rate_fp_prev / NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   //meas->code_phase_rate = 1.023e6 * (1 + chan->carrier_freq/L1_HZ);
   meas->code_phase_rate = chan->code_phase_rate;
   meas->carrier_phase = 0;
@@ -273,8 +273,8 @@ float tracking_channel_snr(u8 channel)
 }
 
 void tracking_send_state() {
-  tracking_state_msg_t states[TRACK_N_CHANNELS];
-  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+  tracking_state_msg_t states[nap_track_n_channels];
+  for (u8 i=0; i<nap_track_n_channels; i++) {
     states[i].state = tracking_channel[i].state;
     states[i].prn = tracking_channel[i].prn;
     if (tracking_channel[i].state == TRACKING_RUNNING)

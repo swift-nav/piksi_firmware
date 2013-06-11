@@ -25,7 +25,7 @@
 #include <libopencm3/stm32/f4/nvic.h>
 
 #include "main.h"
-#include "hw/leds.h"
+#include "board/leds.h"
 #include "error.h"
 
 void clock_setup(void)

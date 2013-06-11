@@ -19,7 +19,7 @@
 #define SWIFTNAV_SETTINGS_H
 
 #include "settings.h"
-#include "hw/usart.h"
+#include "peripherals/usart.h"
 
 settings_t settings __attribute__ ((section (".settings_area"))) =
 /* Default settings: */

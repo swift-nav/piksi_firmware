@@ -20,8 +20,8 @@
 #include "init.h"
 #include "main.h"
 #include "debug.h"
-#include "hw/leds.h"
-#include "hw/usart.h"
+#include "board/leds.h"
+#include "peripherals/usart.h"
 
 msg_callbacks_node_t foo_callback_node;
 void foo_callback(u8 buff[])

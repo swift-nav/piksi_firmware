@@ -20,6 +20,9 @@
 
 #include <libopencm3/cm3/common.h>
 
+/** \addtogroup manage
+ * \{ */
+
 #define ACQ_THRESHOLD 20.0
 #define TRACK_THRESHOLD 2.0
 #define TRACK_SNR_INIT_COUNT 5000
@@ -62,6 +65,8 @@ typedef struct __attribute__((packed)) {
   u8 state;
   s8 score;
 } acq_prn_t;
+
+/** \} */
 
 void manage_acq_setup();
 void manage_acq();

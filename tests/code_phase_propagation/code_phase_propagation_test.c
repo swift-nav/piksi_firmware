@@ -21,12 +21,12 @@
 #include "init.h"
 #include "main.h"
 #include "debug.h"
-#include "nap/acq_channel.h"
-#include "nap/track_channel.h"
 #include "track.h"
 #include "acq.h"
-#include "hw/leds.h"
-#include "hw/m25_flash.h"
+#include "board/leds.h"
+#include "board/m25_flash.h"
+#include "board/nap/acq_channel.h"
+#include "board/nap/track_channel.h"
 
 int main(void)
 {
@@ -49,7 +49,7 @@ int main(void)
     nap_acq_load_wr_enable_blocking();
     u32 coarse_acq_cnt = nap_timing_count() + 1000;
     nap_timing_strobe(coarse_acq_cnt);
-    nap_wait_for_exti();
+    wait_for_nap_exti();
     nap_acq_load_wr_disable_blocking();
 
     do_acq(PRN-1, 0, 1023, -7000, 7000, 300, &coarse_acq_code_phase, &coarse_acq_carrier_freq, &coarse_snr);
@@ -68,7 +68,7 @@ int main(void)
     nap_acq_load_wr_enable_blocking();
     u32 fine_acq_cnt = nap_timing_count() + 2000;
     nap_timing_strobe(fine_acq_cnt);
-    nap_wait_for_exti();
+    wait_for_nap_exti();
     nap_acq_load_wr_disable_blocking();
 
     float fine_cp = propagate_code_phase(coarse_acq_code_phase, coarse_acq_carrier_freq, fine_acq_cnt - coarse_acq_cnt);
@@ -87,7 +87,7 @@ int main(void)
     nap_acq_load_wr_enable_blocking();
     u32 fine2_acq_cnt = nap_timing_count() + 2000;
     nap_timing_strobe(fine2_acq_cnt);
-    nap_wait_for_exti();
+    wait_for_nap_exti();
     nap_acq_load_wr_disable_blocking();
 
     float fine2_cp = propagate_code_phase(fine_acq_code_phase, fine_acq_carrier_freq, fine2_acq_cnt - fine_acq_cnt);
