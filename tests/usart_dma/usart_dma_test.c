@@ -23,7 +23,7 @@
 #include "main.h"
 #include "init.h"
 #include "error.h"
-#include "debug.h"
+#include "sbp.h"
 #include "board/leds.h"
 #include "board/nap/nap_common.h"
 #include "peripherals/usart.h"
@@ -46,17 +46,17 @@ int main(void)
   nap_conf_b_setup();
   nap_conf_b_clear();
 
-  debug_setup(0);
+  sbp_setup(0);
 
   static msg_callbacks_node_t echo_node;
-  debug_register_callback(MSG_ECHO, &echo_callback, &echo_node);
+  sbp_register_callback(MSG_ECHO, &echo_callback, &echo_node);
 
   while(1) {
     DO_EVERY(3000,
       led_toggle(LED_RED);
       led_toggle(LED_GREEN);
     );
-    debug_process_messages();
+    sbp_process_messages();
   }
 
   while (1);

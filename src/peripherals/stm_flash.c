@@ -20,7 +20,7 @@
 #include <libopencm3/stm32/f4/flash.h>
 
 #include "stm_flash.h"
-#include "../debug.h"
+#include "../sbp.h"
 #include "../error.h"
 
 /** \defgroup peripherals Peripherals
@@ -56,7 +56,7 @@ void stm_flash_erase_sector_callback(u8 buff[])
   flash_lock();
 
   /* Send message back to PC to signal operation is finished */
-  debug_send_msg(MSG_STM_FLASH_DONE, 0, 0);
+  sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
 /** Callback to program a set of addresses of the STM32F4 flash memory.
@@ -82,7 +82,7 @@ void stm_flash_program_callback(u8 buff[])
   flash_lock();
 
   /* Send message back to PC to signal operation is finished */
-  debug_send_msg(MSG_STM_FLASH_DONE, 0, 0);
+  sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
 /** Callback to read a set of addresses of the STM32F4 flash memory.
@@ -110,7 +110,7 @@ void stm_flash_read_callback(u8 buff[])
   }
 
   /* If sending message fails (buffer is full), keep trying until successful */
-  while(debug_send_msg(MSG_STM_FLASH_READ, length+5, callback_data));
+  while(sbp_send_msg(MSG_STM_FLASH_READ, length+5, callback_data));
 }
 
 /** Callback to read STM32F4's hardcoded unique ID.
@@ -118,14 +118,14 @@ void stm_flash_read_callback(u8 buff[])
  */
 void stm_unique_id_callback()
 {
-  debug_send_msg(MSG_STM_UNIQUE_ID,12,(u8 *)STM_UNIQUE_ID_ADDR);
+  sbp_send_msg(MSG_STM_UNIQUE_ID,12,(u8 *)STM_UNIQUE_ID_ADDR);
 }
 
 /** Setup STM flash callbacks. */
 void stm_flash_callbacks_setup()
 {
   /*
-   * Create message callbacks node types to add to debug callback
+   * Create message callbacks node types to add to SBP callback
    * linked list for each flash callback defined above.
    */
   static msg_callbacks_node_t stm_flash_erase_sector_node;
@@ -133,17 +133,17 @@ void stm_flash_callbacks_setup()
   static msg_callbacks_node_t stm_flash_program_node;
   static msg_callbacks_node_t stm_unique_id_node;
 
-  /* Insert callbacks in debug callback linked list so they can be called. */
-  debug_register_callback(MSG_STM_FLASH_ERASE,
+  /* Insert callbacks in SBP callback linked list so they can be called. */
+  sbp_register_callback(MSG_STM_FLASH_ERASE,
                           &stm_flash_erase_sector_callback,
                           &stm_flash_erase_sector_node);
-  debug_register_callback(MSG_STM_FLASH_READ,
+  sbp_register_callback(MSG_STM_FLASH_READ,
                           &stm_flash_read_callback,
                           &stm_flash_read_node);
-  debug_register_callback(MSG_STM_FLASH_WRITE,
+  sbp_register_callback(MSG_STM_FLASH_WRITE,
                           &stm_flash_program_callback,
                           &stm_flash_program_node);
-  debug_register_callback(MSG_STM_UNIQUE_ID,
+  sbp_register_callback(MSG_STM_UNIQUE_ID,
                           &stm_unique_id_callback,
                           &stm_unique_id_node);
 }

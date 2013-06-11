@@ -26,8 +26,8 @@
 #include "track_channel.h"
 #include "../max2769.h"
 #include "../../peripherals/spi.h"
-#include "../../debug_messages.h"
-#include "../../debug.h"
+#include "../../sbp_messages.h"
+#include "../../sbp.h"
 #include "../../acq.h"
 #include "../../track.h"
 #include "../../cw.h"
@@ -172,14 +172,14 @@ void nap_rd_dna_callback()
 {
   u8 dna[8];
   nap_rd_dna(dna);
-  debug_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
+  sbp_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
 }
 
 /** Setup NAP callbacks. */
 void nap_callbacks_setup()
 {
   static msg_callbacks_node_t nap_dna_node;
-  debug_register_callback(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback, &nap_dna_node);
+  sbp_register_callback(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback, &nap_dna_node);
 }
 
 

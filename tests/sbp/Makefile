@@ -1,6 +1,6 @@
-BINARY = debug_test
+BINARY = sbp_test
 
-OBJS = debug_test.o
+OBJS = sbp_test.o
 
 SWIFTNAV_ROOT = ../..
 

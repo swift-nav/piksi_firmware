@@ -23,7 +23,7 @@
 
 #include "init.h"
 #include "main.h"
-#include "debug.h"
+#include "sbp.h"
 #include "error.h"
 #include "board/leds.h"
 #include "peripherals/usart.h"
@@ -49,8 +49,8 @@ void tim2_isr() {
 
   /* Random transmit length. */
   u32 len = (u32)rand() % 256;
-  if(debug_send_msg(0x22, len, buff_out))
-    speaking_death("debug_send_msg failed in tim2_isr");
+  if(sbp_send_msg(0x22, len, buff_out))
+    speaking_death("sbp_send_msg failed in tim2_isr");
 }
 
 int main(void)
@@ -58,7 +58,7 @@ int main(void)
   init();
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
-  printf("--- DEBUG TEST ---\n");
+  printf("--- SWIFT BINARY PROTOCOL TX STRESS TEST ---\n");
 
   u32 len;
 
@@ -73,7 +73,7 @@ int main(void)
   while(1) {
     /* Random transmit length. */
     len = (u32)rand() % 256;
-    while(debug_send_msg(0x22, len, buff_out));
+    while(sbp_send_msg(0x22, len, buff_out));
 
     /* Check the guards for buffer over/underrun. */
     for (u8 i=0; i<30; i++) {

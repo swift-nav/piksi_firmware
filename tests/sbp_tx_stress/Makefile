@@ -1,6 +1,6 @@
-BINARY = debug_tx_stress_test
+BINARY = sbp_tx_stress_test
 
-OBJS = debug_tx_stress_test.o
+OBJS = sbp_tx_stress_test.o
 
 SWIFTNAV_ROOT = ../..
 

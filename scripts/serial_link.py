@@ -10,8 +10,8 @@ import sys
 DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 1000000
 
-DEBUG_MAGIC_1 = 0xBE
-DEBUG_MAGIC_2 = 0xEF
+SBP_HEADER_1 = 0xBE
+SBP_HEADER_2 = 0xEF
 
 MSG_PRINT = 0x01
 
@@ -122,9 +122,9 @@ class SerialLink:
       # Sync with magic start bytes
       magic = self.ser.read(1)
       if magic:
-        if ord(magic) == DEBUG_MAGIC_1:
+        if ord(magic) == SBP_HEADER_1:
           magic = self.ser.read(1)
-          if ord(magic) == DEBUG_MAGIC_2:
+          if ord(magic) == SBP_HEADER_2:
             break
           else:
             self.unhandled_bytes += 1
@@ -161,8 +161,8 @@ class SerialLink:
     crc_int = crc16(msg, crc)
     crc = struct.pack('<H', crc_int)
 
-    self.ser.write(chr(DEBUG_MAGIC_1))
-    self.ser.write(chr(DEBUG_MAGIC_2))
+    self.ser.write(chr(SBP_HEADER_1))
+    self.ser.write(chr(SBP_HEADER_2))
     self.ser.write(chr(msg_type))
     self.ser.write(chr(len(msg)))
     self.ser.write(msg)

@@ -25,7 +25,7 @@
 
 #include "main.h"
 #include "board/nap/track_channel.h"
-#include "debug.h"
+#include "sbp.h"
 #include "track.h"
 
 #include <libswiftnav/pvt.h>
@@ -290,7 +290,7 @@ void tracking_send_state()
     else
       states[i].cn0 = -1;
   }
-  debug_send_msg(MSG_TRACKING_STATE, sizeof(states), (u8*)states);
+  sbp_send_msg(MSG_TRACKING_STATE, sizeof(states), (u8*)states);
 }
 
 /** \} */

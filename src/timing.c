@@ -21,7 +21,7 @@
 
 #include "main.h"
 #include "timing.h"
-#include "debug.h"
+#include "sbp.h"
 #include "board/nap/nap_common.h"
 
 time_quality_t time_quality = TIME_UNKNOWN;
@@ -81,7 +81,7 @@ void time_setup()
   /* TODO: Perhaps setup something to check for nap_timing_count overflows
    * periodically. */
   static msg_callbacks_node_t set_time_node;
-  debug_register_callback(MSG_SET_TIME, &set_time_callback, &set_time_node);
+  sbp_register_callback(MSG_SET_TIME, &set_time_callback, &set_time_node);
 
   /* Setup Timer 2 as our global tick counter. */
   RCC_APB1ENR |= RCC_APB1ENR_TIM2EN;

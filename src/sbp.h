@@ -15,17 +15,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SWIFTNAV_DEBUG_H
-#define SWIFTNAV_DEBUG_H
+#ifndef SWIFTNAV_SBP_H
+#define SWIFTNAV_SBP_H
 
 #include <libopencm3/cm3/common.h>
 #include "peripherals/usart.h"
-#include "debug_messages.h"
+#include "sbp_messages.h"
 
-#define DEBUG_MAGIC_1 0xBE
-#define DEBUG_MAGIC_2 0xEF
+#define SBP_HEADER_1 0xBE
+#define SBP_HEADER_2 0xEF
 
-#define DEBUG_MSG(msg_type, item) send_debug_msg(msg_type, sizeof(item), (u8*)&(item))
+#define SBP_MSG(msg_type, item) sbp_send_msg(msg_type, sizeof(item), (u8*)&(item))
 
 /* Define the type of our callback function
  * for convenience.
@@ -55,15 +55,15 @@ typedef struct {
   u8 crc_n_read;
   u8 crc[2];
   usart_rx_dma_state* rx_state;
-} debug_process_messages_state_t;
+} sbp_process_messages_state_t;
 
-void debug_setup(u8 use_settings);
-void debug_disable();
-u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[]);
-void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_t* node);
-msg_callback_t debug_find_callback(u8 msg_id);
-void debug_process_usart(debug_process_messages_state_t* s);
-void debug_process_messages();
+void sbp_setup(u8 use_settings);
+void sbp_disable();
+u32 sbp_send_msg(u8 msg_type, u8 len, u8 buff[]);
+void sbp_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_t* node);
+msg_callback_t sbp_find_callback(u8 msg_id);
+void sbp_process_usart(sbp_process_messages_state_t* s);
+void sbp_process_messages();
 u16 crc16_ccitt(const u8* buf, u8 len, u16 crc);
 
 #endif

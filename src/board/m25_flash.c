@@ -18,7 +18,7 @@
 #include <stdio.h>
 
 #include "m25_flash.h"
-#include "../debug.h"
+#include "../sbp.h"
 #include "../error.h"
 #include "../peripherals/spi.h"
 #include "../peripherals/usart.h"
@@ -170,7 +170,7 @@ void flash_write_callback(u8 buff[])
   m25_write_enable();
   m25_page_program(addr, len, data);
 
-  debug_send_msg(MSG_M25_FLASH_DONE, 0, 0);
+  sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0);
 }
 
 void flash_read_callback(u8 buff[])
@@ -203,7 +203,7 @@ void flash_read_callback(u8 buff[])
     }
 
     /* Keep trying to send message until we succeed. */
-    while(debug_send_msg(MSG_M25_FLASH_READ,5 + chunk_len,callback_data));
+    while(sbp_send_msg(MSG_M25_FLASH_READ,5 + chunk_len,callback_data));
 
     len -= chunk_len;
     addr += chunk_len;
@@ -220,7 +220,7 @@ void flash_erase_callback(u8 buff[])
   m25_write_enable();
   m25_sector_erase(addr);
 
-  debug_send_msg(MSG_M25_FLASH_DONE, 0, 0);
+  sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0);
 }
 
 void m25_setup(void)
@@ -230,17 +230,17 @@ void m25_setup(void)
   static msg_callbacks_node_t flash_read_node;
   static msg_callbacks_node_t flash_erase_node;
 
-  debug_register_callback(
+  sbp_register_callback(
     MSG_M25_FLASH_WRITE,
     &flash_write_callback,
     &flash_write_node
   );
-  debug_register_callback(
+  sbp_register_callback(
     MSG_M25_FLASH_READ,
     &flash_read_callback,
     &flash_read_node
   );
-  debug_register_callback(
+  sbp_register_callback(
     MSG_M25_FLASH_ERASE,
     &flash_erase_callback,
     &flash_erase_node

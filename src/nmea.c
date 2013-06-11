@@ -24,7 +24,7 @@
 
 #include "board/nap/track_channel.h"
 #include "nmea.h"
-#include "debug.h"
+#include "sbp.h"
 #include "settings.h"
 #include "peripherals/usart.h"
 

@@ -22,7 +22,7 @@
 #include "init.h"
 #include "main.h"
 #include "cw.h"
-#include "debug.h"
+#include "sbp.h"
 #include "board/nap/nap_common.h"
 #include "board/nap/track_channel.h"
 #include "track.h"
@@ -68,7 +68,7 @@ int main(void)
   {
     for (u32 i = 0; i < 3000; i++)
       __asm__("nop");
-    debug_process_messages();
+    sbp_process_messages();
     manage_track();
     manage_acq();
 
@@ -119,11 +119,11 @@ int main(void)
 
           wgsecef2ned_d(soln.pos_ecef, WPR_ecef, soln.pos_ned);
 
-          debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
+          sbp_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
           /*nmea_gpgga(&soln, &dops);*/
 
           /*DO_EVERY(1,*/
-            /*debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);*/
+            /*sbp_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);*/
             /*nmea_gpgsv(n_ready, nav_meas, &soln);*/
           /*);*/
         }
@@ -134,8 +134,8 @@ int main(void)
     gnss_solution soln;
     dops_t dops;
 //    DO_EVERY(5,
-    debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
-    debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
+    sbp_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
+    sbp_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
 //    );
 
     DO_EVERY_COUNTS(TICK_FREQ,

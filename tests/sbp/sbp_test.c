@@ -19,7 +19,7 @@
 
 #include "init.h"
 #include "main.h"
-#include "debug.h"
+#include "sbp.h"
 #include "board/leds.h"
 #include "peripherals/usart.h"
 
@@ -56,13 +56,13 @@ int main(void)
   init();
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
-  printf("--- DEBUG TEST ---\n");
+  printf("--- SWIFT BINARY PROTOCOL TEST ---\n");
 
-  debug_register_callback(0x22, &foo_callback, &foo_callback_node);
-  debug_register_callback(0x42, &led_callback, &led_callback_node);
+  sbp_register_callback(0x22, &foo_callback, &foo_callback_node);
+  sbp_register_callback(0x42, &led_callback, &led_callback_node);
   while(1)
   {
-    debug_process_messages();
+    sbp_process_messages();
     for (u32 i = 0; i < 600000; i++)
       __asm__("nop");
   }

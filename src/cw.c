@@ -19,7 +19,7 @@
 #include <stdio.h>
 
 #include "board/nap/cw_channel.h"
-#include "debug.h"
+#include "sbp.h"
 #include "cw.h"
 
 /** \addtogroup manage
@@ -33,7 +33,7 @@
 cw_state_t cw_state;
 
 /** Callback to start a set of CW searches.
- * Allows PC side debug code to directly control CW channel searches.
+ * Allows PC to directly control CW channel searches.
  */
 void cw_start_callback(u8 msg[])
 {
@@ -45,7 +45,7 @@ void cw_start_callback(u8 msg[])
 void cw_setup()
 {
   static msg_callbacks_node_t cw_start_callback_node;
-  debug_register_callback(MSG_CW_START, &cw_start_callback, &cw_start_callback_node);
+  sbp_register_callback(MSG_CW_START, &cw_start_callback, &cw_start_callback_node);
 }
 
 /** Schedule a load of samples into the CW channel's sample ram.
@@ -172,7 +172,7 @@ void cw_service_irq()
   }
 }
 
-/** Send results of a CW search point back to the PC via the debug interface.
+/** Send results of a CW search point back to the PC via the SBP interface.
  *
  * \param freq  Frequency of the CW correlation
  * \param power Magnitude of the CW correlation
@@ -187,7 +187,7 @@ void cw_send_result(float freq, u64 power)
   msg.freq = freq;
   msg.power = power;
 
-  debug_send_msg(MSG_CW_RESULTS, sizeof(msg), (u8*)&msg);
+  sbp_send_msg(MSG_CW_RESULTS, sizeof(msg), (u8*)&msg);
 }
 
 /** Get a point from the CW correlations array

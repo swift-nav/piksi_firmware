@@ -11,7 +11,7 @@
 
 #include "init.h"
 #include "main.h"
-#include "debug.h"
+#include "sbp.h"
 #include "acq.h"
 #include "board/leds.h"
 #include "board/m25_flash.h"
@@ -43,7 +43,7 @@ int main(void) {
       led_toggle(LED_GREEN);
       led_toggle(LED_RED);
     );
-    debug_process_messages();
+    sbp_process_messages();
   }
 
   return 0;

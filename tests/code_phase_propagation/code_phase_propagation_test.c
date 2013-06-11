@@ -20,7 +20,7 @@
 
 #include "init.h"
 #include "main.h"
-#include "debug.h"
+#include "sbp.h"
 #include "track.h"
 #include "acq.h"
 #include "board/leds.h"

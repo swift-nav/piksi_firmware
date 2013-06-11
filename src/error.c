@@ -21,12 +21,12 @@
 #include "board/leds.h"
 #include "peripherals/usart.h"
 
-#include "debug.h"
+#include "sbp.h"
 #include "error.h"
 
 /** Last resort, low-level error function.
  * Halts the program while continually sending a non-descript error message in
- * debug message format to the FTDI USART, in a way that should get the message
+ * SBP message format to the FTDI USART, in a way that should get the message
  * through to the Python console even if it's interrupting another transmission.
  */
 void screaming_death(void)
@@ -37,7 +37,7 @@ void screaming_death(void)
 
   #define SCREAMING_MSG_N 7       /* Length of error message */
 
-  static char err_msg[SCREAMING_MSG_N+6] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2,
+  static char err_msg[SCREAMING_MSG_N+6] = {SBP_HEADER_1, SBP_HEADER_2,
                                             MSG_PRINT, SCREAMING_MSG_N,
                                             'E', 'R', 'R', 'O', 'R', '!', '\n',
                                             /* Hard coded CRC */
@@ -58,7 +58,7 @@ void screaming_death(void)
 };
 
 /** Last resort, low-level error message function.
- * Halts the program while continually sending a fixed error message in debug
+ * Halts the program while continually sending a fixed error message in SBP
  * message format to the FTDI USART, in a way that should get the message
  * through to the Python console even if it's interrupting another transmission.
  *
@@ -72,7 +72,7 @@ void speaking_death(char *msg)
 
   #define SPEAKING_MSG_N 64       /* Maximum length of error message */
 
-  static char err_msg[SPEAKING_MSG_N+6] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2,
+  static char err_msg[SPEAKING_MSG_N+6] = {SBP_HEADER_1, SBP_HEADER_2,
                                            MSG_PRINT, SPEAKING_MSG_N,
                                            'E', 'R', 'R', 'O', 'R', ':', ' ',
                                            [11 ... SPEAKING_MSG_N+2] = '!',

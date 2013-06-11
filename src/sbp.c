@@ -23,17 +23,17 @@
 
 #include "error.h"
 #include "settings.h"
-#include "debug.h"
+#include "sbp.h"
 #include "board/leds.h"
 #include "board/m25_flash.h"
 #include "peripherals/usart.h"
 
-u8 msg_header[4] = {DEBUG_MAGIC_1, DEBUG_MAGIC_2, 0, 0};
+u8 msg_header[4] = {SBP_HEADER_1, SBP_HEADER_2, 0, 0};
 
 /* Store a pointer to the head of our linked list. */
 msg_callbacks_node_t* msg_callbacks_head = 0;
 
-u8 debug_use_settings = 0;
+u8 sbp_use_settings = 0;
 
 /* CRC16 implementation acording to CCITT standards */
 static const u16 crc16tab[256] = {
@@ -87,21 +87,21 @@ u16 crc16_ccitt(const u8* buf, u8 len, u16 crc)
   return crc;
 }
 
-/** Setup USARTs and disable stdio buffering for the debug interface
+/** Setup USARTs and disable stdio buffering for the SBP interface
  *
  * \param use_settings If 0 use #define baud rates, else use baud rates in flash settings
  */
-void debug_setup(u8 use_settings)
+void sbp_setup(u8 use_settings)
 {
   if (use_settings && settings.settings_valid == VALID) {
-    debug_use_settings = 1;
+    sbp_use_settings = 1;
     usarts_setup(
       settings.ftdi_usart.baud_rate,
       settings.uarta_usart.baud_rate,
       settings.uartb_usart.baud_rate
     );
   } else {
-    debug_use_settings = 0;
+    sbp_use_settings = 0;
     usarts_setup(
       USART_DEFAULT_BAUD,
       USART_DEFAULT_BAUD,
@@ -114,8 +114,8 @@ void debug_setup(u8 use_settings)
   setvbuf(stdout, NULL, _IONBF, 0);
 }
 
-/** Disables the USART peripherals and DMA streams enabled by debug_setup(). */
-void debug_disable()
+/** Disables the USART peripherals and DMA streams enabled by sbp_setup(). */
+void sbp_disable()
 {
   usarts_disable();
 }
@@ -123,7 +123,7 @@ void debug_disable()
 /** Checks if the message should be sent from a particular USART. */
 static inline u32 use_usart(usart_settings_t* us, u8 msg_type)
 {
-  if (debug_use_settings) {
+  if (sbp_use_settings) {
     if (us->mode != PIKSI_BINARY)
       /* This USART is not in Piksi Binary mode. */
       return 0;
@@ -141,7 +141,7 @@ static inline u32 check_usart(usart_settings_t* us, usart_tx_dma_state* s,
   return (use_usart(us, msg_type) && usart_tx_n_free(s) < len + 4U + 2U + 1U);
 }
 
-/** Handle writing of debug message into TX DMA buffer
+/** Handle writing of sbp message into TX DMA buffer
  * Returns 0 (successful) if this USART is not used to send this message type,
  * or if it is and the message is succesfully written into the TX buffer.
  * Returns -1 if the message is not successfully written to the TX buffer.
@@ -170,15 +170,15 @@ static inline u32 send_msg_helper(usart_settings_t* us, usart_tx_dma_state* s,
   return 0;
 }
 
-/** Send a debug message out over all applicable USARTs
+/** Send a SBP message out over all applicable USARTs
  *
- * \param msg_type Message ID (defined in debug_messages.h)
+ * \param msg_type Message ID (defined in sbp_messages.h)
  * \param len      Length of message data
  * \param buff     Pointer to message data array
  *
  * \return         Error code
  */
-u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
+u32 sbp_send_msg(u8 msg_type, u8 len, u8 buff[])
 {
   /* Global interrupt disable to avoid concurrency/reentrancy problems. */
   __asm__("CPSID i;");
@@ -220,7 +220,7 @@ u32 debug_send_msg(u8 msg_type, u8 len, u8 buff[])
  * \param cb       Pointer to message callback function
  * \param node     Statically allocated msg_callbacks_node_t struct
  */
-void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_t* node)
+void sbp_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_t* node)
 {
   /* Fill in our new msg_callback_node_t. */
   node->msg_type = msg_type;
@@ -256,7 +256,7 @@ void debug_register_callback(u8 msg_type, msg_callback_t cb, msg_callbacks_node_
  *
  * \return Pointer to callback function (msg_callback_t)
  */
-msg_callback_t debug_find_callback(u8 msg_type)
+msg_callback_t sbp_find_callback(u8 msg_type)
 {
   /* If our list is empty, return NULL. */
   if (!msg_callbacks_head)
@@ -276,38 +276,38 @@ msg_callback_t debug_find_callback(u8 msg_type)
   return 0;
 }
 
-/** Process debug messages received through the USARTs.
+/** Process SBP messages received through the USARTs.
  * This function should be called periodically to clear the USART DMA RX
- * buffers and handle the debug callbacks in them.
+ * buffers and handle the SBP callbacks in them.
  */
-void debug_process_messages()
+void sbp_process_messages()
 {
-  static debug_process_messages_state_t ftdi_s = {
+  static sbp_process_messages_state_t ftdi_s = {
     .state = WAITING_1,
     .rx_state = &ftdi_rx_state,
   };
-  static debug_process_messages_state_t uarta_s = {
+  static sbp_process_messages_state_t uarta_s = {
     .state = WAITING_1,
     .rx_state = &uarta_rx_state,
   };
-  static debug_process_messages_state_t uartb_s = {
+  static sbp_process_messages_state_t uartb_s = {
     .state = WAITING_1,
     .rx_state = &uartb_rx_state,
   };
 
-  debug_process_usart(&ftdi_s);
-  debug_process_usart(&uarta_s);
-  debug_process_usart(&uartb_s);
+  sbp_process_usart(&ftdi_s);
+  sbp_process_usart(&uarta_s);
+  sbp_process_usart(&uartb_s);
 }
 
-/** Process debug messages for a particular USART.
- * Extract data from the USART DMA buffer and parse debug messages in the data.
- * When a valid debug message is found (callback is registered for the message
+/** Process SBP messages for a particular USART.
+ * Extract data from the USART DMA buffer and parse SBP messages in the data.
+ * When a valid SBP message is found (callback is registered for the message
  * ID and CRC is valid), call the callback function for it.
  *
- * \param s debug_process_messages_state_t pointer of the USART to process.
+ * \param s sbp_process_messages_state_t pointer of the USART to process.
  */
-void debug_process_usart(debug_process_messages_state_t* s)
+void sbp_process_usart(sbp_process_messages_state_t* s)
 {
   u8 len, temp;
   u16 crc, crc_rx;
@@ -321,13 +321,13 @@ void debug_process_usart(debug_process_messages_state_t* s)
     switch(s->state) {
       case WAITING_1:
         if (usart_read_dma(s->rx_state, &temp, 1)) {
-          if (temp == DEBUG_MAGIC_1)
+          if (temp == SBP_HEADER_1)
             s->state = WAITING_2;
         }
         break;
       case WAITING_2:
         if (usart_read_dma(s->rx_state, &temp, 1)) {
-          if (temp == DEBUG_MAGIC_2)
+          if (temp == SBP_HEADER_2)
             s->state = GET_TYPE;
           else
             s->state = WAITING_1;
@@ -377,7 +377,7 @@ void debug_process_usart(debug_process_messages_state_t* s)
                   ((s->crc[1] & 0xFF) << 8);
           if (crc_rx == crc) {
             /* Message complete, process it. */
-            msg_callback_t cb = debug_find_callback(s->msg_type);
+            msg_callback_t cb = sbp_find_callback(s->msg_type);
             if (cb)
               (*cb)(s->msg_buff);
             else
@@ -395,13 +395,13 @@ void debug_process_usart(debug_process_messages_state_t* s)
   }
 }
 
-/** Directs printf's output to the debug interface */
+/** Directs printf's output to the SBP interface */
 int _write (int file, char *ptr, int len)
 {
 	switch (file) {
     case 1:
       if (len > 255) len = 255; /* Send maximum of 255 chars at a time */
-      debug_send_msg(MSG_PRINT, len, (u8*)ptr);
+      sbp_send_msg(MSG_PRINT, len, (u8*)ptr);
       return len;
 
     case 22:
@@ -414,4 +414,3 @@ int _write (int file, char *ptr, int len)
       return -1;
 	}
 }
-

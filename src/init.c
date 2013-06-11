@@ -18,7 +18,7 @@
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
-#include "debug.h"
+#include "sbp.h"
 #include "board/leds.h"
 #include "board/m25_flash.h"
 #include "board/nap/nap_common.h"
@@ -78,7 +78,7 @@ void init()
   nap_setup();
   nap_reset();
 
-  debug_setup(1);
+  sbp_setup(1);
 
   m25_setup();
 }

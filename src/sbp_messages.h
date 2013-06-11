@@ -15,8 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SWIFTNAV_DEBUG_MESSAGES_H
-#define SWIFTNAV_DEBUG_MESSAGES_H
+#ifndef SWIFTNAV_SBP_MESSAGES_H
+#define SWIFTNAV_SBP_MESSAGES_H
 
 #define MSG_PRINT 0x01
 
@@ -49,4 +49,4 @@
 
 #define MSG_TRACKING_STATE 0x22
 
-#endif /* SWIFTNAV_DEBUG_MESSAGES_H */
+#endif /* SWIFTNAV_SBP_MESSAGES_H */

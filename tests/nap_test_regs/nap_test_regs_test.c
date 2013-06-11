@@ -19,7 +19,7 @@
 
 #include "init.h"
 #include "main.h"
-#include "debug.h"
+#include "sbp.h"
 #include "acq.h"
 #include "board/leds.h"
 #include "board/nap/nap_common.h"

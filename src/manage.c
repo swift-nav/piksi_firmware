@@ -30,7 +30,7 @@
 #include "track.h"
 #include "timing.h"
 #include "manage.h"
-#include "debug.h"
+#include "sbp.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
 
@@ -87,7 +87,7 @@ void manage_acq_setup()
     }
   }
 
-  debug_register_callback(
+  sbp_register_callback(
     MSG_ALMANAC,
     &almanac_callback,
     &almanac_callback_node

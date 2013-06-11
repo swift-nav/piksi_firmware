@@ -23,7 +23,7 @@
 
 #include "init.h"
 #include "main.h"
-#include "debug.h"
+#include "sbp.h"
 #include "error.h"
 #include "board/leds.h"
 #include "peripherals/usart.h"
@@ -74,10 +74,10 @@ int main(void)
   init();
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
-  printf("--- DEBUG RX STRESS TEST ---\n");
+  printf("--- SWIFT BINARY PROTOCOL RX STRESS TEST ---\n");
 
   static msg_callbacks_node_t callback_node;
-  debug_register_callback(0x22, &callback, &callback_node);
+  sbp_register_callback(0x22, &callback, &callback_node);
 
   for (u8 i=0; i<30; i++) {
     guard_below[i] = 0;
@@ -93,7 +93,7 @@ int main(void)
         screaming_death();
     }
 
-    debug_process_messages();
+    sbp_process_messages();
 
     //for (u32 i = 0; i < 1000; i++)
     //  __asm__("nop");
