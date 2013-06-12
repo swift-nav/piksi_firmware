@@ -17,6 +17,9 @@
 
 #include <libopencm3/cm3/common.h>
 
+/** \addtogroup io
+ * \{ */
+
 typedef struct {
   enum {
     PIKSI_BINARY,
@@ -37,6 +40,6 @@ typedef struct {
   usart_settings_t uartb_usart;
 } settings_t;
 
+/** \} */
+
 extern settings_t settings;
-
-

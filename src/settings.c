@@ -21,6 +21,9 @@
 #include "settings.h"
 #include "peripherals/usart.h"
 
+/** \addtogroup io
+ * \{ */
+
 settings_t settings __attribute__ ((section (".settings_area"))) =
 /* Default settings: */
 {
@@ -41,5 +44,7 @@ settings_t settings __attribute__ ((section (".settings_area"))) =
     .baud_rate = 115200,
   },
 };
+
+/** \} */
 
 #endif /* SWIFTNAV_SETTINGS_H */

@@ -28,6 +28,13 @@
 #include "settings.h"
 #include "peripherals/usart.h"
 
+/** \addtogroup io
+ * \{ */
+
+/** \defgroup nmea NMEA
+ * Send messages in NMEA standard output.
+ * \{ */
+
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
  * \param s The NMEA sentence to output.
  */
@@ -193,3 +200,6 @@ void nmea_gpgsv(u8 n_used, navigation_measurement_t* nav_meas,
 
 }
 
+/** \} */
+
+/** \} */

@@ -24,7 +24,10 @@
 #include "sbp.h"
 #include "error.h"
 
-/** Last resort, low-level error function.
+/** \addtogroup io
+ * \{ */
+
+/** Last resort, low-level error message function with hardcoded message.
  * Halts the program while continually sending a non-descript error message in
  * SBP message format to the FTDI USART, in a way that should get the message
  * through to the Python console even if it's interrupting another transmission.
@@ -57,7 +60,7 @@ void screaming_death(void)
   }
 };
 
-/** Last resort, low-level error message function.
+/** Last resort, low-level error message function with passed message.
  * Halts the program while continually sending a fixed error message in SBP
  * message format to the FTDI USART, in a way that should get the message
  * through to the Python console even if it's interrupting another transmission.
@@ -105,3 +108,5 @@ void speaking_death(char *msg)
     }
   }
 }
+
+/** \} */

@@ -21,8 +21,8 @@
 /** \addtogroup sbp
  * \{ */
 
-/** \defgroup msgs Messages
- * Swift Binary Protocol Message ID's.
+/** \defgroup msgs Message IDs
+ * Swift Binary Protocol Message IDs.
  * \{ */
 
 #define MSG_PRINT 0x01 /**< Python */
