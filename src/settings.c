@@ -15,7 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef SWIFTNAV_SETTINGS_H
+#define SWIFTNAV_SETTINGS_H
+
 #include "settings.h"
+#include "peripherals/usart.h"
+
+/** \addtogroup io
+ * \{ */
 
 settings_t settings __attribute__ ((section (".settings_area"))) =
 /* Default settings: */
@@ -24,12 +31,12 @@ settings_t settings __attribute__ ((section (".settings_area"))) =
 
   .ftdi_usart = {
     .mode = PIKSI_BINARY,
-    .baud_rate = 1000000,
+    .baud_rate = USART_DEFAULT_BAUD,
     .message_mask = 0xFF,
   },
   .uarta_usart = {
     .mode = PIKSI_BINARY,
-    .baud_rate = 1000000,
+    .baud_rate = USART_DEFAULT_BAUD,
     .message_mask = 0xFF,
   },
   .uartb_usart = {
@@ -38,3 +45,6 @@ settings_t settings __attribute__ ((section (".settings_area"))) =
   },
 };
 
+/** \} */
+
+#endif /* SWIFTNAV_SETTINGS_H */

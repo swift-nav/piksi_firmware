@@ -18,7 +18,7 @@
 #include <stdio.h>
 
 #include "main.h"
-#include "hw/leds.h"
+#include "board/leds.h"
 
 int main(void)
 {

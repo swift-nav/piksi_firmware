@@ -20,6 +20,9 @@
 
 #include <libopencm3/cm3/common.h>
 
+/** \addtogroup cw
+ * \{ */
+
 #define SPECTRUM_LEN 301
 
 typedef enum {
@@ -41,6 +44,8 @@ typedef struct {
 typedef struct {
   float freq_min, freq_max, freq_step;
 } cw_start_msg_t;
+
+/** \} */
 
 void cw_schedule_load(u32 count);
 void cw_service_load_done();

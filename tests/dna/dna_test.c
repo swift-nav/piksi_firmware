@@ -11,12 +11,12 @@
 
 #include "init.h"
 #include "main.h"
-#include "debug.h"
-#include "swift_nap_io.h"
+#include "sbp.h"
 #include "acq.h"
-#include "hw/spi.h"
-#include "hw/leds.h"
-#include "hw/m25_flash.h"
+#include "board/leds.h"
+#include "board/m25_flash.h"
+#include "board/nap/nap_common.h"
+#include "peripherals/spi.h"
 
 int main(void) {
 
@@ -25,11 +25,11 @@ int main(void) {
   led_on(LED_RED);
 
   /* Force FPGA to configure itself by driving PROGRAM_B low, then high */
-  swift_nap_conf_b_setup();
-  swift_nap_conf_b_clear();
+  nap_conf_b_setup();
+  nap_conf_b_clear();
   for (u32 i = 0; i < 50; i++)
     __asm__("nop");
-  swift_nap_conf_b_set();
+  nap_conf_b_set();
 
   init();
 
@@ -43,7 +43,7 @@ int main(void) {
       led_toggle(LED_GREEN);
       led_toggle(LED_RED);
     );
-    debug_process_messages();
+    sbp_process_messages();
   }
 
   return 0;

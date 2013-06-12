@@ -24,14 +24,20 @@
 #include <libswiftnav/coord_system.h>
 
 #include "main.h"
+#include "board/nap/track_channel.h"
+#include "board/nap/acq_channel.h"
 #include "acq.h"
 #include "track.h"
 #include "timing.h"
 #include "position.h"
 #include "manage.h"
-#include "debug.h"
+#include "sbp.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
+
+/** \defgroup manage Manage
+ * Manage acquisition and CW searches, and tracking.
+ * \{ */
 
 acq_prn_t acq_prn_param[32];
 almanac_t almanac[32];
@@ -81,7 +87,7 @@ void manage_acq_setup()
     }
   }
 
-  debug_register_callback(
+  sbp_register_callback(
     MSG_ALMANAC,
     &almanac_callback,
     &almanac_callback_node
@@ -125,6 +131,7 @@ void manage_calc_scores()
   }
 }
 
+/** Manages acquisition searches and starts tracking channels after successful acquisitions. */
 void manage_acq()
 {
   switch (acq_manage.state) {
@@ -132,11 +139,11 @@ void manage_acq()
     case ACQ_MANAGE_START: {
       /* Check if there are tracking channels free first. */
       u8 i;
-      for (i=0; i<TRACK_N_CHANNELS; i++) {
+      for (i=0; i<nap_track_n_channels; i++) {
         if (tracking_channel[i].state == TRACKING_DISABLED)
           break;
       }
-      if (i == TRACK_N_CHANNELS)
+      if (i == nap_track_n_channels)
         /* No tracking channels free :( */
         break;
 
@@ -172,15 +179,15 @@ void manage_acq()
       acq_manage.prn = best_prn;
       acq_prn_param[best_prn].state = ACQ_PRN_ACQUIRING;
       acq_manage.state = ACQ_MANAGE_LOADING_COARSE;
-      acq_manage.coarse_timer_count = timing_count() + 1000;
+      acq_manage.coarse_timer_count = nap_timing_count() + 1000;
       acq_schedule_load(acq_manage.coarse_timer_count);
       break;
     }
 
     case ACQ_MANAGE_LOADING_COARSE:
       /* TODO: Loading should be part of the acq code not the manage code. */
-      if ((u32)timing_count() - acq_manage.coarse_timer_count > 2*SAMPLE_FREQ) {
-        printf("Coarse loading error %u %u\n", (unsigned int)timing_count(), (unsigned int)acq_manage.coarse_timer_count);
+      if ((u32)nap_timing_count() - acq_manage.coarse_timer_count > 2*SAMPLE_FREQ) {
+        printf("Coarse loading error %u %u\n", (unsigned int)nap_timing_count(), (unsigned int)acq_manage.coarse_timer_count);
         acq_manage.state = ACQ_MANAGE_START;
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
@@ -188,10 +195,8 @@ void manage_acq()
       if (!acq_get_load_done())
         break;
       /* Done loading, now lets set that coarse acquisition going. */
-      acq_write_code_blocking(acq_manage.prn);
-      if (almanac[acq_manage.prn].valid &&
-          time_quality == TIME_COARSE &&
-          position_quality == POSITION_FIX) {
+      nap_acq_code_wr_blocking(acq_manage.prn);
+      if (almanac[acq_manage.prn].valid && time_quality == TIME_COARSE) {
         gps_time_t t = rx2gpstime(acq_manage.coarse_timer_count);
 
         double dopp = -calc_sat_doppler_almanac(&almanac[acq_manage.prn], t.tow, t.wn, position_solution.pos_ecef);
@@ -231,13 +236,13 @@ void manage_acq()
       }
       /* Looks like we have a winner! */
       acq_manage.state = ACQ_MANAGE_LOADING_FINE;
-      acq_manage.fine_timer_count = timing_count() + 1000;
+      acq_manage.fine_timer_count = nap_timing_count() + 1000;
       acq_schedule_load(acq_manage.fine_timer_count);
       break;
 
     case ACQ_MANAGE_LOADING_FINE:
-      if ((u32)timing_count() - acq_manage.fine_timer_count > 2*SAMPLE_FREQ) {
-        printf("Fine loading error %u %u\n", (unsigned int)timing_count(), (unsigned int)acq_manage.fine_timer_count);
+      if ((u32)nap_timing_count() - acq_manage.fine_timer_count > 2*SAMPLE_FREQ) {
+        printf("Fine loading error %u %u\n", (unsigned int)nap_timing_count(), (unsigned int)acq_manage.fine_timer_count);
         acq_manage.state = ACQ_MANAGE_START;
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
@@ -291,7 +296,7 @@ void manage_acq()
         break;
       }
       /* Transition to tracking. */
-      u32 track_count = timing_count() + 20000;
+      u32 track_count = nap_timing_count() + 20000;
       float track_cp = propagate_code_phase(fine_cp, fine_cf, track_count - acq_manage.fine_timer_count);
 
       // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
@@ -308,12 +313,17 @@ void manage_acq()
   }
 }
 
+/** Find an available tracking channel to start tracking an acquired PRN with.
+ *
+ * \param snr SNR of the acquisition.
+ * \return Index of first unused tracking channel.
+ */
 u8 manage_track_new_acq(float snr __attribute__((unused)))
 {
   /* Decide which (if any) tracking channel to put
    * a newly acquired satellite into.
    */
-  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+  for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracking_channel[i].state == TRACKING_DISABLED) {
       return i;
     }
@@ -322,9 +332,10 @@ u8 manage_track_new_acq(float snr __attribute__((unused)))
   return MANAGE_NO_CHANNELS_FREE;
 }
 
+/** Disable any tracking channel whose SNR is below a certain margin. */
 void manage_track()
 {
-  for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+  for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracking_channel[i].state == TRACKING_RUNNING) {
       if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
         if (tracking_channel[i].update_count > TRACK_SNR_INIT_COUNT &&
@@ -341,3 +352,4 @@ void manage_track()
   }
 }
 
+/** \} */

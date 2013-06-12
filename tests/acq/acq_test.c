@@ -19,11 +19,11 @@
 
 #include "init.h"
 #include "main.h"
-#include "debug.h"
-#include "swift_nap_io.h"
+#include "sbp.h"
 #include "acq.h"
-#include "hw/leds.h"
-#include "hw/m25_flash.h"
+#include "board/leds.h"
+#include "board/m25_flash.h"
+#include "board/nap/acq_channel.h"
 
 int main(void)
 {
@@ -37,13 +37,13 @@ int main(void)
   float carrier_freq;
   float snr;
 
-  acq_schedule_load(timing_count() + 1000);
+  acq_schedule_load(nap_timing_count() + 1000);
   while(!(acq_get_load_done()));
   led_off(LED_GREEN);
   led_off(LED_RED);
 
   for (u8 prn=0; prn<32; prn++) {
-    acq_write_code_blocking(prn);
+    nap_acq_code_wr_blocking(prn);
     acq_start(prn, 0, 1023, -7000, 7000, 300);
     while(!(acq_get_done()));
     acq_get_results(&code_phase, &carrier_freq, &snr);

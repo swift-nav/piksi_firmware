@@ -22,10 +22,18 @@
 
 #include <libswiftnav/coord_system.h>
 
+#include "board/nap/track_channel.h"
 #include "nmea.h"
-#include "debug.h"
+#include "sbp.h"
 #include "settings.h"
-#include "hw/usart.h"
+#include "peripherals/usart.h"
+
+/** \addtogroup io
+ * \{ */
+
+/** \defgroup nmea NMEA
+ * Send messages in NMEA standard output.
+ * \{ */
 
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
  * \param s The NMEA sentence to output.
@@ -70,6 +78,12 @@ u8 nmea_checksum(char* s)
   return sum;
 }
 
+/** Assemble a NMEA GPGGA message and send it out NMEA USARTs.
+ * NMEA GPGGA message contains Global Positioning System Fix Data.
+ *
+ * \param soln Pointer to gnss_solution struct.
+ * \param dops Pointer to dops_t struct.
+ */
 void nmea_gpgga(gnss_solution* soln, dops_t* dops)
 {
   time_t unix_t;
@@ -109,13 +123,19 @@ void nmea_gpgga(gnss_solution* soln, dops_t* dops)
   nmea_output(buf);
 }
 
+/** Assemble a NMEA GPGSA message and send it out NMEA USARTs.
+ * NMEA GPGSA message contains DOP and active satellites.
+ *
+ * \param chans Pointer to tracking_channel_t struct.
+ * \param dops  Pointer to dops_t struct.
+ */
 void nmea_gpgsa(tracking_channel_t* chans, dops_t* dops)
 {
   char buf[80] = "$GPGSA,A,3,";
   char* bufp = buf + strlen(buf);
 
   for (u8 i=0; i<12; i++) {
-    if (i < TRACK_N_CHANNELS && chans[i].state == TRACKING_RUNNING) {
+    if (i < nap_track_n_channels && chans[i].state == TRACKING_RUNNING) {
       bufp += sprintf(bufp, "%02d,", chans[i].prn+1);
     } else {
       *bufp++ = ',';
@@ -134,6 +154,13 @@ void nmea_gpgsa(tracking_channel_t* chans, dops_t* dops)
   nmea_output(buf);
 }
 
+/** Assemble a NMEA GPGSV message and send it out NMEA USARTs.
+ * NMEA GPGSV message contains GPS satellites in view.
+ *
+ * \param n_used   Number of satellites currently being tracked.
+ * \param nav_meas Pointer to navigation_measurement struct.
+ * \param soln     Pointer to gnss_solution struct.
+ */
 void nmea_gpgsv(u8 n_used, navigation_measurement_t* nav_meas,
                 gnss_solution* soln)
 {
@@ -173,3 +200,6 @@ void nmea_gpgsv(u8 n_used, navigation_measurement_t* nav_meas,
 
 }
 
+/** \} */
+
+/** \} */

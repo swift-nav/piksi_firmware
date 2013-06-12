@@ -10,13 +10,13 @@
 #include <libopencm3/stm32/f4/gpio.h>
 
 #include "main.h"
-#include "debug.h"
-#include "swift_nap_io.h"
+#include "sbp.h"
 #include "acq.h"
-#include "hw/spi.h"
-#include "hw/leds.h"
-#include "hw/m25_flash.h"
-#include "hw/stm_flash.h"
+#include "board/leds.h"
+#include "board/m25_flash.h"
+#include "board/nap/nap_common.h"
+#include "peripherals/spi.h"
+#include "peripherals/stm_flash.h"
 
 int main(void)
 {
@@ -27,11 +27,11 @@ int main(void)
 
   /* Setup and hold the FPGA PROGRAM_B line low so that the FPGA does not
    * contest the flash SPI bus */
-  swift_nap_conf_b_setup();
-  swift_nap_conf_b_clear();
+  nap_conf_b_setup();
+  nap_conf_b_clear();
 
   spi_setup();
-  debug_setup(0);
+  sbp_setup(0);
   m25_setup();
   stm_flash_callbacks_setup();
 
@@ -46,7 +46,7 @@ int main(void)
       led_toggle(LED_GREEN);
       led_toggle(LED_RED);
     );
-    debug_process_messages();
+    sbp_process_messages();
   }
 
   return 0;

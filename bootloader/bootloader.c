@@ -27,13 +27,13 @@
 #include <libopencm3/cm3/scb.h>
 
 #include "main.h"
-#include "swift_nap_io.h"
-#include "debug.h"
-#include "hw/leds.h"
-#include "hw/stm_flash.h"
-#include "hw/usart.h"
-#include "hw/m25_flash.h"
-#include "hw/spi.h"
+#include "sbp.h"
+#include "board/leds.h"
+#include "peripherals/stm_flash.h"
+#include "peripherals/usart.h"
+#include "peripherals/spi.h"
+#include "board/m25_flash.h"
+#include "board/nap/nap_common.h"
 
 #define APP_ADDRESS	0x08010000
 #define STACK_ADDRESS 0x10010000
@@ -44,9 +44,9 @@ u8 current_app_valid = 0;
 void jump_to_app_callback(u8 buff[] __attribute__((unused)))
 {
   /* Disable peripherals used in the bootloader */
-  debug_disable();
+  sbp_disable();
   spi_deactivate();
-  swift_nap_conf_b_set();
+  nap_conf_b_set();
   /* Set vector table base address */
   SCB_VTOR = APP_ADDRESS & 0x1FFFFF00;
   /* Initialise master stack pointer */
@@ -58,8 +58,8 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
 void pc_wants_bootload_callback(u8 buff[] __attribute__((unused)))
 {
   /* Disable FPGA configuration and set up SPI in case we want to flash M25 */
-  swift_nap_conf_b_setup();
-  swift_nap_conf_b_clear();
+  nap_conf_b_setup();
+  nap_conf_b_clear();
   spi_setup();
   m25_setup();
   pc_wants_bootload = 1;
@@ -72,24 +72,24 @@ int main(void)
   led_off(LED_GREEN);
   led_off(LED_RED);
 
-  /* Setup UART and debug interface for transmitting and receiving callbacks */
-  debug_setup(0);
+  /* Setup UART and SBP interface for transmitting and receiving callbacks */
+  sbp_setup(0);
 
   /* STM flash erase/write/read callbacks */
   stm_flash_callbacks_setup();
 
   /* Add callback for jumping to application after bootloading is finished */
   static msg_callbacks_node_t jump_to_app_node;
-  debug_register_callback(MSG_BOOTLOADER_JUMP_TO_APP, &jump_to_app_callback,
+  sbp_register_callback(MSG_BOOTLOADER_JUMP_TO_APP, &jump_to_app_callback,
                           &jump_to_app_node);
 
   /* Add callback for PC to tell bootloader it wants to load program */
   static msg_callbacks_node_t pc_wants_bootload_node;
-  debug_register_callback(MSG_BOOTLOADER_HANDSHAKE,&pc_wants_bootload_callback,
+  sbp_register_callback(MSG_BOOTLOADER_HANDSHAKE,&pc_wants_bootload_callback,
                           &pc_wants_bootload_node);
 
   /* Send message to PC indicating bootloader is ready to load program */
-  debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+  sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
 
   /* Is current application we are programmed with valid? Check this by seeing
    * if the first address of the application contains the correct stack address
@@ -106,9 +106,9 @@ int main(void)
 	for (u64 i=0; i<200000; i++){
     DO_EVERY(3000,
       led_toggle(LED_RED);
-      debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+      sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
     );
-    debug_process_messages(); /* to service pc_wants_bootload_callback */
+    sbp_process_messages(); /* to service pc_wants_bootload_callback */
     if (pc_wants_bootload) break;
   }
   led_off(LED_GREEN);
@@ -120,7 +120,7 @@ int main(void)
      * finished sending flash programming callbacks
      */
     while(1){
-      debug_process_messages();
+      sbp_process_messages();
       DO_EVERY(3000,
         led_toggle(LED_GREEN);
         led_toggle(LED_RED);
@@ -130,7 +130,7 @@ int main(void)
          * flash programming callbacks
          */
         DO_EVERY(10,
-          debug_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+          sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
         );
       );
     }

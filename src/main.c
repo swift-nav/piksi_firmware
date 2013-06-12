@@ -22,17 +22,19 @@
 #include "init.h"
 #include "main.h"
 #include "cw.h"
-#include "debug.h"
-#include "swift_nap_io.h"
+#include "sbp.h"
+#include "board/nap/nap_common.h"
+#include "board/nap/conf.h"
+#include "board/nap/track_channel.h"
 #include "track.h"
 #include "acq.h"
 #include "nmea.h"
 #include "manage.h"
 #include "timing.h"
 #include "position.h"
-#include "hw/leds.h"
-#include "hw/spi.h"
-#include "hw/m25_flash.h"
+#include "peripherals/spi.h"
+#include "board/leds.h"
+#include "board/m25_flash.h"
 
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/track.h>
@@ -51,20 +53,20 @@ int main(void)
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   u8 nap_git_hash[20];
-  get_nap_git_hash(nap_git_hash);
+  nap_conf_rd_git_hash(nap_git_hash);
   printf("SwiftNAP git: ");
   for (u8 i=0; i<20; i++)
     printf("%02x", nap_git_hash[i]);
-  if (get_nap_git_unclean())
+  if (nap_conf_rd_git_unclean())
     printf(" (unclean)");
   printf("\n");
-  printf("SwiftNAP configured with %d tracking channels\n\n", TRACK_N_CHANNELS);
+  printf("SwiftNAP configured with %d tracking channels\n\n", nap_track_n_channels);
 
   time_setup();
   position_setup();
 
-  channel_measurement_t meas[TRACK_N_CHANNELS];
-  navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
+  channel_measurement_t meas[nap_track_n_channels];
+  navigation_measurement_t nav_meas[nap_track_n_channels];
 
   /* TODO: Think about thread safety when updating ephemerides. */
   static ephemeris_t es[32];
@@ -73,7 +75,7 @@ int main(void)
   {
     for (u32 i = 0; i < 3000; i++)
       __asm__("nop");
-    debug_process_messages();
+    sbp_process_messages();
     manage_track();
     manage_acq();
 
@@ -81,7 +83,7 @@ int main(void)
     // TODO: move this into a function
 
     memcpy(es_old, es, sizeof(es));
-    for (u8 i=0; i<TRACK_N_CHANNELS; i++)
+    for (u8 i=0; i<nap_track_n_channels; i++)
       if (tracking_channel[i].state == TRACKING_RUNNING && tracking_channel[i].nav_msg.subframe_start_index) {
         s8 ret = process_subframe(&tracking_channel[i].nav_msg, &es[tracking_channel[i].prn]);
         if (ret < 0)
@@ -108,7 +110,7 @@ int main(void)
     DO_EVERY_COUNTS(TICK_FREQ,
 
       u8 n_ready = 0;
-      for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
+      for (u8 i=0; i<nap_track_n_channels; i++) {
         if (es[tracking_channel[i].prn].valid == 1 && \
             es[tracking_channel[i].prn].healthy == 1 && \
             tracking_channel[i].state == TRACKING_RUNNING && \
@@ -123,13 +125,14 @@ int main(void)
 
       if (n_ready >= 4) {
         /* Got enough sats/ephemerides, do a solution. */
-        /* TODO: Instead of passing 32 LSBs of timing_count do something more
-         * intelligent with the solution time. */
+        /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
+         * more intelligent with the solution time.
+         */
 
         /*printf("n_ready = %d\n", n_ready);*/
         /*foo = time_ticks();*/
 
-        calc_navigation_measurement(n_ready, meas, nav_meas, (double)((u32)timing_count())/SAMPLE_FREQ, es);
+        calc_navigation_measurement(n_ready, meas, nav_meas, (double)((u32)nap_timing_count())/SAMPLE_FREQ, es);
 
         /*printf("Nav meas took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
         /*foo = time_ticks();*/
@@ -140,11 +143,11 @@ int main(void)
           /*printf("calc_PVT took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
           /*foo = time_ticks();*/
 
-          debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &position_solution);
+          sbp_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &position_solution);
           nmea_gpgga(&position_solution, &dops);
 
           DO_EVERY(10,
-            debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
+            sbp_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
             /*nmea_gpgsv(n_ready, nav_meas, &position_solution);*/
           );
         }
@@ -158,7 +161,7 @@ int main(void)
       tracking_send_state();
     );
 
-    u32 err = swift_nap_read_error_blocking();
+    u32 err = nap_error_rd_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);
   }

@@ -20,12 +20,13 @@
 #include <string.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
+#include "main.h"
 #include "init.h"
 #include "error.h"
-#include "hw/leds.h"
-#include "debug.h"
-#include "hw/usart.h"
-#include "swift_nap_io.h"
+#include "sbp.h"
+#include "board/leds.h"
+#include "board/nap/nap_common.h"
+#include "peripherals/usart.h"
 
 #define MSG_ECHO 0xEC
 
@@ -42,20 +43,20 @@ int main(void)
   led_on(LED_GREEN);
   led_on(LED_RED);
 
-  swift_nap_conf_b_setup();
-  swift_nap_conf_b_clear();
+  nap_conf_b_setup();
+  nap_conf_b_clear();
 
-  debug_setup(0);
+  sbp_setup(0);
 
   static msg_callbacks_node_t echo_node;
-  debug_register_callback(MSG_ECHO, &echo_callback, &echo_node);
+  sbp_register_callback(MSG_ECHO, &echo_callback, &echo_node);
 
   while(1) {
     DO_EVERY(3000,
       led_toggle(LED_RED);
       led_toggle(LED_GREEN);
     );
-    debug_process_messages();
+    sbp_process_messages();
   }
 
   while (1);

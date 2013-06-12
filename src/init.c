@@ -18,10 +18,10 @@
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
-#include "debug.h"
-#include "swift_nap_io.h"
-#include "hw/leds.h"
-#include "hw/m25_flash.h"
+#include "sbp.h"
+#include "board/leds.h"
+#include "board/m25_flash.h"
+#include "board/nap/nap_common.h"
 
 const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3 =
 { /* 65.472 MHz */
@@ -75,10 +75,10 @@ void init()
 
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
 
-  swift_nap_setup();
-  swift_nap_reset();
+  nap_setup();
+  nap_reset();
 
-  debug_setup(1);
+  sbp_setup(1);
 
   m25_setup();
 }
