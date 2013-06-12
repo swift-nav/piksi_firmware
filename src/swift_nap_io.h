@@ -62,7 +62,7 @@
 #define IRQ_TRACK_MASK    (~(IRQ_ACQ_DONE|IRQ_ACQ_LOAD_DONE|IRQ_CW_DONE|IRQ_CW_LOAD_DONE))
 
 /*max number of GPS L1 C/A code tracking channels NAP will ever have in it*/
-#define MAX_TRACK_N_CHANNELS 12
+#define MAX_TRACK_N_CHANNELS 14
 
 /* NAP Parameters stored in the FPGA configuration flash */
 extern u8 ACQ_N_TAPS;
