@@ -45,12 +45,21 @@ int main(void)
 
   manage_acq_setup();
   cw_setup();
-  time_setup();
 
   led_toggle(LED_RED);
 
-  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n\r");
-  printf("FPGA configured with %d tracking channels\n", TRACK_N_CHANNELS);
+  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
+  u8 nap_git_hash[20];
+  get_nap_git_hash(nap_git_hash);
+  printf("SwiftNAP git: ");
+  for (u8 i=0; i<20; i++)
+    printf("%02x", nap_git_hash[i]);
+  if (get_nap_git_unclean())
+    printf(" (unclean)");
+  printf("\n");
+  printf("SwiftNAP configured with %d tracking channels\n\n", TRACK_N_CHANNELS);
+
+  time_setup();
 
   channel_measurement_t meas[TRACK_N_CHANNELS];
   navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
