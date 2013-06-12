@@ -23,7 +23,7 @@
  * \{ */
 
 /** \defgroup cw_channel CW Channel
- * Functions to interact with the NAP CW channel.
+ * Interface to the NAP CW channel.
  * \{ */
 
 /** Set the LOAD ENABLE bit of the NAP CW channel's LOAD register.

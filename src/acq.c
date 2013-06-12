@@ -27,8 +27,7 @@
  * \{ */
 
 /** \defgroup acq Acquisition
- * Functions, structs, interrupt service routines for managing acquisition
- * searches.
+ * Manage acquisition searches.
  * \{ */
 
 acq_state_t acq_state;

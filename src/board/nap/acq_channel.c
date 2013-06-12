@@ -25,7 +25,7 @@
  * \{ */
 
 /** \defgroup acq_channel Acquisition Channel
- * Functions to interact with the NAP acquisition channel.
+ * Interface to the NAP acquisition channel.
  * \{ */
 
 /*
@@ -186,4 +186,5 @@ void nap_acq_code_wr_blocking(u8 prn)
 }
 
 /** \} */
+
 /** \} */

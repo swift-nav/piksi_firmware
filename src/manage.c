@@ -35,8 +35,7 @@
 #include "cfs/cfs-coffee.h"
 
 /** \defgroup manage Manage
- * Functions, structs, and interrupt service routines for managing acquisitions
- * and tracking.
+ * Manage acquisition and CW searches, and tracking.
  * \{ */
 
 acq_prn_t acq_prn_param[32];

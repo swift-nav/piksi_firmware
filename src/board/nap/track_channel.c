@@ -26,7 +26,7 @@
  * \{ */
 
 /** \defgroup track_channel Track Channel
- * Functions to interact with the NAP track channels.
+ * Interface to the NAP track channels.
  * \{ */
 
 /*

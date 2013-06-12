@@ -21,11 +21,11 @@
 #include "leds.h"
 
 /** \defgroup board Board
- * Functions to interact with the rest of the Piksi hardware.
+ * Interfaces for interacting with the rest of the Piksi hardware.
  * \{ */
 
 /** \defgroup leds LEDs
- * Functions to light the on-board LEDs.
+ * Interface to light the LEDs.
  * \{ */
 
 void led_setup(void)

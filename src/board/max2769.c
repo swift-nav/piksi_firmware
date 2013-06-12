@@ -20,12 +20,11 @@
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
-/** \defgroup board Board
- * Functions to interact with the rest of the Piksi hardware.
+/** \addtogroup board
  * \{ */
 
 /** \defgroup max MAX2769
- * Functions to setup and write to the registers of the MAX2769 RF Front-end.
+ * Interface to setup the MAX2769 RF Front-end.
  * \{ */
 
 void max2769_write(u8 addr, u32 data)

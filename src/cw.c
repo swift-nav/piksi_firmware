@@ -26,8 +26,7 @@
  * \{ */
 
 /** \defgroup cw CW Interference
- * Functions, structs, interrupt service routines for managing CW interference
- * searches.
+ * Manage CW interference searches.
  * \{ */
 
 cw_state_t cw_state;

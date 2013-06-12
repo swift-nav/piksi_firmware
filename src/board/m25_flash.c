@@ -27,7 +27,8 @@
  * \{ */
 
 /** \defgroup m25 M25P80 Flash
- * Functions to read, write, and erase sectors of the M25P80 FPGA configuration flash.
+ * Interface to read, write, and erase sectors of the M25P80 FPGA
+ * configuration flash.
  * \{ */
 
 void m25_write_enable(void)

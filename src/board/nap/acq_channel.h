@@ -40,7 +40,7 @@
 
 /** \} */
 
-/*
+/**
  * Number of acquisition channel code phase taps that NAP
  * configuration was built with - read from configuration
  * flash at runtime in nap_conf_rd_parameters().

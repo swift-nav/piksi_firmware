@@ -34,7 +34,7 @@
  * \{ */
 
 /** \defgroup track Track
- * Functions, structs, and interrupt service routines for managing tracking.
+ * Manage tracking.
  * \{ */
 
 /* Initialiser using GNU extension, see

@@ -36,7 +36,7 @@
  * \{ */
 
 /** \defgroup nap NAP
- * Functions to interact with the Swift Navigation Acceleration Peripheral.
+ * Interface to the Swift Navigation Acceleration Peripheral.
  * Contains functions for interacting with FPGA specific aspects of the
  * SwiftNAP (e.g. controlling when it configures itself, retrieving
  * information about the configuration, resetting the internal logic) and
