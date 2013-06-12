@@ -46,7 +46,7 @@ u32 time_ticks();
 
 #define DO_EVERY_COUNTS(n, cmd) do { \
   static u32 last_count = 0; \
-  if (time_ticks() - last_count > n) { \
+  if (time_ticks() - last_count >= n) { \
     last_count = time_ticks(); \
     cmd; \
   } \

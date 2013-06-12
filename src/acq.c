@@ -64,12 +64,13 @@ u8 acq_get_load_done()
   return (acq_state.state == ACQ_LOADING_DONE);
 }
 
-/** Start acquisitions for a PRN over a code phase / carrier frequency range.
+/** Start a non-blocking acquisition search for a PRN over a code phase / carrier frequency range.
  * Translate the passed code phase and carrier frequency float values into
  * acquisition register values. Write values for the first acquisition to the
  * channel, and then write values for the next pipelined acquisition.
+ * Note : Minimum cf_bin_width is determined by the acq. channel carrier phase  *        register width, and is given by 1/NAP_ACQ_CARRIER_FREQ_UNTS_PER_HZ
  *
- * \param prn      PRN to search (nap_acq_code_wr_blocking must be called prior)
+ * \param prn      PRN to search (0-31) (nap_acq_code_wr_blocking must be called prior)
  * \param cp_min   Starting code phase of the first acquisition. (chips)
  * \param cp_max   Starting code phase of the last acquisition. (chips)
  * \param cf_min   Carrier frequency of the first acquisition. (Hz)
@@ -184,7 +185,7 @@ void acq_service_irq()
   }
 }
 
-/** Query the state of the acquisition sequence.
+/** Query if the acquisition search has finished.
  * \return 1 if acq_state = ACQ_RUNNING_DONE, 0 otherwise
  */
 u8 acq_get_done()
@@ -192,7 +193,7 @@ u8 acq_get_done()
   return (acq_state.state == ACQ_RUNNING_DONE);
 }
 
-/** Get the results of the set of acquisitions last performed.
+/** Get the results of the acquisition search last performed.
  * Get the code phase, carrier frequency, and SNR of the acquisition with the
  * highest SNR of set of acquisitions last performed.
  *
@@ -208,7 +209,7 @@ void acq_get_results(float* cp, float* cf, float* snr)
   *snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
 }
 
-/** Do a blocking acquisition in two stages : coarse and fine.
+/** Do a blocking acquisition search in two stages : coarse and fine.
  * Do a coarse acqusition to find the approximate code phase and carrier
  * frequency, and then a more fine grained acquisition to find the code phase
  * and carrier frequency more precisely.
@@ -247,7 +248,7 @@ u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
   return fine_count;
 }
 
-/** Perform an aqcuisition.
+/** Do a blocking acquisition search.
  * Perform an acquisition for one PRN over a defined code and doppler range.
  * Returns the code phase and carrier frequency of the largest peak in the
  * search space together with the "SNR" value for that peak defined as

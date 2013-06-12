@@ -31,9 +31,10 @@
 #include <libswiftnav/pvt.h>
 
 /** \defgroup tracking Tracking
- * Track satellites - Initialize SwiftNAP tracking channels. Run loop
- * filters and update channels' code / carrier frequencies each integration
- * period. Update tracking measurements each integration period.
+ * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
+ * Initialize SwiftNAP tracking channels. Run loop filters and update
+ * channels' code / carrier frequencies each integration period. Update
+ * tracking measurements each integration period.
  * \{ */
 
 /* Initialiser using GNU extension, see

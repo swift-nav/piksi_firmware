@@ -32,7 +32,7 @@
  * \{ */
 
 /** \defgroup nmea NMEA
- * Send messages in NMEA standard output.
+ * Send messages in NMEA format.
  * \{ */
 
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
