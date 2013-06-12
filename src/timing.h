@@ -37,7 +37,7 @@ extern time_quality_t time_quality;
 
 void time_setup();
 gps_time_t get_current_time();
-void set_time_coarse(gps_time_t t);
+void set_time(time_quality_t quality, gps_time_t t);
 void set_time_fine(u64 tc, gps_time_t t);
 gps_time_t rx2gpstime(double tc);
 double gps2rxtime(gps_time_t t);
