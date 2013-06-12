@@ -64,7 +64,9 @@ int main(void)
   channel_measurement_t meas[TRACK_N_CHANNELS];
   navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
 
+  /* TODO: Think about thread safety when updating ephemerides. */
   static ephemeris_t es[32];
+  static ephemeris_t es_old[32];
   while(1)
   {
     for (u32 i = 0; i < 3000; i++)
@@ -76,10 +78,28 @@ int main(void)
     // Check if there is a new nav msg subframe to process.
     // TODO: move this into a function
 
+    memcpy(es_old, es, sizeof(es));
     for (u8 i=0; i<TRACK_N_CHANNELS; i++)
       if (tracking_channel[i].state == TRACKING_RUNNING && tracking_channel[i].nav_msg.subframe_start_index) {
-        process_subframe(&tracking_channel[i].nav_msg, &es[tracking_channel[i].prn]);
+        s8 ret = process_subframe(&tracking_channel[i].nav_msg, &es[tracking_channel[i].prn]);
+        if (ret < 0)
+          printf("PRN %02d ret %d\n", tracking_channel[i].prn+1, ret);
+
+        if (ret == 1 && !es[tracking_channel[i].prn].healthy)
+          printf("PRN %02d unhealthy\n", tracking_channel[i].prn+1);
+        if (memcmp(&es[tracking_channel[i].prn], &es_old[tracking_channel[i].prn], sizeof(ephemeris_t))) {
+          printf("New ephemeris for PRN %02d\n", tracking_channel[i].prn+1);
+          /* TODO: This is a janky way to set the time... */
+          gps_time_t t;
+          t.wn = es[tracking_channel[i].prn].toe.wn;
+          t.tow = tracking_channel[i].TOW_ms / 1000.0;
+          if (gpsdifftime(t, es[tracking_channel[i].prn].toe) > 2*24*3600)
+            t.wn--;
+          else if (gpsdifftime(t, es[tracking_channel[i].prn].toe) < 2*24*3600)
+            t.wn++;
+          set_time(TIME_COARSE, t);
       }
+    }
 
     /*u32 foo;*/
 
