@@ -29,6 +29,7 @@
 #include "nmea.h"
 #include "manage.h"
 #include "timing.h"
+#include "position.h"
 #include "hw/leds.h"
 #include "hw/spi.h"
 #include "hw/m25_flash.h"
@@ -60,6 +61,7 @@ int main(void)
   printf("SwiftNAP configured with %d tracking channels\n\n", TRACK_N_CHANNELS);
 
   time_setup();
+  position_setup();
 
   channel_measurement_t meas[TRACK_N_CHANNELS];
   navigation_measurement_t nav_meas[TRACK_N_CHANNELS];
@@ -103,7 +105,7 @@ int main(void)
 
     /*u32 foo;*/
 
-    DO_EVERY_COUNTS(TICK_FREQ/5,
+    DO_EVERY_COUNTS(TICK_FREQ,
 
       u8 n_ready = 0;
       for (u8 i=0; i<TRACK_N_CHANNELS; i++) {
@@ -132,25 +134,25 @@ int main(void)
         /*printf("Nav meas took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
         /*foo = time_ticks();*/
 
-        gnss_solution soln;
         dops_t dops;
-        if (calc_PVT(n_ready, nav_meas, &soln, &dops) == 0) {
+        if (calc_PVT(n_ready, nav_meas, &position_solution, &dops) == 0) {
+          position_updated();
           /*printf("calc_PVT took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
           /*foo = time_ticks();*/
 
-          debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
-          /*nmea_gpgga(&soln, &dops);*/
+          debug_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &position_solution);
+          nmea_gpgga(&position_solution, &dops);
 
           DO_EVERY(10,
             debug_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
-            /*nmea_gpgsv(n_ready, nav_meas, &soln);*/
+            /*nmea_gpgsv(n_ready, nav_meas, &position_solution);*/
           );
         }
       }
     );
 
     DO_EVERY_COUNTS(TICK_FREQ,
-      nmea_gpgsa(tracking_channel, 0);
+      /*nmea_gpgsa(tracking_channel, 0);*/
     );
     DO_EVERY_COUNTS(TICK_FREQ/10, // 10 Hz update
       tracking_send_state();
