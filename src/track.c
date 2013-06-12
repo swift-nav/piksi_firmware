@@ -30,11 +30,10 @@
 
 #include <libswiftnav/pvt.h>
 
-/** \addtogroup manage
- * \{ */
-
-/** \defgroup track Track
- * Manage tracking.
+/** \defgroup tracking Tracking
+ * Track satellites - Initialize SwiftNAP tracking channels. Run loop
+ * filters and update channels' code / carrier frequencies each integration
+ * period. Update tracking measurements each integration period.
  * \{ */
 
 /* Initialiser using GNU extension, see
@@ -100,6 +99,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
    * in corresponds to a PROMPT code phase rollover but we want to
    * start the channel on an EARLY code phase rollover.
    */
+  /* TODO : change hardcoded sample rate */
   start_sample_count -= 0.5*16;
 
   /* Setup tracking_channel struct. */
@@ -292,7 +292,5 @@ void tracking_send_state()
   }
   sbp_send_msg(MSG_TRACKING_STATE, sizeof(states), (u8*)states);
 }
-
-/** \} */
 
 /** \} */

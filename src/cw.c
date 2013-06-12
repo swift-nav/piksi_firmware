@@ -22,11 +22,10 @@
 #include "sbp.h"
 #include "cw.h"
 
-/** \addtogroup manage
- * \{ */
-
 /** \defgroup cw CW Interference
- * Manage CW interference searches.
+ * Search for CW interference in raw IF sample data.
+ * Searches for CW interference by scheduling CW channel correlations on
+ * the SwiftNAP.
  * \{ */
 
 cw_state_t cw_state;
@@ -200,7 +199,5 @@ void cw_get_spectrum_point(float* freq, u64* power, u16 index)
 	*freq = 0;
 	*power = cw_state.spectrum_power[index];
 }
-
-/** \} */
 
 /** \} */

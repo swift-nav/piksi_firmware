@@ -24,7 +24,7 @@
 
 #include "board/nap/nap_common.h"
 
-/** \addtogroup track
+/** \addtogroup tracking
  * \{ */
 
 #define I_FILTER_COEFF 4

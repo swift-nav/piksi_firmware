@@ -23,11 +23,9 @@
 #include "acq.h"
 #include "track.h"
 
-/** \addtogroup manage
- * \{ */
-
 /** \defgroup acq Acquisition
- * Manage acquisition searches.
+ * Do acquisition searches via interrupt driven scheduling of SwiftNAP
+ * acquisition channel correlations and peak detection.
  * \{ */
 
 acq_state_t acq_state;
@@ -250,17 +248,21 @@ u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
 }
 
 /** Perform an aqcuisition.
- * Perform an acquisition for one PRN over a defined code and doppler range. Returns
- * the code phase and carrier frequency of the largest peak in the search space together
- * with the "SNR" value for that peak defined as (peak_magnitude - mean) / std_deviation.
+ * Perform an acquisition for one PRN over a defined code and doppler range.
+ * Returns the code phase and carrier frequency of the largest peak in the
+ * search space together with the "SNR" value for that peak defined as
+ * (peak_magnitude - mean) / std_deviation.
  *
- * \param prn    PRN number - 1 (0..31) to attempt to acquire (nap_acq_code_wr_blocking must be called prior).
+ * \param prn    PRN number - 1 (0..31) to attempt to acquire
+ *               (nap_acq_code_wr_blocking must be called prior).
  * \param cp_min Lower bound for code phase search range in chips.
  * \param cp_max Upper bound for code phase search range in chips.
  * \param cf_min Lower bound for carrier freq. search range in Hz.
  * \param cf_max Upper bound for carrier freq. search range in Hz.
- * \param cp     Pointer to a float where the peak's code phase value will be stored in chips.
- * \param cf     Pointer to a float where the peak's carrier frequency will be stored in Hz.
+ * \param cp     Pointer to a float where the peak's code phase value will be
+ *               stored in chips.
+ * \param cf     Pointer to a float where the peak's carrier frequency will be
+ *               stored in Hz.
  * \param snr    Pointer to a float where the "SNR" of the peak will be stored.
  */
 void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width, float* cp, float* cf, float* snr)
@@ -274,7 +276,5 @@ void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, floa
   acq_service_irq();
   acq_get_results(cp, cf, snr);
 }
-
-/** \} */
 
 /** \} */

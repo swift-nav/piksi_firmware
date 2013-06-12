@@ -25,36 +25,36 @@
  * Swift Binary Protocol Message IDs.
  * \{ */
 
-#define MSG_PRINT 0x01 /**< Python */
+#define MSG_PRINT 0x01 /**< Callback in Python */
 
-#define MSG_ALMANAC   0x69 /**< C */
-#define MSG_SET_TIME  0x68 /**< C */
+#define MSG_ALMANAC   0x69 /**< Callback in C */
+#define MSG_SET_TIME  0x68 /**< Callback in C */
 
-#define MSG_BOOTLOADER_HANDSHAKE   0xB0 /**< C and Python */
-#define MSG_BOOTLOADER_JUMP_TO_APP 0xB1 /**< C */
+#define MSG_BOOTLOADER_HANDSHAKE   0xB0 /**< Callback in C and Python */
+#define MSG_BOOTLOADER_JUMP_TO_APP 0xB1 /**< Callback in C */
 
-#define MSG_CW_START   0xC1 /**< C */
-#define MSG_CW_RESULTS 0xC0 /**< Python */
+#define MSG_CW_START   0xC1 /**< Callback in C */
+#define MSG_CW_RESULTS 0xC0 /**< Callback in Python */
 
-#define MSG_NAP_DEVICE_DNA 0xDD /**< C and Python */
+#define MSG_NAP_DEVICE_DNA 0xDD /**< Callback in C and Python */
 
-#define MSG_STM_FLASH_WRITE 0xE0 /**< C */
-#define MSG_STM_FLASH_READ  0xE1 /**< C and Python */
-#define MSG_STM_FLASH_ERASE 0xE2 /**< C */
-#define MSG_STM_FLASH_DONE  0xE0 /**< Python */
+#define MSG_STM_FLASH_WRITE 0xE0 /**< Callback in C */
+#define MSG_STM_FLASH_READ  0xE1 /**< Callback in C and Python */
+#define MSG_STM_FLASH_ERASE 0xE2 /**< Callback in C */
+#define MSG_STM_FLASH_DONE  0xE0 /**< Callback in Python */
 
-#define MSG_STM_UNIQUE_ID 0xE5 /**< C and Python */
+#define MSG_STM_UNIQUE_ID 0xE5 /**< Callback in C and Python */
 
-#define MSG_M25_FLASH_WRITE 0xF0 /**< C */
-#define MSG_M25_FLASH_READ  0xF1 /**< C and Python */
-#define MSG_M25_FLASH_ERASE 0xF2 /**< C */
-#define MSG_M25_FLASH_DONE  0xF0 /**< Python */
+#define MSG_M25_FLASH_WRITE 0xF0 /**< Callback in C */
+#define MSG_M25_FLASH_READ  0xF1 /**< Callback in C and Python */
+#define MSG_M25_FLASH_ERASE 0xF2 /**< Callback in C */
+#define MSG_M25_FLASH_DONE  0xF0 /**< Callback in Python */
 
-#define MSG_SOLUTION 0x50 /**< Python */
-#define MSG_DOPS     0x51 /**< Python */
-#define MSG_PR_ERRS  0x52 /**< Python */
+#define MSG_SOLUTION 0x50 /**< Callback in Python */
+#define MSG_DOPS     0x51 /**< Callback in Python */
+#define MSG_PR_ERRS  0x52 /**< Callback in Python */
 
-#define MSG_TRACKING_STATE 0x22 /**< Python */
+#define MSG_TRACKING_STATE 0x22 /**< Callback in Python */
 
 /** \} */
 

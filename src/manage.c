@@ -35,7 +35,11 @@
 #include "cfs/cfs-coffee.h"
 
 /** \defgroup manage Manage
- * Manage acquisition and CW searches, and tracking.
+ * Manage acquisition and tracking.
+ * Manage how acquisition searches are performed, with data from almanac if
+ * available. Transition from acquisition search to initializization of an
+ * available tracking channel when a satellite is successfully found. Disable
+ * tracking channels that are losing lock on their satellites.
  * \{ */
 
 acq_prn_t acq_prn_param[32];
