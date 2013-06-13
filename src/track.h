@@ -23,6 +23,7 @@
 #include <libswiftnav/track.h>
 
 #include "board/nap/nap_common.h"
+#include "board/nap/track_channel.h"
 
 /** \addtogroup tracking
  * \{ */
@@ -74,7 +75,7 @@ typedef struct {
 /* Assuming we will never have a greater number of tracking channels than 12
  * We have to declare the number here as the number of tracking channels in
  * the FPGA is read at runtime. */
-extern tracking_channel_t tracking_channel[12];
+extern tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
 
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sample_count);

@@ -4,7 +4,6 @@ from traitsui.api import Item, View
 import threading
 import time
 import struct
-from ctypes import create_string_buffer
 
 from almanac import Almanac
 
@@ -22,10 +21,10 @@ MSG_ACQUISITION_SETUP = 0x69
 
 class AlmanacView(HasTraits):
   python_console_cmds = Dict()
-  download_almanac = Button(label='Download Alamanc')
-  load_almanac = Button(label='Load Alamanc File')
-  warm_start = Button(label='Warm Start')
-  send_time = Button(label='Send Time')
+  download_almanac = Button(label='Download latest alamanc')
+  load_almanac = Button(label='Load alamanc from file')
+  send_alm = Button(label='Send almanac to Piksi')
+  send_time = Button(label='Send time to Piksi')
   alm = Instance(Almanac)
   alm_txt = Str
 
@@ -33,7 +32,7 @@ class AlmanacView(HasTraits):
     Item('alm_txt', label='PRNs visible'),
     Item('download_almanac'),
     Item('load_almanac'),
-    Item('warm_start'),
+    Item('send_alm'),
     Item('send_time')
   )
 
@@ -45,7 +44,7 @@ class AlmanacView(HasTraits):
     buff = struct.pack("<dH", gps_tow, gps_week)
     self.link.send_message(0x68, buff)
 
-  def _warm_start_fired(self):
+  def _send_alm_fired(self):
     self.update_alamanc_view()
 
     for sat in self.alm.sats:

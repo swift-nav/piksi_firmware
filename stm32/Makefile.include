@@ -53,6 +53,7 @@ OBJS += \
 	$(SWIFTNAV_ROOT)/src/manage.o \
 	$(SWIFTNAV_ROOT)/src/settings.o \
 	$(SWIFTNAV_ROOT)/src/timing.o \
+	$(SWIFTNAV_ROOT)/src/position.o \
 	$(SWIFTNAV_ROOT)/src/nmea.o
 
 CFLAGS += -O0 -g -Wall -Wextra -Werror -std=gnu99 \
