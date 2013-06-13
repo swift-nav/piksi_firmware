@@ -37,7 +37,7 @@
 #define NAP_REG_TRACK_CODE_OFFSET   0x04
 
 /* Max number of track channels NAP configuration will be built with. */
-#define NAP_MAX_N_TRACK_CHANNELS 12
+#define NAP_MAX_N_TRACK_CHANNELS 14
 
 /*
  * Actual number of track channels NAP configuration was built with - read from

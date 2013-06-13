@@ -24,12 +24,14 @@
 #include "cw.h"
 #include "sbp.h"
 #include "board/nap/nap_common.h"
+#include "board/nap/conf.h"
 #include "board/nap/track_channel.h"
 #include "track.h"
 #include "acq.h"
 #include "nmea.h"
 #include "manage.h"
 #include "timing.h"
+#include "position.h"
 #include "peripherals/spi.h"
 #include "board/leds.h"
 #include "board/m25_flash.h"
@@ -46,24 +48,29 @@ int main(void)
 
   manage_acq_setup();
   cw_setup();
-  time_setup();
 
   led_toggle(LED_RED);
 
-  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n\r");
-  printf("FPGA configured with %d tracking channels\n", nap_track_n_channels);
+  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
+  u8 nap_git_hash[20];
+  nap_conf_rd_git_hash(nap_git_hash);
+  printf("SwiftNAP git: ");
+  for (u8 i=0; i<20; i++)
+    printf("%02x", nap_git_hash[i]);
+  if (nap_conf_rd_git_unclean())
+    printf(" (unclean)");
+  printf("\n");
+  printf("SwiftNAP configured with %d tracking channels\n\n", nap_track_n_channels);
 
-  const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
-
-  double WPR_ecef[3];
-  wgsllh2ecef(WPR_llh, WPR_ecef);
+  time_setup();
+  position_setup();
 
   channel_measurement_t meas[nap_track_n_channels];
   navigation_measurement_t nav_meas[nap_track_n_channels];
 
+  /* TODO: Think about thread safety when updating ephemerides. */
   static ephemeris_t es[32];
-
-
+  static ephemeris_t es_old[32];
   while(1)
   {
     for (u32 i = 0; i < 3000; i++)
@@ -75,14 +82,33 @@ int main(void)
     // Check if there is a new nav msg subframe to process.
     // TODO: move this into a function
 
+    memcpy(es_old, es, sizeof(es));
     for (u8 i=0; i<nap_track_n_channels; i++)
       if (tracking_channel[i].state == TRACKING_RUNNING && tracking_channel[i].nav_msg.subframe_start_index) {
-        process_subframe(&tracking_channel[i].nav_msg, &es[tracking_channel[i].prn]);
+        s8 ret = process_subframe(&tracking_channel[i].nav_msg, &es[tracking_channel[i].prn]);
+        if (ret < 0)
+          printf("PRN %02d ret %d\n", tracking_channel[i].prn+1, ret);
+
+        if (ret == 1 && !es[tracking_channel[i].prn].healthy)
+          printf("PRN %02d unhealthy\n", tracking_channel[i].prn+1);
+        if (memcmp(&es[tracking_channel[i].prn], &es_old[tracking_channel[i].prn], sizeof(ephemeris_t))) {
+          printf("New ephemeris for PRN %02d\n", tracking_channel[i].prn+1);
+          /* TODO: This is a janky way to set the time... */
+          gps_time_t t;
+          t.wn = es[tracking_channel[i].prn].toe.wn;
+          t.tow = tracking_channel[i].TOW_ms / 1000.0;
+          if (gpsdifftime(t, es[tracking_channel[i].prn].toe) > 2*24*3600)
+            t.wn--;
+          else if (gpsdifftime(t, es[tracking_channel[i].prn].toe) < 2*24*3600)
+            t.wn++;
+          set_time(TIME_COARSE, t);
       }
+    }
 
     /*u32 foo;*/
 
-    DO_EVERY_COUNTS(TICK_FREQ/5,
+    DO_EVERY_COUNTS(TICK_FREQ,
+
       u8 n_ready = 0;
       for (u8 i=0; i<nap_track_n_channels; i++) {
         if (es[tracking_channel[i].prn].valid == 1 && \
@@ -111,35 +137,25 @@ int main(void)
         /*printf("Nav meas took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
         /*foo = time_ticks();*/
 
-        gnss_solution soln;
         dops_t dops;
-        if (calc_PVT(n_ready, nav_meas, &soln, &dops) == 0) {
+        if (calc_PVT(n_ready, nav_meas, &position_solution, &dops) == 0) {
+          position_updated();
           /*printf("calc_PVT took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
           /*foo = time_ticks();*/
 
-          wgsecef2ned_d(soln.pos_ecef, WPR_ecef, soln.pos_ned);
+          sbp_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &position_solution);
+          nmea_gpgga(&position_solution, &dops);
 
-          sbp_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
-          /*nmea_gpgga(&soln, &dops);*/
-
-          /*DO_EVERY(1,*/
-            /*sbp_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);*/
-            /*nmea_gpgsv(n_ready, nav_meas, &soln);*/
-          /*);*/
+          DO_EVERY(10,
+            sbp_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
+            /*nmea_gpgsv(n_ready, nav_meas, &position_solution);*/
+          );
         }
       }
     );
 
-    /* USART TX testing */
-    gnss_solution soln;
-    dops_t dops;
-//    DO_EVERY(5,
-    sbp_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
-    sbp_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &soln);
-//    );
-
     DO_EVERY_COUNTS(TICK_FREQ,
-      nmea_gpgsa(tracking_channel, 0);
+      /*nmea_gpgsa(tracking_channel, 0);*/
     );
     DO_EVERY_COUNTS(TICK_FREQ/10, // 10 Hz update
       tracking_send_state();

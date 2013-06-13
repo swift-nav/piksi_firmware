@@ -29,6 +29,7 @@
 #include "acq.h"
 #include "track.h"
 #include "timing.h"
+#include "position.h"
 #include "manage.h"
 #include "sbp.h"
 #include "cfs/cfs.h"
@@ -101,17 +102,15 @@ void manage_calc_scores()
   if (time_quality != TIME_UNKNOWN)
     t = get_current_time();
 
-  const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
-  double ref_ecef[3];
-  wgsllh2ecef(WPR_llh, ref_ecef);
-
   for (u8 prn=0; prn<32; prn++) {
-    if (!almanac[prn].valid || time_quality == TIME_UNKNOWN) {
+    if (!almanac[prn].valid ||
+        time_quality == TIME_UNKNOWN ||
+        position_quality == POSITION_UNKNOWN) {
       /* No almanac or position/time information, give it the benefit of the
        * doubt. */
       acq_prn_param[prn].score = 0;
     } else {
-      calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024, ref_ecef, &az, &el);
+      calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024, position_solution.pos_ecef, &az, &el);
       acq_prn_param[prn].score = (s8)(el/D2R);
 
       gps_time_t toa;
@@ -120,7 +119,9 @@ void manage_calc_scores()
 
       double dt = fabs(gpsdifftime(t, toa));
 
-      if (time_quality == TIME_GUESS || dt > 2*24*3600) {
+      if (time_quality == TIME_GUESS ||
+          position_quality == POSITION_GUESS ||
+          dt > 2*24*3600) {
         /* Don't exclude other sats if our time is just a guess or our almanac
          * is old. */
         if (acq_prn_param[prn].score < 0)
@@ -198,11 +199,7 @@ void manage_acq()
       if (almanac[acq_manage.prn].valid && time_quality == TIME_COARSE) {
         gps_time_t t = rx2gpstime(acq_manage.coarse_timer_count);
 
-  const double WPR_llh[3] = {D2R*37.038350, D2R*-122.141812, 376.7};
-  double ref_ecef[3];
-  wgsllh2ecef(WPR_llh, ref_ecef);
-
-        double dopp = -calc_sat_doppler_almanac(&almanac[acq_manage.prn], t.tow, t.wn, ref_ecef);
+        double dopp = -calc_sat_doppler_almanac(&almanac[acq_manage.prn], t.tow, t.wn, position_solution.pos_ecef);
         /* TODO: look into accuracy of prediction and possibilities for
          * improvement, e.g. use clock bias estimated by PVT solution. */
         /*printf("Expecting PRN %02d @ %.1f\n", acq_manage.prn+1, dopp);*/

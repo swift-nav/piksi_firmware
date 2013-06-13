@@ -39,12 +39,12 @@ gps_time_t get_current_time()
   return t;
 }
 
-void set_time_coarse(gps_time_t t)
+void set_time(time_quality_t quality, gps_time_t t)
 {
   set_time_fine(nap_timing_count(), t);
-  time_quality = TIME_COARSE;
+  time_quality = quality;
   time_t unix_t = gps2time(t);
-  printf("Time set to: %s (coarse)\n", ctime(&unix_t));
+  printf("Time set to: %s (quality=%d)\n", ctime(&unix_t), quality);
 }
 
 void set_time_fine(u64 tc, gps_time_t t)
@@ -73,7 +73,7 @@ double gps2rxtime(gps_time_t t)
 void set_time_callback(u8 buff[])
 {
   gps_time_t* t = (gps_time_t*)buff;
-  set_time_coarse(*t);
+  set_time(TIME_COARSE, *t);
 }
 
 void time_setup()

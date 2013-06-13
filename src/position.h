@@ -15,42 +15,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef SWIFTNAV_TIME_H
-#define SWIFTNAV_TIME_H
-
-#include <libopencm3/stm32/f4/timer.h>
-#include <libopencm3/stm32/f4/rcc.h>
+#ifndef SWIFTNAV_POSITION_H
+#define SWIFTNAV_POSITION_H
 
 #include <libswiftnav/common.h>
-#include <libswiftnav/gpstime.h>
+#include <libswiftnav/pvt.h>
 
 typedef enum {
-  TIME_UNKNOWN = 0,
-  TIME_GUESS,
-  TIME_COARSE,
-  TIME_FINE
-} time_quality_t;
+  POSITION_UNKNOWN = 0,
+  POSITION_GUESS,
+  POSITION_STATIC,
+  POSITION_FIX,
+} position_quality_t;
 
-extern time_quality_t time_quality;
+extern position_quality_t position_quality;
+extern gnss_solution position_solution;
 
-#define TICK_FREQ (rcc_ppre1_frequency/16)
-
-void time_setup();
-gps_time_t get_current_time();
-void set_time(time_quality_t quality, gps_time_t t);
-void set_time_fine(u64 tc, gps_time_t t);
-gps_time_t rx2gpstime(double tc);
-double gps2rxtime(gps_time_t t);
-
-u32 time_ticks();
-
-#define DO_EVERY_COUNTS(n, cmd) do { \
-  static u32 last_count = 0; \
-  if (time_ticks() - last_count > n) { \
-    last_count = time_ticks(); \
-    cmd; \
-  } \
-} while(0)
+void position_setup();
+void position_updated();
 
 #endif
 

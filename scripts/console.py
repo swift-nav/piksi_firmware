@@ -51,10 +51,6 @@ class SwiftConsole(HasTraits):
         Item('almanac_view', style='custom', label='Almanac'),
         Item('solution_view', style='custom'),
         Item(
-          'solution_view', style='custom',
-          editor=InstanceEditor(view='prs_view')
-        ),
-        Item(
           'python_console_env', style='custom',
           label='Console', editor=ShellEditor()
         ),
