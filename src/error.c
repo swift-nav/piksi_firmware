@@ -28,10 +28,10 @@
  * \{ */
 
 /** \addtogroup error
- * Last resort, low-level blocking error messages.
+ * Last resort, low-level, blocking, continuous error messages.
  * \{ */
 
-/** Last resort, low-level blocking error message with hardcoded message.
+/** Error message with hardcoded message.
  * Halts the program while continually sending a non-descript error message in
  * SBP message format to the FTDI USART, in a way that should get the message
  * through to the Python console even if it's interrupting another transmission.
@@ -64,7 +64,7 @@ void screaming_death(void)
   }
 };
 
-/** Last resort, low-level blocking error message with passed message.
+/** Error message with passed message.
  * Halts the program while continually sending a fixed error message in SBP
  * message format to the FTDI USART, in a way that should get the message
  * through to the Python console even if it's interrupting another transmission.
