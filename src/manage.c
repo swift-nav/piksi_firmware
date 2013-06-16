@@ -40,7 +40,7 @@
  * Manage how acquisition searches are performed, with data from almanac if
  * available. Transition from acquisition search to initializization of an
  * available tracking channel when a satellite is successfully found. Disable
- * tracking channels that are losing lock on their satellites.
+ * tracking channels that have lost lock on their satellites.
  * \{ */
 
 acq_prn_t acq_prn_param[32];
@@ -280,7 +280,7 @@ void manage_acq()
       printf("PRN %d Fine @ %+.0f Hz,  %.1f SNR\n", acq_manage.prn + 1,
                                   fine_cf,
                                   acq_manage.fine_snr);
-      // BELOW REMOVED - if we found it in coarse then we'll consider it acquired.
+      /* BELOW REMOVED - if we found it in coarse then we'll consider it acquired. */
       // TODO: Change SNR calculation so it is valid for fine then reenable this.
       //if (acq_manage.fine_snr < ACQ_THRESHOLD) {
       //  /* Didn't find the satellite :( */

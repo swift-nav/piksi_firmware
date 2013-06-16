@@ -37,6 +37,7 @@
 
 #define MANAGE_NO_CHANNELS_FREE 255
 
+/** Acquisition management states. */
 typedef enum {
   ACQ_MANAGE_START = 0,
   ACQ_MANAGE_DISABLED,
@@ -46,24 +47,28 @@ typedef enum {
   ACQ_MANAGE_RUNNING_FINE
 } acq_manage_state_t;
 
+/** Acquisition management struct. */
 typedef struct {
-  acq_manage_state_t state;
-  u8 prn;
-  u32 coarse_timer_count;
-  float coarse_snr, coarse_cf, coarse_cp;
-  float fine_snr;
-  u32 fine_timer_count;
+  acq_manage_state_t state; /**< Acquisition management state. */
+  u8 prn;                   /**< CA Code (0-31) being searched for. */
+  u32 coarse_timer_count;   /**< Sample count corresponding to first sample in coarse acquisition samples. */
+  float coarse_snr;         /**< SNR of highest correlation in coarse search. */
+  float coarse_cp;          /**< Code phase of highest correlation in coarse search. */
+  float coarse_cf;          /**< Carr freq of highest correlation in coarse search. */
+  float fine_snr;           /**< SNR of highest correlation in fine search. */
+  u32 fine_timer_count;     /**< Sample count corresponding to first sample in fine acquisition samples. */
 } acq_manage_t;
 
-#define ACQ_PRN_SKIP      0
-#define ACQ_PRN_UNTRIED   1
-#define ACQ_PRN_TRIED     2
-#define ACQ_PRN_ACQUIRING 3
-#define ACQ_PRN_TRACKING  4
-
+/** Status of acquisition for a particular PRN. */
 typedef struct __attribute__((packed)) {
-  u8 state;
-  s8 score;
+  enum {
+    ACQ_PRN_SKIP = 0,
+    ACQ_PRN_UNTRIED,
+    ACQ_PRN_TRIED,
+    ACQ_PRN_ACQUIRING,
+    ACQ_PRN_TRACKING
+  } state;  /**< Management status of PRN. */
+  s8 score; /**< Acquisition preference of PRN. */
 } acq_prn_t;
 
 /** \} */
