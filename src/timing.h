@@ -24,6 +24,9 @@
 #include <libswiftnav/common.h>
 #include <libswiftnav/gpstime.h>
 
+/** \addtogroup timing Timing
+ * \{ */
+
 typedef enum {
   TIME_UNKNOWN = 0,
   TIME_GUESS,
@@ -35,6 +38,8 @@ extern time_quality_t time_quality;
 
 #define TICK_FREQ (rcc_ppre1_frequency/16)
 
+/** \} */
+
 void time_setup();
 gps_time_t get_current_time();
 void set_time(time_quality_t quality, gps_time_t t);
@@ -44,6 +49,9 @@ double gps2rxtime(gps_time_t t);
 
 u32 time_ticks();
 
+/** \addtogroup timing Timing
+ * \{ */
+
 #define DO_EVERY_COUNTS(n, cmd) do { \
   static u32 last_count = 0; \
   if (time_ticks() - last_count >= n) { \
@@ -51,6 +59,8 @@ u32 time_ticks();
     cmd; \
   } \
 } while(0)
+
+/** \} */
 
 #endif
 
