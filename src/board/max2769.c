@@ -27,6 +27,10 @@
  * Interface to setup the MAX2769 RF Front-end.
  * \{ */
 
+/** Write to one of the MAX2769 registers.
+ * \param addr MAX2769 register to write to.
+ * \param data Data to write to register (28 bits).
+ */
 void max2769_write(u8 addr, u32 data)
 {
   u32 write_word = ((data << 4) & 0xFFFFFFF0) | (addr & 0x0F);
@@ -42,6 +46,7 @@ void max2769_write(u8 addr, u32 data)
 
 }
 
+/** Setup MAX2769 GPIOs and write default settings to MAX2769 registers. */
 void max2769_setup()
 {
   /* Setup MAX2769 PGM (PB8) - low */
