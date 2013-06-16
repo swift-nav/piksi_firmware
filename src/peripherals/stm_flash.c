@@ -55,7 +55,7 @@ void stm_flash_erase_sector_callback(u8 buff[])
   flash_erase_sector(sector, FLASH_CR_PROGRAM_X32);
   flash_lock();
 
-  /* Send message back to PC to signal operation is finished */
+  /* Send message back to host to signal operation is finished */
   sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
@@ -81,7 +81,7 @@ void stm_flash_program_callback(u8 buff[])
   flash_program(address, data, length);
   flash_lock();
 
-  /* Send message back to PC to signal operation is finished */
+  /* Send message back to host to signal operation is finished */
   sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
@@ -134,18 +134,26 @@ void stm_flash_callbacks_setup()
   static msg_callbacks_node_t stm_unique_id_node;
 
   /* Insert callbacks in SBP callback linked list so they can be called. */
-  sbp_register_callback(MSG_STM_FLASH_ERASE,
-                          &stm_flash_erase_sector_callback,
-                          &stm_flash_erase_sector_node);
-  sbp_register_callback(MSG_STM_FLASH_READ,
-                          &stm_flash_read_callback,
-                          &stm_flash_read_node);
-  sbp_register_callback(MSG_STM_FLASH_WRITE,
-                          &stm_flash_program_callback,
-                          &stm_flash_program_node);
-  sbp_register_callback(MSG_STM_UNIQUE_ID,
-                          &stm_unique_id_callback,
-                          &stm_unique_id_node);
+  sbp_register_callback(
+    MSG_STM_FLASH_ERASE,
+    &stm_flash_erase_sector_callback,
+    &stm_flash_erase_sector_node
+  );
+  sbp_register_callback(
+    MSG_STM_FLASH_READ,
+    &stm_flash_read_callback,
+    &stm_flash_read_node
+  );
+  sbp_register_callback(
+    MSG_STM_FLASH_WRITE,
+    &stm_flash_program_callback,
+    &stm_flash_program_node
+  );
+  sbp_register_callback(
+    MSG_STM_UNIQUE_ID,
+    &stm_unique_id_callback,
+    &stm_unique_id_node
+  );
 }
 
 /** \} */
