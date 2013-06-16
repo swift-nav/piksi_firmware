@@ -31,6 +31,7 @@
  * configuration flash.
  * \{ */
 
+/** Send "write enable" command to the flash. */
 void m25_write_enable(void)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
@@ -38,6 +39,7 @@ void m25_write_enable(void)
   spi_slave_deselect();
 }
 
+/** Send "write disable" command to the flash. */
 void m25_write_disable(void)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
@@ -45,20 +47,24 @@ void m25_write_disable(void)
   spi_slave_deselect();
 }
 
-u32 m25_read_id(void)
+/** Read the manufacturer and device identification out of the flash.
+ * \param man_id   Pointer to u8 where JEDEC manufacturer ID will be stored.
+ * \param mem_type Pointer to u8 where memory type will be stored.
+ * \param mem_type Pointer to u8 where memory capacity will be stored.
+ */
+void m25_read_id(u8 *man_id, u8 *mem_type, u8 *mem_cap)
 {
-  u8 manf_id, mem_type, mem_capacity;
-
   spi_slave_select(SPI_SLAVE_FLASH);
   spi_xfer(SPI_BUS_FLASH, M25_RDID);
-  manf_id = (u8)spi_xfer(SPI_BUS_FLASH, 0x00);
-  mem_type = (u8)spi_xfer(SPI_BUS_FLASH, 0x00);
-  mem_capacity = (u8)spi_xfer(SPI_BUS_FLASH, 0x00);
+  *man_id = (u8)spi_xfer(SPI_BUS_FLASH, 0x00);
+  *mem_type = (u8)spi_xfer(SPI_BUS_FLASH, 0x00);
+  *mem_cap = (u8)spi_xfer(SPI_BUS_FLASH, 0x00);
   spi_slave_deselect();
-
-  return mem_capacity | mem_type << 8 | manf_id << 16;
 }
 
+/** Read the status register out of the flash.
+ * \return 8-bit value read from flash status register.
+ */
 u8 m25_read_status(void)
 {
   u8 sr;
@@ -70,6 +76,10 @@ u8 m25_read_status(void)
   return sr;
 }
 
+/** Write to flash status register.
+ * Note : m25_write_enable() must be called before this function is called.
+ * \param sr 8-bit value to write to flash status register.
+ */
 void m25_write_status(u8 sr)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
@@ -78,6 +88,11 @@ void m25_write_status(u8 sr)
   spi_slave_deselect();
 }
 
+/** Read data from flash memory.
+ * \param addr Starting address to read from
+ * \param len Number of addresses to read
+ * \param buff Array to write bytes read from flash to
+ */
 void m25_read(u32 addr, u32 len, u8 *buff)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
@@ -94,7 +109,15 @@ void m25_read(u32 addr, u32 len, u8 *buff)
   spi_slave_deselect();
 }
 
-
+/** Program a page of the flash.
+ * Programs selected bits from 1 to 0. If addr is greater than the starting
+ * address of the page and len is greater than the page length, the written
+ * data that goes over the end of the page will wrap to the beginning of the
+ * page.
+ * \param addr Starting address to write to
+ * \param len Number of addresses to write
+ * \param buff Array of bytes to write to flash
+ */
 void m25_page_program(u32 addr, u8 len, u8 buff[])
 {
   /* TODO: check for page boundary crossing. */
@@ -116,21 +139,11 @@ void m25_page_program(u32 addr, u8 len, u8 buff[])
   while(m25_read_status() & M25_SR_WIP);
 }
 
-void m25_subsector_erase(u32 addr)
-{
-  spi_slave_select(SPI_SLAVE_FLASH);
-
-  spi_xfer(SPI_BUS_FLASH, M25_SSE);
-
-  spi_xfer(SPI_BUS_FLASH, (addr >> 16) & 0xFF);
-  spi_xfer(SPI_BUS_FLASH, (addr >> 8) & 0xFF);
-  spi_xfer(SPI_BUS_FLASH, addr & 0xFF);
-
-  spi_slave_deselect();
-
-  while(m25_read_status() & M25_SR_WIP);
-}
-
+/** Erase a sector of the flash.
+ * Erases all memory addresses in sector to 0xFF. Any address in the sector can
+ * be passed.
+ * \param addr Address inside sector to erase.
+ */
 void m25_sector_erase(u32 addr)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
@@ -146,6 +159,9 @@ void m25_sector_erase(u32 addr)
   while(m25_read_status() & M25_SR_WIP);
 }
 
+/** Erase the entire flash.
+ * Erases all memory addresses in the flash to 0xFF.
+ */
 void m25_bulk_erase(void)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
@@ -157,13 +173,18 @@ void m25_bulk_erase(void)
   while(m25_read_status() & M25_SR_WIP);
 }
 
-void flash_write_callback(u8 buff[])
+/** Callback to program a set of addresses of the flash.
+ * Note : sector containing addresses must be erased before addresses can be
+ * programmed.
+ *
+ * \param buff Array of u8 (length >= 6) :
+ *             - [0:3]   starting address of set to program
+ *             - [4]     length of set of addresses to program - counts up
+ *                       from starting address
+ *             - [5:end] data to program addresses with
+ */
+void m25_flash_program_callback(u8 buff[])
 {
-  /* Msg format:  u32 addr, u8 len, u8 data[]
-   * Write a 256-byte page at a time.
-   * If you start partway through a page, that's ok, but if you run off the end
-   * of the page it will wrap, rather than going on to the next page. */
-
   u32 addr = *(u32 *)&buff[0];
   u8 len = *(u8 *)&buff[4];
   u8 *data = &buff[5];
@@ -171,13 +192,19 @@ void flash_write_callback(u8 buff[])
   m25_write_enable();
   m25_page_program(addr, len, data);
 
-  sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0);
+  /* Keep trying to send message until it makes it into the buffer. */
+  while(sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0));
 }
 
-void flash_read_callback(u8 buff[])
+/** Callback to read a set of addresses from the flash.
+ *
+ * \param buff Array of u8 (length 5) :
+ *             - [0:3] starting address of set to read
+ *             - [4]   length of set of addresses to read - counts up from
+ *                     starting address
+ */
+void m25_flash_read_callback(u8 buff[])
 {
-  /* Msg format:  u32 addr, u8 len */
-
   u32 addr, len;
   static char flash_data[M25_READ_SIZE];
 
@@ -203,7 +230,7 @@ void flash_read_callback(u8 buff[])
       callback_data[i+5] = flash_data[i];
     }
 
-    /* Keep trying to send message until we succeed. */
+    /* Keep trying to send message until it makes it into the buffer. */
     while(sbp_send_msg(MSG_M25_FLASH_READ,5 + chunk_len,callback_data));
 
     len -= chunk_len;
@@ -211,40 +238,47 @@ void flash_read_callback(u8 buff[])
   }
 }
 
-void flash_erase_callback(u8 buff[])
+/** Callback to erase a sector of the flash.
+ * \param buff Array of u8 (length 1) :
+ *             - [0] flash sector number to erase.
+ */
+void m25_flash_erase_callback(u8 buff[])
 {
-  /* Msg format: u8 sector. Erases one of the 16 sectors in the flash. */
-
   u8 sector = buff[0];
   u32 addr = ((u32)sector) << 16;
 
   m25_write_enable();
   m25_sector_erase(addr);
 
-  sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0);
+  /* Keep trying to send message until it makes it into the buffer. */
+  while(sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0));
 }
 
+/** Setup the M25 flash callback functions.
+ * Note : the SPI2 bus must be setup and uncontested for these callbacks to
+ * properly communicate with the M25 flash.
+ */
 void m25_setup(void)
 {
   /* Assumes SPI bus already setup. */
-  static msg_callbacks_node_t flash_write_node;
-  static msg_callbacks_node_t flash_read_node;
-  static msg_callbacks_node_t flash_erase_node;
+  static msg_callbacks_node_t m25_flash_program_node;
+  static msg_callbacks_node_t m25_flash_read_node;
+  static msg_callbacks_node_t m25_flash_erase_node;
 
   sbp_register_callback(
     MSG_M25_FLASH_WRITE,
-    &flash_write_callback,
-    &flash_write_node
+    &m25_flash_program_callback,
+    &m25_flash_program_node
   );
   sbp_register_callback(
     MSG_M25_FLASH_READ,
-    &flash_read_callback,
-    &flash_read_node
+    &m25_flash_read_callback,
+    &m25_flash_read_node
   );
   sbp_register_callback(
     MSG_M25_FLASH_ERASE,
-    &flash_erase_callback,
-    &flash_erase_node
+    &m25_flash_erase_callback,
+    &m25_flash_erase_node
   );
 }
 
