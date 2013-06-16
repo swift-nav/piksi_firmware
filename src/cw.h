@@ -25,6 +25,7 @@
 
 #define SPECTRUM_LEN 301
 
+/** Status of SwiftNAP CW channel. */
 typedef enum {
   CW_DISABLED = 0,
   CW_LOADING,
@@ -33,16 +34,22 @@ typedef enum {
   CW_RUNNING_DONE
 } cw_status_t;
 
+/** CW search state. */
 typedef struct {
-  cw_status_t state;
-  s32 freq_step, freq_min, freq_max;
-  s32 freq;
-	u16 count;
-	u64 spectrum_power[SPECTRUM_LEN];
+  cw_status_t state; /**< Status of SwiftNAP CW channel. */
+  s32 freq_step;     /**< Step size between interference freq search points. */
+  s32 freq_min;      /**< Lowest interference freq to search. */
+  s32 freq_max;      /**< Highest interference freq to search. */
+  s32 freq;          /**< Interference freq of next correlation to be read. */
+	u16 count;         /**< Total number of interference freq points searched. */
+	u64 spectrum_power[SPECTRUM_LEN]; /**< Array of power. */
 } cw_state_t;
 
+/** Struct sent by host to cw_start_callback to start a CW search. */
 typedef struct {
-  float freq_min, freq_max, freq_step;
+  float freq_min;  /**< Lowest interference freq to search. */
+  float freq_max;  /**< Highest interference freq to search. */
+  float freq_step; /**< Step size between interference freq search points. */
 } cw_start_msg_t;
 
 /** \} */

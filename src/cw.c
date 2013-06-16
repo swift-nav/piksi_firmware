@@ -25,13 +25,14 @@
 /** \defgroup cw CW Interference
  * Search for CW interference in raw IF sample data.
  * Searches for CW interference by scheduling CW channel correlations on
- * the SwiftNAP.
+ * the SwiftNAP and (TODO) doing peak detection. These peaked can then be
+ * filtered out using the IIR filter onboard the SwiftNAP.
  * \{ */
 
 cw_state_t cw_state;
 
 /** Callback to start a set of CW searches.
- * Allows PC to directly control CW channel searches.
+ * Allows host to directly control CW channel searches.
  */
 void cw_start_callback(u8 msg[])
 {
@@ -39,7 +40,7 @@ void cw_start_callback(u8 msg[])
   cw_start(start_msg->freq_min, start_msg->freq_max, start_msg->freq_step);
 }
 
-/** Register CW callbacks */
+/** Register CW callbacks. */
 void cw_setup()
 {
   static msg_callbacks_node_t cw_start_callback_node;
@@ -170,14 +171,14 @@ void cw_service_irq()
   }
 }
 
-/** Send results of a CW search point back to the PC via the SBP interface.
+/** Send results of a CW search point back to the host via the SBP interface.
  *
  * \param freq  Frequency of the CW correlation
  * \param power Magnitude of the CW correlation
  */
 void cw_send_result(float freq, u64 power)
 {
-  static struct {
+  struct {
     float freq;
     u64 power;
   } msg;
@@ -190,9 +191,9 @@ void cw_send_result(float freq, u64 power)
 
 /** Get a point from the CW correlations array
  *
- * \param freq  float pointer at which frequency of the index correlation will be put
- * \param power u64 pointer at which magnitude of the index correlation will be put
- * \param index correlation array index to get the frequency and power from
+ * \param freq  Pointer to float where frequency correlation index will be put
+ * \param power Pointer to u64 where magnitude of the correlation index will be put
+ * \param index Correlation array index to get freq and power from
  */
 void cw_get_spectrum_point(float* freq, u64* power, u16 index)
 {
