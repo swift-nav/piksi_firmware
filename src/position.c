@@ -33,6 +33,13 @@ gnss_solution position_solution;
 gps_time_t last_time;
 double last_ecef[3];
 
+/** \defgroup position Position
+ * Save and load positions from filesystem.
+ * \{ */
+
+/** Get last saved position from file, or create position file if it does not
+ * exist.
+ */
 void position_setup()
 {
   int fd = cfs_open("posn", CFS_READ);
@@ -59,6 +66,7 @@ void position_setup()
   }
 }
 
+/** Save position to file. */
 void position_updated()
 {
   double temp[3];
@@ -84,3 +92,4 @@ void position_updated()
   }
 }
 
+/** \} */

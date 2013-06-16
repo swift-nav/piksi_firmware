@@ -21,12 +21,17 @@
 #include <libswiftnav/common.h>
 #include <libswiftnav/pvt.h>
 
+/** \addtogroup position
+ * \{ */
+
 typedef enum {
   POSITION_UNKNOWN = 0,
   POSITION_GUESS,
   POSITION_STATIC,
   POSITION_FIX,
 } position_quality_t;
+
+/** \} */
 
 extern position_quality_t position_quality;
 extern gnss_solution position_solution;
