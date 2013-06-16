@@ -32,29 +32,31 @@
 
 #define USART_DEFAULT_BAUD 1000000
 
+/** USART RX DMA state structure. */
 typedef struct {
-  u8 buff[USART_RX_BUFFER_LEN];
-  u32 rd;
-  u32 rd_wraps;
-  u32 wr_wraps;
+  u8 buff[USART_RX_BUFFER_LEN]; /**< USART RX DMA buffer. DMA xfers from USART to buffer, message processing routine reads out of buffer. */
+  u32 rd;       /**< Address of next byte to read out of buffer. */
+  /* TODO : is u32 big enough for rd_wraps and wr_wraps? */
+  u32 rd_wraps; /**< Number of times rd has wrapped around the buffer. */
+  u32 wr_wraps; /**< Number of times wr has wrapped around the buffer. */
 
-  u32 dma;
-  u32 usart;
-  u8 stream;
-  u8 channel;
+  u32 dma;      /**< DMA for particular USART. */
+  u32 usart;    /**< USART peripheral this state serves. */
+  u8 stream;    /**< DMA stream for this USART. */
+  u8 channel;   /**< DMA channel for this USART. */
 } usart_rx_dma_state;
 
+/** USART TX DMA state structure. */
 typedef struct {
-  u8 buff[USART_TX_BUFFER_LEN];
-  u32 rd;
-  u32 wr;
-  u32 xfer_len;
-  u32 feif_isrs;
+  u8 buff[USART_TX_BUFFER_LEN]; /**< USART TX DMA buffer. DMA xfers from buffer to USART_DR. */
+  u32 rd;       /**< Address of next byte to read out of buffer. */
+  u32 wr;       /**< Next buffer address to write to. */
+  u32 xfer_len; /**< Number of bytes to DMA from buffer to USART_DR. */
 
-  u32 dma;
-  u32 usart;
-  u8 stream;
-  u8 channel;
+  u32 dma;      /**< DMA for particular USART. */
+  u32 usart;    /**< USART peripheral this state serves. */
+  u8 stream;    /**< DMA stream for this USART. */
+  u8 channel;   /**< DMA channel for this USART. */
 } usart_tx_dma_state;
 
 /** \} */

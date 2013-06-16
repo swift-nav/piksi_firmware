@@ -37,6 +37,10 @@ usart_tx_dma_state uarta_tx_state;
 usart_rx_dma_state uartb_rx_state;
 usart_tx_dma_state uartb_tx_state;
 
+/** Set up USART parameters for particular USART.
+ * \param usart USART to set up parameters for.
+ * \param baud  Baud rate to set.
+ */
 void usart_set_parameters(u32 usart, u32 baud)
 {
   /* Setup UART parameters. */
@@ -106,6 +110,7 @@ void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
   usart_rx_dma_setup(&uartb_rx_state, USART3, DMA1, 1, 4);
 }
 
+/** Disable all USARTs. */
 void usarts_disable()
 {
   /* Disable DMA channels. */
@@ -122,33 +127,35 @@ void usarts_disable()
   usart_disable(USART3);
 }
 
+/** DMA 2 Stream 6 Interrupt Service Routine. */
 void dma2_stream6_isr(void)
 {
   usart_tx_dma_isr(&ftdi_tx_state);
 }
+/** DMA 2 Stream 1 Interrupt Service Routine. */
 void dma2_stream1_isr(void)
 {
   usart_rx_dma_isr(&ftdi_rx_state);
 }
+/** DMA 2 Stream 7 Interrupt Service Routine. */
 void dma2_stream7_isr(void)
 {
   usart_tx_dma_isr(&uarta_tx_state);
 }
+/** DMA 2 Stream 2 Interrupt Service Routine. */
 void dma2_stream2_isr(void)
 {
   usart_rx_dma_isr(&uarta_rx_state);
 }
+/** DMA 1 Stream 3 Interrupt Service Routine. */
 void dma1_stream3_isr(void)
 {
   usart_tx_dma_isr(&uartb_tx_state);
 }
+/** DMA 1 Stream 1 Interrupt Service Routine. */
 void dma1_stream1_isr(void)
 {
   usart_rx_dma_isr(&uartb_rx_state);
-}
-
-void usart_disable_common(void){
-  usart_disable(USART6);
 }
 
 /** \} */

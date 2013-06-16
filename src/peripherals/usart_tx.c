@@ -111,6 +111,9 @@ void usart_tx_dma_setup(usart_tx_dma_state* s, u32 usart,
     nvic_enable_irq(dma_irq_lookup[1][stream]);
 }
 
+/** Disable USART TX DMA.
+ * \param s The USART DMA state structure.
+ */
 void usart_tx_dma_disable(usart_tx_dma_state* s)
 {
   /* Disable DMA stream interrupts with the NVIC. */
@@ -203,7 +206,6 @@ void usart_tx_dma_isr(usart_tx_dma_state* s)
   if (dma_get_interrupt_flag(s->dma, s->stream, DMA_FEIF)) {
     /* Clear FIFO error flag */
     dma_clear_interrupt_flags(s->dma, s->stream, DMA_HTIF | DMA_FEIF);
-    s->feif_isrs++;
   }
 }
 
