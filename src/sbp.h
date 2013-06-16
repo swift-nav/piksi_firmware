@@ -30,18 +30,19 @@
 
 #define SBP_MSG(msg_type, item) sbp_send_msg(msg_type, sizeof(item), (u8*)&(item))
 
-/* Define the type of our callback function
- * for convenience.
- */
+/** SBP callback function definition. */
 typedef void(*msg_callback_t)(u8 msg[]);
 
-/* Define a linked list of message callbacks. */
+/** Linked list of SBP callbacks.
+ * Must be statically allocated.
+ */
 typedef struct msg_callbacks_node {
-  u8 msg_type;
-  msg_callback_t cb;
-  struct msg_callbacks_node* next;
+  u8 msg_type;                     /**< Message ID associated with callback. */
+  msg_callback_t cb;               /**< Pointer to callback function. */
+  struct msg_callbacks_node* next; /**< Pointer to next node in list. */
 } msg_callbacks_node_t;
 
+/** State structure for processing SBP messages from a particular USART. */
 typedef struct {
   enum {
     WAITING_1 = 0,

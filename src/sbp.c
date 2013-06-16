@@ -132,8 +132,8 @@ void sbp_disable()
 static inline u32 use_usart(usart_settings_t* us, u8 msg_type)
 {
   if (sbp_use_settings) {
-    if (us->mode != PIKSI_BINARY)
-      /* This USART is not in Piksi Binary mode. */
+    if (us->mode != SBP)
+      /* This USART is not in SBP mode. */
       return 0;
     if (!(us->message_mask & msg_type))
       /* This message type is masked out on this USART. */
