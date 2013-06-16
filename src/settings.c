@@ -30,12 +30,12 @@ settings_t settings __attribute__ ((section (".settings_area"))) =
   .settings_valid = VALID,
 
   .ftdi_usart = {
-    .mode = PIKSI_BINARY,
+    .mode = SBP,
     .baud_rate = USART_DEFAULT_BAUD,
     .message_mask = 0xFF,
   },
   .uarta_usart = {
-    .mode = PIKSI_BINARY,
+    .mode = SBP,
     .baud_rate = USART_DEFAULT_BAUD,
     .message_mask = 0xFF,
   },

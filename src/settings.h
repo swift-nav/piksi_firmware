@@ -20,15 +20,17 @@
 /** \addtogroup io
  * \{ */
 
+/** Message and baud rate settings for a USART. */
 typedef struct {
   enum {
-    PIKSI_BINARY,
+    SBP,
     NMEA
-  } mode;
+  } mode; /** Communication mode : Swift Binary Protocol or NMEA */
   u32 baud_rate;
   u8 message_mask;
 } usart_settings_t;
 
+/** Message and baud rate settings for all USARTs. */
 typedef struct {
   enum {
     VALID = 0,
