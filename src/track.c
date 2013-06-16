@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libopencm3/cm3/nvic.h>
-#include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/exti.h>
 
 #include "main.h"
@@ -143,9 +142,12 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   nap_timing_strobe(start_sample_count);
 }
 
+/** Get correlations from a NAP tracking channel and store them in the
+ * tracking channel state struct.
+ * \param channel Tracking channel to read correlations for.
+ */
 void tracking_channel_get_corrs(u8 channel)
 {
-  gpio_set(GPIOC, GPIO10);
   tracking_channel_t* chan = &tracking_channel[channel];
 
   switch(chan->state)
@@ -160,12 +162,15 @@ void tracking_channel_get_corrs(u8 channel)
       /* TODO: WTF? */
       break;
   }
-  gpio_clear(GPIOC, GPIO10);
 }
 
+/** Update tracking channels after the end of an integration period.
+ * Update update_count, sample_count, TOW, run loop filters and update
+ * SwiftNAP tracking channel frequencies.
+ * \param channel Tracking channel to update.
+ */
 void tracking_channel_update(u8 channel)
 {
-  gpio_set(GPIOC, GPIO11);
   tracking_channel_t* chan = &tracking_channel[channel];
 
   switch(chan->state)
@@ -244,18 +249,24 @@ void tracking_channel_update(u8 channel)
       tracking_channel_disable(channel);
       break;
   }
-  gpio_clear(GPIOC, GPIO11);
 }
 
+/** Disable tracking channel.
+ * Change tracking channel state to TRACKING_DISABLED and write 0 to SwiftNAP
+ * tracking channel code / carrier frequencies to stop channel from raising
+ * interrupts.
+ * \param channel Tracking channel to disable.
+ */
 void tracking_channel_disable(u8 channel)
 {
-  /* Write zero to the code phase rate to stop the channel
-   * from generating interrupts.
-   */
   nap_track_update_wr_blocking(channel, 0, 0);
   tracking_channel[channel].state = TRACKING_DISABLED;
 }
 
+/** Update channel measurement for a tracking channel.
+ * \param channel Tracking channel to update measurement from.
+ * \param meas Pointer to channel_measurement_t where measurement will be put.
+ */
 void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
 {
   tracking_channel_t* chan = &tracking_channel[channel];
@@ -273,6 +284,9 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->snr = tracking_channel_snr(channel);
 }
 
+/** Calculate a tracking channel's current SNR.
+ * \param channel Tracking channel to calculate SNR of.
+ */
 float tracking_channel_snr(u8 channel)
 {
   /* Calculate SNR from I and Q filtered magnitudes. */
@@ -280,6 +294,9 @@ float tracking_channel_snr(u8 channel)
                 (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
 }
 
+/** Send tracking state SBP message.
+ * Send information on each tracking channel to host.
+ */
 void tracking_send_state()
 {
   tracking_state_msg_t states[nap_track_n_channels];

@@ -31,43 +31,39 @@
 #define I_FILTER_COEFF 4
 #define Q_FILTER_COEFF 10
 
+/** Tracking channel states. */
 typedef enum {
   TRACKING_DISABLED = 0,
   TRACKING_RUNNING = 1
 } tracking_state_t;
 
+/** Message struct for SBP tracking state message. */
 typedef struct __attribute__((packed)) {
-  tracking_state_t state;
-  u8 prn;
-  float cn0;
+  tracking_state_t state; /**< State of the tracking channel. */
+  u8 prn;                 /**< PRN being tracked by the tracking channel. */
+  float cn0;              /**< SNR of the tracking channel. */
 } tracking_state_msg_t;
 
+/** Tracking channel parameters as of end of last correlation period. */
 typedef struct {
-  tracking_state_t state;
-  u32 update_count;
-  s32 TOW_ms;
-  u32 snr_threshold_count;
-  u8 prn;
-
-  u32 sample_count;
-  u32 code_phase_early;
-
-  /* Tracking loop filter state. */
-  comp_tl_state_t tl_state;
-
-  double code_phase_rate;
-  u32 code_phase_rate_fp;
-  u32 code_phase_rate_fp_prev;
-  double carrier_freq;
-
-  /* SNR filter state. */
-  u32 I_filter, Q_filter;
-  float snr;
-
-  u16 corr_sample_count;
-  corr_t cs[3];
-
-  nav_msg_t nav_msg;
+  tracking_state_t state;      /**< Tracking channel state. */
+  /* TODO : u32's big enough? */
+  u32 update_count;            /**< Total number of tracking channel ms updates. */
+  s32 TOW_ms;                  /**< TOW in ms. */
+  u32 snr_threshold_count;     /**< Number of ms tracking channel's SNR has been above a certain margin. */
+  u8 prn;                      /**< CA Code (0-31) channel is tracking. */
+  u32 sample_count;            /**< Total num samples channel has tracked for. */
+  u32 code_phase_early;        /**< Early code phase. */
+  comp_tl_state_t tl_state;    /**< Tracking loop filter state. */
+  double code_phase_rate;      /**< Code phase rate in chips/s. */
+  u32 code_phase_rate_fp;      /**< Code phase rate in NAP register units. */
+  u32 code_phase_rate_fp_prev; /**< Previous code phase rate in NAP register units. */
+  double carrier_freq;         /**< Carrier frequency in chips/s. */
+  u32 I_filter;                /**< Filtered Prompt I correlations. */
+  u32 Q_filter;                /**< Filtered Prompt Q correlations. */
+  u16 corr_sample_count;       /**< Number of samples in correlation period. */
+  corr_t cs[3];                /**< EPL correlation results in correlation period. */
+  nav_msg_t nav_msg;           /**< Navigation message of channel SV. */
 } tracking_channel_t;
 
 /** \} */
