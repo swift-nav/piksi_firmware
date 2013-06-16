@@ -28,6 +28,9 @@
  * Functions to setup and use STM32F4 SPI peripherals.
  * \{ */
 
+/** Set up SPI buses.
+ * Set up SPI peripheral, SPI clock, SPI pins, and SPI pins' clock.
+ */
 void spi_setup(void)
 {
   /* Enable SPI1 periperal clock */
@@ -66,7 +69,11 @@ void spi_setup(void)
 	spi_enable(SPI2);
 }
 
-void spi_deactivate(){
+/** Deactivate SPI buses.
+ * Disable SPI peripheral, SPI clock, High-Z SPI pins, and disable SPI pins'
+ * clock.
+ */
+void spi_deactivate(void){
   /* Wait until transfers are done per RM0090 page 811 */
   //while (!(SPI1_SR & SPI_SR_RXNE)); /* RM0090 says to do this but it hangs */
   //while (!(SPI1_SR & SPI_SR_TXE));
@@ -90,6 +97,9 @@ void spi_deactivate(){
 	RCC_AHB1ENR &= ~(RCC_AHB1ENR_IOPAEN | RCC_AHB1ENR_IOPBEN);
 }
 
+/** Drive SPI nCS line low for selected peripheral.
+ * \param slave Peripheral to drive chip select for.
+ */
 void spi_slave_select(u8 slave)
 {
 
@@ -109,13 +119,16 @@ void spi_slave_select(u8 slave)
   }
 }
 
+/** Drive all SPI nCS lines high.
+ * Should be called after an SPI transfer is finished.
+ */
 void spi_slave_deselect(void)
 {
   /* Deselect FPGA CS */
   gpio_set(GPIOA, GPIO4);
   /* Deselect Configuration flash and Front-end CS */
   gpio_set(GPIOB, GPIO11 | GPIO12);
-  __asm__("CPSIE i;");    // Re-enable interrupts
+  __asm__("CPSIE i;"); /* Re-enable interrupts */
 }
 
 /** \} */
