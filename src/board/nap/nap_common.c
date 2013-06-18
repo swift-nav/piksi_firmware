@@ -1,19 +1,14 @@
 /*
- * Copyright (C) 2011 Fergus Noble <fergusnoble@gmail.com>
- * Copyright (C) 2013 Colin Beighley <colinbeighley@gmail.com>
+ * Copyright (C) 2011-2013 Swift Navigation Inc.
+ * Contact: Fergus Noble <fergus@swift-nav.com>
+ *          Colin Beighley <colin@swift-nav.com>
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 #include <libopencm3/cm3/nvic.h>
@@ -307,7 +302,8 @@ void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[], const u8 data_out[]
  * 16.368MHz sample clock frequency it rolls over approximately every 262
  * seconds.
  *
- * \return NAP's internal sample clock count.
+ * \return NAP's internal count of sample clocks +
+ *               (total number of NAP counter rollovers) * 2^32.
  */
 u64 nap_timing_count()
 {
