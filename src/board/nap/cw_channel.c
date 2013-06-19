@@ -27,9 +27,10 @@
  * NAP's internal timing strobe goes low. Writing to the LOAD register will
  * clear the CW_LOAD interrupt.
  */
-void nap_cw_load_wr_enable_blocking()
+void nap_cw_load_wr_enable_blocking(void)
 {
-  u8 temp[1] = {0xFF};
+  u8 temp[1] = { 0xFF };
+
   nap_xfer_blocking(NAP_REG_CW_LOAD, 1, 0, temp);
 }
 
@@ -38,9 +39,10 @@ void nap_cw_load_wr_enable_blocking()
  * cleared, or future timing strobes will cause the ram to be re-loaded.
  * Writing to the LOAD register will clear the CW_LOAD interrupt.
  */
-void nap_cw_load_wr_disable_blocking()
+void nap_cw_load_wr_disable_blocking(void)
 {
-  u8 temp[1] = {0x00};
+  u8 temp[1] = { 0x00 };
+
   nap_xfer_blocking(NAP_REG_CW_LOAD, 1, 0, temp);
 }
 
@@ -51,7 +53,7 @@ void nap_cw_load_wr_disable_blocking()
  */
 void nap_cw_init_pack(u8 pack[], s32 carrier_freq)
 {
-  pack[0] = (1<<3) |                        /* cw enabled */
+  pack[0] = (1 << 3) |                      /* cw enabled */
             ((carrier_freq >> 30) & 0x04) | /* carrier freq [sign] */
             ((carrier_freq >> 16) & 0x03);  /* carrier freq [17:16] */
   pack[1] = (carrier_freq >> 8) & 0xFF;     /* carrier freq [15:8] */
@@ -62,19 +64,21 @@ void nap_cw_init_pack(u8 pack[], s32 carrier_freq)
  * If the channel is currently disabled, it will be enabled and start a CW
  * search with these parameters. If it is currently enabled, another CW search
  * will start with these parameters when the current CW search finishes.
- * NOTE: If searching more than one spectrum point, the second set of CW search
- * parameters should be written into the channel as soon as possible after the
- * first set, as they are pipelined and used immediately after the first
- * CW correlation finishes. If only searching one point, nap_cw_init_wr_disable_blocking
- * should be called as soon as possible after the first set of CW parameters
- * are written, and again after the CW_DONE interrupt occurs to clear the
- * interrupt.
+ *
+ * \note If searching more than one spectrum point, the second set of CW search
+ *       parameters should be written into the channel as soon as possible
+ *       after the first set, as they are pipelined and used immediately after
+ *       the first CW correlation finishes. If only searching one point,
+ *       nap_cw_init_wr_disable_blocking should be called as soon as possible
+ *       after the first set of CW parameters are written, and again after the
+ *       CW_DONE interrupt occurs to clear the interrupt.
  *
  * \param carrier_freq CW frequency in CW INIT register units.
  */
 void nap_cw_init_wr_params_blocking(s32 carrier_freq)
 {
   u8 temp[3];
+
   nap_cw_init_pack(temp, carrier_freq);
   nap_xfer_blocking(NAP_REG_CW_INIT, 3, 0, temp);
 }
@@ -85,9 +89,10 @@ void nap_cw_init_wr_params_blocking(s32 carrier_freq)
  * and then a second time to clear the CW_DONE IRQ after the last correlation
  * has finished.
  */
-void nap_cw_init_wr_disable_blocking()
+void nap_cw_init_wr_disable_blocking(void)
 {
-  u8 temp[3] = {0,0,0};
+  u8 temp[3] = { 0, 0, 0 };
+
   nap_xfer_blocking(NAP_REG_CW_INIT, 3, 0, temp);
 }
 
@@ -98,9 +103,9 @@ void nap_cw_init_wr_disable_blocking()
  */
 void nap_cw_corr_unpack(u8 packed[], corr_t* corrs)
 {
-	/* should 24 instead be a macro constant? */
-  /* graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
-  struct {s32 xtend:24;} sign;
+  /* http://graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
+
+  struct { s32 xtend : 24; } sign;
 
   sign.xtend  = (packed[0] << 16) /* MSB */
               | (packed[1] << 8)  /* Middle byte */
@@ -124,10 +129,12 @@ void nap_cw_corr_unpack(u8 packed[], corr_t* corrs)
 void nap_cw_corr_rd_blocking(corr_t* corrs)
 {
   u8 temp[6]; /* 6 u8 = 48 bits = 2*(24 bits) */
-  nap_cw_corr_unpack(temp,corrs);
+
+  nap_cw_corr_unpack(temp, corrs);
   nap_xfer_blocking(NAP_REG_CW_CORR, 6, temp, temp);
 }
 
 /** \} */
 
 /** \} */
+

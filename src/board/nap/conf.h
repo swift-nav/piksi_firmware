@@ -14,21 +14,23 @@
 #ifndef SWIFTNAV_NAP_CONF_H
 #define SWIFTNAV_NAP_CONF_H
 
-#include <libopencm3/cm3/common.h>
+#include <libswiftnav/common.h>
 
 /** \addtogroup conf
  * \{ */
 
 /* Configuration flash addresses of interest. */
-#define NAP_FLASH_PARAMS_ADDR 0xD0000
-#define NAP_FLASH_GIT_HASH_ADDR 0xE0000
+/* TODO: Change NAP version to be a string for more flexibility. */
+#define NAP_FLASH_PARAMS_ADDR      0xD0000
+#define NAP_FLASH_GIT_HASH_ADDR    0xE0000
 #define NAP_FLASH_GIT_UNCLEAN_ADDR (NAP_FLASH_GIT_HASH_ADDR + 20)
 
 /** \} */
 
-void nap_conf_rd_parameters();
+void nap_conf_rd_parameters(void);
 
 void nap_conf_rd_git_hash(u8 git_hash[]);
-u8 nap_conf_rd_git_unclean();
+u8 nap_conf_rd_git_unclean(void);
 
 #endif /* SWIFTNAV_NAP_CONF_H */
+
