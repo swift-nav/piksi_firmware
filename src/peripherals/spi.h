@@ -13,7 +13,7 @@
 #ifndef SWIFTNAV_SPI_H
 #define SWIFTNAV_SPI_H
 
-#include <libopencm3/cm3/common.h>
+#include <libswiftnav/common.h>
 #include <libopencm3/stm32/spi.h>
 
 /** \addtogroup spi

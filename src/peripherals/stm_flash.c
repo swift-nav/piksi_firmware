@@ -10,12 +10,12 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <stdio.h>
 #include <libopencm3/stm32/f4/flash.h>
+#include <stdio.h>
 
-#include "stm_flash.h"
-#include "../sbp.h"
 #include "../error.h"
+#include "../sbp.h"
+#include "stm_flash.h"
 
 /** \defgroup peripherals Peripherals
  * Functions to interact with the on-chip STM32F4 peripherals.
@@ -30,9 +30,7 @@
 /** Callback to erase a sector of the STM32F4 flash memory.
  *
  * \param buff Array of u8 (length 1) :
- * <ul>
- *   <li> [0] flash sector number to erase.
- * </ul>
+ *             - [0] flash sector number to erase.
  */
 void stm_flash_erase_sector_callback(u8 buff[])
 {
@@ -66,7 +64,7 @@ void stm_flash_erase_sector_callback(u8 buff[])
 void stm_flash_program_callback(u8 buff[])
 {
   /* TODO : Add check to restrict addresses that can be programmed? */
-  u32 address = *(u32 *)&buff[0];
+  u32 address = *(u32*)&buff[0];
   u8 length = buff[4];
   u8 *data = &buff[5];
 
@@ -88,10 +86,11 @@ void stm_flash_program_callback(u8 buff[])
  */
 void stm_flash_read_callback(u8 buff[])
 {
-  u32 address = *(u32 *)&buff[0];
+  u32 address = *(u32*)&buff[0];
   u8 length = buff[4];
 
-  u8 callback_data[length+5];
+  u8 callback_data[length + 5];
+
   /* Put address and length in array */
   callback_data[0] = buff[0];
   callback_data[1] = buff[1];
@@ -99,12 +98,11 @@ void stm_flash_read_callback(u8 buff[])
   callback_data[3] = buff[3];
   callback_data[4] = buff[4];
   /* Copy data from addresses into array */
-  for (u16 i=0; i<length; i++){
-    callback_data[5+i] = *(u8 *)(address+i);
-  }
+  for (u16 i = 0; i < length; i++)
+    callback_data[5 + i] = *(u8*)(address + i);
 
   /* If sending message fails (buffer is full), keep trying until successful */
-  while(sbp_send_msg(MSG_STM_FLASH_READ, length+5, callback_data));
+  while (sbp_send_msg(MSG_STM_FLASH_READ, length + 5, callback_data)) ;
 }
 
 /** Callback to read STM32F4's hardcoded unique ID.
@@ -112,44 +110,40 @@ void stm_flash_read_callback(u8 buff[])
  */
 void stm_unique_id_callback()
 {
-  sbp_send_msg(MSG_STM_UNIQUE_ID,12,(u8 *)STM_UNIQUE_ID_ADDR);
+  sbp_send_msg(MSG_STM_UNIQUE_ID, 12, (u8*)STM_UNIQUE_ID_ADDR);
 }
 
 /** Setup STM flash callbacks. */
 void stm_flash_callbacks_setup()
 {
-  /*
-   * Create message callbacks node types to add to SBP callback
-   * linked list for each flash callback defined above.
-   */
   static msg_callbacks_node_t stm_flash_erase_sector_node;
   static msg_callbacks_node_t stm_flash_read_node;
   static msg_callbacks_node_t stm_flash_program_node;
   static msg_callbacks_node_t stm_unique_id_node;
 
-  /* Insert callbacks in SBP callback linked list so they can be called. */
   sbp_register_callback(
     MSG_STM_FLASH_ERASE,
     &stm_flash_erase_sector_callback,
     &stm_flash_erase_sector_node
-  );
+    );
   sbp_register_callback(
     MSG_STM_FLASH_READ,
     &stm_flash_read_callback,
     &stm_flash_read_node
-  );
+    );
   sbp_register_callback(
     MSG_STM_FLASH_WRITE,
     &stm_flash_program_callback,
     &stm_flash_program_node
-  );
+    );
   sbp_register_callback(
     MSG_STM_UNIQUE_ID,
     &stm_unique_id_callback,
     &stm_unique_id_node
-  );
+    );
 }
 
 /** \} */
 
 /** \} */
+

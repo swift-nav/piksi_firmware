@@ -10,10 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/usart.h>
-#include <libopencm3/stm32/f4/dma.h>
 
 #include "../settings.h"
 #include "usart.h"
@@ -41,15 +41,15 @@ void usart_set_parameters(u32 usart, u32 baud)
   /* Setup UART parameters. */
   baud = baud;
   usart_disable(usart);
-	usart_set_baudrate(usart, baud);
-	usart_set_databits(usart, 8);
-	usart_set_stopbits(usart, USART_STOPBITS_1);
-	usart_set_parity(usart, USART_PARITY_NONE);
-	usart_set_flow_control(usart, USART_FLOWCONTROL_NONE);
-	usart_set_mode(usart, USART_MODE_TX_RX);
+  usart_set_baudrate(usart, baud);
+  usart_set_databits(usart, 8);
+  usart_set_stopbits(usart, USART_STOPBITS_1);
+  usart_set_parity(usart, USART_PARITY_NONE);
+  usart_set_flow_control(usart, USART_FLOWCONTROL_NONE);
+  usart_set_mode(usart, USART_MODE_TX_RX);
 
-	/* Enable the USART. */
-	usart_enable(usart);
+  /* Enable the USART. */
+  usart_enable(usart);
 }
 
 /** Set up the USART peripherals.
@@ -65,7 +65,7 @@ void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
   RCC_APB1ENR |= RCC_APB1ENR_USART3EN;
 
   /* GPIO pins corresponding to the USART. */
-	RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN | RCC_AHB1ENR_IOPCEN;
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN | RCC_AHB1ENR_IOPCEN;
 
   /* Assign the GPIO pins appropriately:
    *
@@ -76,14 +76,14 @@ void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
    * 3     PC10  PC11  UARTB
    */
 
-  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO6|GPIO7);
-	gpio_set_af(GPIOC, GPIO_AF8, GPIO6|GPIO7);
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO6 | GPIO7);
+  gpio_set_af(GPIOC, GPIO_AF8, GPIO6 | GPIO7);
 
-  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9|GPIO10);
-  gpio_set_af(GPIOA, GPIO_AF7, GPIO9|GPIO10);
+  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9 | GPIO10);
+  gpio_set_af(GPIOA, GPIO_AF7, GPIO9 | GPIO10);
 
-  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO10|GPIO11);
-  gpio_set_af(GPIOC, GPIO_AF7, GPIO10|GPIO11);
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO10 | GPIO11);
+  gpio_set_af(GPIOC, GPIO_AF7, GPIO10 | GPIO11);
 
   usart_set_parameters(USART6, ftdi_baud);
   usart_set_parameters(USART1, uarta_baud);
@@ -156,3 +156,4 @@ void dma1_stream1_isr(void)
 /** \} */
 
 /** \} */
+

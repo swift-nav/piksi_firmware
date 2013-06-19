@@ -12,11 +12,11 @@
 
 #include <string.h>
 
+#include <libopencm3/cm3/nvic.h>
+#include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
-#include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/f4/usart.h>
-#include <libopencm3/stm32/f4/dma.h>
 
 #include "../error.h"
 #include "usart.h"
@@ -28,8 +28,8 @@
  * \{ */
 
 const u8 dma_irq_lookup[2][8] = {
-  {11, 12, 13, 14, 15, 16, 17, 47}, /* DMA1 Stream 0..7. */
-  {56, 57, 58, 59, 60, 68, 69, 70}, /* DMA2 Stream 0..7. */
+  { 11, 12, 13, 14, 15, 16, 17, 47 }, /* DMA1 Stream 0..7. */
+  { 56, 57, 58, 59, 60, 68, 69, 70 }, /* DMA2 Stream 0..7. */
 };
 
 /** Setup the USART for receive with DMA.
@@ -65,7 +65,7 @@ void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
 
   /* RM0090 - 9.3.17 : Supposed to wait until enable bit reads '0' before we
    * write to registers. */
-  while (DMA_SCR(dma, stream) & DMA_SxCR_EN);
+  while (DMA_SCR(dma, stream) & DMA_SxCR_EN) ;
 
   /* RM0090 - 9.3.17 : Supposed to clear any interrupts in DMA status register
    * before we reconfigure registers. */
@@ -128,7 +128,7 @@ void usart_rx_dma_disable(usart_rx_dma_state* s)
 
   /* Disable DMA stream. */
   DMA_SCR(s->dma, s->stream) &= ~DMA_SxCR_EN;
-  while (DMA_SCR(s->dma, s->stream) & DMA_SxCR_EN);
+  while (DMA_SCR(s->dma, s->stream) & DMA_SxCR_EN) ;
 
   /* Disable RX DMA on the USART. */
   usart_disable_rx_dma(s->usart);
@@ -144,10 +144,9 @@ void usart_rx_dma_disable(usart_rx_dma_state* s)
 void usart_rx_dma_isr(usart_rx_dma_state* s)
 {
   if (dma_get_interrupt_flag(s->dma, s->stream,
-                             DMA_TEIF | DMA_DMEIF | DMA_FEIF)) {
+                             DMA_TEIF | DMA_DMEIF | DMA_FEIF))
     /* TODO: Handle error interrupts! */
     speaking_death("USART RX DMA error interrupt");
-  }
 
   if (dma_get_interrupt_flag(s->dma, s->stream, DMA_HTIF | DMA_TCIF)) {
     /* Interrupt is Transmit Complete. We are in circular buffer mode so this
@@ -170,22 +169,21 @@ void usart_rx_dma_isr(usart_rx_dma_state* s)
  */
 u32 usart_n_read_dma(usart_rx_dma_state* s)
 {
-  s32 n_read = s->rd_wraps*USART_RX_BUFFER_LEN + s->rd;
-  s32 n_written = (s->wr_wraps+1)*USART_RX_BUFFER_LEN - \
+  s32 n_read = s->rd_wraps * USART_RX_BUFFER_LEN + s->rd;
+  s32 n_written = (s->wr_wraps + 1) * USART_RX_BUFFER_LEN - \
                   DMA_SNDTR(s->dma, s->stream);
   s32 n_available = n_written - n_read;
 
-  if (n_available < 0) {
+  if (n_available < 0)
     /* This strange and rare case occurs when NDTR has rolled over but the flag
      * hasn't been raised yet and thus n_wraps hasn't been incremented in the
      * ISR. Simply return 0 this time and the next time this function is called
      * (or at some point) the interrupt will have been triggered and the number
      * of bytes available in the buffer will be a sane amount. */
     n_available = 0;
-  } else if (n_available > USART_RX_BUFFER_LEN) {
+  else if (n_available > USART_RX_BUFFER_LEN)
     /* If greater than a whole buffer then we have had an overflow. */
     speaking_death("DMA RX buffer overrun");
-  }
 
   return n_available;
 }
@@ -219,3 +217,4 @@ u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len)
 /** \} */
 
 /** \} */
+
