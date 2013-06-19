@@ -30,7 +30,7 @@
 /** \addtogroup board
  * \{ */
 
-/** \defgroup nap NAP
+/** \defgroup nap SwiftNAP
  * Interface to the Swift Navigation Acceleration Peripheral.
  * Contains functions for interacting with FPGA specific aspects of the
  * SwiftNAP (e.g. controlling when it configures itself, retrieving

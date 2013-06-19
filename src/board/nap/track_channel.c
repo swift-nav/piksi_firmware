@@ -21,7 +21,7 @@
  * \{ */
 
 /** \defgroup track_channel Track Channel
- * Interface to the NAP track channels.
+ * Interface to the SwiftNAP track channels.
  * \{ */
 
 /** Number of tracking channels.

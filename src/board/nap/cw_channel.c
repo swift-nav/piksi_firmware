@@ -18,7 +18,7 @@
  * \{ */
 
 /** \defgroup cw_channel CW Channel
- * Interface to the NAP CW channel.
+ * Interface to the SwiftNAP CW channel.
  * \{ */
 
 /** Set the LOAD ENABLE bit of the NAP CW channel's LOAD register.

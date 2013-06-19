@@ -20,7 +20,7 @@
  * \{ */
 
 /** \defgroup acq_channel Acquisition Channel
- * Interface to the NAP acquisition channel.
+ * Interface to the SwiftNAP acquisition channel.
  * \{ */
 
 /** Number of acq. channel code phase taps.
