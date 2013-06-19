@@ -57,7 +57,8 @@ int main(void)
   printf("\n");
   printf("SwiftNAP configured with %d tracking channels\n\n", nap_track_n_channels);
 
-  time_setup();
+  tick_timer_setup();
+  timing_setup();
   position_setup();
 
   channel_measurement_t meas[nap_track_n_channels];
@@ -102,7 +103,7 @@ int main(void)
 
     /*u32 foo;*/
 
-    DO_EVERY_COUNTS(TICK_FREQ,
+    DO_EVERY_TICKS(TICK_FREQ,
 
       u8 n_ready = 0;
       for (u8 i=0; i<nap_track_n_channels; i++) {
@@ -149,10 +150,10 @@ int main(void)
       }
     );
 
-    DO_EVERY_COUNTS(TICK_FREQ,
+    DO_EVERY_TICKS(TICK_FREQ,
       /*nmea_gpgsa(tracking_channel, 0);*/
     );
-    DO_EVERY_COUNTS(TICK_FREQ/10, // 10 Hz update
+    DO_EVERY_TICKS(TICK_FREQ/10, // 10 Hz update
       tracking_send_state();
     );
 
