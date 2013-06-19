@@ -90,23 +90,3 @@ int main(void)
 
   return 0;
 }
-
-char received_char;
-char expected_char = 0;
-u64 n_received = 0;
-
-void usart6_isr(void){
-  if (USART6_SR & USART_SR_RXNE) {
-    received_char = USART6_DR;
-    if (expected_char != received_char)
-      speaking_death("NOT EQUAL =(");
-    expected_char++;
-    n_received++;
-    DO_EVERY(300,
-      led_toggle(LED_RED);   /* LED on/off */
-      led_toggle(LED_GREEN); /* LED on/off */
-    );
-  } else {
-    speaking_death("USART6 interrupt but no data =(");
-  }
-}
