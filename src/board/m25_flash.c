@@ -22,8 +22,8 @@
 /** \addtogroup board
  * \{ */
 
-/** \defgroup m25 M25P80 Flash
- * Interface to read, write, and erase sectors of the M25P80 FPGA
+/** \defgroup m25 M25Pxx Flash
+ * Interface to read, write, and erase sectors of the M25Pxx FPGA
  * configuration flash.
  * \{ */
 

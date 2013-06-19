@@ -21,7 +21,7 @@
 
 /** \defgroup spi SPI
  * Functions to setup and use STM32F4 SPI peripherals to communicate with the
- * SwiftNAP, MAX2769 and the M25 flash.
+ * SwiftNAP FPGA, MAX2769 front-end and the M25 configuration flash.
  * \{ */
 
 /** Set up the SPI buses.
@@ -128,7 +128,7 @@ void spi_slave_deselect(void)
 {
   /* Deselect FPGA CS */
   gpio_set(GPIOA, GPIO4);
-  /* Deselect Configuration flash and Front-end CS */
+  /* Deselect configuration flash and front-end CS */
   gpio_set(GPIOB, GPIO11 | GPIO12);
 
   __asm__("CPSIE i;");  /* Re-enable interrupts */
