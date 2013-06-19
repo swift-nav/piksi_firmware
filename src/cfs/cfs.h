@@ -1,15 +1,14 @@
 /**
- * \addtogroup sys
- * @{
- */
-
-/**
- * \defgroup cfs The Contiki file system interface
+ * \defgroup cfs Filesystem
  *
- * The Contiki file system interface (CFS) defines an abstract API for
- * reading directories and for reading and writing files. The CFS API
- * is intentionally simple. The CFS API is modeled after the POSIX
- * file API, and slightly simplified.
+ * The Piksi firmware includes flash filesystem functionality from the Contiki
+ * project. This allows data to be stored persistently in the microcontroller's
+ * program flash with wear-levelling using a simple filesystem interface.
+ *
+ * The Contiki file system interface (CFS) defines an abstract API for reading
+ * directories and for reading and writing files. The CFS API is intentionally
+ * simple. The CFS API is modeled after the POSIX file API, and slightly
+ * simplified.
  *
  * @{
  */
@@ -281,4 +280,4 @@ CCIF void cfs_closedir(struct cfs_dir *dirp);
 #endif /* __CFS_H__ */
 
 /** @} */
-/** @} */
+
