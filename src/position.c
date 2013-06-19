@@ -29,7 +29,8 @@ gps_time_t last_time;
 double last_ecef[3];
 
 /** \defgroup position Position
- * Save and load positions from filesystem.
+ * Maintains the position state of the receiver. Includes functions for saving
+ * and loading a position estimate from filesystem.
  * \{ */
 
 /** Get last saved position from file, or create position file if it does not
