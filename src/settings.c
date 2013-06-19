@@ -10,36 +10,32 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_SETTINGS_H
-#define SWIFTNAV_SETTINGS_H
-
-#include "settings.h"
 #include "peripherals/usart.h"
+#include "settings.h"
 
 /** \addtogroup io
  * \{ */
 
-settings_t settings __attribute__ ((section (".settings_area"))) =
+settings_t settings __attribute__ ((section(".settings_area"))) =
 /* Default settings: */
 {
   .settings_valid = VALID,
 
   .ftdi_usart = {
-    .mode = SBP,
-    .baud_rate = USART_DEFAULT_BAUD,
+    .mode         = SBP,
+    .baud_rate    = USART_DEFAULT_BAUD,
     .message_mask = 0xFF,
   },
   .uarta_usart = {
-    .mode = SBP,
-    .baud_rate = USART_DEFAULT_BAUD,
+    .mode         = SBP,
+    .baud_rate    = USART_DEFAULT_BAUD,
     .message_mask = 0xFF,
   },
   .uartb_usart = {
-    .mode = NMEA,
-    .baud_rate = 115200,
+    .mode         = NMEA,
+    .baud_rate    = 115200,
   },
 };
 
 /** \} */
 
-#endif /* SWIFTNAV_SETTINGS_H */

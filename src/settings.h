@@ -10,7 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/cm3/common.h>
+#ifndef SWIFTNAV_SETTINGS_H
+#define SWIFTNAV_SETTINGS_H
+
+#include <libswiftnav/common.h>
 
 /** \addtogroup io
  * \{ */
@@ -29,7 +32,7 @@ typedef struct {
 typedef struct {
   enum {
     VALID = 0,
-    /* Settings area is erased, i.e. all 0xFF. */
+    /** Settings area is erased, i.e. all 0xFF. */
     INVALID = 0xFF
   } settings_valid;
   usart_settings_t ftdi_usart;
@@ -40,3 +43,6 @@ typedef struct {
 /** \} */
 
 extern settings_t settings;
+
+#endif  /* SWIFTNAV_SETTINGS_H */
+
