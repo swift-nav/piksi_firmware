@@ -19,8 +19,8 @@
 #include "position.h"
 #include "timing.h"
 
-#include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
+#include "cfs/cfs.h"
 
 position_quality_t position_quality = POSITION_UNKNOWN;
 gnss_solution position_solution;
@@ -36,24 +36,24 @@ double last_ecef[3];
 /** Get last saved position from file, or create position file if it does not
  * exist.
  */
-void position_setup()
+void position_setup(void)
 {
   int fd = cfs_open("posn", CFS_READ);
+
   if (fd != -1) {
     cfs_read(fd, &position_solution, sizeof(gnss_solution));
     if (position_solution.valid) {
       printf("Loaded last position solution from file: %.4f %.4f %.1f\n",
-        position_solution.pos_llh[0]*(180/M_PI),
-        position_solution.pos_llh[1]*(180/M_PI),
-        position_solution.pos_llh[2]
-      );
+             position_solution.pos_llh[0] * (180 / M_PI),
+             position_solution.pos_llh[1] * (180 / M_PI),
+             position_solution.pos_llh[2]
+             );
       position_quality = POSITION_GUESS;
       set_time(TIME_GUESS, position_solution.time);
       last_time = position_solution.time;
       memcpy(last_ecef, position_solution.pos_ecef, sizeof(last_ecef));
-    } else {
+    } else
       printf("Loaded position solution from file invalid\n");
-    }
     cfs_close(fd);
   } else {
     printf("No position file present in flash, create an empty one\n");
@@ -63,7 +63,7 @@ void position_setup()
 }
 
 /** Save position to file. */
-void position_updated()
+void position_updated(void)
 {
   double temp[3];
 
@@ -72,20 +72,21 @@ void position_updated()
 
   double dt = gpsdifftime(position_solution.time, last_time);
 
-  if (dt > 30*60 || dx > 10e3) {
+  if (dt > 30 * 60 || dx > 10e3) {
     int fd = cfs_open("posn", CFS_WRITE);
     if (fd != -1) {
-      if (cfs_write(fd, (void *)&position_solution, sizeof(position_solution)) != sizeof(position_solution))
+      if (cfs_write(fd, (void *)&position_solution,
+                    sizeof(position_solution)) != sizeof(position_solution))
         printf("Error writing to position file\n");
       else
         printf("Saved position to flash\n");
       cfs_close(fd);
-    } else {
+    } else
       printf("Error opening position file\n");
-    }
     last_time = position_solution.time;
     memcpy(last_ecef, position_solution.pos_ecef, sizeof(last_ecef));
   }
 }
 
 /** \} */
+

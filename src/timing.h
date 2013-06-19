@@ -13,8 +13,8 @@
 #ifndef SWIFTNAV_TIME_H
 #define SWIFTNAV_TIME_H
 
-#include <libopencm3/stm32/f4/timer.h>
 #include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/stm32/f4/timer.h>
 
 #include <libswiftnav/common.h>
 #include <libswiftnav/gpstime.h>
@@ -36,17 +36,17 @@ typedef enum {
 extern time_quality_t time_quality;
 
 #define RX_DT_NOMINAL (1.0 / SAMPLE_FREQ)
-#define TICK_FREQ (rcc_ppre1_frequency/16)
+#define TICK_FREQ     (rcc_ppre1_frequency / 16)
 
-void timing_setup();
-gps_time_t get_current_time();
+void timing_setup(void);
+gps_time_t get_current_time(void);
 void set_time(time_quality_t quality, gps_time_t t);
 void set_time_fine(u64 tc, gps_time_t t);
 gps_time_t rx2gpstime(double tc);
 double gps2rxtime(gps_time_t t);
 
-void tick_timer_setup();
-u32 time_ticks();
+void tick_timer_setup(void);
+u32 time_ticks(void);
 
 /** \addtogroup timing Timing
  * \{ */
@@ -60,14 +60,15 @@ u32 time_ticks();
  *       nested.
  *
  * \param n   Minimum number of ticks between successive executions of cmd.
- * \param cmd Code block to execute. */
-#define DO_EVERY_TICKS(n, cmd) do { \
-  static u32 last_count = 0; \
-  if (time_ticks() - last_count >= n) { \
-    last_count = time_ticks(); \
-    cmd; \
-  } \
-} while(0)
+ * \param cmd Code block to execute.
+ */
+#define DO_EVERY_TICKS(n, cmd) do {       \
+    static u32 last_count = 0;            \
+    if (time_ticks() - last_count >= n) { \
+      last_count = time_ticks();          \
+      cmd;                                \
+    }                                     \
+} while (0)
 
 /** \} */
 

@@ -11,13 +11,13 @@
  */
 
 #include <math.h>
-#include <time.h>
 #include <stdio.h>
+#include <time.h>
 
-#include "main.h"
-#include "timing.h"
-#include "sbp.h"
 #include "board/nap/nap_common.h"
+#include "main.h"
+#include "sbp.h"
+#include "timing.h"
 
 /** \defgroup timing Timing
  * Maintains the time state of the receiver and provides time related
@@ -80,12 +80,13 @@ void set_time_fine(u64 tc, gps_time_t t)
  *
  * \return Current GPS time.
  */
-gps_time_t get_current_time()
+gps_time_t get_current_time(void)
 {
   /* TODO: Return invalid when TIME_UNKNOWN. */
   /* TODO: Think about what happens when nap_timing_count overflows. */
   u64 tc = nap_timing_count();
   gps_time_t t = rx2gpstime(tc);
+
   return t;
 }
 
@@ -101,6 +102,7 @@ gps_time_t get_current_time()
 gps_time_t rx2gpstime(double tc)
 {
   gps_time_t t = rx_t0;
+
   t.tow += tc * rx_dt;
   t = normalize_gps_time(t);
   return t;
@@ -123,23 +125,25 @@ double gps2rxtime(gps_time_t t)
 /** Callback to set receiver GPS time estimate. */
 static void set_time_callback(u8 buff[])
 {
-  gps_time_t* t = (gps_time_t*)buff;
+  gps_time_t *t = (gps_time_t *)buff;
+
   set_time(TIME_COARSE, *t);
 }
 
 /** Setup timing functionality.
  * For now just register a callback so that a coarse time can be sent by the
  * host. */
-void timing_setup()
+void timing_setup(void)
 {
   /* TODO: Perhaps setup something to check for nap_timing_count overflows
    * periodically. */
   static msg_callbacks_node_t set_time_node;
+
   sbp_register_callback(MSG_SET_TIME, &set_time_callback, &set_time_node);
 }
 
 /** Setup STM timer to use as a rough system tick count. */
-void tick_timer_setup()
+void tick_timer_setup(void)
 {
   /* Setup Timer 2 as our global tick counter. */
   RCC_APB1ENR |= RCC_APB1ENR_TIM2EN;
@@ -150,7 +154,7 @@ void tick_timer_setup()
    *       multiple of the tick frequency.
    * NOTE: Assumes APB1 prescale != 1, see Ref Man pg. 84
    */
-  timer_set_prescaler(TIM2, 2*rcc_ppre1_frequency/TICK_FREQ - 1);
+  timer_set_prescaler(TIM2, 2 * rcc_ppre1_frequency / TICK_FREQ - 1);
 
   /* Set time auto-reload value to the longest possible period. */
   timer_set_period(TIM2, 0xFFFFFFFF);
@@ -166,9 +170,11 @@ void tick_timer_setup()
  * do not need GPS time precision.
  * \return System tick count.
  */
-u32 time_ticks() {
+u32 time_ticks(void)
+{
   /* TODO: think about overflows. */
   return TIM2_CNT;
 }
 
 /** \} */
+
