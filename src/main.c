@@ -19,7 +19,7 @@
 #include "cw.h"
 #include "sbp.h"
 #include "board/nap/nap_common.h"
-#include "board/nap/conf.h"
+#include "board/nap/nap_conf.h"
 #include "board/nap/track_channel.h"
 #include "track.h"
 #include "acq.h"

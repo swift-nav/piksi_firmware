@@ -11,7 +11,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "conf.h"
+#include "nap_conf.h"
 #include "nap_common.h"
 #include "track_channel.h"
 

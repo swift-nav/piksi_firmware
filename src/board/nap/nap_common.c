@@ -23,7 +23,7 @@
 #include "../../sbp_messages.h"
 #include "../../track.h"
 #include "../max2769.h"
-#include "conf.h"
+#include "nap_conf.h"
 #include "nap_common.h"
 #include "track_channel.h"
 
