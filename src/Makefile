@@ -1,4 +1,4 @@
-BINARY = swiftnav-firmware
+BINARY = piksi_firmware
 
 OBJS = main.o
 
