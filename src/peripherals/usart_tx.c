@@ -147,7 +147,7 @@ static void dma_schedule(usart_tx_dma_state* s)
   /* TODO: We shouldn't have to check for this now that we are called
    * atomically but leaving it in for now just in case. */
   if (DMA_SCR(s->dma, s->stream) & DMA_SxCR_EN)
-    speaking_death("DMA TX scheduled while DMA channel running");
+    screaming_death("DMA TX scheduled while DMA channel running");
 
   DMA_SM0AR(s->dma, s->stream) = &(s->buff[s->rd]);
 
@@ -179,7 +179,7 @@ void usart_tx_dma_isr(usart_tx_dma_state* s)
   if (dma_get_interrupt_flag(s->dma, s->stream,
                              DMA_TEIF | DMA_DMEIF))
     /* TODO: Handle error interrupts! */
-    speaking_death("DMA TX error interrupt");
+    screaming_death("DMA TX error interrupt");
 
   if (dma_get_interrupt_flag(s->dma, s->stream, DMA_TCIF)) {
     /* Interrupt is Transmit Complete. */

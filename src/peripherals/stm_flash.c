@@ -40,7 +40,7 @@ void stm_flash_erase_sector_callback(u8 buff[])
   /* Check to make sure the sector to be erased is from 0-11,
    * and complain if it isn't. */
   if (sector > 11)
-    speaking_death("flash_erase_callback received sector > 11\n");
+    screaming_death("flash_erase_callback received sector > 11\n");
 
   /* Erase sector. */
   flash_unlock();

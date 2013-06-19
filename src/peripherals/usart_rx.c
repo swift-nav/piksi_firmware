@@ -146,7 +146,7 @@ void usart_rx_dma_isr(usart_rx_dma_state* s)
   if (dma_get_interrupt_flag(s->dma, s->stream,
                              DMA_TEIF | DMA_DMEIF | DMA_FEIF))
     /* TODO: Handle error interrupts! */
-    speaking_death("USART RX DMA error interrupt");
+    screaming_death("USART RX DMA error interrupt");
 
   if (dma_get_interrupt_flag(s->dma, s->stream, DMA_HTIF | DMA_TCIF)) {
     /* Interrupt is Transmit Complete. We are in circular buffer mode so this
@@ -183,7 +183,7 @@ u32 usart_n_read_dma(usart_rx_dma_state* s)
     n_available = 0;
   else if (n_available > USART_RX_BUFFER_LEN)
     /* If greater than a whole buffer then we have had an overflow. */
-    speaking_death("DMA RX buffer overrun");
+    screaming_death("DMA RX buffer overrun");
 
   return n_available;
 }

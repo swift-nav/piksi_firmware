@@ -13,8 +13,7 @@
 #ifndef SWIFTNAV_ERROR_H
 #define SWIFTNAV_ERROR_H
 
-void screaming_death(void);
-void speaking_death(char *msg);
+void screaming_death(char *msg);
 
-#endif /* SWIFTNAV_ERROR_H */
+#endif  /* SWIFTNAV_ERROR_H */
 
