@@ -13,11 +13,11 @@
 
 #include <stdio.h>
 
-#include "m25_flash.h"
-#include "../sbp.h"
 #include "../error.h"
 #include "../peripherals/spi.h"
 #include "../peripherals/usart.h"
+#include "../sbp.h"
+#include "m25_flash.h"
 
 /** \addtogroup board
  * \{ */
@@ -69,6 +69,7 @@ u8 m25_read_status(void)
   spi_xfer(SPI_BUS_FLASH, M25_RDSR);
   sr = spi_xfer(SPI_BUS_FLASH, 0x00);
   spi_slave_deselect();
+
   return sr;
 }
 
@@ -99,7 +100,7 @@ void m25_read(u32 addr, u32 len, u8 *buff)
   spi_xfer(SPI_BUS_FLASH, (addr >> 8) & 0xFF);
   spi_xfer(SPI_BUS_FLASH, addr & 0xFF);
 
-  for(u32 i=0; i < len; i++)
+  for (u32 i = 0; i < len; i++)
     buff[i] = spi_xfer(SPI_BUS_FLASH, 0x00);
 
   spi_slave_deselect();
@@ -127,12 +128,12 @@ void m25_page_program(u32 addr, u8 len, u8 buff[])
   spi_xfer(SPI_BUS_FLASH, (addr >> 8) & 0xFF);
   spi_xfer(SPI_BUS_FLASH, addr & 0xFF);
 
-  for(i = 0; i < len; i++)
+  for (i = 0; i < len; i++)
     spi_xfer(SPI_BUS_FLASH, buff[i]);
 
   spi_slave_deselect();
 
-  while(m25_read_status() & M25_SR_WIP);
+  while (m25_read_status() & M25_SR_WIP) ;
 }
 
 /** Erase a sector of the flash.
@@ -152,7 +153,7 @@ void m25_sector_erase(u32 addr)
 
   spi_slave_deselect();
 
-  while(m25_read_status() & M25_SR_WIP);
+  while (m25_read_status() & M25_SR_WIP) ;
 }
 
 /** Erase the entire flash.
@@ -166,7 +167,7 @@ void m25_bulk_erase(void)
 
   spi_slave_deselect();
 
-  while(m25_read_status() & M25_SR_WIP);
+  while (m25_read_status() & M25_SR_WIP) ;
 }
 
 /** Callback to program a set of addresses of the flash.
@@ -181,15 +182,15 @@ void m25_bulk_erase(void)
  */
 void m25_flash_program_callback(u8 buff[])
 {
-  u32 addr = *(u32 *)&buff[0];
-  u8 len = *(u8 *)&buff[4];
+  u32 addr = *(u32*)&buff[0];
+  u8 len = *(u8*)&buff[4];
   u8 *data = &buff[5];
 
   m25_write_enable();
   m25_page_program(addr, len, data);
 
   /* Keep trying to send message until it makes it into the buffer. */
-  while(sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0));
+  while (sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0)) ;
 }
 
 /** Callback to read a set of addresses from the flash.
@@ -204,15 +205,15 @@ void m25_flash_read_callback(u8 buff[])
   u32 addr, len;
   static char flash_data[M25_READ_SIZE];
 
-  addr = *(u32 *)&buff[0];
+  addr = *(u32*)&buff[0];
   len = buff[4];
-  u8 callback_data[M25_READ_SIZE+5];
+  u8 callback_data[M25_READ_SIZE + 5];
 
   u8 chunk_len;
   while (len > 0) {
     chunk_len = (len < M25_READ_SIZE) ? len : M25_READ_SIZE;
 
-    m25_read(addr, chunk_len, (u8 *)flash_data);
+    m25_read(addr, chunk_len, (u8*)flash_data);
 
     /* Pack data for read callback back to host.
      * 3 bytes starting address, 1 byte length, chunk_len byes data */
@@ -222,12 +223,11 @@ void m25_flash_read_callback(u8 buff[])
     callback_data[3] = (addr >> 0) & 0xFF;
     callback_data[4] = chunk_len;
 
-    for (u8 i=0; i<chunk_len; i++) {
-      callback_data[i+5] = flash_data[i];
-    }
+    for (u8 i = 0; i < chunk_len; i++)
+      callback_data[i + 5] = flash_data[i];
 
     /* Keep trying to send message until it makes it into the buffer. */
-    while(sbp_send_msg(MSG_M25_FLASH_READ,5 + chunk_len,callback_data));
+    while (sbp_send_msg(MSG_M25_FLASH_READ, 5 + chunk_len, callback_data)) ;
 
     len -= chunk_len;
     addr += chunk_len;
@@ -247,12 +247,12 @@ void m25_flash_erase_callback(u8 buff[])
   m25_sector_erase(addr);
 
   /* Keep trying to send message until it makes it into the buffer. */
-  while(sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0));
+  while (sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0)) ;
 }
 
 /** Setup the M25 flash callback functions.
- * Note : the SPI2 bus must be setup and uncontested for these callbacks to
- * properly communicate with the M25 flash.
+ * \note The SPI2 bus must be setup and uncontested for these callbacks to
+ *       properly communicate with the M25 flash.
  */
 void m25_setup(void)
 {
@@ -265,19 +265,20 @@ void m25_setup(void)
     MSG_M25_FLASH_WRITE,
     &m25_flash_program_callback,
     &m25_flash_program_node
-  );
+    );
   sbp_register_callback(
     MSG_M25_FLASH_READ,
     &m25_flash_read_callback,
     &m25_flash_read_node
-  );
+    );
   sbp_register_callback(
     MSG_M25_FLASH_ERASE,
     &m25_flash_erase_callback,
     &m25_flash_erase_node
-  );
+    );
 }
 
 /** \} */
 
 /** \} */
+
