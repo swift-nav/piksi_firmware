@@ -11,33 +11,35 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFT_CW_CHANNEL_H
-#define SWIFT_CW_CHANNEL_H
+#ifndef SWIFTNAV_CW_CHANNEL_H
+#define SWIFTNAV_CW_CHANNEL_H
 
-#include <libopencm3/cm3/common.h>
+#include <libswiftnav/common.h>
 
-#include "nap_common.h"
 #include "../../main.h"
+#include "nap_common.h"
 
 /** \addtogroup cw_channel
  * \{ */
 
 #define NAP_REG_CW_BASE 0x02
-#define NAP_REG_CW_INIT (NAP_REG_CW_BASE+0x00)
-#define NAP_REG_CW_LOAD (NAP_REG_CW_BASE+0x01)
-#define NAP_REG_CW_CORR (NAP_REG_CW_BASE+0x02)
+#define NAP_REG_CW_INIT (NAP_REG_CW_BASE + 0x00)
+#define NAP_REG_CW_LOAD (NAP_REG_CW_BASE + 0x01)
+#define NAP_REG_CW_CORR (NAP_REG_CW_BASE + 0x02)
 
-#define NAP_CW_FREQ_WIDTH 20
-#define NAP_CW_FREQ_UNITS_PER_HZ ((1<<NAP_CW_FREQ_WIDTH) / (float)SAMPLE_FREQ)
+#define NAP_CW_FREQ_WIDTH         20
+#define NAP_CW_FREQ_UNITS_PER_HZ  ((1 << NAP_CW_FREQ_WIDTH) \
+                                   / (float)SAMPLE_FREQ)
 
 /** \} */
 
-void nap_cw_load_wr_enable_blocking();
-void nap_cw_load_wr_disable_blocking();
+void nap_cw_load_wr_enable_blocking(void);
+void nap_cw_load_wr_disable_blocking(void);
 void nap_cw_init_pack(u8 pack[], s32 carrier_freq);
 void nap_cw_init_wr_params_blocking(s32 carrier_freq);
-void nap_cw_init_wr_disable_blocking();
+void nap_cw_init_wr_disable_blocking(void);
 void nap_cw_corr_unpack(u8 packed[], corr_t* corrs);
 void nap_cw_corr_rd_blocking(corr_t* corrs);
 
-#endif /* SWIFT_CW_CHANNEL_H */
+#endif  /* SWIFTNAV_CW_CHANNEL_H */
+

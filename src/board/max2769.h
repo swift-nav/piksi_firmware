@@ -13,7 +13,7 @@
 #ifndef SWIFTNAV_MAX2769_H
 #define SWIFTNAV_MAX2769_H
 
-#include <libopencm3/cm3/common.h>
+#include <libswiftnav/common.h>
 
 /** \addtogroup max
  * \{ */
@@ -181,6 +181,7 @@
 /** \} */
 
 void max2769_write(u8 addr, u32 data);
-void max2769_setup();
+void max2769_setup(void);
 
 #endif
+

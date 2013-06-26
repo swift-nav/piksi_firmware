@@ -31,7 +31,8 @@ typedef enum {
 extern position_quality_t position_quality;
 extern gnss_solution position_solution;
 
-void position_setup();
-void position_updated();
+void position_setup(void);
+void position_updated(void);
 
-#endif /* SWIFTNAV_POSITION_H */
+#endif  /* SWIFTNAV_POSITION_H */
+

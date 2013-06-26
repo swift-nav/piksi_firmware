@@ -30,7 +30,7 @@ OBJDUMP = $(PREFIX)-objdump
 
 OBJS += \
   $(SWIFTNAV_ROOT)/src/board/nap/nap_common.o \
-	$(SWIFTNAV_ROOT)/src/board/nap/conf.o \
+	$(SWIFTNAV_ROOT)/src/board/nap/nap_conf.o \
 	$(SWIFTNAV_ROOT)/src/board/nap/acq_channel.o \
 	$(SWIFTNAV_ROOT)/src/board/nap/track_channel.o \
 	$(SWIFTNAV_ROOT)/src/board/nap/cw_channel.o \

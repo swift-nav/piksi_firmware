@@ -66,7 +66,7 @@ void callback(u8 buff[]) {
   ok_bytes += 25;
   for (u8 i=0; i<22; i++)
     if (buff[i] != i)
-      speaking_death("Test packet not received correctly");
+      screaming_death("Test packet not received correctly");
 }
 
 int main(void)
@@ -88,9 +88,9 @@ int main(void)
     /* Check the guards for buffer over/underrun. */
     for (u8 i=0; i<30; i++) {
       if (guard_below[i] != 0)
-        screaming_death();
+        screaming_death("Detected buffer underrun in guard area\n");
       if (guard_above[i] != 0)
-        screaming_death();
+        screaming_death("Detected buffer overrun in guard area\n");
     }
 
     sbp_process_messages();

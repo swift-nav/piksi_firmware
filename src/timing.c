@@ -11,37 +11,37 @@
  */
 
 #include <math.h>
-#include <time.h>
 #include <stdio.h>
+#include <time.h>
 
-#include "main.h"
-#include "timing.h"
-#include "sbp.h"
 #include "board/nap/nap_common.h"
+#include "main.h"
+#include "sbp.h"
+#include "timing.h"
 
 /** \defgroup timing Timing
- * Convert between receiver time and GPS time.
+ * Maintains the time state of the receiver and provides time related
+ * functions. The timing module tries to establish a relationship between GPS
+ * time and local receiver time, i.e. the timer in the SwiftNAP.
  * \{ */
 
+/** Global time estimate quality state.
+ * See \ref time_quality_t for possible values. */
 time_quality_t time_quality = TIME_UNKNOWN;
 
 static gps_time_t rx_t0;
-#define RX_DT_NOMINAL (1.0 / SAMPLE_FREQ)
 static double rx_dt = RX_DT_NOMINAL;
 
-/** Get current GPS time (referenced to initial GPS time estimate).
- * \return Current GPS time.
- */
-gps_time_t get_current_time()
-{
-  /* TODO: Return invalid when TIME_UNKNOWN. */
-  /* TODO: Think about what happens when nap_timing_count overflows. */
-  u64 tc = nap_timing_count();
-  gps_time_t t = rx2gpstime(tc);
-  return t;
-}
-
-/** Set initial GPS time estimate.
+/** Update GPS time estimate.
+ *
+ * This function may be called to update the GPS time estimate. If the time is
+ * already known more precisely than the new estimate, the new estimate will be
+ * ignored.
+ *
+ * This function should not be used to give an estimate with TIME_FINE quality
+ * as this must be referenced to a particular value of the SwiftNAP timing
+ * count.
+ *
  * \param quality Quality of the time estimate.
  * \param t GPS time estimate.
  */
@@ -53,8 +53,9 @@ void set_time(time_quality_t quality, gps_time_t t)
   printf("Time set to: %s (quality=%d)\n", ctime(&unix_t), quality);
 }
 
-/** Set initial GPS time estimate - quality fine.
- * \param tc Timing count in units of RX_DT_NOMINAL.
+/** Update GPS time estimate precisely referenced to the local receiver time.
+ *
+ * \param tc SwiftNAP timing count.
  * \param t GPS time estimate associated with timing count.
  */
 void set_time_fine(u64 tc, gps_time_t t)
@@ -67,19 +68,52 @@ void set_time_fine(u64 tc, gps_time_t t)
   time_quality = TIME_FINE;
 }
 
-/** Convert receiver time to GPS time (referenced to initial GPS time estimate).
+/** Get current GPS time.
+ *
+ * \note The GPS time may only be a guess or completely unknown. time_quality
+ *       should be checked first to determine the quality of the GPS time
+ *       estimate.
+ *
+ * This function should be used only for approximate timing purposes as simply
+ * calling this function does not give a well defined instant at which the GPS
+ * time is queried.
+ *
+ * \return Current GPS time.
+ */
+gps_time_t get_current_time(void)
+{
+  /* TODO: Return invalid when TIME_UNKNOWN. */
+  /* TODO: Think about what happens when nap_timing_count overflows. */
+  u64 tc = nap_timing_count();
+  gps_time_t t = rx2gpstime(tc);
+
+  return t;
+}
+
+/** Convert receiver time to GPS time.
+ *
+ * \note The GPS time may only be a guess or completely unknown. time_quality
+ *       should be checked first to determine the quality of the GPS time
+ *       estimate.
+ *
  * \param tc Timing count in units of RX_DT_NOMINAL.
  * \return GPS time corresponding to Timing count.
  */
 gps_time_t rx2gpstime(double tc)
 {
   gps_time_t t = rx_t0;
+
   t.tow += tc * rx_dt;
   t = normalize_gps_time(t);
   return t;
 }
 
-/** Convert GPS time (relative to initial GPS time estimate) to receiver time.
+/** Convert GPS time to receiver time.
+ *
+ * \note The GPS time may only be a guess or completely unknown. time_quality
+ *       should be checked first to determine the quality of the GPS time
+ *       estimate.
+ *
  * \param t gps_time_t to convert.
  * \return Timing count in units of RX_DT_NOMINAL.
  */
@@ -89,20 +123,28 @@ double gps2rxtime(gps_time_t t)
 }
 
 /** Callback to set receiver GPS time estimate. */
-void set_time_callback(u8 buff[])
+static void set_time_callback(u8 buff[])
 {
-  gps_time_t* t = (gps_time_t*)buff;
+  gps_time_t *t = (gps_time_t *)buff;
+
   set_time(TIME_COARSE, *t);
 }
 
-/** Setup timer to use as a rough system timing count. */
-void time_setup()
+/** Setup timing functionality.
+ * For now just register a callback so that a coarse time can be sent by the
+ * host. */
+void timing_setup(void)
 {
   /* TODO: Perhaps setup something to check for nap_timing_count overflows
    * periodically. */
   static msg_callbacks_node_t set_time_node;
-  sbp_register_callback(MSG_SET_TIME, &set_time_callback, &set_time_node);
 
+  sbp_register_callback(MSG_SET_TIME, &set_time_callback, &set_time_node);
+}
+
+/** Setup STM timer to use as a rough system tick count. */
+void tick_timer_setup(void)
+{
   /* Setup Timer 2 as our global tick counter. */
   RCC_APB1ENR |= RCC_APB1ENR_TIM2EN;
 
@@ -112,7 +154,7 @@ void time_setup()
    *       multiple of the tick frequency.
    * NOTE: Assumes APB1 prescale != 1, see Ref Man pg. 84
    */
-  timer_set_prescaler(TIM2, 2*rcc_ppre1_frequency/TICK_FREQ - 1);
+  timer_set_prescaler(TIM2, 2 * rcc_ppre1_frequency / TICK_FREQ - 1);
 
   /* Set time auto-reload value to the longest possible period. */
   timer_set_period(TIM2, 0xFFFFFFFF);
@@ -123,15 +165,16 @@ void time_setup()
   timer_enable_counter(TIM2);
 }
 
-/** Return current rough system timing count.
+/** Return current system tick count.
  * Used for rough timing - mainly to schedule housekeeping operations that
  * do not need GPS time precision.
- * \return Rough system timing count.
+ * \return System tick count.
  */
-u32 time_ticks() {
+u32 time_ticks(void)
+{
   /* TODO: think about overflows. */
-
   return TIM2_CNT;
 }
 
 /** \} */
+

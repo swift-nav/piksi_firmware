@@ -12,11 +12,11 @@
 
 #include <string.h>
 
+#include <libopencm3/cm3/nvic.h>
+#include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
-#include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/f4/usart.h>
-#include <libopencm3/stm32/f4/dma.h>
 
 #include "../error.h"
 #include "usart.h"
@@ -118,7 +118,7 @@ void usart_tx_dma_disable(usart_tx_dma_state* s)
 
   /* Disable DMA stream. */
   DMA_SCR(s->dma, s->stream) &= ~DMA_SxCR_EN;
-  while (DMA_SCR(s->dma, s->stream) & DMA_SxCR_EN);
+  while (DMA_SCR(s->dma, s->stream) & DMA_SxCR_EN) ;
 
   /* Disable RX DMA on the USART. */
   usart_disable_tx_dma(s->usart);
@@ -142,23 +142,23 @@ u32 usart_tx_n_free(usart_tx_dma_state* s)
  * needed.
  * \param s The USART DMA state structure.
  * */
-static void dma_schedule(usart_tx_dma_state* s) {
+static void dma_schedule(usart_tx_dma_state* s)
+{
   /* TODO: We shouldn't have to check for this now that we are called
    * atomically but leaving it in for now just in case. */
   if (DMA_SCR(s->dma, s->stream) & DMA_SxCR_EN)
-    speaking_death("DMA TX scheduled while DMA channel running");
+    screaming_death("DMA TX scheduled while DMA channel running");
 
   DMA_SM0AR(s->dma, s->stream) = &(s->buff[s->rd]);
 
   /* Save the transfer length so we can increment the read index after the
    * transfer is finished. */
-  if (s->rd < s->wr) {
+  if (s->rd < s->wr)
     /* DMA up until write pointer. */
     s->xfer_len = s->wr - s->rd;
-  } else {
+  else
     /* DMA up until the end of the buffer. */
     s->xfer_len = USART_TX_BUFFER_LEN - s->rd;
-  }
 
   /* Set the number of datas in the DMA controller. */
   DMA_SNDTR(s->dma, s->stream) = s->xfer_len;
@@ -177,10 +177,9 @@ static void dma_schedule(usart_tx_dma_state* s) {
 void usart_tx_dma_isr(usart_tx_dma_state* s)
 {
   if (dma_get_interrupt_flag(s->dma, s->stream,
-                             DMA_TEIF | DMA_DMEIF)) {
+                             DMA_TEIF | DMA_DMEIF))
     /* TODO: Handle error interrupts! */
-    speaking_death("DMA TX error interrupt");
-  }
+    screaming_death("DMA TX error interrupt");
 
   if (dma_get_interrupt_flag(s->dma, s->stream, DMA_TCIF)) {
     /* Interrupt is Transmit Complete. */
@@ -191,16 +190,14 @@ void usart_tx_dma_isr(usart_tx_dma_state* s)
     /* Now that the transfer has finished we can increment the read index. */
     s->rd = (s->rd + s->xfer_len) % USART_TX_BUFFER_LEN;
 
-    if (s->wr != s->rd) {
+    if (s->wr != s->rd)
       /* Buffer not empty. */
       dma_schedule(s);
-    }
   }
 
-  if (dma_get_interrupt_flag(s->dma, s->stream, DMA_FEIF)) {
+  if (dma_get_interrupt_flag(s->dma, s->stream, DMA_FEIF))
     /* Clear FIFO error flag */
     dma_clear_interrupt_flags(s->dma, s->stream, DMA_HTIF | DMA_FEIF);
-  }
 }
 
 /** Write out data over the USART using DMA.
@@ -227,12 +224,12 @@ u32 usart_write_dma(usart_tx_dma_state* s, u8 data[], u32 len)
   u32 old_wr = s->wr;
   s->wr = (s->wr + len) % USART_TX_BUFFER_LEN;
 
-  if (old_wr + len <= USART_TX_BUFFER_LEN) {
+  if (old_wr + len <= USART_TX_BUFFER_LEN)
     memcpy(&(s->buff[old_wr]), data, len);
-  } else {
+  else {
     /* Deal with case where write wraps the buffer. */
     memcpy(&(s->buff[old_wr]), &data[0], USART_TX_BUFFER_LEN - old_wr);
-    memcpy(&(s->buff[0]), &data[USART_TX_BUFFER_LEN-old_wr],
+    memcpy(&(s->buff[0]), &data[USART_TX_BUFFER_LEN - old_wr],
            len - (USART_TX_BUFFER_LEN - old_wr));
   }
 
@@ -252,3 +249,4 @@ u32 usart_write_dma(usart_tx_dma_state* s, u8 data[], u32 len)
 /** \} */
 
 /** \} */
+

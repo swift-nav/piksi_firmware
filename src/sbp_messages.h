@@ -20,39 +20,39 @@
  * Swift Binary Protocol Message IDs.
  * \{ */
 
-#define MSG_PRINT 0x01 /**< Callback in Python */
+#define MSG_PRINT                   0x01  /**< Piksi  -> Host  */
 
-#define MSG_ALMANAC   0x69 /**< Callback in C */
-#define MSG_SET_TIME  0x68 /**< Callback in C */
+#define MSG_ALMANAC                 0x69  /**< Host   -> Piksi */
+#define MSG_SET_TIME                0x68  /**< Host   -> Piksi */
 
-#define MSG_BOOTLOADER_HANDSHAKE   0xB0 /**< Callback in C and Python */
-#define MSG_BOOTLOADER_JUMP_TO_APP 0xB1 /**< Callback in C */
+#define MSG_BOOTLOADER_HANDSHAKE    0xB0  /**< Host  <-> Piksi */
+#define MSG_BOOTLOADER_JUMP_TO_APP  0xB1  /**< Host   -> Piksi */
 
-#define MSG_CW_START   0xC1 /**< Callback in C */
-#define MSG_CW_RESULTS 0xC0 /**< Callback in Python */
+#define MSG_CW_START                0xC1  /**< Host   -> Piksi */
+#define MSG_CW_RESULTS              0xC0  /**< Piksi  -> Host  */
 
-#define MSG_NAP_DEVICE_DNA 0xDD /**< Callback in C and Python */
+#define MSG_NAP_DEVICE_DNA          0xDD  /**< Host  <-> Piksi */
 
-#define MSG_STM_FLASH_WRITE 0xE0 /**< Callback in C */
-#define MSG_STM_FLASH_READ  0xE1 /**< Callback in C and Python */
-#define MSG_STM_FLASH_ERASE 0xE2 /**< Callback in C */
-#define MSG_STM_FLASH_DONE  0xE0 /**< Callback in Python */
+#define MSG_STM_FLASH_WRITE         0xE0  /**< Host   -> Piksi */
+#define MSG_STM_FLASH_READ          0xE1  /**< Host  <-> Piksi */
+#define MSG_STM_FLASH_ERASE         0xE2  /**< Host   -> Piksi */
+#define MSG_STM_FLASH_DONE          0xE0  /**< Piksi  -> Host  */
 
-#define MSG_STM_UNIQUE_ID 0xE5 /**< Callback in C and Python */
+#define MSG_STM_UNIQUE_ID           0xE5  /**< Host  <-> Piksi */
 
-#define MSG_M25_FLASH_WRITE 0xF0 /**< Callback in C */
-#define MSG_M25_FLASH_READ  0xF1 /**< Callback in C and Python */
-#define MSG_M25_FLASH_ERASE 0xF2 /**< Callback in C */
-#define MSG_M25_FLASH_DONE  0xF0 /**< Callback in Python */
+#define MSG_M25_FLASH_WRITE         0xF0  /**< Host   -> Piksi */
+#define MSG_M25_FLASH_READ          0xF1  /**< Host  <-> Piksi */
+#define MSG_M25_FLASH_ERASE         0xF2  /**< Host   -> Piksi */
+#define MSG_M25_FLASH_DONE          0xF0  /**< Piksi  -> Host  */
 
-#define MSG_SOLUTION 0x50 /**< Callback in Python */
-#define MSG_DOPS     0x51 /**< Callback in Python */
-#define MSG_PR_ERRS  0x52 /**< Callback in Python */
+#define MSG_SOLUTION                0x50  /**< Piksi  -> Host  */
+#define MSG_DOPS                    0x51  /**< Piksi  -> Host  */
 
-#define MSG_TRACKING_STATE 0x22 /**< Callback in Python */
-
-/** \} */
+#define MSG_TRACKING_STATE          0x22  /**< Piksi  -> Host  */
 
 /** \} */
 
-#endif /* SWIFTNAV_SBP_MESSAGES_H */
+/** \} */
+
+#endif  /* SWIFTNAV_SBP_MESSAGES_H */
+

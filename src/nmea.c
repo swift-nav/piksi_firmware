@@ -10,18 +10,18 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <libswiftnav/coord_system.h>
 
 #include "board/nap/track_channel.h"
 #include "nmea.h"
+#include "peripherals/usart.h"
 #include "sbp.h"
 #include "settings.h"
-#include "peripherals/usart.h"
 
 /** \addtogroup io
  * \{ */
@@ -33,21 +33,21 @@
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
  * \param s The NMEA sentence to output.
  */
-void nmea_output(char* s)
+void nmea_output(char *s)
 {
   /* Global interrupt disable to avoid concurrency/reentrancy problems. */
   __asm__("CPSID i;");
 
   if (settings.ftdi_usart.mode == NMEA)
-    usart_write_dma(&ftdi_tx_state, (u8*)s, strlen(s));
+    usart_write_dma(&ftdi_tx_state, (u8 *)s, strlen(s));
 
   if (settings.uarta_usart.mode == NMEA)
-    usart_write_dma(&uarta_tx_state, (u8*)s, strlen(s));
+    usart_write_dma(&uarta_tx_state, (u8 *)s, strlen(s));
 
   if (settings.uartb_usart.mode == NMEA)
-    usart_write_dma(&uartb_tx_state, (u8*)s, strlen(s));
+    usart_write_dma(&uartb_tx_state, (u8 *)s, strlen(s));
 
-  __asm__("CPSIE i;"); /* Re-enable interrupts. */
+  __asm__("CPSIE i;");  /* Re-enable interrupts. */
 }
 
 /** Calculate the checksum of an NMEA sentence.
@@ -58,14 +58,14 @@ void nmea_output(char* s)
  * \param s An NMEA sentence for which to generate the checksum.
  * \return The checksum value.
  */
-u8 nmea_checksum(char* s)
+u8 nmea_checksum(char *s)
 {
   u8 sum = 0;
 
   if (*s == '$')
     s++;
 
-  while(*s != '*' && *s) {
+  while (*s != '*' && *s) {
     sum ^= *s;
     s++;
   }
@@ -79,7 +79,7 @@ u8 nmea_checksum(char* s)
  * \param soln Pointer to gnss_solution struct.
  * \param dops Pointer to dops_t struct.
  */
-void nmea_gpgga(gnss_solution* soln, dops_t* dops)
+void nmea_gpgga(gnss_solution *soln, dops_t *dops)
 {
   time_t unix_t;
   struct tm t;
@@ -89,10 +89,10 @@ void nmea_gpgga(gnss_solution* soln, dops_t* dops)
 
   double frac_s = fmod(soln->time.tow, 1.0);
 
-  s8 lat_deg = (s8)((180.0/M_PI)*soln->pos_llh[0]);
-  double lat_min = fabs(60*((180.0/M_PI)*soln->pos_llh[0] - lat_deg));
-  s8 lon_deg = (s8)((180.0/M_PI)*soln->pos_llh[1]);
-  double lon_min = fabs(60*((180.0/M_PI)*soln->pos_llh[1] - lon_deg));
+  s8 lat_deg = (s8)((180.0 / M_PI) * soln->pos_llh[0]);
+  double lat_min = fabs(60 * ((180.0 / M_PI) * soln->pos_llh[0] - lat_deg));
+  s8 lon_deg = (s8)((180.0 / M_PI) * soln->pos_llh[1]);
+  double lon_min = fabs(60 * ((180.0 / M_PI) * soln->pos_llh[1] - lon_deg));
   lat_deg = abs(lat_deg);
   lon_deg = abs(lon_deg);
 
@@ -103,13 +103,13 @@ void nmea_gpgga(gnss_solution* soln, dops_t* dops)
 
   char buf[80];
   u8 n = sprintf(buf,
-    "$GPGGA,%02d%02d%06.3f,"
-    "%02d%010.7f,%c,%03d%010.7f,%c,"
-    "%01d,%02d,%.1f,%1.f,M,,M,,",
-    t.tm_hour, t.tm_min, t.tm_sec + frac_s,
-    lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
-    fix_type, soln->n_used, dops->hdop, soln->pos_llh[2]
-  );
+                 "$GPGGA,%02d%02d%06.3f,"
+                 "%02d%010.7f,%c,%03d%010.7f,%c,"
+                 "%01d,%02d,%.1f,%1.f,M,,M,,",
+                 t.tm_hour, t.tm_min, t.tm_sec + frac_s,
+                 lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
+                 fix_type, soln->n_used, dops->hdop, soln->pos_llh[2]
+                 );
 
   u8 sum = nmea_checksum(buf);
 
@@ -124,17 +124,16 @@ void nmea_gpgga(gnss_solution* soln, dops_t* dops)
  * \param chans Pointer to tracking_channel_t struct.
  * \param dops  Pointer to dops_t struct.
  */
-void nmea_gpgsa(tracking_channel_t* chans, dops_t* dops)
+void nmea_gpgsa(tracking_channel_t *chans, dops_t *dops)
 {
   char buf[80] = "$GPGSA,A,3,";
-  char* bufp = buf + strlen(buf);
+  char *bufp = buf + strlen(buf);
 
-  for (u8 i=0; i<12; i++) {
-    if (i < nap_track_n_channels && chans[i].state == TRACKING_RUNNING) {
-      bufp += sprintf(bufp, "%02d,", chans[i].prn+1);
-    } else {
+  for (u8 i = 0; i < 12; i++) {
+    if (i < nap_track_n_channels && chans[i].state == TRACKING_RUNNING)
+      bufp += sprintf(bufp, "%02d,", chans[i].prn + 1);
+    else
       *bufp++ = ',';
-    }
   }
 
   if (dops)
@@ -156,8 +155,8 @@ void nmea_gpgsa(tracking_channel_t* chans, dops_t* dops)
  * \param nav_meas Pointer to navigation_measurement struct.
  * \param soln     Pointer to gnss_solution struct.
  */
-void nmea_gpgsv(u8 n_used, navigation_measurement_t* nav_meas,
-                gnss_solution* soln)
+void nmea_gpgsv(u8 n_used, navigation_measurement_t *nav_meas,
+                gnss_solution *soln)
 {
   if (n_used == 0)
     return;
@@ -165,30 +164,32 @@ void nmea_gpgsv(u8 n_used, navigation_measurement_t* nav_meas,
   u8 n_mess = (n_used + 3) / 4;
 
   char buf[80];
-  char* buf0 = buf + sprintf(buf, "$GPGSV,%d,", n_mess);
-  char* bufp = buf0;
+  char *buf0 = buf + sprintf(buf, "$GPGSV,%d,", n_mess);
+  char *bufp = buf0;
 
   u8 n = 0;
   double az, el;
 
-  for (u8 i=0; i<n_mess; i++) {
+  for (u8 i = 0; i < n_mess; i++) {
     bufp = buf0;
-    bufp += sprintf(bufp, "%d,%d", i+1, n_used);
-    for (u8 j=0; j<4; j++) {
+    bufp += sprintf(bufp, "%d,%d", i + 1, n_used);
+
+    for (u8 j = 0; j < 4; j++) {
       if (n < n_used) {
         wgsecef2azel(nav_meas[n].sat_pos, soln->pos_ecef, &az, &el);
         bufp += sprintf(
           bufp, ",%02d,%02d,%03d,%02d",
-          nav_meas[n].prn+1,
-          (u8)round(el*180.0/M_PI),
-          (u16)round(az*180.0/M_PI),
+          nav_meas[n].prn + 1,
+          (u8)round(el * 180.0 / M_PI),
+          (u16)round(az * 180.0 / M_PI),
           (u8)(10.0 * nav_meas[n].snr)
-        );
+          );
       } else {
         bufp += sprintf(bufp, ",,,,");
       }
       n++;
     }
+
     sprintf(bufp, "*%02X\r\n", nmea_checksum(buf));
     nmea_output(buf);
   }
@@ -198,3 +199,4 @@ void nmea_gpgsv(u8 n_used, navigation_measurement_t* nav_meas,
 /** \} */
 
 /** \} */
+

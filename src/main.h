@@ -15,8 +15,6 @@
 
 #include <libopencm3/cm3/common.h>
 
-/* GPS official value of Pi. */
-#define PI 3.1415926535898
 #define SAMPLE_FREQ 16368000
 #define L1_HZ 1575.42e6
 #define NOMINAL_CODE_PHASE_RATE_HZ 1.023e6

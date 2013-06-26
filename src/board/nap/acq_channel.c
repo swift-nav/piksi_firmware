@@ -20,13 +20,13 @@
  * \{ */
 
 /** \defgroup acq_channel Acquisition Channel
- * Interface to the NAP acquisition channel.
+ * Interface to the SwiftNAP acquisition channel.
  * \{ */
 
-/*
- * Number of acquisition channel code phase taps that NAP
- * configuration was built with - read from configuration
- * flash at runtime in nap_conf_rd_parameters().
+/** Number of acq. channel code phase taps.
+ * Number of acquisition channel code phase taps that NAP configuration was
+ * built with. Read from configuration flash at runtime in
+ * nap_conf_rd_parameters().
  */
 u8 nap_acq_n_taps;
 
@@ -35,9 +35,10 @@ u8 nap_acq_n_taps;
  * samples into its sample ram, starting at the first clock cycle after the
  * NAP's internal timing strobe goes low.
  */
-void nap_acq_load_wr_enable_blocking()
+void nap_acq_load_wr_enable_blocking(void)
 {
-  u8 temp[1] = {0xFF};
+  u8 temp[1] = { 0xFF };
+
   nap_xfer_blocking(NAP_REG_ACQ_LOAD, 1, 0, temp);
 }
 
@@ -45,18 +46,19 @@ void nap_acq_load_wr_enable_blocking()
  * After a load to the acquisition channel's sample ram, the LOAD ENABLE bit
  * must be cleared, or future timing strobes will cause the ram to be re-loaded.
  */
-void nap_acq_load_wr_disable_blocking()
+void nap_acq_load_wr_disable_blocking(void)
 {
-  u8 temp[1] = {0x00};
+  u8 temp[1] = { 0x00 };
+
   nap_xfer_blocking(NAP_REG_ACQ_LOAD, 1, 0, temp);
 }
 
 /** Pack data for writing to NAP acquisition channel INIT register.
  *
- * NOTE: Swift NAP returns corrs corresponding to code phases from
+ * Swift NAP returns corrs corresponding to code phases from
  * code_phase_reg_value-nap_acq_n_taps-1 to code_phase_reg_value where
- * code_phase_reg_value is the raw value written into the code phase
- * portion of the init register.
+ * code_phase_reg_value is the raw value written into the code phase portion of
+ * the init register.
  *
  * - corrs[0] -> code_phase_reg_value-nap_acq_n_taps+1
  * - corrs[AQC_N_TAPS-1] -> code_phase_reg_value
@@ -79,9 +81,9 @@ void nap_acq_init_pack(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq)
   /* Modulo 1023*4 in case adding nap_acq_n_taps-1 rolls us over a
    * code phase boundary.
    */
-  u16 code_phase_reg_value = (code_phase+nap_acq_n_taps-1) % (1023*4);
+  u16 code_phase_reg_value = (code_phase + nap_acq_n_taps - 1) % (1023 * 4);
 
-  pack[0] = (1<<5) |                      /* Acq enabled */
+  pack[0] = (1 << 5) |                    /* Acq enabled */
             ((carrier_freq >> 7) & 0x1F); /* Carrier freq [11:7] */
 
   pack[1] = (carrier_freq << 1) |         /* Carrier freq [6:0] */
@@ -98,13 +100,15 @@ void nap_acq_init_pack(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq)
  * acquisition with these parameters. If it is currently enabled, another
  * acquisition will start with these parameters when the current acquisition
  * finishes.
- * NOTE: If searching more than one acquisition point for a particular PRN,
- * the second set of acquisition parameters should be written into the channel
- * as soon as possible after the first set, as they are pipelined and used
- * immediately after the first acquisition finishes. If only searching one
- * point, nap_acq_init_wr_disable_blocking should be called as soon as possible after the
- * first set of acquisition parameters are written, and again after the
- * ACQ_DONE interrupt occurs to clear the interrupt.
+ *
+ * \note If searching more than one acquisition point for a particular PRN, the
+ *       second set of acquisition parameters should be written into the
+ *       channel as soon as possible after the first set, as they are pipelined
+ *       and used immediately after the first acquisition finishes. If only
+ *       searching one point, nap_acq_init_wr_disable_blocking should be called
+ *       as soon as possible after the first set of acquisition parameters are
+ *       written, and again after the ACQ_DONE interrupt occurs to clear the
+ *       interrupt.
  *
  * \param PRN          C/A PRN to use for the acquisition (deprecated)
  * \param code_phase   Code phase of the first correlation returned
@@ -114,6 +118,7 @@ void nap_acq_init_pack(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq)
 void nap_acq_init_wr_params_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
 {
   u8 temp[4];
+
   nap_acq_init_pack(temp, prn, code_phase, carrier_freq);
   nap_xfer_blocking(NAP_REG_ACQ_INIT, 4, 0, temp);
 }
@@ -126,7 +131,8 @@ void nap_acq_init_wr_params_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
  */
 void nap_acq_init_wr_disable_blocking()
 {
-  u8 temp[4] = {0,0,0,0};
+  u8 temp[4] = { 0, 0, 0, 0 };
+
   nap_xfer_blocking(NAP_REG_ACQ_INIT, 4, 0, temp);
 }
 
@@ -137,22 +143,23 @@ void nap_acq_init_wr_disable_blocking()
  */
 void nap_acq_corr_unpack(u8 packed[], corr_t corrs[])
 {
-  /* graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
-  struct {s32 xtend:24;} sign;
+  /* http://graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
 
-  for (u8 i=0; i<nap_acq_n_taps; i++) {
+  struct { s32 xtend : 24; } sign;
 
-    sign.xtend  = (packed[6*i]   << 16)    /* MSB */
-                | (packed[6*i+1] << 8)     /* Middle byte */
-                | (packed[6*i+2]);         /* LSB */
+  for (u8 i = 0; i < nap_acq_n_taps; i++) {
 
-    corrs[i].Q = sign.xtend; /* Sign extend! */
+    sign.xtend  = (packed[6 * i] << 16)     /* MSB */
+                | (packed[6 * i + 1] << 8)  /* Middle byte */
+                | (packed[6 * i + 2]);      /* LSB */
 
-    sign.xtend  = (packed[6*i+3] << 16)    /* MSB */
-                | (packed[6*i+4] << 8)     /* Middle byte */
-                | (packed[6*i+5]);         /* LSB */
+    corrs[i].Q = sign.xtend;  /* Sign extend! */
 
-    corrs[i].I = sign.xtend; /* Sign extend! */
+    sign.xtend  = (packed[6 * i + 3] << 16) /* MSB */
+                | (packed[6 * i + 4] << 8)  /* Middle byte */
+                | (packed[6 * i + 5]);      /* LSB */
+
+    corrs[i].I = sign.xtend;  /* Sign extend! */
   }
 }
 
@@ -164,8 +171,9 @@ void nap_acq_corr_unpack(u8 packed[], corr_t corrs[])
  */
 void nap_acq_corr_rd_blocking(corr_t corrs[])
 {
-  u8 temp[2*nap_acq_n_taps * 3];
-  nap_xfer_blocking(NAP_REG_ACQ_CORR, 2*nap_acq_n_taps*3, temp, temp);
+  u8 temp[2 * nap_acq_n_taps * 3];
+
+  nap_xfer_blocking(NAP_REG_ACQ_CORR, 2 * nap_acq_n_taps * 3, temp, temp);
   nap_acq_corr_unpack(temp, corrs);
 }
 
@@ -183,3 +191,4 @@ void nap_acq_code_wr_blocking(u8 prn)
 /** \} */
 
 /** \} */
+

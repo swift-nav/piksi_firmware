@@ -13,19 +13,19 @@
 #ifndef SWIFTNAV_SPI_H
 #define SWIFTNAV_SPI_H
 
-#include <libopencm3/cm3/common.h>
+#include <libswiftnav/common.h>
 #include <libopencm3/stm32/spi.h>
 
 /** \addtogroup spi
  * \{ */
 
-#define SPI_SLAVE_FPGA     0x01
-#define SPI_SLAVE_FLASH    0x02
-#define SPI_SLAVE_FRONTEND 0x03
+#define SPI_SLAVE_FPGA     0x01 /**< SwiftNAP FPGA */
+#define SPI_SLAVE_FLASH    0x02 /**< M25 configuration flash */
+#define SPI_SLAVE_FRONTEND 0x03 /**< MAX2769 front-end */
 
-#define SPI_BUS_FLASH    SPI2
-#define SPI_BUS_FPGA     SPI1
-#define SPI_BUS_FRONTEND SPI2
+#define SPI_BUS_FLASH    SPI2 /**< SPI bus that the M25 flash is on. */
+#define SPI_BUS_FPGA     SPI1 /**< SPI bus that the FPGA is on. */
+#define SPI_BUS_FRONTEND SPI2 /**< SPI bus that the MAX2769 is on. */
 
 /** \} */
 
