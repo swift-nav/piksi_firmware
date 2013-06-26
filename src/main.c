@@ -41,9 +41,6 @@ int main(void)
 {
   init();
 
-  manage_acq_setup();
-  cw_setup();
-
   led_toggle(LED_RED);
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
@@ -57,6 +54,8 @@ int main(void)
   printf("\n");
   printf("SwiftNAP configured with %d tracking channels\n\n", nap_track_n_channels);
 
+  cw_setup();
+  manage_acq_setup();
   tick_timer_setup();
   timing_setup();
   position_setup();
@@ -75,8 +74,8 @@ int main(void)
     manage_track();
     manage_acq();
 
-    // Check if there is a new nav msg subframe to process.
-    // TODO: move this into a function
+    /* Check if there is a new nav msg subframe to process.
+     * TODO: move this into a function */
 
     memcpy(es_old, es, sizeof(es));
     for (u8 i=0; i<nap_track_n_channels; i++)
@@ -101,9 +100,7 @@ int main(void)
       }
     }
 
-    /*u32 foo;*/
-
-    DO_EVERY_TICKS(TICK_FREQ,
+    DO_EVERY_TICKS(TICK_FREQ/10,
 
       u8 n_ready = 0;
       for (u8 i=0; i<nap_track_n_channels; i++) {
@@ -124,34 +121,25 @@ int main(void)
         /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
          * more intelligent with the solution time.
          */
-
-        /*printf("n_ready = %d\n", n_ready);*/
-        /*foo = time_ticks();*/
-
         calc_navigation_measurement(n_ready, meas, nav_meas, (double)((u32)nap_timing_count())/SAMPLE_FREQ, es);
-
-        /*printf("Nav meas took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
-        /*foo = time_ticks();*/
 
         dops_t dops;
         if (calc_PVT(n_ready, nav_meas, &position_solution, &dops) == 0) {
           position_updated();
-          /*printf("calc_PVT took: %.2fms\n", 1e3*(double)(time_ticks() - foo) / TICK_FREQ);*/
-          /*foo = time_ticks();*/
 
           sbp_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &position_solution);
           nmea_gpgga(&position_solution, &dops);
 
           DO_EVERY(10,
             sbp_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
-            /*nmea_gpgsv(n_ready, nav_meas, &position_solution);*/
+            nmea_gpgsv(n_ready, nav_meas, &position_solution);
           );
         }
       }
     );
 
     DO_EVERY_TICKS(TICK_FREQ,
-      /*nmea_gpgsa(tracking_channel, 0);*/
+      nmea_gpgsa(tracking_channel, 0);
     );
     DO_EVERY_TICKS(TICK_FREQ/10, // 10 Hz update
       tracking_send_state();

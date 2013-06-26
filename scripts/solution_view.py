@@ -75,16 +75,16 @@ class SolutionView(HasTraits):
     self.alts = []
 
   def solution_callback(self, data):
-    soln = struct.unpack('<3d3d3d3d7ddHBB', data)
+    soln = struct.unpack('<3d3d3d3d7ddddHBB', data)
     self.pos_llh = [[soln[0]*(180/math.pi), soln[1]*(180/math.pi), soln[2]]]
     pos_ecef = soln[3:6]
     vel_ned = soln[6:9]
     vel_ecef = soln[9:12]
     err_cov = soln[12:19]
-    self.gps_tow = soln[19]
-    self.gps_week = soln[20]
-    soln_valid = soln[21]
-    self.n_used = soln[22]
+    self.gps_tow = soln[21]
+    self.gps_week = soln[22]
+    soln_valid = soln[23]
+    self.n_used = soln[24]
 
     self.lats.append(self.pos_llh[0][0])
     self.lngs.append(self.pos_llh[0][1])
