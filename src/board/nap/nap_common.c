@@ -87,7 +87,8 @@ void nap_setup(void)
 }
 
 /** Reset NAP logic.
- * \note Does not currently reset NAP DCM's.
+ * Resets FPGA's DCM's and logic - except for DNA / hash logic. Should be
+ * called before STM switches to using FPGA clock.
  */
 void nap_reset(void)
 {
