@@ -12,7 +12,8 @@ import struct
 import numpy as np
 
 MSG_TRACKING_STATE = 0x22
-TRACK_N_CHANNELS = 12
+TRACKING_STATE_BYTES_PER_CHANNEL = 6
+NUM_POINTS = 200
 
 colours_list = [
   0xE41A1C,
@@ -61,7 +62,22 @@ class TrackingView(HasTraits):
   )
 
   def tracking_state_callback(self, data):
-    fmt = '<' + TRACK_N_CHANNELS * 'BBf'
+    n_channels = len(data) / TRACKING_STATE_BYTES_PER_CHANNEL
+
+    if n_channels != self.n_channels:
+      # Update number of channels
+      self.n_channels = n_channels
+      self.states = [TrackingState(0, 0, 0) for _ in range(n_channels)]
+      for pl in self.plot.plots.iterkeys():
+        self.plot.delplot(pl.name)
+      self.plots = []
+      for n in range(n_channels):
+        self.plot_data.set_data('ch'+str(n), [0.0])
+        pl = self.plot.plot(('t', 'ch'+str(n)), type='line', color='auto', name='ch'+str(n))
+        self.plots.append(pl)
+      print 'Number of tracking channels changed to', n_channels
+
+    fmt = '<' + n_channels * 'BBf'
     state_data = struct.unpack(fmt, data)
     for n, s in enumerate(self.states):
       s.update(*state_data[3*n:3*(n+1)])
@@ -71,9 +87,9 @@ class TrackingView(HasTraits):
     self.cn0_history.append([s.cn0 for s in self.states])
     self.cn0_history = self.cn0_history[-1000:]
 
-    chans = np.transpose(self.cn0_history[-200:])
+    chans = np.transpose(self.cn0_history[-NUM_POINTS:])
     plot_labels = []
-    for n in range(TRACK_N_CHANNELS):
+    for n in range(self.n_channels):
       self.plot_data.set_data('ch'+str(n), chans[n])
       if self.states[n].state == 0:
         plot_labels.append('Ch %02d (Disabled)' % n)
@@ -85,7 +101,7 @@ class TrackingView(HasTraits):
   def __init__(self, link):
     super(TrackingView, self).__init__()
 
-    self.states = [TrackingState(0, 0, 0) for _ in range(TRACK_N_CHANNELS)]
+    self.n_channels = None
 
     self.link = link
     self.link.add_callback(MSG_TRACKING_STATE, self.tracking_state_callback)
@@ -97,16 +113,12 @@ class TrackingView(HasTraits):
     self.plot.value_range.bounds_func = lambda l, h, m, tb: (0, h*(1+m))
     self.plot.value_axis.orientation = 'right'
     self.plot.value_axis.axis_line_visible = False
-    t = range(200)
+    t = range(NUM_POINTS)
     self.plot_data.set_data('t', t)
-    for n in range(TRACK_N_CHANNELS):
-      self.plot_data.set_data('ch'+str(n), [0.0])
-      pl = self.plot.plot(('t', 'ch'+str(n)), type='line', color='auto')
-      self.plots.append(pl)
+
     self.plot.legend.visible = True
     self.plot.legend.align = 'ul'
     self.plot.legend.tools.append(LegendTool(self.plot.legend, drag_button="right"))
-    self.update_plot()
 
     self.python_console_cmds = {
       'track': self
