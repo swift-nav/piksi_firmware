@@ -26,22 +26,19 @@
 #define I_FILTER_COEFF 4
 #define Q_FILTER_COEFF 10
 
-/** Tracking channel states. */
-typedef enum {
-  TRACKING_DISABLED = 0,
-  TRACKING_RUNNING = 1
-} tracking_state_t;
+#define TRACKING_DISABLED 0 /**< Tracking channel disabled state. */
+#define TRACKING_RUNNING  1 /**< Tracking channel running state. */
 
 /** Message struct for SBP tracking state message. */
 typedef struct __attribute__((packed)) {
-  tracking_state_t state; /**< State of the tracking channel. */
-  u8 prn;                 /**< PRN being tracked by the tracking channel. */
-  float cn0;              /**< SNR of the tracking channel. */
+  u8 state;  /**< State of the tracking channel. */
+  u8 prn;    /**< PRN being tracked by the tracking channel. */
+  float cn0; /**< SNR of the tracking channel. */
 } tracking_state_msg_t;
 
 /** Tracking channel parameters as of end of last correlation period. */
 typedef struct {
-  tracking_state_t state;      /**< Tracking channel state. */
+  u8 state;                    /**< Tracking channel state. */
   /* TODO : u32's big enough? */
   u32 update_count;            /**< Total number of tracking channel ms updates. */
   s32 TOW_ms;                  /**< TOW in ms. */
