@@ -73,6 +73,8 @@ class SolutionView(HasTraits):
     self.lats = []
     self.lngs = []
     self.alts = []
+    self.llhs[:] = np.nan
+    self.ecefs[:] = np.nan
 
   def solution_callback(self, data):
     soln = struct.unpack('<3d3d3d3d7ddddHBB', data)
