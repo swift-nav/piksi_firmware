@@ -83,6 +83,8 @@ class SolutionView(HasTraits):
     vel_ned = soln[6:9]
     vel_ecef = soln[9:12]
     err_cov = soln[12:19]
+    clock_offset = soln[19]
+    clock_bias = soln[20]
     self.gps_tow = soln[21]
     self.gps_week = soln[22]
     soln_valid = soln[23]
