@@ -50,7 +50,8 @@ typedef struct {
   double code_phase_rate;      /**< Code phase rate in chips/s. */
   u32 code_phase_rate_fp;      /**< Code phase rate in NAP register units. */
   u32 code_phase_rate_fp_prev; /**< Previous code phase rate in NAP register units. */
-  double carrier_freq;         /**< Carrier frequency in chips/s. */
+  double carrier_phase;        /**< Carrier phase in cycles. */
+  double carrier_freq;         /**< Carrier frequency Hz. */
   u32 I_filter;                /**< Filtered Prompt I correlations. */
   u32 Q_filter;                /**< Filtered Prompt Q correlations. */
   u16 corr_sample_count;       /**< Number of samples in correlation period. */

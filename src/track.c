@@ -181,6 +181,7 @@ void tracking_channel_update(u8 channel)
       }
 
       chan->code_phase_early = (u64)chan->code_phase_early + (u64)chan->corr_sample_count*chan->code_phase_rate_fp_prev;
+      chan->carrier_phase += chan->carrier_freq * 1e-3;
 
       /*u64 cp;*/
       /*u32 cf;*/
@@ -272,7 +273,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   //meas->code_phase_rate = (double)chan->code_phase_rate_fp_prev / NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   //meas->code_phase_rate = 1.023e6 * (1 + chan->carrier_freq/L1_HZ);
   meas->code_phase_rate = chan->code_phase_rate;
-  meas->carrier_phase = 0;
+  meas->carrier_phase = chan->carrier_phase;// + (chan->nav_msg.subframe_start_index < 0) ? 0.5 : 0;
   meas->carrier_freq = chan->carrier_freq;
   meas->time_of_week_ms = chan->TOW_ms;
   meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
