@@ -32,7 +32,7 @@ settings_t settings __attribute__ ((section(".settings_area"))) =
     .message_mask = 0xFF,
   },
   .uartb_usart = {
-    .mode         = NMEA,
+    .mode         = RTCM,
     .baud_rate    = 115200,
   },
 };
