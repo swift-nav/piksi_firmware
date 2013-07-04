@@ -74,15 +74,14 @@ static const u16 crc16tab[256] = {
   0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0
 };
 
-/** Calculate CCITT 16-bit Cyclical Redundancy Check (CRC16) for a message
+/** Calculate CCITT 16-bit Cyclical Redundancy Check (CRC16)
  *
- * \param buf Array of data to calculate CRC from
- * \param len Length of array of data
+ * \param buf Array of data to calculate CRC for
+ * \param len Length of data array
  * \param crc Initial CRC
  *
- * \return 16-bit CRC to append to message
+ * \return CRC16 value
  */
-/* TODO : add params to doxygen comment */
 u16 crc16_ccitt(const u8 *buf, u8 len, u16 crc)
 {
   for (u8 i = 0; i < len; i++)
