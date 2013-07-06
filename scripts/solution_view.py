@@ -8,7 +8,6 @@ import struct
 import math
 import numpy as np
 from scipy.stats import nanmean
-import swiftnav.coord_system as cs
 import datetime
 
 MSG_SOLUTION = 0x50
