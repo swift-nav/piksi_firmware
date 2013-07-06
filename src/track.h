@@ -13,7 +13,7 @@
 #ifndef SWIFTNAV_TRACK_H
 #define SWIFTNAV_TRACK_H
 
-#include <libopencm3/cm3/common.h>
+#include <libswiftnav/common.h>
 #include <libswiftnav/nav_msg.h>
 #include <libswiftnav/track.h>
 

@@ -14,7 +14,7 @@
 #ifndef SWIFTNAV_M25_FLASH_H
 #define SWIFTNAV_M25_FLASH_H
 
-#include <libopencm3/cm3/common.h>
+#include <libswiftnav/common.h>
 
 /** \addtogroup m25
  * \{ */
