@@ -71,8 +71,8 @@ void nap_track_update_wr_blocking(u8 channel, s32 carrier_freq,
                                   u32 code_phase_rate);
 void nap_track_corr_unpack(u8 packed[], u16* sample_count, corr_t corrs[]);
 void nap_track_corr_rd_blocking(u8 channel, u16* sample_count, corr_t corrs[]);
-void nap_track_phase_unpack(u8 packed[], u32* carrier_phase, u64* code_phase);
-void nap_track_phase_rd_blocking(u8 channel, u32* carrier_phase,
+void nap_track_phase_unpack(u8 packed[], s32* carrier_phase, u64* code_phase);
+void nap_track_phase_rd_blocking(u8 channel, s32* carrier_phase,
                                  u64* code_phase);
 void nap_track_code_wr_blocking(u8 channel, u8 prn);
 
