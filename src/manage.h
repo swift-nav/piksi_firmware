@@ -13,7 +13,7 @@
 #ifndef SWIFTNAV_MANAGE_H
 #define SWIFTNAV_MANAGE_H
 
-#include <libopencm3/cm3/common.h>
+#include <libswiftnav/common.h>
 
 /** \addtogroup manage
  * \{ */

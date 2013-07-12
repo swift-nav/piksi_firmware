@@ -103,9 +103,6 @@ class TrackingView(HasTraits):
 
     self.n_channels = None
 
-    self.link = link
-    self.link.add_callback(MSG_TRACKING_STATE, self.tracking_state_callback)
-
     self.plot_data = ArrayPlotData(t=[0.0])
     self.plot = Plot(self.plot_data, auto_colors=colours_list)
     self.plot.title = "Tracking C/N0"
@@ -119,6 +116,9 @@ class TrackingView(HasTraits):
     self.plot.legend.visible = True
     self.plot.legend.align = 'ul'
     self.plot.legend.tools.append(LegendTool(self.plot.legend, drag_button="right"))
+
+    self.link = link
+    self.link.add_callback(MSG_TRACKING_STATE, self.tracking_state_callback)
 
     self.python_console_cmds = {
       'track': self
