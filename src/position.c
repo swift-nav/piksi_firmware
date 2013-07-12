@@ -86,6 +86,8 @@ void position_updated(void)
     last_time = position_solution.time;
     memcpy(last_ecef, position_solution.pos_ecef, sizeof(last_ecef));
   }
+
+  position_quality = POSITION_FIX;
 }
 
 /** \} */

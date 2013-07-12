@@ -1,5 +1,6 @@
 from traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button
 from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor
+from pyface.api import GUI
 
 from chaco.api import BarPlot, ArrayDataSource, DataRange1D, LinearMapper, OverlayPlotContainer, LabelAxis, PlotAxis, ArrayPlotData, Plot
 from enable.api import ComponentEditor, Component
@@ -8,7 +9,6 @@ import struct
 import math
 import numpy as np
 from scipy.stats import nanmean
-import swiftnav.coord_system as cs
 import datetime
 
 MSG_SOLUTION = 0x50
@@ -73,6 +73,13 @@ class SolutionView(HasTraits):
     self.lats = []
     self.lngs = []
     self.alts = []
+    self.llhs[:] = np.nan
+    self.ecefs[:] = np.nan
+
+  def _solution_callback(self, data):
+    # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
+    # actually perform the update in the UI thread.
+    GUI.invoke_later(self.solution_callback, data)
 
   def solution_callback(self, data):
     soln = struct.unpack('<3d3d3d3d7ddddHBB', data)
@@ -81,6 +88,8 @@ class SolutionView(HasTraits):
     vel_ned = soln[6:9]
     vel_ecef = soln[9:12]
     err_cov = soln[12:19]
+    clock_offset = soln[19]
+    clock_bias = soln[20]
     self.gps_tow = soln[21]
     self.gps_week = soln[22]
     soln_valid = soln[23]
@@ -124,10 +133,6 @@ class SolutionView(HasTraits):
   def __init__(self, link):
     super(SolutionView, self).__init__()
 
-    self.link = link
-    self.link.add_callback(MSG_SOLUTION, self.solution_callback)
-    self.link.add_callback(MSG_SOLUTION_DOPS, self.dops_callback)
-
     self.plot_data = ArrayPlotData(lat=[0.0], lng=[0.0], alt=[0.0], t=[0.0], ref_lat=[0.0], ref_lng=[0.0], region_lat=[0.0], region_lng=[0.0])
     self.plot = Plot(self.plot_data) #, auto_colors=colours_list)
 
@@ -150,6 +155,10 @@ class SolutionView(HasTraits):
         marker_size=10,
         line_width=1.5
     )
+
+    self.link = link
+    self.link.add_callback(MSG_SOLUTION, self._solution_callback)
+    self.link.add_callback(MSG_SOLUTION_DOPS, self.dops_callback)
 
     self.python_console_cmds = {
       'solution': self

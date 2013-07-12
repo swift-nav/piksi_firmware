@@ -50,7 +50,7 @@ extern u8 nap_track_n_channels;
   (1 << (NAP_TRACK_INIT_CODE_PHASE_WIDTH - 10))
 
 #define NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ       \
-  ((1 << NAP_TRACK_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ)
+  ((1 << NAP_TRACK_CARRIER_FREQ_WIDTH) / (double)SAMPLE_FREQ)
 
 #define NAP_TRACK_NOMINAL_CODE_PHASE_RATE         \
   (1 << (NAP_TRACK_CODE_PHASE_WIDTH - 1))

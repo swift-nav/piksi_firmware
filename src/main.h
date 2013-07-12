@@ -13,7 +13,7 @@
 #ifndef SWIFTNAV_MAIN_H
 #define SWIFTNAV_MAIN_H
 
-#include <libopencm3/cm3/common.h>
+#include <libswiftnav/common.h>
 
 #define SAMPLE_FREQ 16368000
 #define L1_HZ 1575.42e6
