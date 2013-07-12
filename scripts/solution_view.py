@@ -1,5 +1,6 @@
 from traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button
 from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor
+from pyface.api import GUI
 
 from chaco.api import BarPlot, ArrayDataSource, DataRange1D, LinearMapper, OverlayPlotContainer, LabelAxis, PlotAxis, ArrayPlotData, Plot
 from enable.api import ComponentEditor, Component
@@ -74,6 +75,11 @@ class SolutionView(HasTraits):
     self.alts = []
     self.llhs[:] = np.nan
     self.ecefs[:] = np.nan
+
+  def _solution_callback(self, data):
+    # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
+    # actually perform the update in the UI thread.
+    GUI.invoke_later(self.solution_callback, data)
 
   def solution_callback(self, data):
     soln = struct.unpack('<3d3d3d3d7ddddHBB', data)
@@ -151,7 +157,7 @@ class SolutionView(HasTraits):
     )
 
     self.link = link
-    self.link.add_callback(MSG_SOLUTION, self.solution_callback)
+    self.link.add_callback(MSG_SOLUTION, self._solution_callback)
     self.link.add_callback(MSG_SOLUTION_DOPS, self.dops_callback)
 
     self.python_console_cmds = {
