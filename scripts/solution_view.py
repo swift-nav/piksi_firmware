@@ -13,8 +13,7 @@ import os
 import numpy as np
 import datetime
 
-MSG_SOLUTION = 0x50
-MSG_SOLUTION_DOPS = 0x51
+import sbp_messages as ids
 
 class SimpleAdapter(TabularAdapter):
     columns = [('Item', 0), ('Value',  1)]
@@ -197,8 +196,8 @@ class SolutionView(HasTraits):
     self.plot.overlays.append(zt)
 
     self.link = link
-    self.link.add_callback(MSG_SOLUTION, self._solution_callback)
-    self.link.add_callback(MSG_SOLUTION_DOPS, self.dops_callback)
+    self.link.add_callback(ids.SOLUTION, self._solution_callback)
+    self.link.add_callback(ids.DOPS, self.dops_callback)
 
     self.python_console_cmds = {
       'solution': self

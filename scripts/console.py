@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import serial_link
+import sbp_messages as ids
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
@@ -80,7 +81,7 @@ class SwiftConsole(HasTraits):
     self.console_output = OutputStream()
 
     self.link = serial_link.SerialLink(*args, **kwargs)
-    self.link.add_callback(serial_link.MSG_PRINT, self.print_message_callback)
+    self.link.add_callback(ids.PRINT, self.print_message_callback)
 
     self.tracking_view = TrackingView(self.link)
     self.almanac_view = AlmanacView(self.link)

@@ -25,21 +25,19 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import serial_link
+import sbp_messages as ids
 import flash
 import argparse
 import sys
 from intelhex import IntelHex
 import time
 
-MSG_BOOTLOADER_HANDSHAKE   = 0xB0 # Callback in both C and Python
-MSG_BOOTLOADER_JUMP_TO_APP = 0xB1 # Callback in C
-
 class Bootloader():
   _handshake_received = False
 
   def __init__(self, link):
     self.link = link
-    self.link.add_callback(MSG_BOOTLOADER_HANDSHAKE,self._handshake_callback)
+    self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
 
   def _handshake_callback(self, data):
     self._handshake_received = True
@@ -49,10 +47,10 @@ class Bootloader():
       time.sleep(0.1)
 
   def reply_handshake(self):
-    self.link.send_message(MSG_BOOTLOADER_HANDSHAKE, '\x00')
+    self.link.send_message(ids.BOOTLOADER_HANDSHAKE, '\x00')
 
   def jump_to_app(self):
-    self.link.send_message(MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
+    self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Piksi Bootloader')
@@ -96,7 +94,7 @@ if __name__ == "__main__":
       # Couldn't find device
       time.sleep(0.01)
   print "link with device successfully created."
-  link.add_callback(serial_link.MSG_PRINT, serial_link.default_print_callback)
+  link.add_callback(ids.PRINT, serial_link.default_print_callback)
 
   # Tell Bootloader we want to change flash data
   piksi_bootloader = Bootloader(link)
