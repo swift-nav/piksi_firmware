@@ -181,7 +181,7 @@ class SolutionView(HasTraits):
     self.plot = Plot(self.plot_data)
 
     self.plot.plot(('lat', 'lng'), type='line', name='line', color=(0, 0, 0, 0.1))
-    self.plot.plot(('lat', 'lng'), type='scatter', name='points', color='blue', marker='dot', marker_size=1.0)
+    self.plot.plot(('lat', 'lng'), type='scatter', name='points', color='blue', marker='dot', line_width=0.0, marker_size=1.0)
 
     self.plot.index_axis.tick_label_position = 'inside'
     self.plot.index_axis.tick_label_color = 'gray'
