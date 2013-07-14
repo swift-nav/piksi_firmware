@@ -5,14 +5,19 @@ import sbp_messages as ids
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
-parser.add_argument('-p', '--port',
-                   default=[serial_link.DEFAULT_PORT], nargs=1,
+parser.add_argument('-p', '--port', nargs=1, default=[serial_link.DEFAULT_PORT],
                    help='specify the serial port to use.')
 parser.add_argument("-f", "--ftdi",
                   help="use pylibftdi instead of pyserial.",
                   action="store_true")
+parser.add_argument('-t', '--toolkit', nargs=1, default=[None],
+                   help="specify the TraitsUI toolkit to use, either 'wx' or 'qt4'.")
 args = parser.parse_args()
 serial_port = args.port[0]
+
+if args.toolkit[0] is not None:
+  from traits.etsconfig.api import ETSConfig
+  ETSConfig.toolkit = args.toolkit[0]
 
 import logging
 logging.basicConfig()
