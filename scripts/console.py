@@ -49,10 +49,10 @@ class SwiftConsole(HasTraits):
       Tabbed(
         Item('tracking_view', style='custom', label='Tracking'),
         Item('almanac_view', style='custom', label='Almanac'),
-        Item('solution_view', style='custom'),
+        Item('solution_view', style='custom', label='Solution'),
         Item(
           'python_console_env', style='custom',
-          label='Console', editor=ShellEditor()
+          label='Python Console', editor=ShellEditor()
         ),
         show_labels=False
       ),
@@ -66,7 +66,8 @@ class SwiftConsole(HasTraits):
     ),
     resizable = True,
     width = 1000,
-    height = 600
+    height = 600,
+    title = 'Piksi console'
   )
 
   def print_message_callback(self, data):
