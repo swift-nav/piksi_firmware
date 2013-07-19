@@ -11,7 +11,8 @@ import struct
 
 import numpy as np
 
-MSG_TRACKING_STATE = 0x22
+import sbp_messages as ids
+
 TRACKING_STATE_BYTES_PER_CHANNEL = 6
 NUM_POINTS = 200
 
@@ -118,7 +119,7 @@ class TrackingView(HasTraits):
     self.plot.legend.tools.append(LegendTool(self.plot.legend, drag_button="right"))
 
     self.link = link
-    self.link.add_callback(MSG_TRACKING_STATE, self.tracking_state_callback)
+    self.link.add_callback(ids.TRACKING_STATE, self.tracking_state_callback)
 
     self.python_console_cmds = {
       'track': self

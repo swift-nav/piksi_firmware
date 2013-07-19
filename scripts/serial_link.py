@@ -6,14 +6,14 @@ import threading
 import time
 import sys
 
+import sbp_messages as ids
+
 
 DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 1000000
 
 SBP_HEADER_1 = 0xBE
 SBP_HEADER_2 = 0xEF
-
-MSG_PRINT = 0x01
 
 crc16_tab = [
   0x0000,0x1021,0x2042,0x3063,0x4084,0x50a5,0x60c6,0x70e7,
@@ -195,7 +195,7 @@ if __name__ == "__main__":
   args = parser.parse_args()
   serial_port = args.port[0]
   link = SerialLink(serial_port, use_ftdi=args.ftdi)
-  link.add_callback(MSG_PRINT, default_print_callback)
+  link.add_callback(ids.PRINT, default_print_callback)
   char = 0
   try:
     while True:
