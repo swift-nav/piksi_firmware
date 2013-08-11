@@ -58,9 +58,9 @@ def crc16(s, crc=0):
   return crc
 
 class ListenerThread (threading.Thread):
-  wants_to_stop = False
 
   def __init__(self, link):
+    self.wants_to_stop = False
     super(ListenerThread, self).__init__()
     self.link = link
 
@@ -86,10 +86,11 @@ class ListenerThread (threading.Thread):
         print traceback.format_exc()
 
 class SerialLink:
-  unhandled_bytes = 0
-  callbacks = {}
 
   def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False):
+    self.callbacks = {}
+    self.unhandled_bytes = 0
+
     if use_ftdi:
       import pylibftdi
       self.ser = pylibftdi.Device()
