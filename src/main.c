@@ -160,7 +160,13 @@ int main(void)
         }
       }
 
-    DO_EVERY_TICKS(TICK_FREQ/2,
+    static last_tow = 0;
+    if (tracking_channel[0].state == TRACKING_RUNNING &&
+        (tracking_channel[0].TOW_ms - last_tow > 100) &&
+        (tracking_channel[0].TOW_ms % 1000 < 10))
+    {
+    last_tow = tracking_channel[0].TOW_ms;
+    /*DO_EVERY_TICKS(TICK_FREQ,*/
 
       u8 n_ready = 0;
       for (u8 i=0; i<nap_track_n_channels; i++) {
@@ -202,7 +208,8 @@ int main(void)
           );
         }
       }
-    );
+    /*);*/
+    }
 
     DO_EVERY_TICKS(TICK_FREQ,
       nmea_gpgsa(tracking_channel, 0);
