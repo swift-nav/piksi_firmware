@@ -82,11 +82,18 @@ class SwiftConsole(HasTraits):
     except UnicodeDecodeError:
       print "Oh crap!"
 
+  def debug_var_callback(self, data):
+    x = struct.unpack('<d', data[:8])[0]
+    name = data[8:]
+    print "VAR: %s = %d" % (name, x)
+
   def __init__(self, *args, **kwargs):
     self.console_output = OutputStream()
 
     self.link = serial_link.SerialLink(*args, **kwargs)
     self.link.add_callback(ids.PRINT, self.print_message_callback)
+
+    self.link.add_callback(ids.DEBUG_VAR, self.debug_var_callback)
 
     self.tracking_view = TrackingView(self.link)
     self.almanac_view = AlmanacView(self.link)
