@@ -30,6 +30,8 @@ typedef struct {
   ephemeris_t *eph;
 } rtcm_t;
 
+int gen_rtcm3(rtcm_t *rtcm, int type, int sync);
+
 #endif
 
 

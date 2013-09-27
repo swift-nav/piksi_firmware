@@ -142,12 +142,12 @@ void setbits(u8 *buff, u32 pos, u32 len, s32 data)
     data &= ~(1 << (len - 1));   /* set sign bit */
   setbitu(buff, pos, len, (u32)data);
 }
-
+/*
 static double myfmod(double x, double y)
 {
   return x - (long long int)(x/y) * y;
 }
-
+*/
 /* carrier-phase - pseudorange in cycle --------------------------------------*/
 static double cp_pr(double cp, double pr_cyc)
 {
@@ -164,7 +164,8 @@ static void gen_obs_gps(rtcm_t *rtcm, const navigation_measurement_t *data,
     int *code1, int *pr1, int *ppr1, int *lock1, int *amb, int *cnr1)
 {
   double lam1, pr1c = 0.0, ppr;
-  int lt1, lt2;
+  /*int lt1, lt2;*/
+  (void)rtcm;
 
   lam1 = CLIGHT / FREQ1;
   *pr1 = *amb = 0;
@@ -193,7 +194,6 @@ static void gen_obs_gps(rtcm_t *rtcm, const navigation_measurement_t *data,
 /* encode rtcm header --------------------------------------------------------*/
 static int encode_head(int type, rtcm_t *rtcm, int sync, int nsat)
 {
-  double tow;
   int i = 24, epoch;
 
   setbitu(rtcm->buff, i, 12, type); i += 12;        /* message no */
@@ -214,7 +214,7 @@ static int encode_head(int type, rtcm_t *rtcm, int sync, int nsat)
 /* encode type 1002: extended L1-only gps rtk observables --------------------*/
 static int encode_type1002(rtcm_t *rtcm, int sync)
 {
-  int i, j, nsat = 0, sys, prn;
+  int i, j;
   int code1, pr1, ppr1, lock1, amb, cnr1;
 
   /* encode header */
@@ -246,9 +246,11 @@ static int encode_type1019(rtcm_t *rtcm, int sync)
 {
   ephemeris_t *swift_eph;
   unsigned int sqrtA, e;
-  int i = 24, prn, week, toe, toc, i0, OMG0, omg, M0, deln, idot, OMGd, crs,
+  int i = 24, week, toe, toc, i0, OMG0, omg, M0, deln, idot, OMGd, crs,
       crc;
   int cus, cuc, cis, cic, af0, af1, af2, tgd;
+
+  (void)sync;
 
   swift_eph = rtcm->eph;
 
@@ -373,7 +375,7 @@ extern int encode_rtcm3(rtcm_t *rtcm, int type, int sync)
 *          int    sync    I  sync flag (1:another message follows)
 * return : status (1:ok,0:error)
 *-----------------------------------------------------------------------------*/
-extern int gen_rtcm3(rtcm_t *rtcm, int type, int sync)
+int gen_rtcm3(rtcm_t *rtcm, int type, int sync)
 {
   unsigned int crc;
   int i = 0;

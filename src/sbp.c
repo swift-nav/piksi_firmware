@@ -11,7 +11,9 @@
  */
 
 #include <errno.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/usart.h>
@@ -424,7 +426,7 @@ int _write(int file, char *ptr, int len)
   }
 }
 
-void debug_variable(u8* name, double x)
+void debug_variable(char *name, double x)
 {
   u8 sl = strlen(name);
   u8* buff = malloc(sl + sizeof(double));
