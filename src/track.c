@@ -106,7 +106,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].snr_threshold_count = 0;
 
   comp_tl_init(&(tracking_channel[channel].tl_state), 1e3,
-               code_phase_rate-1.023e6, 2, 0.7, 1,
+               code_phase_rate-1.023e6, 1, 0.7, 1,
                carrier_freq, 15, 0.7, 1,
                0.005, 1540, 5000);
 
