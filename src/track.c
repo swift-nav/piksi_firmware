@@ -116,7 +116,10 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   tracking_channel[channel].code_phase_rate_fp_prev = tracking_channel[channel].code_phase_rate_fp;
   tracking_channel[channel].code_phase_rate = code_phase_rate;
+  tracking_channel[channel].carrier_phase = 0;
   tracking_channel[channel].carrier_freq = carrier_freq;
+  tracking_channel[channel].carrier_freq_fp = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
+  tracking_channel[channel].carrier_freq_fp_prev = tracking_channel[channel].carrier_freq_fp;
   tracking_channel[channel].sample_count = start_sample_count;
 
   nav_msg_init(&tracking_channel[channel].nav_msg);
@@ -174,6 +177,7 @@ void tracking_channel_update(u8 channel)
     {
       chan->update_count++;
       chan->sample_count += chan->corr_sample_count;
+      /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       if (chan->TOW_ms > 0) {
         chan->TOW_ms++;
         if (chan->TOW_ms == 7*24*60*60*1000)
@@ -181,16 +185,25 @@ void tracking_channel_update(u8 channel)
       }
 
       chan->code_phase_early = (u64)chan->code_phase_early + (u64)chan->corr_sample_count*chan->code_phase_rate_fp_prev;
-      chan->carrier_phase += chan->carrier_freq * 1e-3;
+      chan->carrier_phase += chan->carrier_freq_fp_prev * chan->corr_sample_count;
+      /* TODO: Fix this in the FPGA - first integration is one sample short. */
+      if (chan->update_count == 1)
+        chan->carrier_phase -= chan->carrier_freq_fp_prev;
 
-      /*u64 cp;*/
-      /*u32 cf;*/
-      /*nap_track_phase_rd_blocking(channel, &cf, &cp);*/
+#if 0
+      u64 cp;
+      s32 cf;
+      nap_track_phase_rd_blocking(channel, &cf, &cp);
       /*if ((cp&0xFFFFFFFF) != chan->code_phase_early) {*/
-        /*DO_ONLY(100,*/
+        DO_EVERY_TICKS(TICK_FREQ,
+          struct { s32 xtend : 24; } sign;
+          sign.xtend = chan->carrier_phase & 0xFFFFFF;
+          s32 x = sign.xtend;
           /*printf("%d %u CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->update_count, (unsigned int)chan->code_phase_rate_fp_prev, (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);*/
-        /*);*/
+          printf("CF: %f 0x%08X, NAP: %d (%f), STM: %f (%d %f) - %d\n", chan->carrier_freq, (int)(chan->carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ), (int)cf, (double)cf / (double)(1<<24), (double)chan->carrier_phase / (double)(1<<24), (int)x, (double)x / (double)(1<<24), (int)(cf - x));
+        );
       /*}*/
+#endif
 
       /* Correlations should already be in chan->cs thanks to
        * tracking_channel_get_corrs.
@@ -224,6 +237,7 @@ void tracking_channel_update(u8 channel)
       chan->carrier_freq = chan->tl_state.carr_freq;
       chan->code_phase_rate = chan->tl_state.code_freq + 1.023e6;
 
+      /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       s32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
 
       if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
@@ -234,8 +248,11 @@ void tracking_channel_update(u8 channel)
       chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
       chan->code_phase_rate_fp = chan->code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
+      chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
+      chan->carrier_freq_fp = chan->carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
+
       nap_track_update_wr_blocking(channel, \
-                         chan->carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
+                         chan->carrier_freq_fp, \
                          chan->code_phase_rate_fp);
       break;
     }
@@ -273,11 +290,14 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   //meas->code_phase_rate = (double)chan->code_phase_rate_fp_prev / NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   //meas->code_phase_rate = 1.023e6 * (1 + chan->carrier_freq/L1_HZ);
   meas->code_phase_rate = chan->code_phase_rate;
-  meas->carrier_phase = chan->carrier_phase;// + (chan->nav_msg.subframe_start_index < 0) ? 0.5 : 0;
+  meas->carrier_phase = chan->carrier_phase / (double)(1<<24);
   meas->carrier_freq = chan->carrier_freq;
   meas->time_of_week_ms = chan->TOW_ms;
   meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
   meas->snr = tracking_channel_snr(channel);
+  if (chan->nav_msg.inverted) {
+    meas->carrier_phase += 0.5;
+  }
 }
 
 /** Calculate a tracking channel's current SNR.
