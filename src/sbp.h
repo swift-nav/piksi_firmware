@@ -71,5 +71,12 @@ void sbp_process_usart(sbp_process_messages_state_t *s);
 void sbp_process_messages();
 u16 crc16_ccitt(const u8 *buf, u8 len, u16 crc);
 
+void debug_variable(char *name, double x);
+
+#define DEBUG_VAR(name, x, rate) { \
+  DO_EVERY_TICKS(TICK_FREQ/rate,   \
+      debug_variable((name), (x)); \
+  ); }
+
 #endif
 

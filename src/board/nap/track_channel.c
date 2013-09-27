@@ -171,11 +171,17 @@ void nap_track_corr_rd_blocking(u8 channel, u16* sample_count, corr_t corrs[])
  *                      period)
  */
 /* TODO : take code phase out of phase register, it's always zero */
-void nap_track_phase_unpack(u8 packed[], u32* carrier_phase, u64* code_phase)
+void nap_track_phase_unpack(u8 packed[], s32* carrier_phase, u64* code_phase)
 {
-  *carrier_phase = packed[8] |
-                   (packed[7] << 8) |
-                   (packed[6] << 16);
+  /* graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
+
+  struct { s32 xtend : 24; } sign;
+
+  sign.xtend = packed[8] |
+               (packed[7] << 8) |
+               (packed[6] << 16);
+
+  *carrier_phase = sign.xtend; /* Sign extend! */
 
   *code_phase = (u64)packed[5] |
                 ((u64)packed[4] << 8) |
@@ -194,7 +200,7 @@ void nap_track_phase_unpack(u8 packed[], u32* carrier_phase, u64* code_phase)
  *                      rollovers are defined to be edges of correlation
  *                      period)
  */
-void nap_track_phase_rd_blocking(u8 channel, u32* carrier_phase,
+void nap_track_phase_rd_blocking(u8 channel, s32* carrier_phase,
                                  u64* code_phase)
 {
   u8 temp[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };

@@ -21,6 +21,7 @@
  * \{ */
 
 #define MSG_PRINT                   0x01  /**< Piksi  -> Host  */
+#define MSG_DEBUG_VAR               0x02  /**< Piksi  -> Host  */
 
 #define MSG_ALMANAC                 0x69  /**< Host   -> Piksi */
 #define MSG_SET_TIME                0x68  /**< Host   -> Piksi */
@@ -47,6 +48,7 @@
 
 #define MSG_SOLUTION                0x50  /**< Piksi  -> Host  */
 #define MSG_DOPS                    0x51  /**< Piksi  -> Host  */
+#define MSG_OBSERVATIONS            0x52  /**< Piksi  -> Host  */
 
 #define MSG_TRACKING_STATE          0x22  /**< Piksi  -> Host  */
 
