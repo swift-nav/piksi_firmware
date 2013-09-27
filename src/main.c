@@ -193,7 +193,12 @@ int main(void)
         dops_t dops;
         if (calc_PVT(n_ready, nav_meas, &position_solution, &dops) == 0) {
           position_updated();
-
+/*
+          set_time_fine(nav_tc, position_solution.clock_bias, position_solution.time);
+          printf("dt: %g\n", gpsdifftime(position_solution.time, rx2gpstime(nav_tc)));
+          printf("est clock freq: %g\n", 16.368e6 - 1.0/clock_state.clock_period);
+          printf("clock offset: %g, clock bias: %g\n", position_solution.clock_offset, position_solution.clock_bias);
+*/
           for (u8 i=0; i<n_ready; i++)
             sbp_send_msg(MSG_OBSERVATIONS, sizeof(navigation_measurement_t), (u8 *) &nav_meas[i]);
 
