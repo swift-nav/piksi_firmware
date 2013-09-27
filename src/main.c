@@ -125,8 +125,6 @@ int main(void)
   static ephemeris_t es_old[32];
   while(1)
   {
-    for (u32 i = 0; i < 3000; i++)
-      __asm__("nop");
     sbp_process_messages();
     manage_track();
     manage_acq();
@@ -160,13 +158,12 @@ int main(void)
         }
       }
 
-    static last_tow = 0;
+    static u32 last_tow = 0;
     if (tracking_channel[0].state == TRACKING_RUNNING &&
         (tracking_channel[0].TOW_ms - last_tow > 100) &&
-        (tracking_channel[0].TOW_ms % 1000 < 10))
+        ((tracking_channel[0].TOW_ms + 70) % 1000 < 10))
     {
     last_tow = tracking_channel[0].TOW_ms;
-    /*DO_EVERY_TICKS(TICK_FREQ,*/
 
       u8 n_ready = 0;
       for (u8 i=0; i<nap_track_n_channels; i++) {
@@ -208,13 +205,12 @@ int main(void)
           );
         }
       }
-    /*);*/
     }
 
     DO_EVERY_TICKS(TICK_FREQ,
       nmea_gpgsa(tracking_channel, 0);
     );
-    DO_EVERY_TICKS(TICK_FREQ/10, // 10 Hz update
+    DO_EVERY_TICKS(TICK_FREQ/5, // 5 Hz update
       tracking_send_state();
     );
 
