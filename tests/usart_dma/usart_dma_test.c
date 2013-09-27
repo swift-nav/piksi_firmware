@@ -15,24 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
-#include <libopencm3/stm32/f4/rcc.h>
 
 #include "main.h"
-#include "init.h"
-#include "error.h"
 #include "sbp.h"
 #include "board/leds.h"
 #include "board/nap/nap_common.h"
-#include "peripherals/usart.h"
-
-#define MSG_ECHO 0xEC
-
-void echo_callback(u8 buff[]){
-  printf("%c\r",(char)buff[0]);
-}
 
 int main(void)
 {
@@ -43,23 +31,19 @@ int main(void)
   led_on(LED_GREEN);
   led_on(LED_RED);
 
+  /* NAP is not required for this test. */
   nap_conf_b_setup();
   nap_conf_b_clear();
 
   sbp_setup(0);
 
-  static msg_callbacks_node_t echo_node;
-  sbp_register_callback(MSG_ECHO, &echo_callback, &echo_node);
-
-  while(1) {
-    DO_EVERY(3000,
-      led_toggle(LED_RED);
-      led_toggle(LED_GREEN);
-    );
-    sbp_process_messages();
+  while (1) {
+    led_toggle(LED_RED);
+    led_toggle(LED_GREEN);
+    for (int i = 0; i < 10000; i++) /* Wait a bit. */
+      __asm__("NOP");
+    printf("ABCDEFGHIJKLMNOPQRSTUVWXYZ\n\r");
   }
-
-  while (1);
 
 	return 0;
 }
