@@ -194,6 +194,9 @@ int main(void)
         if (calc_PVT(n_ready, nav_meas, &position_solution, &dops) == 0) {
           position_updated();
 
+          for (u8 i=0; i<n_ready; i++)
+            sbp_send_msg(MSG_OBSERVATIONS, sizeof(navigation_measurement_t), (u8 *) &nav_meas[i]);
+
           sbp_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &position_solution);
           nmea_gpgga(&position_solution, &dops);
 
