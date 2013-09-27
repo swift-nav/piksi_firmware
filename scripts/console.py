@@ -1,17 +1,23 @@
 #!/usr/bin/env python
 
 import serial_link
+import sbp_messages as ids
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
-parser.add_argument('-p', '--port',
-                   default=[serial_link.DEFAULT_PORT], nargs=1,
+parser.add_argument('-p', '--port', nargs=1, default=[serial_link.DEFAULT_PORT],
                    help='specify the serial port to use.')
 parser.add_argument("-f", "--ftdi",
                   help="use pylibftdi instead of pyserial.",
                   action="store_true")
+parser.add_argument('-t', '--toolkit', nargs=1, default=[None],
+                   help="specify the TraitsUI toolkit to use, either 'wx' or 'qt4'.")
 args = parser.parse_args()
 serial_port = args.port[0]
+
+if args.toolkit[0] is not None:
+  from traits.etsconfig.api import ETSConfig
+  ETSConfig.toolkit = args.toolkit[0]
 
 import logging
 logging.basicConfig()
@@ -49,10 +55,10 @@ class SwiftConsole(HasTraits):
       Tabbed(
         Item('tracking_view', style='custom', label='Tracking'),
         Item('almanac_view', style='custom', label='Almanac'),
-        Item('solution_view', style='custom'),
+        Item('solution_view', style='custom', label='Solution'),
         Item(
           'python_console_env', style='custom',
-          label='Console', editor=ShellEditor()
+          label='Python Console', editor=ShellEditor()
         ),
         show_labels=False
       ),
@@ -66,7 +72,8 @@ class SwiftConsole(HasTraits):
     ),
     resizable = True,
     width = 1000,
-    height = 600
+    height = 600,
+    title = 'Piksi console'
   )
 
   def print_message_callback(self, data):
@@ -79,7 +86,7 @@ class SwiftConsole(HasTraits):
     self.console_output = OutputStream()
 
     self.link = serial_link.SerialLink(*args, **kwargs)
-    self.link.add_callback(serial_link.MSG_PRINT, self.print_message_callback)
+    self.link.add_callback(ids.PRINT, self.print_message_callback)
 
     self.tracking_view = TrackingView(self.link)
     self.almanac_view = AlmanacView(self.link)

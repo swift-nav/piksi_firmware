@@ -4,8 +4,7 @@ import time
 import struct
 import sys
 import serial_link
-
-MSG_STM_UNIQUE_ID = 0xE5
+import sbp_messages as ids
 
 class STMUniqueID:
   unique_id_returned = False
@@ -13,7 +12,7 @@ class STMUniqueID:
 
   def __init__(self,link):
     self.link = link
-    link.add_callback(MSG_STM_UNIQUE_ID, self.receive_stm_unique_id_callback)
+    link.add_callback(ids.STM_UNIQUE_ID, self.receive_stm_unique_id_callback)
 
   def receive_stm_unique_id_callback(self,data):
     self.unique_id_returned = True
@@ -22,7 +21,7 @@ class STMUniqueID:
   def get_id(self):
     self.unique_id_returned = False
     self.unique_id = None
-    self.link.send_message(MSG_STM_UNIQUE_ID, struct.pack("<I",0))
+    self.link.send_message(ids.STM_UNIQUE_ID, struct.pack("<I",0))
     while not self.unique_id_returned:
       time.sleep(0.1)
     return self.unique_id

@@ -2,20 +2,11 @@
 # Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
 
 import serial_link
+import sbp_messages as ids
 import struct
 import time
 import sys
 from itertools import groupby
-
-MSG_STM_FLASH_WRITE = 0xE0 # Callback in C
-MSG_STM_FLASH_READ  = 0xE1 # Callback in both C and Python
-MSG_STM_FLASH_ERASE = 0xE2 # Callback in C
-MSG_STM_FLASH_DONE  = 0xE0 # Callback in Python
-
-MSG_M25_FLASH_WRITE = 0xF0 # Callback in C
-MSG_M25_FLASH_READ  = 0xF1 # Callback in both C and Python
-MSG_M25_FLASH_ERASE = 0xF2 # Callback in C
-MSG_M25_FLASH_DONE  = 0xF0 # Callback in Python
 
 ADDRS_PER_OP = 128
 
@@ -70,18 +61,18 @@ class Flash():
     self.link = link
     self.flash_type = flash_type
     if self.flash_type == "STM":
-      self.link.add_callback(MSG_STM_FLASH_DONE, self._done_callback)
-      self.link.add_callback(MSG_STM_FLASH_READ, self._read_callback)
-      self.flash_msg_read = MSG_STM_FLASH_READ
-      self.flash_msg_erase = MSG_STM_FLASH_ERASE
-      self.flash_msg_write = MSG_STM_FLASH_WRITE
+      self.link.add_callback(ids.STM_FLASH_DONE, self._done_callback)
+      self.link.add_callback(ids.STM_FLASH_READ, self._read_callback)
+      self.flash_msg_read = ids.STM_FLASH_READ
+      self.flash_msg_erase = ids.STM_FLASH_ERASE
+      self.flash_msg_write = ids.STM_FLASH_WRITE
       self.addr_sector_map = stm_addr_sector_map
     elif self.flash_type == "M25":
-      self.link.add_callback(MSG_M25_FLASH_DONE, self._done_callback)
-      self.link.add_callback(MSG_M25_FLASH_READ, self._read_callback)
-      self.flash_msg_read = MSG_M25_FLASH_READ
-      self.flash_msg_erase = MSG_M25_FLASH_ERASE
-      self.flash_msg_write = MSG_M25_FLASH_WRITE
+      self.link.add_callback(ids.M25_FLASH_DONE, self._done_callback)
+      self.link.add_callback(ids.M25_FLASH_READ, self._read_callback)
+      self.flash_msg_read = ids.M25_FLASH_READ
+      self.flash_msg_erase = ids.M25_FLASH_ERASE
+      self.flash_msg_write = ids.M25_FLASH_WRITE
       self.addr_sector_map = m25_addr_sector_map
     else:
       raise ValueError
