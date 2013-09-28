@@ -22,6 +22,7 @@
 #include "../../sbp.h"
 #include "../../sbp_messages.h"
 #include "../../track.h"
+#include "../../init.h"
 #include "../max2769.h"
 #include "nap_conf.h"
 #include "nap_common.h"
@@ -62,6 +63,12 @@ void nap_setup(void)
    */
   /* TODO: Timeout here if FPGA doesn't configure in expected time? */
   while (!(nap_conf_done() && nap_hash_rd_done())) ;
+
+  /* Reset the NAP internal logic */
+  nap_reset();
+
+  /* Switch the STM's clock to use the Frontend clock from the NAP */
+  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
 
   /* Initialise the SPI peripheral. */
   spi_setup();

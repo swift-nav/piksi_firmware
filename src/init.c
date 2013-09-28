@@ -41,10 +41,7 @@ void init(void)
 
   led_setup();
 
-  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
-
   nap_setup();
-  nap_reset();
 
   sbp_setup(1);
 
