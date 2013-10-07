@@ -39,6 +39,7 @@ from output_stream import OutputStream
 from tracking_view import TrackingView
 from almanac_view import AlmanacView
 from solution_view import SolutionView
+from observation_view import ObservationView
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -49,6 +50,7 @@ class SwiftConsole(HasTraits):
   tracking_view = Instance(TrackingView)
   almanac_view = Instance(AlmanacView)
   solution_view = Instance(SolutionView)
+  observation_view = Instance(ObservationView)
 
   view = View(
     VSplit(
@@ -56,6 +58,7 @@ class SwiftConsole(HasTraits):
         Item('tracking_view', style='custom', label='Tracking'),
         Item('almanac_view', style='custom', label='Almanac'),
         Item('solution_view', style='custom', label='Solution'),
+        Item('observation_view', style='custom', label='Observations'),
         Item(
           'python_console_env', style='custom',
           label='Python Console', editor=ShellEditor()
@@ -98,6 +101,7 @@ class SwiftConsole(HasTraits):
     self.tracking_view = TrackingView(self.link)
     self.almanac_view = AlmanacView(self.link)
     self.solution_view = SolutionView(self.link)
+    self.observation_view = ObservationView(self.link)
 
     self.python_console_env = {
         'send_message': self.link.send_message,
@@ -106,6 +110,7 @@ class SwiftConsole(HasTraits):
     self.python_console_env.update(self.tracking_view.python_console_cmds)
     self.python_console_env.update(self.almanac_view.python_console_cmds)
     self.python_console_env.update(self.solution_view.python_console_cmds)
+    self.python_console_env.update(self.observation_view.python_console_cmds)
 
   def stop(self):
     self.link.close()

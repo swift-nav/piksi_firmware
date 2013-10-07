@@ -199,8 +199,18 @@ int main(void)
           printf("est clock freq: %g\n", 16.368e6 - 1.0/clock_state.clock_period);
           printf("clock offset: %g, clock bias: %g\n", position_solution.clock_offset, position_solution.clock_bias);
 */
-          for (u8 i=0; i<n_ready; i++)
+          static u8 obs_n = 0;
+          struct {
+            gps_time_t t;
+            u8 obs_n;
+            u8 n_obs;
+          } obs_hdr = { .t = position_solution.time, .obs_n = obs_n, .n_obs = n_ready };
+          sbp_send_msg(MSG_OBSERVATION_HDR, sizeof(obs_hdr), (u8 *) &obs_hdr);
+          for (u8 i=0; i<n_ready; i++) {
+            nav_meas[i].obs_n = obs_n;
             sbp_send_msg(MSG_OBSERVATIONS, sizeof(navigation_measurement_t), (u8 *) &nav_meas[i]);
+          }
+          obs_n++;
 
           sbp_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &position_solution);
           nmea_gpgga(&position_solution, &dops);

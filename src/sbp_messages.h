@@ -48,6 +48,7 @@
 
 #define MSG_SOLUTION                0x50  /**< Piksi  -> Host  */
 #define MSG_DOPS                    0x51  /**< Piksi  -> Host  */
+#define MSG_OBSERVATION_HDR         0x53  /**< Piksi  -> Host  */
 #define MSG_OBSERVATIONS            0x52  /**< Piksi  -> Host  */
 
 #define MSG_TRACKING_STATE          0x22  /**< Piksi  -> Host  */
