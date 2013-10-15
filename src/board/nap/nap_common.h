@@ -45,11 +45,21 @@
                                        NAP_IRQ_CW_DONE | \
                                        NAP_IRQ_CW_LOAD_DONE))
 
-/** Structure containing a complex IQ correlation. */
+/** A complex IQ correlation. */
 typedef struct {
   s32 I;  /**< In-phase correlation. */
   s32 Q;  /**< Quadrature correlation. */
 } corr_t;
+
+/** Accumulation of IQ correlations.
+ * Used to receive accumulation of correlations from Acq channel in the form
+ * acc.I = sum(tap[N].corr_i^2) for N = 0 to NAP_ACQ_N_TAPS-1
+ * acc.Q = sum(tap[N].corr_q^2) for N = 0 to NAP_ACQ_N_TAPS-1
+ */
+typedef struct {
+  u64 I;  /**< In-phase correlation accumulation. */
+  u64 Q;  /**< Quadrature correlation accumulation. */
+} acc_t;
 
 /** \} */
 

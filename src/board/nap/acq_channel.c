@@ -139,42 +139,60 @@ void nap_acq_init_wr_disable_blocking()
 /** Unpack correlations read from acquisition channel.
  *
  * \param packed Array of u8 data read from NAP acq channel CORR register.
- * \param corrs  Array of corr_t's of length nap_acq_n_taps.
+ * \param index  Index corresponding to the maximum tap correlation.
+ * \param corr   Maximum tap correlation from last cycle.
+ * \param acc    Accumulation of all tap final correlations from last cycle.
  */
-void nap_acq_corr_unpack(u8 packed[], corr_t corrs[])
+void nap_acq_corr_unpack(u8 packed[], u16 *index, corr_t *corr, acc_t *acc)
 {
+
+  *index = packed[0];
+
   /* http://graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
 
   struct { s32 xtend : 24; } sign;
 
-  for (u8 i = 0; i < nap_acq_n_taps; i++) {
+  sign.xtend  = (packed[1] << 16) /* MSB */
+              | (packed[2] << 8)  /* Middle byte */
+              | (packed[3]);      /* LSB */
 
-    sign.xtend  = (packed[6 * i] << 16)     /* MSB */
-                | (packed[6 * i + 1] << 8)  /* Middle byte */
-                | (packed[6 * i + 2]);      /* LSB */
+  corr->Q = sign.xtend;  /* Sign extend! */
 
-    corrs[i].Q = sign.xtend;  /* Sign extend! */
+  sign.xtend  = (packed[4] << 16) /* MSB */
+              | (packed[5] << 8)  /* Middle byte */
+              | (packed[6]);      /* LSB */
 
-    sign.xtend  = (packed[6 * i + 3] << 16) /* MSB */
-                | (packed[6 * i + 4] << 8)  /* Middle byte */
-                | (packed[6 * i + 5]);      /* LSB */
+  corr->I = sign.xtend;  /* Sign extend! */
 
-    corrs[i].I = sign.xtend;  /* Sign extend! */
-  }
+  acc->Q = ((u64)packed[7] << 40)
+         | ((u64)packed[8] << 32)
+         | ((u64)packed[9] << 24)
+         | ((u64)packed[10] << 16)
+         | ((u64)packed[11] << 8)
+         | ((u64)packed[12] << 0);
+
+  acc->I = ((u64)packed[13] << 40)
+         | ((u64)packed[14] << 32)
+         | ((u64)packed[15] << 24)
+         | ((u64)packed[16] << 16)
+         | ((u64)packed[17] << 8)
+         | ((u64)packed[18] << 0);
 }
 
 /** Read correlations from acquisition channel.
  * Must be called after the NAP IRQ register IRQ_ACQ_DONE bit goes high, before
  * the next acquisition cycle is complete.
  *
- * \param corrs Array of corr_t of length nap_acq_n_taps.
+ * \param index  Index corresponding to the maximum tap correlation.
+ * \param corr   Maximum tap correlation from last cycle.
+ * \param acc    Accumulation of all tap final correlations from last cycle.
  */
-void nap_acq_corr_rd_blocking(corr_t corrs[])
+void nap_acq_corr_rd_blocking(u16 *index, corr_t *corr, acc_t *acc)
 {
-  u8 temp[2 * nap_acq_n_taps * 3];
+  u8 temp[19];
 
-  nap_xfer_blocking(NAP_REG_ACQ_CORR, 2 * nap_acq_n_taps * 3, temp, temp);
-  nap_acq_corr_unpack(temp, corrs);
+  nap_xfer_blocking(NAP_REG_ACQ_CORR, 19, temp, temp);
+  nap_acq_corr_unpack(temp, index, corr, acc);
 }
 
 /** Write CA code to acquisition channel's code ram.

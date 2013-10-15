@@ -112,8 +112,11 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
  */
 void acq_service_irq()
 {
-  u64 power;
-  corr_t cs[nap_acq_n_taps];
+  u16 index_max;
+  corr_t corr_max;
+  acc_t acc;
+
+  u64 power_max;
 
   switch(acq_state.state)
   {
@@ -133,7 +136,7 @@ void acq_service_irq()
 
     case ACQ_RUNNING:
       /* Read in correlations. */
-      nap_acq_corr_rd_blocking(cs);
+      nap_acq_corr_rd_blocking(&index_max, &corr_max, &acc);
 
       /* Write parameters for 2 cycles time for acq pipelining apart
        * from the last two cycles where we want to write disable.
@@ -161,14 +164,13 @@ void acq_service_irq()
         }
       }
 
-      for (u8 i=0; i<nap_acq_n_taps; i++) {
-        power = (u64)cs[i].I*(u64)cs[i].I + (u64)cs[i].Q*(u64)cs[i].Q;
-        acq_state.power_acc += power;
-        if (power > acq_state.best_power) {
-          acq_state.best_power = power;
-          acq_state.best_cf = acq_state.carrier_freq;
-          acq_state.best_cp = acq_state.code_phase + i;
-        }
+      acq_state.power_acc += acc.I + acc.Q;
+      power_max = (u64)corr_max.I*(u64)corr_max.I \
+                + (u64)corr_max.Q*(u64)corr_max.Q;
+      if (power_max > acq_state.best_power) {
+        acq_state.best_power = power_max;
+        acq_state.best_cf = acq_state.carrier_freq;
+        acq_state.best_cp = acq_state.code_phase + index_max;
       }
       acq_state.count += nap_acq_n_taps;
       acq_state.code_phase += nap_acq_n_taps;
