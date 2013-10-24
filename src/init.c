@@ -76,6 +76,8 @@ void init(void)
   register_reset_callback();
 
   m25_setup();
+
+  register_stm_unique_id_callback();
 }
 
 /** Our own basic implementation of sbrk().
