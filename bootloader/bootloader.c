@@ -75,7 +75,7 @@ int main(void)
   sbp_setup(0);
 
   /* STM flash erase/write/read callbacks */
-  stm_flash_callbacks_setup();
+  register_stm_flash_callbacks();
 
   /* Add callback for jumping to application after bootloading is finished */
   static msg_callbacks_node_t jump_to_app_node;

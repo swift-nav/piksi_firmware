@@ -21,6 +21,7 @@
 
 /** \} */
 
-void stm_flash_callbacks_setup();
+void register_stm_flash_callbacks();
+void register_stm_unique_id_callback(void);
 
 #endif

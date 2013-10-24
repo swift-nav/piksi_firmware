@@ -114,33 +114,39 @@ void stm_unique_id_callback()
 }
 
 /** Setup STM flash callbacks. */
-void stm_flash_callbacks_setup()
+void register_stm_flash_callbacks()
 {
   static msg_callbacks_node_t stm_flash_erase_sector_node;
   static msg_callbacks_node_t stm_flash_read_node;
   static msg_callbacks_node_t stm_flash_program_node;
-  static msg_callbacks_node_t stm_unique_id_node;
 
   sbp_register_callback(
     MSG_STM_FLASH_ERASE,
     &stm_flash_erase_sector_callback,
     &stm_flash_erase_sector_node
-    );
+  );
   sbp_register_callback(
     MSG_STM_FLASH_READ,
     &stm_flash_read_callback,
     &stm_flash_read_node
-    );
+  );
   sbp_register_callback(
     MSG_STM_FLASH_WRITE,
     &stm_flash_program_callback,
     &stm_flash_program_node
-    );
+  );
+}
+
+/** Register callback to read Device's Unique ID. */
+void register_stm_unique_id_callback(void)
+{
+  static msg_callbacks_node_t stm_unique_id_node;
+
   sbp_register_callback(
     MSG_STM_UNIQUE_ID,
     &stm_unique_id_callback,
     &stm_unique_id_node
-    );
+  );
 }
 
 /** \} */
