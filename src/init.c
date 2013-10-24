@@ -12,6 +12,7 @@
 
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/cm3/scb.h>
 
 #include "board/leds.h"
 #include "board/m25_flash.h"
@@ -33,6 +34,33 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
   .apb2_frequency = 32736000,
 };
 
+/** Reset the device back into the bootloader. */
+void reset_callback(u8 buff[] __attribute__((unused)))
+{
+  /* Ensure all outstanding memory accesses including buffered writes are
+   * completed before reset. */
+  __asm__("DSB;");
+  /* Keep priority group unchanged. */
+  SCB_AIRCR = SCB_AIRCR_VECTKEY |
+              SCB_AIRCR_PRIGROUP_MASK |
+              SCB_AIRCR_SYSRESETREQ;
+  __asm__("DSB;");
+  /* Wait until reset. */
+  while(1);
+}
+
+/** Register the reset_callback. */
+void register_reset_callback()
+{
+  static msg_callbacks_node_t reset_node;
+
+  sbp_register_callback(
+    MSG_RESET,
+    &reset_callback,
+    &reset_node
+  );
+}
+
 void init(void)
 {
   /* Delay on start-up as some programmers reset the STM twice. */
@@ -44,6 +72,8 @@ void init(void)
   nap_setup();
 
   sbp_setup(1);
+
+  register_reset_callback();
 
   m25_setup();
 }

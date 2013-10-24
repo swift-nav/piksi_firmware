@@ -28,6 +28,8 @@
 #define MSG_BOOTLOADER_HANDSHAKE    0xB0  /**< Host  <-> Piksi */
 #define MSG_BOOTLOADER_JUMP_TO_APP  0xB1  /**< Host   -> Piksi */
 
+#define MSG_RESET                   0xB2  /**< Host   -> Piksi */
+
 #define MSG_CW_START                0xC1  /**< Host   -> Piksi */
 #define MSG_CW_RESULTS              0xC0  /**< Piksi  -> Host  */
 
