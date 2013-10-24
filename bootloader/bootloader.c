@@ -61,6 +61,11 @@ void pc_wants_bootload_callback(u8 buff[] __attribute__((unused)))
 
 int main(void)
 {
+  /* Force FPGA to reconfigure in case we've had a warm reset */
+  nap_conf_b_setup();
+  nap_conf_b_clear();
+  nap_conf_b_set();
+
   /* Setup and turn on LEDs */
   led_setup();
   led_off(LED_GREEN);
