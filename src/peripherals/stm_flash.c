@@ -138,7 +138,7 @@ void register_stm_flash_callbacks()
 }
 
 /** Register callback to read Device's Unique ID. */
-void register_stm_unique_id_callback(void)
+void stm_unique_id_callback_register(void)
 {
   static msg_callbacks_node_t stm_unique_id_node;
 
