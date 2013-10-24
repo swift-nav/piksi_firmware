@@ -50,7 +50,7 @@ void reset_callback(u8 buff[] __attribute__((unused)))
 }
 
 /** Register the reset_callback. */
-void register_reset_callback()
+void reset_callback_register()
 {
   static msg_callbacks_node_t reset_node;
 
@@ -73,7 +73,7 @@ void init(void)
 
   sbp_setup(1);
 
-  register_reset_callback();
+  reset_callback_register();
 
   m25_setup();
 
