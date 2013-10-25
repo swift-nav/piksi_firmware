@@ -43,7 +43,7 @@
 
 /** \} */
 
-void m25_setup(void);
+void m25_register_callbacks(void);
 
 void m25_write_enable(void);
 void m25_write_disable(void);

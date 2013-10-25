@@ -75,7 +75,7 @@ void init(void)
 
   reset_callback_register();
 
-  m25_setup();
+  m25_register_callbacks();
 
   stm_unique_id_callback_register();
 }

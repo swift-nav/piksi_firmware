@@ -32,7 +32,7 @@ int main(void)
 
   spi_setup();
   sbp_setup(0);
-  m25_setup();
+  m25_register_callbacks();
   register_stm_flash_callbacks();
 
   for (u32 i = 0; i < 600000; i++)

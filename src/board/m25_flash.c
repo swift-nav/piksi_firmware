@@ -254,7 +254,7 @@ void m25_flash_erase_callback(u8 buff[])
  * \note The SPI2 bus must be setup and uncontested for these callbacks to
  *       properly communicate with the M25 flash.
  */
-void m25_setup(void)
+void m25_register_callbacks(void)
 {
   /* Assumes SPI bus already setup. */
   static msg_callbacks_node_t m25_flash_program_node;

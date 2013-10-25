@@ -55,7 +55,7 @@ void pc_wants_bootload_callback(u8 buff[] __attribute__((unused)))
   nap_conf_b_setup();
   nap_conf_b_clear();
   spi_setup();
-  m25_setup();
+  m25_register_callbacks();
   pc_wants_bootload = 1;
 }
 
