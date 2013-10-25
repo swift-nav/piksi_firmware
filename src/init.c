@@ -16,6 +16,7 @@
 
 #include "board/leds.h"
 #include "board/m25_flash.h"
+#include "peripherals/stm_flash.h"
 #include "board/nap/nap_common.h"
 #include "sbp.h"
 
