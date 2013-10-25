@@ -54,12 +54,12 @@ def ihx_ranges(ihx):
           groupby(enumerate(ihx.addresses()), lambda (i, x) : i - x)]
 
 class Flash():
-  _waiting_for_callback = False
-  _read_callback_data = []
 
   def __init__(self, link, flash_type):
     self.link = link
     self.flash_type = flash_type
+    self._waiting_for_callback = False
+    self._read_callback_data = []
     if self.flash_type == "STM":
       self.link.add_callback(ids.STM_FLASH_DONE, self._done_callback)
       self.link.add_callback(ids.STM_FLASH_READ, self._read_callback)

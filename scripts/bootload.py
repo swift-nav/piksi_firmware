@@ -33,9 +33,9 @@ from intelhex import IntelHex
 import time
 
 class Bootloader():
-  _handshake_received = False
 
   def __init__(self, link):
+    self._handshake_received = False
     self.link = link
     self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
 
