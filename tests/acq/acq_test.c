@@ -68,6 +68,8 @@ int main(void)
     } else {
       prn++;
     }
+
+    sbp_process_messages();
   }
 
   printf("DONE!\n");
