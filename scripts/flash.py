@@ -56,6 +56,7 @@ def ihx_ranges(ihx):
 class Flash():
 
   def __init__(self, link, flash_type):
+    self.status_str = ''
     self.link = link
     self.flash_type = flash_type
     self._waiting_for_callback = False
@@ -76,6 +77,9 @@ class Flash():
       self.addr_sector_map = m25_addr_sector_map
     else:
       raise ValueError
+
+  def __str__(self):
+    return self.status_str
 
   def sectors_used(self, addrs):
     sectors = set()
@@ -130,25 +134,34 @@ class Flash():
     self._read_callback_data = list(struct.unpack(str(length)+'B', data[5:]))
     self._waiting_for_callback = False
 
-  def write_ihx(self, ihx):
+  def write_ihx(self, ihx, verbose=True):
     # Erase sectors
     ihx_addrs = ihx_ranges(ihx)
     for sector in self.sectors_used(ihx_addrs):
-      print ("Erasing sector %d\r" % sector),
+      self.status_str = self.flash_type + " Flash: Erasing sector %d" % sector
+      if verbose:
+        print '\r' + self.status_str,
       sys.stdout.flush()
       self.erase_sector(sector)
-    print ""
+    if verbose:
+      print ''
 
     # Write data to flash and validate
     start_time = time.time()
     for start, end in ihx_addrs:
       for addr in range(start, end, ADDRS_PER_OP):
-        print ("Programming flash at 0x%08X\r" % addr),
+        self.status_str = self.flash_type + " Flash: Programming flash at " + \
+                          "0x%08X" % addr
+        if verbose:
+          print '\r' + self.status_str,
         sys.stdout.flush()
         binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
         self.write(addr, binary)
         flash_readback = self.read(addr, ADDRS_PER_OP)
         if flash_readback != map(ord, binary):
-          raise Exception('data read from flash != data written to flash')
-    print "\nSuccessfully programmed flash, total time = %d seconds" % int(time.time()-start_time)
+          raise Exception('Data read from flash != Data written to flash')
+    self.status_str = self.flash_type + " Flash: Successfully programmed, " + \
+                      "total time = %d seconds" % int(time.time()-start_time)
+    if verbose:
+      print '\n' + self.status_str
 
