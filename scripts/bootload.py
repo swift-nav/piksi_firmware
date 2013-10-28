@@ -24,12 +24,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import serial_link
 import sbp_messages as ids
-import flash
-import argparse
-import sys
-from intelhex import IntelHex
 import time
 
 class Bootloader():
@@ -43,6 +38,7 @@ class Bootloader():
     self._handshake_received = True
 
   def wait_for_handshake(self):
+    self._handshake_received = False
     while not self._handshake_received:
       time.sleep(0.1)
 
@@ -53,6 +49,12 @@ class Bootloader():
     self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
 
 if __name__ == "__main__":
+  import argparse
+  import thread
+  import serial_link
+  import flash
+  import sys
+  from intelhex import IntelHex
   parser = argparse.ArgumentParser(description='Piksi Bootloader')
   parser.add_argument("file",
                       help="the Intel hex file to write to flash.")
@@ -109,13 +111,12 @@ if __name__ == "__main__":
 
   piksi_flash.write_ihx(ihx)
 
-  print "Telling device to jump to application"
   piksi_bootloader.jump_to_app()
 
   # Wait for ctrl+C until we exit
   try:
     while(1):
-      time.sleep(0.1)
+      time.sleep(0.5)
   except KeyboardInterrupt:
     pass
 
