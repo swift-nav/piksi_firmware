@@ -87,7 +87,8 @@ class ListenerThread (threading.Thread):
 
 class SerialLink:
 
-  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False):
+  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False, print_unhandled=True):
+    self.print_unhandled = print_unhandled
     self.unhandled_bytes = 0
     self.callbacks = {}
     if use_ftdi:
@@ -99,7 +100,7 @@ class SerialLink:
       self.ser = serial.Serial(port, baud, timeout=1)
 
     # Delay then flush the buffer to make sure the receive buffer starts empty.
-    time.sleep(0.2)
+    time.sleep(0.5)
     self.ser.flush()
 
     self.lt = ListenerThread(self)
@@ -128,10 +129,14 @@ class SerialLink:
             break
           else:
             self.unhandled_bytes += 1
-            print "Unhandled byte : 0x%02x," % ord(magic), "total", self.unhandled_bytes
+            if self.print_unhandled:
+              print "Unhandled byte : 0x%02x," % (ord(magic), "total",
+                                                  self.unhandled_bytes)
         else:
           self.unhandled_bytes += 1
-          print "Unhandled byte : 0x%02x," % ord(magic), "total", self.unhandled_bytes
+          if self.print_unhandled:
+            print "Unhandled byte : 0x%02x," % (ord(magic), "total",
+                                                self.unhandled_bytes)
 
     hdr = ""
     while len(hdr) < 2:
