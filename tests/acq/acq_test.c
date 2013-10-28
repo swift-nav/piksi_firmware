@@ -24,11 +24,14 @@
 #include "board/leds.h"
 #include "board/m25_flash.h"
 #include "board/nap/acq_channel.h"
+#include "board/nap/nap_common.h"
 
 int main(void)
 {
-
   init();
+
+  for (u32 i=0; i<100000; i++)
+    __asm__("NOP");
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n\r");
   printf("--- ACQ TEST ---\n\r");
@@ -36,25 +39,35 @@ int main(void)
   float code_phase;
   float carrier_freq;
   float snr;
+  corr_t best_corr;
+  u32 mean_corr;
 
-  acq_schedule_load(nap_timing_count() + 1000);
-  while(!(acq_get_load_done()));
-  led_off(LED_GREEN);
-  led_off(LED_RED);
+  u8 prn = 0;
+  while (1) {
+    acq_schedule_load(nap_timing_count() + 1000);
+    while(!(acq_get_load_done()));
 
-  for (u8 prn=0; prn<32; prn++) {
     nap_acq_code_wr_blocking(prn);
     acq_start(prn, 0, 1023, -7000, 7000, 300);
     while(!(acq_get_done()));
     acq_get_results(&code_phase, &carrier_freq, &snr);
+    best_corr = acq_get_best_corr();
+    mean_corr = acq_get_mean_corr();
+    acq_send_result(prn, snr, code_phase, carrier_freq, best_corr, mean_corr);
 
-    printf("PRN %2u - Code phase: %7.2f, Carrier freq: % 7.1f, SNR: %5.2f", prn+1, code_phase, carrier_freq, snr);
-    if (snr > 50.0)
+    printf("PRN %2u - CP: %7.2f, CF: % 7.1f, SNR: %5.2f, Max I: %6d, Max Q: %6d, Mean Corr: %5d", prn+1, code_phase, carrier_freq, snr, (unsigned int)best_corr.I, (unsigned int)best_corr.Q, (unsigned int)mean_corr);
+    if (snr > 25.0)
       printf("   :D\n");
     else
       printf("\n");
     led_toggle(LED_GREEN);
     led_toggle(LED_RED);
+
+    if (prn == 31) {
+      prn = 0;
+    } else {
+      prn++;
+    }
   }
 
   printf("DONE!\n");

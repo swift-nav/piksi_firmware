@@ -22,8 +22,15 @@
 
 #define MSG_PRINT                   0x01  /**< Piksi  -> Host  */
 
+#define MSG_TRACKING_STATE          0x22  /**< Piksi  -> Host  */
+
+#define MSG_SOLUTION                0x50  /**< Piksi  -> Host  */
+#define MSG_DOPS                    0x51  /**< Piksi  -> Host  */
+
 #define MSG_ALMANAC                 0x69  /**< Host   -> Piksi */
 #define MSG_SET_TIME                0x68  /**< Host   -> Piksi */
+
+#define MSG_ACQ_RESULT              0xA0  /**< Piksi  -> Host  */
 
 #define MSG_BOOTLOADER_HANDSHAKE    0xB0  /**< Host  <-> Piksi */
 #define MSG_BOOTLOADER_JUMP_TO_APP  0xB1  /**< Host   -> Piksi */
@@ -46,11 +53,6 @@
 #define MSG_M25_FLASH_READ          0xF1  /**< Host  <-> Piksi */
 #define MSG_M25_FLASH_ERASE         0xF2  /**< Host   -> Piksi */
 #define MSG_M25_FLASH_DONE          0xF0  /**< Piksi  -> Host  */
-
-#define MSG_SOLUTION                0x50  /**< Piksi  -> Host  */
-#define MSG_DOPS                    0x51  /**< Piksi  -> Host  */
-
-#define MSG_TRACKING_STATE          0x22  /**< Piksi  -> Host  */
 
 /** \} */
 

@@ -14,6 +14,7 @@
 #define SWIFTNAV_ACQ_H
 
 #include <libswiftnav/common.h>
+#include <board/nap/nap_common.h>
 
 /** \addtogroup acq
  * \{ */
@@ -44,6 +45,7 @@ typedef struct {
   s16 best_cf;        /**< Carrier freq corresponding to highest power. */
   u16 best_cp;        /**< Code phase corresponding to highest power. */
   u32 count;          /**< Total number of acquisition points searched. */
+  corr_t best_corr;
 } acq_state_t;
 
 /** \} */
@@ -56,6 +58,9 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
 void acq_service_irq();
 u8 acq_get_done();
 void acq_get_results(float* cp, float* cf, float* snr);
+corr_t acq_get_best_corr();
+u32 acq_get_mean_corr();
+u32 acq_send_result(u8 sv, float snr, float cp, float cf, corr_t bc, u32 mc);
 
 u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr);
 
