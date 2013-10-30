@@ -56,6 +56,7 @@ void pc_wants_bootload_callback(u8 buff[] __attribute__((unused)))
   nap_conf_b_clear();
   spi_setup();
   m25_register_callbacks();
+  register_stm_flash_callbacks();
   pc_wants_bootload = 1;
 }
 
@@ -74,9 +75,6 @@ int main(void)
   /* Setup UART and SBP interface for transmitting and receiving callbacks */
   sbp_setup(0);
 
-  /* STM flash erase/write/read callbacks */
-  register_stm_flash_callbacks();
-
   /* Add callback for jumping to application after bootloading is finished */
   static msg_callbacks_node_t jump_to_app_node;
   sbp_register_callback(MSG_BOOTLOADER_JUMP_TO_APP, &jump_to_app_callback,
@@ -86,9 +84,6 @@ int main(void)
   static msg_callbacks_node_t pc_wants_bootload_node;
   sbp_register_callback(MSG_BOOTLOADER_HANDSHAKE,&pc_wants_bootload_callback,
                           &pc_wants_bootload_node);
-
-  /* Send message to PC indicating bootloader is ready to load program */
-  sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
 
   /* Is current application we are programmed with valid? Check this by seeing
    * if the first address of the application contains the correct stack address
@@ -101,6 +96,7 @@ int main(void)
    * application.
    * TODO : might as well make this as long as FPGA takes to configure itself
    *        from the configuration flash, as it doesn't add to the startup time
+   *        if the firmware is not being changed
    */
 	for (u64 i=0; i<200000; i++){
     DO_EVERY(3000,
