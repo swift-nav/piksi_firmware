@@ -70,7 +70,7 @@ class ObservationView(HasTraits):
     self._obs_table_list = [(prn,) + obs for prn, obs in sorted(self.obs.items(), key=lambda x: x[0])]
 
   def obs_hdr_callback(self, data):
-    tow, wn, obs_n, n_obs = struct.unpack("<dHBB", data)
+    tow, wn, obs_count, n_obs = struct.unpack("<dHBB", data)
     self.gps_tow = tow
     self.gps_week = wn
     self.t = datetime.datetime(1980, 1, 5) + \
@@ -101,34 +101,30 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
       self.rinex_file.flush()
 
   def obs_callback(self, data):
-    fmt = '<dddddd3d3dddHBx'
+    fmt = '<ddffBBBBB'
     """
-    double raw_pseudorange;
-    double raw_pseudorange_rate;
-    double pseudorange;
-    double pseudorange_rate;
-    double carrier_phase;
-    double doppler;
-    double sat_pos[3];
-    double sat_vel[3];
-    double snr;
-    gps_time_t tot;
-    u8 prn, lolz;
+  double P;      /**< Pseudorange (m) */
+  double L;      /**< Carrier-phase (cycles) */
+  float D;       /**< Doppler frequency (Hz) */
+  float snr;     /**< Signal-to-Noise ratio */
+  u8 lock_count; /**< Number of epochs that phase lock has been maintained. */
+  u8 signal;     /**< Upper nibble: Satellite system designator,
+                      Lower nibble: Signal type designator.
+                      TODO: Add defs.*/
+  u8 prn;        /**< Satellite number. */
+  u8 flags;      /**< Observation flags. TODO: Add defs. */
+  u8 obs_n;      /**< Observation number in set. */
     """
     ob = struct.unpack(fmt, data)
-    raw_pr = ob[0]
-    raw_prr = ob[1]
-    pr = ob[2]
-    prr = ob[3]
-    cp = ob[4]
-    dopp = ob[5]
-    sat_pos = np.array(ob[6:9])
-    sat_vel = np.array(ob[9:12])
-    snr = ob[12]
-    tot = ob[13]
-    wn = ob[14]
-    prn = ob[15]
-    self.obs[prn] = (raw_pr, cp, dopp, snr)
+    P = ob[0]
+    L = ob[1]
+    D = ob[2]
+    snr = ob[3]
+    lock_count = ob[4]
+    signal = ob[5]
+    prn = ob[6]
+    flags = ob[7]
+    self.obs[prn] = (P, L, D, snr)
     self.update_obs()
     self.obs_count += 1
     if self.recording and self.obs_count == self.n_obs:
@@ -162,8 +158,8 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     self.rinex_file = None
 
     self.link = link
-    self.link.add_callback(ids.OBSERVATIONS, self.obs_callback)
-    self.link.add_callback(ids.OBSERVATION_HDR, self.obs_hdr_callback)
+    self.link.add_callback(ids.OBS, self.obs_callback)
+    self.link.add_callback(ids.OBS_HDR, self.obs_hdr_callback)
 
     self.python_console_cmds = {
       'obs': self
