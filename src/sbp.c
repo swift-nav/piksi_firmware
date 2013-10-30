@@ -135,7 +135,7 @@ static inline u32 use_usart(usart_settings_t *us, u8 msg_type)
       /* This USART is not in SBP mode. */
       return 0;
 
-    if (!(us->message_mask & msg_type))
+    if ((msg_type & 0xF0) && !(us->message_mask & msg_type))
       /* This message type is masked out on this USART. */
       return 0;
   }
@@ -231,6 +231,7 @@ u32 sbp_send_msg(u8 msg_type, u8 len, u8 buff[])
 void sbp_register_callback(u8 msg_type, msg_callback_t cb,
                            msg_callbacks_node_t *node)
 {
+  /* TODO: reject if msg_type already registered. */
   /* Fill in our new msg_callback_node_t. */
   node->msg_type = msg_type;
   node->cb = cb;
@@ -391,8 +392,8 @@ void sbp_process_usart(sbp_process_messages_state_t *s)
           msg_callback_t cb = sbp_find_callback(s->msg_type);
           if (cb)
             (*cb)(s->msg_buff);
-          else
-            printf("no callback registered for msg type %02X\n", s->msg_type);
+          /*else*/
+            /*printf("no callback registered for msg type %02X\n", s->msg_type);*/
         } else
           printf("CRC error 0x%04X 0x%04X\n", crc, crc_rx);
         s->state = WAITING_1;
