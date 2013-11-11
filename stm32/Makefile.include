@@ -57,7 +57,8 @@ OBJS += \
 	$(SWIFTNAV_ROOT)/src/nmea.o
 
 CFLAGS += -O0 -g -Wall -Wextra -Werror -std=gnu99 \
-       -fno-common -MD -DSTM32F4 -DGIT_VERSION="\"$(GIT_VERSION)\"" \
+			 -fdata-sections -ffunction-sections \
+			 -fno-common -MD -DSTM32F4 -DGIT_VERSION="\"$(GIT_VERSION)\"" \
 			 -mcpu=cortex-m4 -march=armv7e-m -mthumb \
 			 -mfloat-abi=hard -mfpu=fpv4-sp-d16
 
@@ -65,7 +66,7 @@ CFLAGS += -I$(SWIFTNAV_ROOT)/src
 
 LDSCRIPT ?= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
 LDFLAGS += -lc -lnosys -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections \
-				 	 -mcpu=cortex-m4 -march=armv7e-m -mthumb \
+					 -mcpu=cortex-m4 -march=armv7e-m -mthumb \
 					 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
 					 -lopencm3_stm32f4 -lswiftnav-static-cortex-m4 -lm
 
