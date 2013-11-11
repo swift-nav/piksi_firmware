@@ -56,7 +56,8 @@ OBJS += \
 	$(SWIFTNAV_ROOT)/src/position.o \
 	$(SWIFTNAV_ROOT)/src/nmea.o
 
-CFLAGS += -O0 -g -Wall -Wextra -Werror -std=gnu99 \
+CFLAGS ?= -O0
+CFLAGS += -g -Wall -Wextra -Werror -std=gnu99 \
 			 -fdata-sections -ffunction-sections \
 			 -fno-common -MD -DSTM32F4 -DGIT_VERSION="\"$(GIT_VERSION)\"" \
 			 -mcpu=cortex-m4 -march=armv7e-m -mthumb \
