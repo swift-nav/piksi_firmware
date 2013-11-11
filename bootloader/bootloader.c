@@ -29,8 +29,19 @@
 #include "board/m25_flash.h"
 #include "board/nap/nap_common.h"
 
-#define APP_ADDRESS	0x08010000
+#define APP_ADDRESS   0x08010000
 #define STACK_ADDRESS 0x10010000
+
+/* Redefine functions that otherwise link in a bunch of unnecessary stuff here
+ * to save space. */
+int printf(const char *format __attribute__((unused)), ...)
+{
+  return 0;
+}
+void exti1_isr(void)
+{
+  __asm__("NOP");
+}
 
 u8 pc_wants_bootload = 0;
 u8 current_app_valid = 0;
