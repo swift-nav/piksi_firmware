@@ -18,7 +18,7 @@
 /* Define memory regions. */
 MEMORY
 {
-	rom (rx) : ORIGIN = 0x08010000, LENGTH = 192K /*bootloader is at 0x08000000*/
+	rom (rx) : ORIGIN = 0x08004000, LENGTH = 240K /* bootloader at 0x08000000 */
 	coffee_fs_rom (r) : ORIGIN = 0x08040000, LENGTH = 768K
 	ram (rwx) : ORIGIN = 0x20000000, LENGTH = 128K
   /* STM32F4 Core Coupled Memory, not accesible by peripherals or DMA. */

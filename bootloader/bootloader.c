@@ -29,7 +29,7 @@
 #include "board/m25_flash.h"
 #include "board/nap/nap_common.h"
 
-#define APP_ADDRESS   0x08010000
+#define APP_ADDRESS   0x08004000
 #define STACK_ADDRESS 0x10010000
 
 /* Redefine functions that otherwise link in a bunch of unnecessary stuff here
