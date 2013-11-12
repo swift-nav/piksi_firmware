@@ -16,7 +16,9 @@ endif
 
 .PHONY: all tests firmware bootloader docs
 
-all: firmware bootloader tests
+# bootloader must be first in order to build object files
+# correctly for bootloader
+all: bootloader firmware tests
 
 firmware:
 	@printf "BUILD   src\n"; \
