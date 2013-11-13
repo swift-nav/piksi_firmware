@@ -38,10 +38,6 @@ int __wrap_printf(const char *format __attribute__((unused)), ...)
 {
   return 0;
 }
-void exti1_isr(void)
-{
-  return;
-}
 
 u8 pc_wants_bootload = 0;
 u8 current_app_valid = 0;

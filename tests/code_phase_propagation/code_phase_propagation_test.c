@@ -25,6 +25,7 @@
 #include "acq.h"
 #include "board/leds.h"
 #include "board/m25_flash.h"
+#include "board/nap/nap_exti.h"
 #include "board/nap/acq_channel.h"
 #include "board/nap/track_channel.h"
 
