@@ -32,15 +32,15 @@
 #define APP_ADDRESS   0x08004000
 #define STACK_ADDRESS 0x10010000
 
-/* Redefine functions that otherwise link in a bunch of unnecessary stuff here
- * to save space. */
-int printf(const char *format __attribute__((unused)), ...)
+/* Swap printf calls for this function at link time to save memory in the
+ * bootloader (-Wl,-wrap,printf in linker flags). */
+int __wrap_printf(const char *format __attribute__((unused)), ...)
 {
   return 0;
 }
 void exti1_isr(void)
 {
-  __asm__("NOP");
+  return;
 }
 
 u8 pc_wants_bootload = 0;

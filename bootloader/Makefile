@@ -62,6 +62,7 @@ CFLAGS += -I$(SWIFTNAV_ROOT)/src
 
 LDSCRIPT ?= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
 LDFLAGS += -lc -lnosys -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections \
+					 -Wl,-wrap,printf \
 					 -mcpu=cortex-m4 -march=armv7e-m -mthumb \
 					 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
 					 -lopencm3_stm32f4 -lswiftnav-static-cortex-m4 -lm
