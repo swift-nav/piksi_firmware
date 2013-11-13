@@ -32,11 +32,11 @@ LD = $(PREFIX)-gcc
 OBJCOPY = $(PREFIX)-objcopy
 OBJDUMP = $(PREFIX)-objdump
 
-VPATH = \
-	$(SWIFTNAV_ROOT)/src \
-	$(SWIFTNAV_ROOT)/src/board \
-	$(SWIFTNAV_ROOT)/src/board/nap \
-	$(SWIFTNAV_ROOT)/src/peripherals
+# Search these directories for .c files
+vpath %.c $(SWIFTNAV_ROOT)/src
+vpath %.c $(SWIFTNAV_ROOT)/src/board
+vpath %.c $(SWIFTNAV_ROOT)/src/board/nap
+vpath %.c $(SWIFTNAV_ROOT)/src/peripherals
 
 OBJS = \
   bootloader.o \
@@ -52,7 +52,7 @@ OBJS = \
   m25_flash.o \
   nap_common.o \
 
-CFLAGS += -Os -g -Wall -Wextra -Werror -std=gnu99 \
+CFLAGS += -Os -Wall -Wextra -Werror -std=gnu99 \
 			 -fdata-sections -ffunction-sections \
 			 -fno-common -MD -DSTM32F4 -DGIT_VERSION="\"$(GIT_VERSION)\"" \
 			 -mcpu=cortex-m4 -march=armv7e-m -mthumb \
@@ -108,7 +108,7 @@ flash: $(BINARY).flash
 	$(Q)$(LD) -o $(*).elf $(OBJS) -Xlinker -Map=$(*).map $(LDFLAGS)
 
 %.o: %.c Makefile
-	@printf "  CC      $(subst $(shell pwd)/,,$(@))\n"
+	@printf "  CC      bootloader/$(@)\n"
 	$(Q)$(CC) $(CFLAGS) -o ./$@ -c $<
 
 clean:
