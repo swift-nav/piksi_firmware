@@ -59,7 +59,7 @@ def crc16(s, crc=0):
 
 class ListenerThread (threading.Thread):
 
-  def __init__(self, link):
+  def __init__(self, link, print_unhandled=True):
     super(ListenerThread, self).__init__()
     self.link = link
     self.wants_to_stop = False
@@ -80,7 +80,8 @@ class ListenerThread (threading.Thread):
           if cb:
             cb(md)
           else:
-            print "Unhandled message %02X" % mt
+            if print_unhandled:
+              print "Unhandled message %02X" % mt
       except Exception, err:
         import traceback
         print traceback.format_exc()
@@ -103,7 +104,7 @@ class SerialLink:
     time.sleep(0.5)
     self.ser.flush()
 
-    self.lt = ListenerThread(self)
+    self.lt = ListenerThread(self, print_unhandled=print_unhandled)
     self.lt.start()
 
   def __del__(self):
@@ -130,13 +131,13 @@ class SerialLink:
           else:
             self.unhandled_bytes += 1
             if self.print_unhandled:
-              print "Unhandled byte : 0x%02x," % (ord(magic), "total",
-                                                  self.unhandled_bytes)
+              print "Unhandled byte : 0x%02x," % ord(magic), "total", \
+                                                  self.unhandled_bytes
         else:
           self.unhandled_bytes += 1
           if self.print_unhandled:
-            print "Unhandled byte : 0x%02x," % (ord(magic), "total",
-                                                self.unhandled_bytes)
+            print "Unhandled byte : 0x%02x," % ord(magic), "total", \
+                                                self.unhandled_bytes
 
     hdr = ""
     while len(hdr) < 2:
