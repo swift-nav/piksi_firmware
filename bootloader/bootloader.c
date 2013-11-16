@@ -32,6 +32,8 @@
 #define APP_ADDRESS   0x08004000
 #define STACK_ADDRESS 0x10010000
 
+u8 bootloader_version = 0;
+
 /* Swap printf calls for this function at link time to save memory in the
  * bootloader (-Wl,-wrap,printf in linker flags). */
 int __wrap_printf(const char *format __attribute__((unused)), ...)
@@ -56,7 +58,7 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
   (*(void(**)())(APP_ADDRESS + 4))();
 }
 
-void host_wants_bootload_callback(u8 buff[] __attribute__((unused)))
+void receive_handshake_callback(u8 buff[] __attribute__((unused)))
 {
   /* Disable FPGA configuration and set up SPI in case we want to flash M25. */
   nap_conf_b_setup();
@@ -65,6 +67,13 @@ void host_wants_bootload_callback(u8 buff[] __attribute__((unused)))
   m25_register_callbacks();
   register_stm_flash_callbacks();
   host_wants_bootload = 1;
+}
+
+u32 send_handshake(void)
+{
+  u32 tmp;
+  tmp = sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE,1,&bootloader_version);
+  return tmp;
 }
 
 int main(void)
@@ -88,19 +97,19 @@ int main(void)
                         &jump_to_app_node);
 
   /* Add callback for host to tell bootloader it wants to load program. */
-  static msg_callbacks_node_t host_wants_bootload_node;
-  sbp_register_callback(MSG_BOOTLOADER_HANDSHAKE,&host_wants_bootload_callback,
-                        &host_wants_bootload_node);
+  static msg_callbacks_node_t receive_handshake_node;
+  sbp_register_callback(MSG_BOOTLOADER_HANDSHAKE,&receive_handshake_callback,
+                        &receive_handshake_node);
 
-  /* Is current application we are programmed with valid? Check this by seeing
-   * if the first address of the application contains the correct stack address
+  /* Is current application we have in flash valid? Check this by seeing if
+   * the first address of the application contains the correct stack address.
    */
   current_app_valid = (*(volatile u32*)APP_ADDRESS == STACK_ADDRESS) ? 1:0;
 
   /*
    * Wait a bit for response from host. If it doesn't respond by calling
-   * host_wants_bootload_callback and we have a valid application, then boot the
-   * application.
+   * receive_handshake_callback and we have a valid application, then boot
+   * the application.
    * TODO : might as well make this as long as FPGA takes to configure itself
    *        from the configuration flash, as it doesn't add to the startup time
    *        if the firmware is not being changed
@@ -108,9 +117,9 @@ int main(void)
 	for (u64 i=0; i<200000; i++){
     DO_EVERY(3000,
       led_toggle(LED_RED);
-      sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+      send_handshake();
     );
-    sbp_process_messages(); /* To service host_wants_bootload_callback. */
+    sbp_process_messages(); /* To service receive_handshake_callback. */
     if (host_wants_bootload) break;
   }
   led_off(LED_GREEN);
@@ -132,7 +141,7 @@ int main(void)
          * flash programming callbacks.
          */
         DO_EVERY(10,
-          sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE,0,0);
+          send_handshake();
         );
       );
     }

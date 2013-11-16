@@ -26,6 +26,7 @@
 
 import sbp_messages as ids
 import time
+import struct
 
 class Bootloader():
 
@@ -33,8 +34,10 @@ class Bootloader():
     self._handshake_received = False
     self.link = link
     self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
+    self.version = None
 
   def _handshake_callback(self, data):
+    self.version = struct.unpack('B', data[0])[0]
     self._handshake_received = True
 
   def wait_for_handshake(self):
@@ -81,12 +84,13 @@ if __name__ == "__main__":
   ihx = IntelHex(args.file)
 
   # Create serial link with device
-  print "Waiting for device to be plugged in ...",
+  print "Waiting for device to be plugged in / reset ...",
   sys.stdout.flush()
   found_device = False
   while not found_device:
     try:
-      link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi)
+      link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi,
+                                    print_unhandled = False)
       found_device = True
     except KeyboardInterrupt:
       # Clean up and exit
@@ -95,14 +99,14 @@ if __name__ == "__main__":
     except:
       # Couldn't find device
       time.sleep(0.01)
-  print "link with device successfully created."
+  print "link successfully created."
   link.add_callback(ids.PRINT, serial_link.default_print_callback)
 
   # Tell Bootloader we want to change flash data
   piksi_bootloader = Bootloader(link)
   piksi_bootloader.wait_for_handshake()
-  print "Received handshake signal from device."
   piksi_bootloader.reply_handshake()
+  print "Piksi Onboard Bootloader Version:", piksi_bootloader.version
 
   if args.stm:
     piksi_flash = flash.Flash(link, flash_type="STM")
