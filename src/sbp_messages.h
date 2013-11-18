@@ -43,16 +43,18 @@
 #define MSG_NAP_DEVICE_DNA          0xDD  /**< Host  <-> Piksi */
 
 #define MSG_STM_FLASH_WRITE         0xE0  /**< Host   -> Piksi */
+#define MSG_STM_FLASH_DONE          0xE0  /**< Piksi  -> Host  */
 #define MSG_STM_FLASH_READ          0xE1  /**< Host  <-> Piksi */
 #define MSG_STM_FLASH_ERASE         0xE2  /**< Host   -> Piksi */
-#define MSG_STM_FLASH_DONE          0xE0  /**< Piksi  -> Host  */
+#define MSG_STM_FLASH_LOCK_SECTOR   0xE3  /**< Host   -> Piksi */
+#define MSG_STM_FLASH_UNLOCK_SECTOR 0xE4  /**< Host   -> Piksi */
 
 #define MSG_STM_UNIQUE_ID           0xE5  /**< Host  <-> Piksi */
 
 #define MSG_M25_FLASH_WRITE         0xF0  /**< Host   -> Piksi */
+#define MSG_M25_FLASH_DONE          0xF0  /**< Piksi  -> Host  */
 #define MSG_M25_FLASH_READ          0xF1  /**< Host  <-> Piksi */
 #define MSG_M25_FLASH_ERASE         0xF2  /**< Host   -> Piksi */
-#define MSG_M25_FLASH_DONE          0xF0  /**< Piksi  -> Host  */
 
 /** \} */
 

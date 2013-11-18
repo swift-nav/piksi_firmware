@@ -27,6 +27,70 @@
  *
  * \{ */
 
+/** Lock a sector of the STM flash memory.
+ * Locked sectors can not be erased or programmed.
+ *
+ * \param sector Number of the sector to lock (0-11).
+ */
+void stm_flash_lock_sector(u8 sector)
+{
+  flash_unlock_option_bytes();
+  while (FLASH_SR & FLASH_SR_BSY) ;
+  FLASH_OPTCR &= ~(1 << (16+sector));
+  FLASH_OPTCR |= FLASH_OPTCR_OPTSTRT;
+  while (FLASH_SR & FLASH_SR_BSY) ;
+}
+
+/** Unlock a sector of the STM flash memory.
+ * Locked sectors can not be erased or programmed.
+ *
+ * \param sector Number of the sector to unlock (0-11).
+ */
+void stm_flash_unlock_sector(u8 sector)
+{
+  flash_unlock_option_bytes();
+  while (FLASH_SR & FLASH_SR_BSY) ;
+  FLASH_OPTCR |= (1 << (16+sector));
+  FLASH_OPTCR |= FLASH_OPTCR_OPTSTRT;
+  while (FLASH_SR & FLASH_SR_BSY) ;
+}
+
+/** Callback to unlock a sector of the STM flash memory.
+ *
+ * \param buff Array of u8 (length 1) :
+ *             - [0] flash sector number to unlock.
+ */
+void stm_flash_unlock_sector_callback(u8 buff[])
+{
+  /* Check to make sure the sector to be unlocked is from 0-11,
+   * and complain if it isn't. */
+  if (sector > 11)
+    screaming_death("stm_flash_unlock_sector_callback received sector > 11\n");
+
+  stm_flash_unlock_sector(buff[0]);
+
+  /* Send message back to host to signal operation is finished. */
+  sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
+}
+
+/** Callback to lock a sector of the STM flash memory.
+ *
+ * \param buff Array of u8 (length 1) :
+ *             - [0] flash sector number to unlock.
+ */
+void stm_flash_lock_sector_callback(u8 buff[])
+{
+  /* Check to make sure the sector to be unlocked is from 0-11,
+   * and complain if it isn't. */
+  if (sector > 11)
+    screaming_death("stm_flash_lock_sector_callback received sector > 11\n");
+
+  stm_flash_lock_sector(buff[0]);
+
+  /* Send message back to host to signal operation is finished. */
+  sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
+}
+
 /** Callback to erase a sector of the STM32F4 flash memory.
  *
  * \param buff Array of u8 (length 1) :
@@ -40,14 +104,14 @@ void stm_flash_erase_sector_callback(u8 buff[])
   /* Check to make sure the sector to be erased is from 0-11,
    * and complain if it isn't. */
   if (sector > 11)
-    screaming_death("flash_erase_callback received sector > 11\n");
+    screaming_death("stm_flash_erase_callback received sector > 11\n");
 
   /* Erase sector. */
   flash_unlock();
   flash_erase_sector(sector, FLASH_CR_PROGRAM_X32);
   flash_lock();
 
-  /* Send message back to host to signal operation is finished */
+  /* Send message back to host to signal operation is finished. */
   sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
@@ -119,6 +183,8 @@ void register_stm_flash_callbacks()
   static msg_callbacks_node_t stm_flash_erase_sector_node;
   static msg_callbacks_node_t stm_flash_read_node;
   static msg_callbacks_node_t stm_flash_program_node;
+  static msg_callbacks_node_t stm_flash_lock_sector_node;
+  static msg_callbacks_node_t stm_flash_unlock_sector_node;
 
   sbp_register_callback(
     MSG_STM_FLASH_ERASE,
@@ -134,6 +200,16 @@ void register_stm_flash_callbacks()
     MSG_STM_FLASH_WRITE,
     &stm_flash_program_callback,
     &stm_flash_program_node
+  );
+  sbp_register_callback(
+    MSG_STM_FLASH_LOCK_SECTOR,
+    &stm_flash_lock_sector_callback,
+    &stm_flash_lock_sector_node
+  );
+  sbp_register_callback(
+    MSG_STM_FLASH_UNLOCK_SECTOR,
+    &stm_flash_unlock_sector_callback,
+    &stm_flash_unlock_sector_node
   );
 }
 
