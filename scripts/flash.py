@@ -56,7 +56,7 @@ def ihx_ranges(ihx):
 class Flash():
 
   def __init__(self, link, flash_type):
-    self.status_str = ''
+    self.status = ''
     self.link = link
     self.flash_type = flash_type
     self._waiting_for_callback = False
@@ -79,7 +79,7 @@ class Flash():
       raise ValueError
 
   def __str__(self):
-    return self.status_str
+    return self.status
 
   def sectors_used(self, addrs):
     sectors = set()
@@ -89,7 +89,7 @@ class Flash():
 
   def sector_restricted(self, sector):
     if self.flash_type == "STM":
-      if sector < 4: # assuming bootloader occupies sectors 0-3
+      if sector == 0: # assuming bootloader occupies sectors 0
         return True
       else:
         return False
@@ -107,21 +107,21 @@ class Flash():
     self._waiting_for_callback = True
     self.link.send_message(self.flash_msg_erase, msg_buf)
     while self._waiting_for_callback == True:
-      time.sleep(0.0001)
+      time.sleep(0.001)
 
   def write(self, address, data):
     msg_buf = struct.pack("<IB", address, len(data))
     self._waiting_for_callback = True
     self.link.send_message(self.flash_msg_write, msg_buf + data)
     while self._waiting_for_callback == True:
-      time.sleep(0.0001)
+      time.sleep(0.001)
 
   def read(self, address, length):
     msg_buf = struct.pack("<IB", address, length)
     self._waiting_for_callback = True
     self.link.send_message(self.flash_msg_read, msg_buf)
     while self._waiting_for_callback == True:
-      time.sleep(0.0001)
+      time.sleep(0.001)
     return self._read_callback_data
 
   def _done_callback(self, data):
@@ -138,9 +138,9 @@ class Flash():
     # Erase sectors
     ihx_addrs = ihx_ranges(ihx)
     for sector in self.sectors_used(ihx_addrs):
-      self.status_str = self.flash_type + " Flash: Erasing sector %d" % sector
+      self.status = self.flash_type + " Flash: Erasing sector %d" % sector
       if verbose:
-        print '\r' + self.status_str,
+        print '\r' + self.status,
       sys.stdout.flush()
       self.erase_sector(sector)
     if verbose:
@@ -150,18 +150,18 @@ class Flash():
     start_time = time.time()
     for start, end in ihx_addrs:
       for addr in range(start, end, ADDRS_PER_OP):
-        self.status_str = self.flash_type + " Flash: Programming flash at " + \
+        self.status = self.flash_type + " Flash: Programming flash at " + \
                           "0x%08X" % addr
         if verbose:
-          print '\r' + self.status_str,
+          print '\r' + self.status,
         sys.stdout.flush()
         binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
         self.write(addr, binary)
         flash_readback = self.read(addr, ADDRS_PER_OP)
         if flash_readback != map(ord, binary):
           raise Exception('Data read from flash != Data written to flash')
-    self.status_str = self.flash_type + " Flash: Successfully programmed, " + \
+    self.status = self.flash_type + " Flash: Successfully programmed, " + \
                       "total time = %d seconds" % int(time.time()-start_time)
     if verbose:
-      print '\n' + self.status_str
+      print '\n' + self.status
 

@@ -62,12 +62,14 @@ void stm_flash_unlock_sector(u8 sector)
  */
 void stm_flash_unlock_sector_callback(u8 buff[])
 {
+  u8 sector = buff[0];
+
   /* Check to make sure the sector to be unlocked is from 0-11,
    * and complain if it isn't. */
   if (sector > 11)
     screaming_death("stm_flash_unlock_sector_callback received sector > 11\n");
 
-  stm_flash_unlock_sector(buff[0]);
+  stm_flash_unlock_sector(sector);
 
   /* Send message back to host to signal operation is finished. */
   sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
@@ -80,12 +82,14 @@ void stm_flash_unlock_sector_callback(u8 buff[])
  */
 void stm_flash_lock_sector_callback(u8 buff[])
 {
+  u8 sector = buff[0];
+
   /* Check to make sure the sector to be unlocked is from 0-11,
    * and complain if it isn't. */
   if (sector > 11)
     screaming_death("stm_flash_lock_sector_callback received sector > 11\n");
 
-  stm_flash_lock_sector(buff[0]);
+  stm_flash_lock_sector(sector);
 
   /* Send message back to host to signal operation is finished. */
   sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
