@@ -13,6 +13,8 @@
 #include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/usart.h>
 
+#include <libswiftnav/edc.h>
+
 #include "board/leds.h"
 #include "peripherals/usart.h"
 
