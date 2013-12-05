@@ -41,8 +41,6 @@
 
 #include "settings.h"
 
-#include "c++/example.h"
-
 #define MAX_SATS 14
 
 channel_measurement_t meas[MAX_SATS];
