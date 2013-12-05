@@ -17,12 +17,11 @@
 #include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/exti.h>
 
-#include "main.h"
 #include "board/nap/track_channel.h"
 #include "sbp.h"
 #include "track.h"
 
-#include <libswiftnav/pvt.h>
+#include <libswiftnav/constants.h>
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
@@ -55,7 +54,7 @@ tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
 {
   /* Calculate the code phase rate with carrier aiding. */
-  u32 code_phase_rate = (1.0 + carrier_freq/L1_HZ) * NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
+  u32 code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) * NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
 
   /* Internal Swift NAP code phase is in chips*2^32:
    *
@@ -88,7 +87,7 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sample_count)
 {
   /* Calculate code phase rate with carrier aiding. */
-  float code_phase_rate = (1 + carrier_freq/L1_HZ) * NOMINAL_CODE_PHASE_RATE_HZ;
+  float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
 
   /* Adjust the channel start time as the start_sample_count passed
    * in corresponds to a PROMPT code phase rollover but we want to
@@ -288,7 +287,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->prn = chan->prn;
   meas->code_phase_chips = (double)chan->code_phase_early / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
   //meas->code_phase_rate = (double)chan->code_phase_rate_fp_prev / NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  //meas->code_phase_rate = 1.023e6 * (1 + chan->carrier_freq/L1_HZ);
+  //meas->code_phase_rate = 1.023e6 * (1 + chan->carrier_freq/GPS_L1_HZ);
   meas->code_phase_rate = chan->code_phase_rate;
   meas->carrier_phase = chan->carrier_phase / (double)(1<<24);
   meas->carrier_freq = chan->carrier_freq;
