@@ -133,6 +133,7 @@ void manage_calc_scores()
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
 void manage_acq()
 {
+  nap_track_n_channels = 9;
   switch (acq_manage.state) {
     default:
     case ACQ_MANAGE_START: {
