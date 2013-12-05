@@ -123,6 +123,10 @@ class BaselineView(HasTraits):
   def baseline_callback(self, data):
     soln = Baseline()
     soln.from_binary(data)
+
+    if np.sqrt(soln.ned.dot(soln.ned)) > 200:
+      return
+
     table = []
 
     t = datetime.datetime(1980, 1, 5) + \
