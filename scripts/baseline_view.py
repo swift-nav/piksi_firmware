@@ -65,6 +65,8 @@ class BaselineView(HasTraits):
     width=16, height=16
   )
 
+  init_button = Button(label='Init Ambs.')
+
   traits_view = View(
     HSplit(
       Item('table', style = 'readonly', editor = TabularEditor(adapter=SimpleAdapter()), show_label=False, width=0.3),
@@ -74,6 +76,7 @@ class BaselineView(HasTraits):
           Item('clear_button', show_label=False),
           Item('zoomall_button', show_label=False),
           Item('center_button', show_label=False),
+          Item('init_button', show_label=False),
         ),
         Item(
           'plot',
@@ -95,6 +98,9 @@ class BaselineView(HasTraits):
 
   def _paused_button_fired(self):
     self.running = not self.running
+
+  def _init_button_fired(self):
+    self.link.send_message(0x99, '')
 
   def _clear_button_fired(self):
     self.ns = []
