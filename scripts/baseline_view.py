@@ -141,6 +141,9 @@ class BaselineView(HasTraits):
     table.append(('Num. Sats.', soln.n_sats))
     table.append(('Flags', '0x' + hex(soln.flags)))
 
+    self.log_file.write('"%s",%.4f,%.4f,%.4f,%d\n' % (str(t), soln.ned[0], soln.ned[1], soln.ned[2], soln.n_sats))
+    self.log_file.flush()
+
     self.ns.append(soln.ned[0])
     self.es.append(soln.ned[1])
     self.ds.append(soln.ned[2])
@@ -168,6 +171,8 @@ class BaselineView(HasTraits):
 
   def __init__(self, link):
     super(BaselineView, self).__init__()
+
+    self.log_file = open("baseline_log.csv", 'a')
 
     self.plot_data = ArrayPlotData(n=[0.0], e=[0.0], d=[0.0], t=[0.0], ref_n=[0.0], ref_e=[0.0], ref_d=[0.0])
     self.plot = Plot(self.plot_data)
