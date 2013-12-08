@@ -12,7 +12,10 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
+
+#include <libswiftnav/linear_algebra.h>
 
 #include "board/nap/nap_common.h"
 #include "main.h"
@@ -29,8 +32,7 @@
  * See \ref time_quality_t for possible values. */
 time_quality_t time_quality = TIME_UNKNOWN;
 
-static gps_time_t rx_t0;
-static double rx_dt = RX_DT_NOMINAL;
+clock_est_state_t clock_state;
 
 /** Update GPS time estimate.
  *
@@ -47,10 +49,99 @@ static double rx_dt = RX_DT_NOMINAL;
  */
 void set_time(time_quality_t quality, gps_time_t t)
 {
-  set_time_fine(nap_timing_count(), t);
-  time_quality = quality;
-  time_t unix_t = gps2time(t);
-  printf("Time set to: %s (quality=%d)\n", ctime(&unix_t), quality);
+  if (quality > time_quality) {
+    clock_state.t0_gps = t;
+    clock_state.t0_gps.tow -= nap_timing_count() * RX_DT_NOMINAL;
+    clock_state.t0_gps = normalize_gps_time(clock_state.t0_gps);
+
+    time_quality = quality;
+    time_t unix_t = gps2time(t);
+    printf("Time set to: %s (quality=%d)\n", ctime(&unix_t), quality);
+  }
+}
+
+void clock_est_init(clock_est_state_t *s)
+{
+  s->t0_gps.wn = 0;
+  s->t0_gps.tow = 0;
+  s->clock_period = RX_DT_NOMINAL;
+  s->P[0][0] = 500e-3;
+  s->P[0][1] = 0;
+  s->P[1][0] = 0;
+  s->P[1][1] = (double)RX_DT_NOMINAL * RX_DT_NOMINAL / 1e12; /* 1ppm. */
+}
+/*
+    def update(self, est_gpsT, est_bias, localT, q, rT, rTdot):
+        phi_t_0 = array([[1., localT], [0, 1]])
+        phi_0_t = array([[1., -localT], [0, 1]])
+
+        # Predict:
+        # No state update, static
+        x_ = self.x
+        # Predict covariance
+        P_ = self.P + array([[q, 0.], [0, 0]])
+
+        # Update:
+        # Calc. innovation
+        z = array([est_gpsT, est_bias])
+        y = z - phi_t_0.dot(x_)
+        # Calc. innovation covariance
+        S = phi_t_0.dot(P_).dot(phi_t_0.transpose()) + array([[rT, 0.], [0, rTdot]])
+        # Kalman gain
+        #K = phi_t_0.dot(P_).dot(phi_t_0.transpose()).dot(linalg.inv(S))
+        K = P_.dot(phi_t_0.transpose()).dot(linalg.inv(S))
+        # Update state estimate
+        self.x += K.dot(y)
+        # Update covariance
+        self.P = (array([[1., 0], [0, 1]]) - K.dot(phi_t_0)).dot(P_)
+  */
+
+void clock_est_update(clock_est_state_t *s, gps_time_t meas_gpst,
+                      double meas_clock_period, double localt, double q,
+                      double r_gpst, double r_clock_period)
+{
+  double temp[2][2];
+
+  double phi_t_0[2][2] = {{1, localt}, {0, 1}};
+  double phi_t_0_tr[2][2];
+  matrix_transpose(2, 2, (const double *)phi_t_0, (double *)phi_t_0_tr);
+
+  double P_[2][2];
+  memcpy(P_, s->P, sizeof(P_));
+  P_[0][0] += q;
+
+  double y[2];
+  gps_time_t pred_gpst = s->t0_gps;
+  pred_gpst.tow += localt * s->clock_period;
+  pred_gpst = normalize_gps_time(pred_gpst);
+  y[0] = gpsdifftime(meas_gpst, pred_gpst);
+  y[1] = meas_clock_period - s->clock_period;
+
+  double S[2][2];
+  matrix_multiply(2, 2, 2, (const double *)phi_t_0, (const double *)P_, (double *)temp);
+  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)phi_t_0_tr, (double *)S);
+  S[0][0] += r_gpst;
+  S[1][1] += r_clock_period;
+  double Sinv[2][2];
+  matrix_inverse(2, (const double *)S, (double *)Sinv);
+
+  double K[2][2];
+  matrix_multiply(2, 2, 2, (const double *)P_, (const double *)phi_t_0_tr, (double *)temp);
+  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)Sinv, (double *)K);
+
+  double dx[2];
+  matrix_multiply(2, 2, 1, (const double *)K, (const double *)y, (double *)dx);
+  s->t0_gps.tow += dx[0];
+  s->t0_gps = normalize_gps_time(s->t0_gps);
+  s->clock_period += dx[1];
+
+  matrix_multiply(2, 2, 2, (const double *)K, (const double *)phi_t_0, (double *)temp);
+  temp[0][0] = 1 - temp[0][0];
+  temp[0][1] = -temp[0][1];
+  temp[1][1] = 1 - temp[1][1];
+  temp[1][0] = -temp[1][0];
+  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)P_, (double *)s->P);
+
 }
 
 /** Update GPS time estimate precisely referenced to the local receiver time.
@@ -58,13 +149,9 @@ void set_time(time_quality_t quality, gps_time_t t)
  * \param tc SwiftNAP timing count.
  * \param t GPS time estimate associated with timing count.
  */
-void set_time_fine(u64 tc, gps_time_t t)
+void set_time_fine(double tc, double drift, gps_time_t t)
 {
-  /* TODO: proper first order estimator here? */
-  rx_dt = RX_DT_NOMINAL;
-  rx_t0 = t;
-  rx_t0.tow -= tc * rx_dt;
-  rx_t0 = normalize_gps_time(rx_t0);
+  clock_est_update(&clock_state, t, 1-drift, tc, 1e-18, 1e-6, 1e-6);
   time_quality = TIME_FINE;
 }
 
@@ -101,9 +188,9 @@ gps_time_t get_current_time(void)
  */
 gps_time_t rx2gpstime(double tc)
 {
-  gps_time_t t = rx_t0;
+  gps_time_t t = clock_state.t0_gps;
 
-  t.tow += tc * rx_dt;
+  t.tow += tc * clock_state.clock_period;
   t = normalize_gps_time(t);
   return t;
 }
@@ -119,7 +206,7 @@ gps_time_t rx2gpstime(double tc)
  */
 double gps2rxtime(gps_time_t t)
 {
-  return gpsdifftime(t, rx_t0) / rx_dt;
+  return gpsdifftime(t, clock_state.t0_gps) / clock_state.clock_period;
 }
 
 /** Callback to set receiver GPS time estimate. */
@@ -140,6 +227,8 @@ void timing_setup(void)
   static msg_callbacks_node_t set_time_node;
 
   sbp_register_callback(MSG_SET_TIME, &set_time_callback, &set_time_node);
+
+  clock_est_init(&clock_state);
 }
 
 /** Setup STM timer to use as a rough system tick count. */

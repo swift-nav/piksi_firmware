@@ -15,7 +15,7 @@
 #include <string.h>
 
 #include <libswiftnav/almanac.h>
-#include <libswiftnav/pvt.h>
+#include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
 
 #include "main.h"
@@ -133,6 +133,7 @@ void manage_calc_scores()
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
 void manage_acq()
 {
+  nap_track_n_channels = 9;
   switch (acq_manage.state) {
     default:
     case ACQ_MANAGE_START: {
@@ -299,7 +300,7 @@ void manage_acq()
       float track_cp = propagate_code_phase(fine_cp, fine_cf, track_count - acq_manage.fine_timer_count);
 
       // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
-      track_count += 16*(1023.0-track_cp)*(1.0 + fine_cf / L1_HZ);
+      track_count += 16*(1023.0-track_cp)*(1.0 + fine_cf / GPS_L1_HZ);
 
       tracking_channel_init(chan, acq_manage.prn, fine_cf, track_count);
       acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRACKING;

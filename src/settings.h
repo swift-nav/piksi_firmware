@@ -22,7 +22,8 @@
 typedef struct {
   enum {
     SBP,
-    NMEA
+    NMEA,
+    RTCM
   } mode; /** Communication mode : Swift Binary Protocol or NMEA */
   u32 baud_rate;
   u8 message_mask;

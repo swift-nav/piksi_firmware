@@ -16,8 +16,6 @@
 #include <libswiftnav/common.h>
 
 #define SAMPLE_FREQ 16368000
-#define L1_HZ 1575.42e6
-#define NOMINAL_CODE_PHASE_RATE_HZ 1.023e6
 
 /* See http://c-faq.com/cpp/multistmt.html for
  * and explaination of the do {} while(0)

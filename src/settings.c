@@ -11,12 +11,13 @@
  */
 
 #include "peripherals/usart.h"
+#include "sbp_messages.h"
 #include "settings.h"
 
 /** \addtogroup io
  * \{ */
 
-settings_t settings __attribute__ ((section(".settings_area"))) =
+settings_t settings /*__attribute__ ((section(".settings_area"))) */=
 /* Default settings: */
 {
   .settings_valid = VALID,
@@ -28,11 +29,11 @@ settings_t settings __attribute__ ((section(".settings_area"))) =
   },
   .uarta_usart = {
     .mode         = SBP,
-    .baud_rate    = USART_DEFAULT_BAUD,
-    .message_mask = 0xFF,
+    .baud_rate    = 57600,
+    .message_mask = MSGS_OBSERVATIONS,
   },
   .uartb_usart = {
-    .mode         = NMEA,
+    .mode         = RTCM,
     .baud_rate    = 115200,
   },
 };

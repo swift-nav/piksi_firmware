@@ -7,6 +7,8 @@ import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
 parser.add_argument('-p', '--port', nargs=1, default=[serial_link.DEFAULT_PORT],
                    help='specify the serial port to use.')
+parser.add_argument('-b', '--baud', nargs=1, default=[serial_link.DEFAULT_BAUD],
+                   help='specify the baud rate to use.')
 parser.add_argument("-f", "--ftdi",
                   help="use pylibftdi instead of pyserial.",
                   action="store_true")
@@ -14,6 +16,7 @@ parser.add_argument('-t', '--toolkit', nargs=1, default=[None],
                    help="specify the TraitsUI toolkit to use, either 'wx' or 'qt4'.")
 args = parser.parse_args()
 serial_port = args.port[0]
+baud = args.baud[0]
 
 if args.toolkit[0] is not None:
   from traits.etsconfig.api import ETSConfig
@@ -39,6 +42,8 @@ from output_stream import OutputStream
 from tracking_view import TrackingView
 from almanac_view import AlmanacView
 from solution_view import SolutionView
+from baseline_view import BaselineView
+from observation_view import ObservationView
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -49,6 +54,8 @@ class SwiftConsole(HasTraits):
   tracking_view = Instance(TrackingView)
   almanac_view = Instance(AlmanacView)
   solution_view = Instance(SolutionView)
+  baseline_view = Instance(BaselineView)
+  observation_view = Instance(ObservationView)
 
   view = View(
     VSplit(
@@ -56,6 +63,8 @@ class SwiftConsole(HasTraits):
         Item('tracking_view', style='custom', label='Tracking'),
         Item('almanac_view', style='custom', label='Almanac'),
         Item('solution_view', style='custom', label='Solution'),
+        Item('baseline_view', style='custom', label='Baseline'),
+        Item('observation_view', style='custom', label='Observations'),
         Item(
           'python_console_env', style='custom',
           label='Python Console', editor=ShellEditor()
@@ -82,15 +91,24 @@ class SwiftConsole(HasTraits):
     except UnicodeDecodeError:
       print "Oh crap!"
 
+  def debug_var_callback(self, data):
+    x = struct.unpack('<d', data[:8])[0]
+    name = data[8:]
+    print "VAR: %s = %d" % (name, x)
+
   def __init__(self, *args, **kwargs):
     self.console_output = OutputStream()
 
     self.link = serial_link.SerialLink(*args, **kwargs)
     self.link.add_callback(ids.PRINT, self.print_message_callback)
 
+    self.link.add_callback(ids.DEBUG_VAR, self.debug_var_callback)
+
     self.tracking_view = TrackingView(self.link)
     self.almanac_view = AlmanacView(self.link)
     self.solution_view = SolutionView(self.link)
+    self.baseline_view = BaselineView(self.link)
+    self.observation_view = ObservationView(self.link)
 
     self.python_console_env = {
         'send_message': self.link.send_message,
@@ -99,11 +117,13 @@ class SwiftConsole(HasTraits):
     self.python_console_env.update(self.tracking_view.python_console_cmds)
     self.python_console_env.update(self.almanac_view.python_console_cmds)
     self.python_console_env.update(self.solution_view.python_console_cmds)
+    self.python_console_env.update(self.baseline_view.python_console_cmds)
+    self.python_console_env.update(self.observation_view.python_console_cmds)
 
   def stop(self):
     self.link.close()
 
-console = SwiftConsole(serial_port, use_ftdi=args.ftdi)
+console = SwiftConsole(serial_port, baud, use_ftdi=args.ftdi)
 
 console.configure_traits()
 console.stop()

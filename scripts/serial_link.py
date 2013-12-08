@@ -60,9 +60,9 @@ def crc16(s, crc=0):
 class ListenerThread (threading.Thread):
 
   def __init__(self, link):
+    self.wants_to_stop = False
     super(ListenerThread, self).__init__()
     self.link = link
-    self.wants_to_stop = False
 
   def stop(self):
     self.wants_to_stop = True
@@ -91,6 +91,8 @@ class SerialLink:
     self.print_unhandled = print_unhandled
     self.unhandled_bytes = 0
     self.callbacks = {}
+    self.unhandled_bytes = 0
+
     if use_ftdi:
       import pylibftdi
       self.ser = pylibftdi.Device()
@@ -100,7 +102,7 @@ class SerialLink:
       self.ser = serial.Serial(port, baud, timeout=1)
 
     # Delay then flush the buffer to make sure the receive buffer starts empty.
-    time.sleep(0.5)
+    time.sleep(0.2)
     self.ser.flush()
 
     self.lt = ListenerThread(self)

@@ -31,9 +31,17 @@ typedef enum {
                          local SwiftNAP timer. */
 } time_quality_t;
 
+typedef struct {
+  gps_time_t t0_gps;   /**< Clock offset estimate. GPS time when local timer
+                            value equals zero. */
+  double clock_period; /**< Clock period estimate. */
+  double P[2][2];      /**< State covariance matrix. */
+} clock_est_state_t;
+
 /** \} */
 
 extern time_quality_t time_quality;
+extern clock_est_state_t clock_state;
 
 #define RX_DT_NOMINAL (1.0 / SAMPLE_FREQ)
 #define TICK_FREQ     (rcc_ppre1_frequency / 16)
@@ -41,7 +49,7 @@ extern time_quality_t time_quality;
 void timing_setup(void);
 gps_time_t get_current_time(void);
 void set_time(time_quality_t quality, gps_time_t t);
-void set_time_fine(u64 tc, gps_time_t t);
+void set_time_fine(double tc, double, gps_time_t t);
 gps_time_t rx2gpstime(double tc);
 double gps2rxtime(gps_time_t t);
 

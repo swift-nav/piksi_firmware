@@ -13,46 +13,94 @@
 #ifndef SWIFTNAV_SBP_MESSAGES_H
 #define SWIFTNAV_SBP_MESSAGES_H
 
+#include <libswiftnav/gpstime.h>
+
 /** \addtogroup sbp
  * \{ */
 
-/** \defgroup msgs Message IDs
- * Swift Binary Protocol Message IDs.
+#define MSG_ID(groups, id) ((groups) | ((id) & 3))
+
+/** \defgroup msg_groups Message Groups
+ * Swift Binary Protocol Message Groups.
  * \{ */
 
-#define MSG_PRINT                   0x01  /**< Piksi  -> Host  */
+#define MSGS_NON_MASKABLE 0
 
-#define MSG_TRACKING_STATE          0x22  /**< Piksi  -> Host  */
+#define MSGS_DEBUGGING    (1<<4)
+#define MSGS_SOLUTION     (1<<5)
+#define MSGS_OBSERVATIONS (1<<6)
 
-#define MSG_SOLUTION                0x50  /**< Piksi  -> Host  */
-#define MSG_DOPS                    0x51  /**< Piksi  -> Host  */
+/** \} */
 
-#define MSG_ALMANAC                 0x69  /**< Host   -> Piksi */
-#define MSG_SET_TIME                0x68  /**< Host   -> Piksi */
+/** \defgroup msgs Message IDs
+ * Swift Binary Protocol Message IDs.
+ *
+ * Upper nibble of msg_type is used as a bit field to group messages into
+ * logical groups so they can be filtered using the SBP mask setting.
+ *
+ * The lower nibble identifies the particular message within the group.
+ * \{ */
 
-#define MSG_ACQ_RESULT              0xA0  /**< Piksi  -> Host  */
+#define MSG_PRINT                   0x10  /**< Piksi  -> Host  */
+#define MSG_DEBUG_VAR               0x11  /**< Piksi  -> Host  */
 
-#define MSG_BOOTLOADER_HANDSHAKE    0xB0  /**< Host  <-> Piksi */
-#define MSG_BOOTLOADER_JUMP_TO_APP  0xB1  /**< Host   -> Piksi */
+#define MSG_ALMANAC                 0x01  /**< Host   -> Piksi */
+#define MSG_SET_TIME                0x02  /**< Host   -> Piksi */
 
-#define MSG_RESET                   0xB2  /**< Host   -> Piksi */
+#define MSG_BOOTLOADER_HANDSHAKE    0x03  /**< Host  <-> Piksi */
+#define MSG_BOOTLOADER_JUMP_TO_APP  0x04  /**< Host   -> Piksi */
 
-#define MSG_CW_START                0xC1  /**< Host   -> Piksi */
-#define MSG_CW_RESULTS              0xC0  /**< Piksi  -> Host  */
+#define MSG_CW_START                0x12  /**< Host   -> Piksi */
+#define MSG_CW_RESULTS              0x13  /**< Piksi  -> Host  */
 
-#define MSG_NAP_DEVICE_DNA          0xDD  /**< Host  <-> Piksi */
+#define MSG_NAP_DEVICE_DNA          0x14  /**< Host  <-> Piksi */
 
-#define MSG_STM_FLASH_WRITE         0xE0  /**< Host   -> Piksi */
-#define MSG_STM_FLASH_READ          0xE1  /**< Host  <-> Piksi */
-#define MSG_STM_FLASH_ERASE         0xE2  /**< Host   -> Piksi */
-#define MSG_STM_FLASH_DONE          0xE0  /**< Piksi  -> Host  */
+#define MSG_STM_FLASH_WRITE         0x05  /**< Host   -> Piksi */
+#define MSG_STM_FLASH_READ          0x06  /**< Host  <-> Piksi */
+#define MSG_STM_FLASH_ERASE         0x07  /**< Host   -> Piksi */
+#define MSG_STM_FLASH_DONE          0x08  /**< Piksi  -> Host  */
 
-#define MSG_STM_UNIQUE_ID           0xE5  /**< Host  <-> Piksi */
+#define MSG_STM_UNIQUE_ID           0x15  /**< Host  <-> Piksi */
 
-#define MSG_M25_FLASH_WRITE         0xF0  /**< Host   -> Piksi */
-#define MSG_M25_FLASH_READ          0xF1  /**< Host  <-> Piksi */
-#define MSG_M25_FLASH_ERASE         0xF2  /**< Host   -> Piksi */
-#define MSG_M25_FLASH_DONE          0xF0  /**< Piksi  -> Host  */
+#define MSG_M25_FLASH_WRITE         0x09  /**< Host   -> Piksi */
+#define MSG_M25_FLASH_READ          0x0A  /**< Host  <-> Piksi */
+#define MSG_M25_FLASH_ERASE         0x0B  /**< Host   -> Piksi */
+#define MSG_M25_FLASH_DONE          0x0C  /**< Piksi  -> Host  */
+
+#define MSG_SOLUTION                0x20  /**< Piksi  -> Host  */
+#define MSG_DOPS                    0x21  /**< Piksi  -> Host  */
+
+#define MSG_BASELINE                0x23  /**< Piksi  -> Host  */
+typedef struct __attribute__((packed)) {
+  double ned[3]; /**< Baseline in local North, East, Down frame (m). */
+  gps_time_t t;  /**< GPS time of baseline solution. */
+  u16 flags;     /**< Baseline solution flags. TODO: Add defs. */
+  u8 n_sats;     /**< Number of satellites used in solution. */
+} msg_baseline_t;
+
+#define MSG_OBS_HDR                 0x40  /**< Piksi  -> Host  */
+typedef struct __attribute__((packed)) {
+  gps_time_t t; /**< GPS time of observation. */
+  u8 count;     /**< Serial count of obervation. */
+  u8 n_obs;     /**< Number of observation records to follow. */
+} msg_obs_hdr_t;
+
+#define MSG_OBS                     0x41  /**< Piksi  -> Host  */
+typedef struct __attribute__((packed)) {
+  double P;      /**< Pseudorange (m) */
+  double L;      /**< Carrier-phase (cycles) */
+  float D;       /**< Doppler frequency (Hz) */
+  float snr;     /**< Signal-to-Noise ratio */
+  u8 lock_count; /**< Number of epochs that phase lock has been maintained. */
+  u8 signal;     /**< Upper nibble: Satellite system designator,
+                      Lower nibble: Signal type designator.
+                      TODO: Add defs.*/
+  u8 prn;        /**< Satellite number. */
+  u8 flags;      /**< Observation flags. TODO: Add defs. */
+  u8 obs_n;      /**< Observation number in set. */
+} msg_obs_t;
+
+#define MSG_TRACKING_STATE          0x16  /**< Piksi  -> Host  */
 
 /** \} */
 
