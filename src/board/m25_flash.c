@@ -23,8 +23,7 @@
  * \{ */
 
 /** \defgroup m25 M25Pxx Flash
- * Interface to read, write, and erase sectors of the M25Pxx FPGA
- * configuration flash.
+ * Interface to the M25Pxx FPGA configuration flash.
  * \{ */
 
 /** Send "write enable" command to the flash. */
@@ -44,9 +43,9 @@ void m25_write_disable(void)
 }
 
 /** Read the manufacturer and device identification out of the flash.
- * \param man_id   Pointer to u8 where JEDEC manufacturer ID will be stored.
- * \param mem_type Pointer to u8 where memory type will be stored.
- * \param mem_type Pointer to u8 where memory capacity will be stored.
+ * \param man_id   JEDEC manufacturer ID
+ * \param mem_type Memory type
+ * \param mem_type Memory capacity
  */
 void m25_read_id(u8 *man_id, u8 *mem_type, u8 *mem_cap)
 {
@@ -92,6 +91,12 @@ void m25_write_status(u8 sr)
  */
 void m25_read(u32 addr, u32 len, u8 *buff)
 {
+  /* Valid M25P80 addresses are 0x00000-0xFFFFF. */
+  if (addr > 0xFFFFF)
+    screaming_death("m25_read was passed address > 0xFFFFF ");
+  if (addr+len-1 > 0xFFFFF)
+    screaming_death("m25_read was passed (address+len-1) > 0xFFFFF ");
+
   spi_slave_select(SPI_SLAVE_FLASH);
 
   spi_xfer(SPI_BUS_FLASH, M25_READ);
@@ -117,7 +122,14 @@ void m25_read(u32 addr, u32 len, u8 *buff)
  */
 void m25_page_program(u32 addr, u8 len, u8 buff[])
 {
-  /* TODO: check for page boundary crossing. */
+  /* Valid M25P80 addresses are 0x00000-0xFFFFF. */
+  if (addr > 0xFFFFF)
+    screaming_death("m25_page_program was passed address > 0xFFFFF ");
+
+  /* Check if page boundary is crossed. */
+  if (addr>>8 < (addr+len-1)>>8)
+    screaming_death("m25_page_program call will wrap page boundary ");
+
   u32 i;
 
   spi_slave_select(SPI_SLAVE_FLASH);
@@ -143,6 +155,10 @@ void m25_page_program(u32 addr, u8 len, u8 buff[])
  */
 void m25_sector_erase(u32 addr)
 {
+  /* Valid M25P80 addresses are 0x00000-0xFFFFF. */
+  if (addr > 0xFFFFF)
+    screaming_death("m25_sector_erase was passed address > 0xFFFFF ");
+
   spi_slave_select(SPI_SLAVE_FLASH);
 
   spi_xfer(SPI_BUS_FLASH, M25_SE);
@@ -170,6 +186,36 @@ void m25_bulk_erase(void)
   while (m25_read_status() & M25_SR_WIP) ;
 }
 
+/** Callback to write to the 8-bit M25 flash status register.
+ *
+ * \param buff Array of u8 (length == 1) :
+ *             - [0] Byte to write to the M25 flash status register.
+ */
+void m25_flash_write_status_callback(u8 buff[])
+{
+  u8 sr = buff[0];
+
+  m25_write_enable();
+  m25_write_status(sr);
+  m25_write_disable();
+
+  /* Keep trying to send message until it makes it into the buffer. */
+  while (sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0)) ;
+}
+
+/** Callback to read the 8-bit M25 flash status register.
+ *
+ * \param buff Array of u8 (length == 0)
+ *             Unused, buff contains no data
+ */
+void m25_flash_read_status_callback(u8 buff[] __attribute__((unused)))
+{
+  u8 sr = m25_read_status();
+
+  /* Keep trying to send message until it makes it into the buffer. */
+  while (sbp_send_msg(MSG_M25_FLASH_READ_STATUS, 1, &sr)) ;
+}
+
 /** Callback to program a set of addresses of the flash.
  * Note : sector containing addresses must be erased before addresses can be
  * programmed.
@@ -188,6 +234,7 @@ void m25_flash_program_callback(u8 buff[])
 
   m25_write_enable();
   m25_page_program(addr, len, data);
+  m25_write_disable();
 
   /* Keep trying to send message until it makes it into the buffer. */
   while (sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0)) ;
@@ -245,21 +292,23 @@ void m25_flash_erase_callback(u8 buff[])
 
   m25_write_enable();
   m25_sector_erase(addr);
+  m25_write_disable();
 
   /* Keep trying to send message until it makes it into the buffer. */
   while (sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0)) ;
 }
 
 /** Setup the M25 flash callback functions.
- * \note The SPI2 bus must be setup and uncontested for these callbacks to
- *       properly communicate with the M25 flash.
+ * \note The SPI2 bus must be setup and uncontested for the functions these
+ *       callbacks call to properly communicate with the M25 flash.
  */
 void m25_register_callbacks(void)
 {
-  /* Assumes SPI bus already setup. */
   static msg_callbacks_node_t m25_flash_program_node;
   static msg_callbacks_node_t m25_flash_read_node;
   static msg_callbacks_node_t m25_flash_erase_node;
+  static msg_callbacks_node_t m25_flash_write_status_node;
+  static msg_callbacks_node_t m25_flash_read_status_node;
 
   sbp_register_callback(
     MSG_M25_FLASH_WRITE,
@@ -275,6 +324,16 @@ void m25_register_callbacks(void)
     MSG_M25_FLASH_ERASE,
     &m25_flash_erase_callback,
     &m25_flash_erase_node
+    );
+  sbp_register_callback(
+    MSG_M25_FLASH_WRITE_STATUS,
+    &m25_flash_write_status_callback,
+    &m25_flash_write_status_node
+    );
+  sbp_register_callback(
+    MSG_M25_FLASH_READ_STATUS,
+    &m25_flash_read_status_callback,
+    &m25_flash_read_status_node
     );
 }
 
