@@ -64,10 +64,9 @@ void stm_flash_unlock_sector_callback(u8 buff[])
 {
   u8 sector = buff[0];
 
-  /* Check to make sure the sector to be unlocked is from 0-11,
-   * and complain if it isn't. */
+  /* Valid STM32F40 sectors are 0-11. */
   if (sector > 11)
-    screaming_death("stm_flash_unlock_sector_callback received sector > 11\n");
+    screaming_death("stm_flash_unlock_sector_callback received sector > 11 ");
 
   stm_flash_unlock_sector(sector);
 
@@ -84,10 +83,9 @@ void stm_flash_lock_sector_callback(u8 buff[])
 {
   u8 sector = buff[0];
 
-  /* Check to make sure the sector to be unlocked is from 0-11,
-   * and complain if it isn't. */
+  /* Valid STM32F40 sectors are 0-11. */
   if (sector > 11)
-    screaming_death("stm_flash_lock_sector_callback received sector > 11\n");
+    screaming_death("stm_flash_lock_sector_callback received sector > 11 ");
 
   stm_flash_lock_sector(sector);
 
@@ -95,20 +93,19 @@ void stm_flash_lock_sector_callback(u8 buff[])
   sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
-/** Callback to erase a sector of the STM32F4 flash memory.
+/** Callback to erase a sector of the STM32F40 flash memory.
  *
  * \param buff Array of u8 (length 1) :
- *             - [0] flash sector number to erase.
+ *             - [0] flash sector number to erase (0-11).
  */
 void stm_flash_erase_sector_callback(u8 buff[])
 {
   /* See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual" */
   u8 sector = buff[0];
 
-  /* Check to make sure the sector to be erased is from 0-11,
-   * and complain if it isn't. */
+  /* Valid STM32F40 sectors are 0-11. */
   if (sector > 11)
-    screaming_death("stm_flash_erase_callback received sector > 11\n");
+    screaming_death("stm_flash_erase_callback received sector > 11 ");
 
   /* Erase sector. */
   flash_unlock();
@@ -135,6 +132,16 @@ void stm_flash_program_callback(u8 buff[])
   u32 address = *(u32*)&buff[0];
   u8 length = buff[4];
   u8 *data = &buff[5];
+
+  /* Valid STM32F40 Flash addresses are 0x08000000 to 0x080FFFFF. */
+  if (address > 0x080FFFFF)
+    screaming_death("stm_flash_program_callback received addr > 0x080FFFFF ");
+  if (address < 0x08000000)
+    screaming_death("stm_flash_program_callback received addr < 0x08000000 ");
+  if (address+length-1 > 0x080FFFFF)
+    screaming_death("stm_flash_program_callback received addr+length+1 > 0x080FFFFF ");
+  if (length > 128)
+    screaming_death("stm_flash_program_callback received length > 128 ");
 
   /* Program specified addresses with data */
   flash_unlock();
