@@ -63,6 +63,7 @@ class ListenerThread (threading.Thread):
     super(ListenerThread, self).__init__()
     self.link = link
     self.wants_to_stop = False
+    self.print_unhandled = print_unhandled
 
   def stop(self):
     self.wants_to_stop = True
@@ -80,8 +81,8 @@ class ListenerThread (threading.Thread):
           if cb:
             cb(md)
           else:
-            if print_unhandled:
-              print "Unhandled message %02X" % mt
+            if self.print_unhandled:
+              print "Host Side Unhandled message %02X" % mt
       except Exception, err:
         import traceback
         print traceback.format_exc()
@@ -131,13 +132,15 @@ class SerialLink:
           else:
             self.unhandled_bytes += 1
             if self.print_unhandled:
-              print "Unhandled byte : 0x%02x," % ord(magic), "total", \
-                                                  self.unhandled_bytes
+              print "Host Side Unhandled byte : 0x%02x," % ord(magic), \
+                                                              "total", \
+                                                 self.unhandled_bytes
         else:
           self.unhandled_bytes += 1
           if self.print_unhandled:
-            print "Unhandled byte : 0x%02x," % ord(magic), "total", \
-                                                self.unhandled_bytes
+            print "Host Side Unhandled byte : 0x%02x," % ord(magic), \
+                                                            "total", \
+                                               self.unhandled_bytes
 
     hdr = ""
     while len(hdr) < 2:
@@ -157,7 +160,7 @@ class SerialLink:
     crc_received = struct.unpack('<H', crc_received)[0]
 
     if crc != crc_received:
-      print "CRC mismatch: 0x%04X 0x%04X" % (crc, crc_received)
+      print "Host Side CRC mismatch: 0x%04X 0x%04X" % (crc, crc_received)
       return (None, None)
 
     return (msg_type, data)
@@ -202,7 +205,6 @@ if __name__ == "__main__":
   serial_port = args.port[0]
   link = SerialLink(serial_port, use_ftdi=args.ftdi)
   link.add_callback(ids.PRINT, default_print_callback)
-  char = 0
   try:
     while True:
       time.sleep(0.1)
