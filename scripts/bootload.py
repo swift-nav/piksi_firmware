@@ -84,7 +84,7 @@ if __name__ == "__main__":
   ihx = IntelHex(args.file)
 
   # Create serial link with device
-  print "Waiting for device to be plugged in / reset ...",
+  print "Waiting for device to be plugged in ...",
   sys.stdout.flush()
   found_device = False
   while not found_device:
@@ -104,8 +104,16 @@ if __name__ == "__main__":
 
   # Tell Bootloader we want to change flash data
   piksi_bootloader = Bootloader(link)
-  piksi_bootloader.wait_for_handshake()
+  print "Waiting for bootloader handshake message from Piksi ...",
+  sys.stdout.flush()
+  try:
+    piksi_bootloader.wait_for_handshake()
+  except KeyboardInterrupt:
+    # Clean up and exit
+    link.close()
+    sys.exit()
   piksi_bootloader.reply_handshake()
+  print "received."
   print "Piksi Onboard Bootloader Version:", piksi_bootloader.version
 
   if args.stm:
@@ -115,6 +123,7 @@ if __name__ == "__main__":
 
   piksi_flash.write_ihx(ihx)
 
+  print "Bootloader jumping to application"
   piksi_bootloader.jump_to_app()
 
   # Wait for ctrl+C until we exit
