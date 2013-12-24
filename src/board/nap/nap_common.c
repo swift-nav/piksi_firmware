@@ -16,6 +16,7 @@
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
+#include "../../error.h"
 #include "../../acq.h"
 #include "../../cw.h"
 #include "../../peripherals/spi.h"
@@ -57,40 +58,63 @@ void nap_setup(void)
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
   gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO3);
 
-  /* We don't want spi_setup() called until the FPGA has finished configuring
-   * itself and has read the device hash out of the configuration flash.
-   * (It uses the SPI2 bus for this.)
-   */
-  /* TODO: Timeout here if FPGA doesn't configure in expected time? */
-  while (!(nap_conf_done() && nap_hash_rd_done())) ;
+  /* Set up the FPGA CONF_B line. */
+  nap_conf_b_setup();
+  /* Force FPGA to delay configuration (i.e. use of SPI2) by setting it low. */
+  nap_conf_b_clear();
 
-  /* Reset the NAP internal logic */
-  nap_reset();
-
-  /* Switch the STM's clock to use the Frontend clock from the NAP */
-  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
-
-  /* Initialise the SPI peripheral. */
+  /* Initialise the SPI peripheral so that we can set up the RF frontend. */
   spi_setup();
   //spi_dma_setup();
 
   /* Setup the front end. */
   max2769_setup();
 
-  /* Setup the reset line GPIO. */
+  /* Deactivate SPI buses so the FPGA can use the SPI2 bus to configure. */
+  spi_deactivate();
+
+  /* Setup the NAP reset line GPIO and assert NAP reset. */
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
   gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
+  gpio_set(GPIOA, GPIO2);
+
+  /* Allow the FPGA to configure. */
+  nap_conf_b_set();
+
+  /* Wait for FPGA to finish configuring (uses SPI2 bus). */
+  while (!(nap_conf_done())) ;
+
+  /* De-assert NAP reset. */
   gpio_clear(GPIOA, GPIO2);
 
-  /* Setup the external interrupts. */
+  /* Wait for FPGA to read authentication hash out of flash (uses SPI2 bus). */
+  while (!(nap_hash_rd_done())) ;
+
+  /* FPGA is done using SPI2: re-initialise the SPI peripheral. */
+  spi_setup();
+  //spi_dma_setup();
+
+  /* Switch the STM's clock to use the Frontend clock from the NAP */
+  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
+
+  /* Set up the NAP interrupt line. */
   nap_exti_setup();
 
-  /* Setup callback functions. */
+  /* Set up NAP callback functions. */
   nap_callbacks_setup();
 
   /* Get NAP parameters (number of acquisition taps, number of tracking
-   * channels, etc) from flash. */
+   * channels, etc) from configuration flash.
+   */
   nap_conf_rd_parameters();
+
+  /* Check NAP verification status. */
+  /* TODO: check this works properly by clearing conf flash's hash, etc */
+  u8 nhs = nap_hash_status();
+  if (nhs == NAP_HASH_NOTREADY)
+    screaming_death("NAP Verification Failed: Flash read timeout ");
+  else if (nhs == NAP_HASH_MISMATCH)
+    screaming_death("NAP Verification Failed: Hash mismatch ");
 }
 
 /** Reset NAP logic.
@@ -143,7 +167,7 @@ void nap_conf_b_clear(void)
 }
 
 /** See if NAP has finished reading authentication hash from configuration
-   flash.
+ * flash.
  *
  * \return 1 if hash read has finished else 0
  */
