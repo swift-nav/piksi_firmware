@@ -31,6 +31,7 @@
 #define NAP_REG_DECEASED_COW        0xFF
 
 /* Status of NAP authentication hash comparison. */
+/* TODO: change NAP_HASH_MATCH to non 0x00/0xFF value so it is more reliable */
 #define NAP_HASH_MATCH              0
 #define NAP_HASH_MISMATCH           1
 #define NAP_HASH_NOTREADY           2
