@@ -112,7 +112,7 @@ void nap_setup(void)
   /* TODO: check this works properly by clearing conf flash's hash, etc */
   u8 nhs = nap_hash_status();
   if (nhs == NAP_HASH_NOTREADY)
-    screaming_death("NAP Verification Failed: Flash read timeout ");
+    screaming_death("NAP Verification Failed: Timeout ");
   else if (nhs == NAP_HASH_MISMATCH)
     screaming_death("NAP Verification Failed: Hash mismatch ");
 }
