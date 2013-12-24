@@ -110,6 +110,9 @@ void nap_setup(void)
 
   /* Check NAP verification status. */
   /* TODO: check this works properly by clearing conf flash's hash, etc */
+  /* TODO: separate status defines for flash hash not ready and computed
+   *       hash not ready?
+   */
   u8 nhs = nap_hash_status();
   if (nhs == NAP_HASH_NOTREADY)
     screaming_death("NAP Verification Failed: Timeout ");
