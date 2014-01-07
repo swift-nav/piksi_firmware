@@ -18,20 +18,15 @@
 #include "board/nap/nap_common.h"
 #include "peripherals/spi.h"
 
-int main(void) {
+int main(void)
+{
+  /* Don't check FPGA authentication hash status, purpose of this test is
+   * to program the authentication hash into the flash.
+   */
+  init(0);
 
-  led_setup();
   led_on(LED_GREEN);
   led_on(LED_RED);
-
-  /* Force FPGA to configure itself by driving PROGRAM_B low, then high */
-  nap_conf_b_setup();
-  nap_conf_b_clear();
-  for (u32 i = 0; i < 50; i++)
-    __asm__("nop");
-  nap_conf_b_set();
-
-  init();
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- DNA TEST ---\n");

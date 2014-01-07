@@ -27,7 +27,7 @@
 
 int main()
 {
-  init();
+  init(1);
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- COFFEE TEST ---\n");

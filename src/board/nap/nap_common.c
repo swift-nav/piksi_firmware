@@ -48,7 +48,7 @@ u32 nap_exti_count = 0;
  * up SPI, sets up MAX2769 Frontend, sets up NAP interrupt, sets up NAP
  * callbacks, gets NAP configuration parameters from FPGA flash.
  */
-void nap_setup(void)
+void nap_setup(u8 check_hash_status)
 {
   /* Setup the FPGA conf done line. */
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
@@ -105,11 +105,13 @@ void nap_setup(void)
   /* TODO: separate status defines for flash hash not ready and computed
    *       hash not ready?
    */
-  u8 nhs = nap_hash_status();
-  if (nhs == NAP_HASH_NOTREADY)
-    screaming_death("NAP Verification Failed: Timeout ");
-  else if (nhs == NAP_HASH_MISMATCH)
-    screaming_death("NAP Verification Failed: Hash mismatch ");
+  if (check_hash_status) {
+    u8 nhs = nap_hash_status();
+    if (nhs == NAP_HASH_NOTREADY)
+      screaming_death("NAP Verification Failed: Timeout ");
+    else if (nhs == NAP_HASH_MISMATCH)
+      screaming_death("NAP Verification Failed: Hash mismatch ");
+  }
 }
 
 /** Check if NAP configuration is finished.

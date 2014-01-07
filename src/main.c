@@ -493,7 +493,7 @@ void send_observations(u8 n, navigation_measurement_t *m)
 
 int main(void)
 {
-  init();
+  init(1);
 
   led_toggle(LED_RED);
 

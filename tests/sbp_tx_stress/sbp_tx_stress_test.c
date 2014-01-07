@@ -55,7 +55,7 @@ void tim2_isr() {
 
 int main(void)
 {
-  init();
+  init(1);
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- SWIFT BINARY PROTOCOL TX STRESS TEST ---\n");

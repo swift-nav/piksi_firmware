@@ -30,7 +30,7 @@
 
 int main(void)
 {
-  init();
+  init(1);
 
   #ifndef PRN
     #error Please define the PRN to be used, e.g. make PRN=22

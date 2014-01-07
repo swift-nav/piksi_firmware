@@ -33,7 +33,7 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
   .apb2_frequency = 32736000,
 };
 
-void init(void)
+void init(u8 check_fpga_auth)
 {
   /* Delay on start-up as some programmers reset the STM twice. */
   for (u32 i = 0; i < 600000; i++)
@@ -41,7 +41,7 @@ void init(void)
 
   led_setup();
 
-  nap_setup();
+  nap_setup(check_fpga_auth);
 
   sbp_setup(1);
 
