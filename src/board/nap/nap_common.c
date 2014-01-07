@@ -73,19 +73,11 @@ void nap_setup(void)
   /* Deactivate SPI buses so the FPGA can use the SPI2 bus to configure. */
   spi_deactivate();
 
-  /* Setup the NAP reset line GPIO and assert NAP reset. */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
-  gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
-  gpio_set(GPIOA, GPIO2);
-
   /* Allow the FPGA to configure. */
   nap_conf_b_set();
 
   /* Wait for FPGA to finish configuring (uses SPI2 bus). */
   while (!(nap_conf_done())) ;
-
-  /* De-assert NAP reset. */
-  gpio_clear(GPIOA, GPIO2);
 
   /* Wait for FPGA to read authentication hash out of flash (uses SPI2 bus). */
   while (!(nap_hash_rd_done())) ;
@@ -118,20 +110,6 @@ void nap_setup(void)
     screaming_death("NAP Verification Failed: Timeout ");
   else if (nhs == NAP_HASH_MISMATCH)
     screaming_death("NAP Verification Failed: Hash mismatch ");
-}
-
-/** Reset NAP logic.
- * Resets FPGA's DCM's and logic - except for DNA / hash logic. Should be
- * called before STM switches to using FPGA clock.
- */
-void nap_reset(void)
-{
-  gpio_set(GPIOA, GPIO2);
-  for (int i = 0; i < 50; i++)
-    __asm__("nop");
-  gpio_clear(GPIOA, GPIO2);
-  for (int i = 0; i < 200; i++)
-    __asm__("nop");
 }
 
 /** Check if NAP configuration is finished.

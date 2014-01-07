@@ -55,7 +55,6 @@ typedef struct {
 /** \} */
 
 void nap_setup(void);
-void nap_reset(void);
 
 u8 nap_conf_done(void);
 u8 nap_hash_rd_done(void);
