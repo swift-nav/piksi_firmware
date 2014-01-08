@@ -72,6 +72,8 @@ extern usart_rx_dma_state uartb_rx_state;
 void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud);
 void usarts_disable();
 
+void usart_set_parameters(u32 usart, u32 baud);
+
 void usart_tx_dma_setup(usart_tx_dma_state* s, u32 usart,
                         u32 dma, u8 stream, u8 channel);
 void usart_tx_dma_disable(usart_tx_dma_state* s);
