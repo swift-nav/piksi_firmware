@@ -52,8 +52,6 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
 void pc_wants_bootload_callback(u8 buff[] __attribute__((unused)))
 {
   /* Disable FPGA configuration and set up SPI in case we want to flash M25 */
-  nap_conf_b_setup();
-  nap_conf_b_clear();
   spi_setup();
   m25_setup();
   pc_wants_bootload = 1;
@@ -61,6 +59,10 @@ void pc_wants_bootload_callback(u8 buff[] __attribute__((unused)))
 
 int main(void)
 {
+  /* Disable FPGA configuration */
+  nap_conf_b_setup();
+  nap_conf_b_clear();
+
   /* Setup and turn on LEDs */
   led_setup();
   led_off(LED_GREEN);
