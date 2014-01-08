@@ -51,9 +51,11 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
 
 void pc_wants_bootload_callback(u8 buff[] __attribute__((unused)))
 {
-  /* Disable FPGA configuration and set up SPI in case we want to flash M25 */
+  /* Set up SPI in case we want to flash M25 */
   spi_setup();
   m25_setup();
+  /* STM flash erase/write/read callbacks */
+  stm_flash_callbacks_setup();
   pc_wants_bootload = 1;
 }
 
@@ -70,9 +72,6 @@ int main(void)
 
   /* Setup UART and SBP interface for transmitting and receiving callbacks */
   sbp_setup(0);
-
-  /* STM flash erase/write/read callbacks */
-  stm_flash_callbacks_setup();
 
   /* Add callback for jumping to application after bootloading is finished */
   static msg_callbacks_node_t jump_to_app_node;
