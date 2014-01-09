@@ -7,8 +7,16 @@ import struct
 import time
 import sys
 from itertools import groupby
+import new
 
 ADDRS_PER_OP = 128
+
+M25_SR_SRWD = 1 << 7
+M25_SR_BP2  = 1 << 4
+M25_SR_BP1  = 1 << 3
+M25_SR_BP0  = 1 << 2
+M25_SR_WEL  = 1 << 1
+M25_SR_WIP  = 1 << 0
 
 def stm_addr_sector_map(addr):
   if   addr >= 0x08000000 and addr < 0x08004000:
@@ -53,6 +61,49 @@ def ihx_ranges(ihx):
   return [first_last(v) for k, v in
           groupby(enumerate(ihx.addresses()), lambda (i, x) : i - x)]
 
+# Defining separate functions to lock/unlock STM sectors and to read/write M25
+# status register, as there isn't a great way to define lock/unlock sector
+# callbacks that will be general to both flashes (see M25Pxx datasheet).
+# Functions conditionally bound to Flash instance in Flash.__init__(),
+# depending on flash_type.
+
+# Lock sector of STM flash (0-11).
+def _stm_lock_sector(self, sector):
+  self._waiting_for_callback = True
+  msg_buf = struct.pack("B", sector)
+  self.link.send_message(ids.STM_FLASH_LOCK_SECTOR, msg_buf)
+  while self._waiting_for_callback:
+    time.sleep(0.001)
+
+# Unlock sector of STM flash (0-11).
+def _stm_unlock_sector(self, sector):
+  self._waiting_for_callback = True
+  msg_buf = struct.pack("B", sector)
+  self.link.send_message(ids.STM_FLASH_UNLOCK_SECTOR, msg_buf)
+  while self._waiting_for_callback:
+    time.sleep(0.001)
+
+# Write M25 status register (8 bits).
+def _m25_write_status(self, sr):
+  self._waiting_for_callback = True
+  msg_buf = struct.pack("B", sr)
+  self.link.send_message(ids.M25_FLASH_WRITE_STATUS, msg_buf)
+  while self._waiting_for_callback:
+    time.sleep(0.001)
+
+# Read M25 status register (8 bits).
+def _m25_read_status(self):
+  self._waiting_for_callback = True
+  self.link.send_message(ids.M25_FLASH_READ_STATUS, '\x00')
+  while self._waiting_for_callback:
+    time.sleep(0.001)
+  return self.status_register
+
+# Callback to receive M25 status register data (8 bits).
+def _m25_read_status_callback(self, data):
+  self.status_register = struct.unpack('B', data[0])[0]
+  self._waiting_for_callback = False
+
 class Flash():
 
   def __init__(self, link, flash_type):
@@ -68,6 +119,11 @@ class Flash():
       self.flash_msg_erase = ids.STM_FLASH_ERASE
       self.flash_msg_write = ids.STM_FLASH_WRITE
       self.addr_sector_map = stm_addr_sector_map
+      # Add STM-specific functions.
+      self.__dict__['lock_sector'] = \
+          new.instancemethod(_stm_lock_sector, self, Flash)
+      self.__dict__['unlock_sector'] = \
+          new.instancemethod(_stm_unlock_sector, self, Flash)
     elif self.flash_type == "M25":
       self.link.add_callback(ids.M25_FLASH_DONE, self._done_callback)
       self.link.add_callback(ids.M25_FLASH_READ, self._read_callback)
@@ -75,6 +131,16 @@ class Flash():
       self.flash_msg_erase = ids.M25_FLASH_ERASE
       self.flash_msg_write = ids.M25_FLASH_WRITE
       self.addr_sector_map = m25_addr_sector_map
+      self.status_register = None
+      # Add M25-specific functions.
+      self.__dict__['write_status'] = \
+          new.instancemethod(_m25_write_status, self, Flash)
+      self.__dict__['read_status'] = \
+          new.instancemethod(_m25_read_status, self, Flash)
+      self.__dict__['_read_status_callback'] = \
+          new.instancemethod(_m25_read_status_callback, self, Flash)
+      self.link.add_callback(ids.M25_FLASH_READ_STATUS, \
+                             self._read_status_callback)
     else:
       raise ValueError
 
