@@ -201,7 +201,7 @@ class Flash():
     start_time = time.time()
     for start, end in ihx_addrs:
       for addr in range(start, end, ADDRS_PER_OP):
-        self.status = self.flash_type + " Flash: Programming flash at " + \
+        self.status = self.flash_type + " Flash: Programming address " + \
                           "0x%08X" % addr
         if verbose:
           print '\r' + self.status,
@@ -211,8 +211,9 @@ class Flash():
         flash_readback = self.read(addr, ADDRS_PER_OP)
         if flash_readback != map(ord, binary):
           raise Exception('Data read from flash != Data written to flash')
-    self.status = self.flash_type + " Flash: Successfully programmed, " + \
-                      "total time = %d seconds" % int(time.time()-start_time)
+    self.status = self.flash_type + " Flash: Successfully programmed and " + \
+                                    "verified, total time = %d seconds" % \
+                                    int(time.time()-start_time)
     if verbose:
       print '\n' + self.status
 
