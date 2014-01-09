@@ -192,7 +192,7 @@ class Flash():
       self.status = self.flash_type + " Flash: Erasing sector %d" % sector
       if verbose:
         print '\r' + self.status,
-      sys.stdout.flush()
+        sys.stdout.flush()
       self.erase_sector(sector)
     if verbose:
       print ''
@@ -205,7 +205,7 @@ class Flash():
                           "0x%08X" % addr
         if verbose:
           print '\r' + self.status,
-        sys.stdout.flush()
+          sys.stdout.flush()
         binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
         self.write(addr, binary)
         flash_readback = self.read(addr, ADDRS_PER_OP)
