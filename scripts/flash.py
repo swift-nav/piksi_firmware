@@ -153,22 +153,7 @@ class Flash():
       sectors |= set(range(self.addr_sector_map(s), self.addr_sector_map(e)+1))
     return sorted(list(sectors))
 
-  def sector_restricted(self, sector):
-    if self.flash_type == "STM":
-      if sector == 0: # assuming bootloader occupies sectors 0
-        return True
-      else:
-        return False
-    elif self.flash_type == "M25":
-      if sector == 15: # assuming authentication hash occupies sector 15
-        return True
-      else:
-        return False
-    return None
-
-  def erase_sector(self, sector, check_sector=True):
-    if check_sector and self.sector_restricted(sector):
-      raise Exception("Tried to erase restricted sector")
+  def erase_sector(self, sector):
     msg_buf = struct.pack("B", sector)
     self._waiting_for_callback = True
     self.link.send_message(self.flash_msg_erase, msg_buf)
