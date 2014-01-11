@@ -13,10 +13,9 @@
 #include "sbp.h"
 #include "acq.h"
 #include "board/leds.h"
-#include "board/m25_flash.h"
 #include "board/nap/nap_common.h"
 #include "peripherals/spi.h"
-#include "peripherals/stm_flash.h"
+#include "flash_callbacks.h"
 
 int main(void)
 {
@@ -32,8 +31,7 @@ int main(void)
 
   spi_setup();
   sbp_setup(0);
-  m25_register_callbacks();
-  register_stm_flash_callbacks();
+  flash_callbacks_register();
 
   for (u32 i = 0; i < 600000; i++)
     __asm__("nop");

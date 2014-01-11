@@ -40,7 +40,7 @@ void nap_conf_rd_parameters(void)
 
   /* Get parameters from FPGA configuration flash */
   for (u8 i = 0; i < (sizeof(nap_parameters) / sizeof(nap_parameters[0])); i++)
-    m25_read(NAP_FLASH_PARAMS_ADDR + i, 1, nap_parameters[i]);
+    m25_read(NAP_FLASH_PARAMS_ADDR + i, nap_parameters[i], 1);
 }
 
 /** Return git commit hash from NAP configuration build.
@@ -51,7 +51,7 @@ void nap_conf_rd_parameters(void)
  */
 void nap_conf_rd_git_hash(u8 git_hash[])
 {
-  m25_read(NAP_FLASH_GIT_HASH_ADDR, 20, git_hash);
+  m25_read(NAP_FLASH_GIT_HASH_ADDR, git_hash, 20);
 }
 
 /** Return git repository cleanliness status from NAP configuration build.
@@ -64,7 +64,7 @@ u8 nap_conf_rd_git_unclean(void)
 {
   u8 unclean;
 
-  m25_read(NAP_FLASH_GIT_UNCLEAN_ADDR, 1, &unclean);
+  m25_read(NAP_FLASH_GIT_UNCLEAN_ADDR, &unclean, 1);
   return unclean;
 }
 

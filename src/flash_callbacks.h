@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Swift Navigation Inc.
+ * Copyright (C) 2011-2013 Swift Navigation Inc.
  * Contact: Colin Beighley <colin@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -10,21 +10,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_STM_FLASH_H
-#define SWIFTNAV_STM_FLASH_H
+#ifndef SWIFTNAV_FLASH_CALLBACKS_H
+#define SWIFTNAV_FLASH_CALLBACKS_H
 
-/** \addtogroup stm_flash
- * \{ */
+#define FLASH_STM 0 /**< Value to pass flash callbacks to use STM Flash */
+#define FLASH_M25 1 /**< Value to pass flash callbacks to use M25 Flash */
 
-/* TODO : put this in libopencm3 */
-#define STM_UNIQUE_ID_ADDR 0x1FFF7A10
+void flash_callbacks_register(void);
+void stm_unique_id_callback_register(void);
 
-/** \} */
-
-void stm_flash_lock_sector(u8 sector);
-void stm_flash_unlock_sector(u8 sector);
-
-void stm_flash_erase_sector(u8 sector);
-void stm_flash_program(u32 address, u8 data[], u8 length);
-
-#endif
+#endif /* SWIFTNAV_FLASH_CALLBACKS_H */

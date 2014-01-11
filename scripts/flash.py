@@ -112,12 +112,10 @@ class Flash():
     self.flash_type = flash_type
     self._waiting_for_callback = False
     self._read_callback_data = []
+    self.link.add_callback(ids.FLASH_DONE, self._done_callback)
+    self.link.add_callback(ids.FLASH_READ, self._read_callback)
     if self.flash_type == "STM":
-      self.link.add_callback(ids.STM_FLASH_DONE, self._done_callback)
-      self.link.add_callback(ids.STM_FLASH_READ, self._read_callback)
-      self.flash_msg_read = ids.STM_FLASH_READ
-      self.flash_msg_erase = ids.STM_FLASH_ERASE
-      self.flash_msg_write = ids.STM_FLASH_WRITE
+      self.flash_type_byte = 0
       self.addr_sector_map = stm_addr_sector_map
       # Add STM-specific functions.
       self.__dict__['lock_sector'] = \
@@ -125,11 +123,7 @@ class Flash():
       self.__dict__['unlock_sector'] = \
           new.instancemethod(_stm_unlock_sector, self, Flash)
     elif self.flash_type == "M25":
-      self.link.add_callback(ids.M25_FLASH_DONE, self._done_callback)
-      self.link.add_callback(ids.M25_FLASH_READ, self._read_callback)
-      self.flash_msg_read = ids.M25_FLASH_READ
-      self.flash_msg_erase = ids.M25_FLASH_ERASE
-      self.flash_msg_write = ids.M25_FLASH_WRITE
+      self.flash_type_byte = 1
       self.addr_sector_map = m25_addr_sector_map
       self.status_register = None
       # Add M25-specific functions.
@@ -154,25 +148,35 @@ class Flash():
     return sorted(list(sectors))
 
   def erase_sector(self, sector):
-    msg_buf = struct.pack("B", sector)
+    msg_buf = struct.pack("BB", self.flash_type_byte, sector)
     self._waiting_for_callback = True
-    self.link.send_message(self.flash_msg_erase, msg_buf)
+    self.link.send_message(ids.FLASH_ERASE, msg_buf)
     while self._waiting_for_callback == True:
       time.sleep(0.001)
 
   def write(self, address, data):
-    msg_buf = struct.pack("<IB", address, len(data))
+    msg_buf = struct.pack("B", self.flash_type_byte)
+    msg_buf += struct.pack("<I", address)
+    msg_buf += struct.pack("B", len(data))
     self._waiting_for_callback = True
-    self.link.send_message(self.flash_msg_write, msg_buf + data)
+    self.link.send_message(ids.FLASH_PROGRAM, msg_buf + data)
     while self._waiting_for_callback == True:
       time.sleep(0.001)
 
   def read(self, address, length):
-    msg_buf = struct.pack("<IB", address, length)
+    msg_buf = struct.pack("B", self.flash_type_byte)
+    msg_buf += struct.pack("<I", address)
+    msg_buf += struct.pack("B", length)
     self._waiting_for_callback = True
-    self.link.send_message(self.flash_msg_read, msg_buf)
+    self.link.send_message(ids.FLASH_READ, msg_buf)
     while self._waiting_for_callback == True:
       time.sleep(0.001)
+    assert address == self._read_callback_address, \
+        "Address received (0x%08x) does not match address sent (0x%08x)" % \
+        (self._read_callback_address, address)
+    assert length == self._read_callback_length, \
+        "Length received (0x%08x) does not match length sent (0x%08x)" % \
+        (self._read_callback_length, length)
     return self._read_callback_data
 
   def _done_callback(self, data):
@@ -180,8 +184,9 @@ class Flash():
 
   def _read_callback(self, data):
     # 4 bytes addr, 1 byte length, length bytes data
-    addr = struct.unpack('<I', data[0:4])[0];
-    length = struct.unpack('B', data[4])[0];
+    self._read_callback_address = struct.unpack('<I', data[0:4])[0];
+    self._read_callback_length = struct.unpack('B', data[4])[0];
+    length = self._read_callback_length
     self._read_callback_data = list(struct.unpack(str(length)+'B', data[5:]))
     self._waiting_for_callback = False
 

@@ -19,6 +19,7 @@
 #include "peripherals/stm_flash.h"
 #include "board/nap/nap_common.h"
 #include "sbp.h"
+#include "flash_callbacks.h"
 
 /** Clock settings for 130.944 MHz from 16.368 MHz HSE. */
 const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
@@ -39,7 +40,8 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
 void reset_callback(u8 buff[] __attribute__((unused)))
 {
   /* Ensure all outstanding memory accesses including buffered writes are
-   * completed before reset. */
+   * completed before reset.
+   */
   __asm__("DSB;");
   /* Keep priority group unchanged. */
   SCB_AIRCR = SCB_AIRCR_VECTKEY |
@@ -76,7 +78,7 @@ void init(void)
 
   reset_callback_register();
 
-  m25_register_callbacks();
+  flash_callbacks_register();
 
   stm_unique_id_callback_register();
 }

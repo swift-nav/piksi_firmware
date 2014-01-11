@@ -23,26 +23,25 @@
 #include "main.h"
 #include "sbp.h"
 #include "board/leds.h"
-#include "peripherals/stm_flash.h"
 #include "peripherals/usart.h"
 #include "peripherals/spi.h"
-#include "board/m25_flash.h"
 #include "board/nap/nap_common.h"
+#include "flash_callbacks.h"
 
 #define APP_ADDRESS   0x08004000
 #define STACK_ADDRESS 0x10010000
 
 u8 bootloader_version = 0;
+u8 host_wants_bootload = 0;
+u8 current_app_valid = 0;
 
 /* Swap printf calls for this function at link time to save memory in the
- * bootloader (-Wl,-wrap,printf in linker flags). */
+ * bootloader (-Wl,-wrap,printf in linker flags).
+ */
 int __wrap_printf(const char *format __attribute__((unused)), ...)
 {
   return 0;
 }
-
-u8 host_wants_bootload = 0;
-u8 current_app_valid = 0;
 
 void jump_to_app_callback(u8 buff[] __attribute__((unused)))
 {
@@ -64,16 +63,13 @@ void receive_handshake_callback(u8 buff[] __attribute__((unused)))
   nap_conf_b_setup();
   nap_conf_b_clear();
   spi_setup();
-  m25_register_callbacks();
-  register_stm_flash_callbacks();
+  flash_callbacks_register();
   host_wants_bootload = 1;
 }
 
 u32 send_handshake(void)
 {
-  u32 tmp;
-  tmp = sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE,1,&bootloader_version);
-  return tmp;
+  return sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE,1,&bootloader_version);
 }
 
 int main(void)
@@ -110,9 +106,6 @@ int main(void)
    * Wait a bit for response from host. If it doesn't respond by calling
    * receive_handshake_callback and we have a valid application, then boot
    * the application.
-   * TODO : might as well make this as long as FPGA takes to configure itself
-   *        from the configuration flash, as it doesn't add to the startup time
-   *        if the firmware is not being changed
    */
 	for (u64 i=0; i<200000; i++){
     DO_EVERY(3000,

@@ -51,6 +51,7 @@ OBJS = \
   spi.o \
   m25_flash.o \
   nap_common.o \
+  flash_callbacks.o \
 
 CFLAGS += -Os -Wall -Wextra -Werror -std=gnu99 \
 			 -fdata-sections -ffunction-sections \
