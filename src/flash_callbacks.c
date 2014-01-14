@@ -97,7 +97,7 @@ void flash_read_callback(u8 buff[])
     if (address < 0x08000000)
       screaming_death("flash_read_callback received address < 0x08000000 ");
     if (address+length-1 > 0x080FFFFF)
-      screaming_death("flash_read_callback received address+length-1 < 0x080FFFFF ");
+      screaming_death("flash_read_callback received address+length-1 > 0x080FFFFF ");
   }
 
   u8 callback_data[length + 5];
