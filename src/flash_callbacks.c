@@ -93,6 +93,12 @@ void flash_read_callback(u8 buff[])
   /* TODO: figure out what max length is, make it a macro */
   if (length > 128)
     screaming_death("flash_read_callback received length > 128 ");
+  if (flash == FLASH_STM) {
+    if (address < 0x08000000)
+      screaming_death("flash_read_callback received address < 0x08000000 ");
+    if (address+length-1 > 0x080FFFFF)
+      screaming_death("flash_read_callback received address+length-1 < 0x080FFFFF ");
+  }
 
   u8 callback_data[length + 5];
   callback_data[0] = (address >> 0) & 0xFF;
