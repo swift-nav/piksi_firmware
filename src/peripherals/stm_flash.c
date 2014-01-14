@@ -34,7 +34,7 @@ void stm_flash_lock_sector(u8 sector)
 {
   /* Valid STM32F40 sectors are 0-11. */
   if (sector > 11)
-    screaming_death("stm_flash_unlock_sector received sector > 11 ");
+    screaming_death("stm_flash_lock_sector received sector > 11 ");
 
   flash_unlock_option_bytes();
   while (FLASH_SR & FLASH_SR_BSY) ;
