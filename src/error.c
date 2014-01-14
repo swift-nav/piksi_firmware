@@ -39,7 +39,7 @@ void screaming_death(char *msg)
   DMA2_S7CR = 0;                  /* Disable USART TX DMA */
   USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
 
-  #define SPEAKING_MSG_N 64       /* Maximum length of error message */
+  #define SPEAKING_MSG_N 76       /* Maximum length of error message */
 
   static char err_msg[SPEAKING_MSG_N+6] = {SBP_HEADER_1, SBP_HEADER_2,
                                            MSG_PRINT, SPEAKING_MSG_N,
