@@ -60,8 +60,6 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
 void receive_handshake_callback(u8 buff[] __attribute__((unused)))
 {
   /* Disable FPGA configuration and set up SPI in case we want to flash M25. */
-  nap_conf_b_setup();
-  nap_conf_b_clear();
   spi_setup();
   flash_callbacks_register();
   host_wants_bootload = 1;
@@ -77,7 +75,6 @@ int main(void)
   /* Force FPGA to reconfigure in case we've had a warm reset. */
   nap_conf_b_setup();
   nap_conf_b_clear();
-  nap_conf_b_set();
 
   /* Setup and turn on LEDs. */
   led_setup();
