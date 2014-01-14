@@ -154,7 +154,7 @@ class Flash():
     while self._waiting_for_callback == True:
       time.sleep(0.001)
 
-  def write(self, address, data):
+  def program(self, address, data):
     msg_buf = struct.pack("B", self.flash_type_byte)
     msg_buf += struct.pack("<I", address)
     msg_buf += struct.pack("B", len(data))
@@ -206,13 +206,13 @@ class Flash():
     start_time = time.time()
     for start, end in ihx_addrs:
       for addr in range(start, end, ADDRS_PER_OP):
-        self.status = self.flash_type + " Flash: Programming address " + \
-                          "0x%08X" % addr
+        self.status = self.flash_type + " Flash: Programming address" + \
+                                        " 0x%08X" % addr
         if verbose:
           print '\r' + self.status,
           sys.stdout.flush()
         binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
-        self.write(addr, binary)
+        self.program(addr, binary)
         flash_readback = self.read(addr, ADDRS_PER_OP)
         if flash_readback != map(ord, binary):
           raise Exception('Data read from flash != Data written to flash')
