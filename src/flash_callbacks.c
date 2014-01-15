@@ -62,6 +62,9 @@ void flash_program_callback(u8 buff[])
   u8 length = buff[5];
   u8 *data = &buff[6];
 
+  if (length > 128)
+    screaming_death("flash_program_callback received length > 128 ");
+
   if (flash == FLASH_STM) {
     stm_flash_program(address, data, length);
   } else if (flash == FLASH_M25) {

@@ -96,8 +96,6 @@ void stm_flash_program(u32 address, u8 data[], u8 length)
     screaming_death("stm_flash_program received addr < 0x08000000 ");
   if (address+length-1 > 0x080FFFFF)
     screaming_death("stm_flash_program received addr+length+1 > 0x080FFFFF ");
-  if (length > 128)
-    screaming_death("stm_flash_program received length > 128 ");
 
   /* Program specified addresses with data */
   flash_unlock();
