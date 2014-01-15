@@ -53,7 +53,6 @@
 #define MSG_STM_FLASH_UNLOCK_SECTOR 0xE4  /**< Host   -> Piksi */
 
 #define MSG_M25_FLASH_WRITE_STATUS  0xF3  /**< Host   -> Piksi */
-#define MSG_M25_FLASH_READ_STATUS   0xF4  /**< Host  <-> Piksi */
 
 /** \} */
 

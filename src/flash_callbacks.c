@@ -135,17 +135,6 @@ void m25_flash_write_status_callback(u8 buff[])
   while (sbp_send_msg(MSG_FLASH_DONE, 0, 0)) ;
 }
 
-/** Callback to read the 8-bit M25 flash status register.
- *
- * \param buff Array of u8 (length == 0)
- *             Unused, buff contains no data
- */
-void m25_flash_read_status_callback(u8 buff[] __attribute__((unused)))
-{
-  u8 sr = m25_read_status();
-  while (sbp_send_msg(MSG_M25_FLASH_READ_STATUS, 1, &sr)) ;
-}
-
 /** Callback to unlock a sector of the STM flash memory.
  *
  * \param buff Array of u8 (length 1) :
@@ -181,7 +170,6 @@ void flash_callbacks_register(void)
   static msg_callbacks_node_t stm_flash_unlock_sector_node;
 
   static msg_callbacks_node_t m25_flash_write_status_node;
-  static msg_callbacks_node_t m25_flash_read_status_node;
 
   sbp_register_callback(MSG_FLASH_ERASE,
                         &flash_erase_sector_callback,
@@ -203,9 +191,6 @@ void flash_callbacks_register(void)
   sbp_register_callback(MSG_M25_FLASH_WRITE_STATUS,
                         &m25_flash_write_status_callback,
                         &m25_flash_write_status_node);
-  sbp_register_callback(MSG_M25_FLASH_READ_STATUS,
-                        &m25_flash_read_status_callback,
-                        &m25_flash_read_status_node);
 }
 
 /** Callback to read STM32F4's hardcoded unique ID.

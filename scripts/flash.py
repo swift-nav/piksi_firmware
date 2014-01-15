@@ -91,19 +91,6 @@ def _m25_write_status(self, sr):
   while self._waiting_for_callback:
     time.sleep(0.001)
 
-# Read M25 status register (8 bits).
-def _m25_read_status(self):
-  self._waiting_for_callback = True
-  self.link.send_message(ids.M25_FLASH_READ_STATUS, '\x00')
-  while self._waiting_for_callback:
-    time.sleep(0.001)
-  return self.status_register
-
-# Callback to receive M25 status register data (8 bits).
-def _m25_read_status_callback(self, data):
-  self.status_register = struct.unpack('B', data[0])[0]
-  self._waiting_for_callback = False
-
 class Flash():
 
   def __init__(self, link, flash_type):
@@ -129,12 +116,6 @@ class Flash():
       # Add M25-specific functions.
       self.__dict__['write_status'] = \
           new.instancemethod(_m25_write_status, self, Flash)
-      self.__dict__['read_status'] = \
-          new.instancemethod(_m25_read_status, self, Flash)
-      self.__dict__['_read_status_callback'] = \
-          new.instancemethod(_m25_read_status_callback, self, Flash)
-      self.link.add_callback(ids.M25_FLASH_READ_STATUS, \
-                             self._read_status_callback)
     else:
       raise ValueError
 
