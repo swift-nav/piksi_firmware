@@ -27,42 +27,37 @@
 #include "main.h"
 #include "board/leds.h"
 #include "error.h"
+#include "peripherals/usart.h"
 
 void clock_setup(void)
 {
-  /* Enable GPIOD clock for LED & USARTs. */
-  rcc_peripheral_enable_clock(&RCC_AHB1ENR, RCC_AHB1ENR_IOPCEN);
+  /* Clock the USARTs. */
+  RCC_APB2ENR |= RCC_APB2ENR_USART1EN | RCC_APB2ENR_USART6EN;
+  RCC_APB1ENR |= RCC_APB1ENR_USART3EN;
 
-  /* Enable clocks for USART6. */
-  rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_USART6EN);
-}
-
-void usart_setup(void)
-{
-  /* Setup USART2 parameters. */
-  usart_set_baudrate(USART6, 1000000);
-  usart_set_databits(USART6, 8);
-  usart_set_stopbits(USART6, USART_STOPBITS_1);
-  usart_set_mode(USART6, USART_MODE_TX_RX);
-  usart_set_parity(USART6, USART_PARITY_NONE);
-  usart_set_flow_control(USART6, USART_FLOWCONTROL_NONE);
-
-  /* Finally enable the USART. */
-  usart_enable(USART6);
+  /* GPIO pins corresponding to the USART. */
+  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN | RCC_AHB1ENR_IOPCEN;
 }
 
 void gpio_setup(void)
 {
-  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO6|GPIO7);
-  gpio_set_af(GPIOC, GPIO_AF8, GPIO6|GPIO7);
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO6 | GPIO7);
+  gpio_set_af(GPIOC, GPIO_AF8, GPIO6 | GPIO7);
+
+  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9 | GPIO10);
+  gpio_set_af(GPIOA, GPIO_AF7, GPIO9 | GPIO10);
+
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO10 | GPIO11);
+  gpio_set_af(GPIOC, GPIO_AF7, GPIO10 | GPIO11);
 }
 
 int main(void)
 {
   clock_setup();
   gpio_setup();
-  usart_setup();
-  nvic_enable_irq(NVIC_USART6_IRQ);
+  usart_set_parameters(USART6, 57600);
+  usart_set_parameters(USART1, 57600);
+  usart_set_parameters(USART3, 57600);
 
   led_setup();
 
@@ -80,11 +75,17 @@ int main(void)
       for (int i = 0; i < 100000; i++) /* Wait a bit. */
         __asm__("NOP");
       USART6_DR = '\n';
+      USART1_DR = '\n';
+      USART3_DR = '\n';
       for (int i = 0; i < 100000; i++) /* Wait a bit. */
         __asm__("NOP");
       USART6_DR = '\r';
+      USART1_DR = '\r';
+      USART3_DR = '\r';
     );
     USART6_DR = c + 'A';
+    USART1_DR = c + 'A';
+    USART3_DR = c + 'A';
     c = (c + 1) % 26;
   }
 
