@@ -18,6 +18,7 @@
 #include "../peripherals/usart.h"
 #include "../sbp.h"
 #include "m25_flash.h"
+#include "main.h"
 
 /** \addtogroup board
  * \{ */
@@ -94,9 +95,9 @@ void m25_read(u32 addr, u8 buff[], u32 len)
 {
   /* Check that address range to be written is valid. */
   if (addr > M25_MAX_ADDR)
-    screaming_death("m25_read was passed address > " STR(M25_MAX_ADDR) " ");
+    screaming_death("m25_read was passed address > " STR(M25_MAX_ADDR));
   if (addr+len-1 > M25_MAX_ADDR)
-    screaming_death("m25_read was passed (address+len-1) > " STR(M25_MAX_ADDR) " ");
+    screaming_death("m25_read was passed (address+len-1) > " STR(M25_MAX_ADDR));
 
   spi_slave_select(SPI_SLAVE_FLASH);
 
@@ -124,11 +125,11 @@ void m25_page_program(u32 addr, u8 buff[], u8 len)
 {
   /* Check that address range to be written is valid. */
   if (addr > STR(M25_MAX_ADDR))
-    screaming_death("m25_page_program was passed address > " STR(M25_MAX_ADDR) " ");
+    screaming_death("m25_page_program was passed address > " STR(M25_MAX_ADDR));
 
   /* Check if page boundary is crossed. */
   if (addr>>8 < (addr+len-1)>>8)
-    screaming_death("m25_page_program call will wrap page boundary ");
+    screaming_death("m25_page_program call will wrap page boundary");
 
   u32 i;
 
@@ -157,7 +158,7 @@ void m25_sector_erase(u32 addr)
 {
   /* Check that addr argument is valid. */
   if (addr > M25_MAX_ADDR)
-    screaming_death("m25_sector_erase was passed address > " STR(M25_MAX_ADDR) " ");
+    screaming_death("m25_sector_erase was passed address > " STR(M25_MAX_ADDR));
 
   spi_slave_select(SPI_SLAVE_FLASH);
 

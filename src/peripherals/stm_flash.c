@@ -14,6 +14,7 @@
 
 #include "stm_flash.h"
 #include "../error.h"
+#include "main.h"
 
 /** \defgroup peripherals Peripherals
  * Functions to interact with the on-chip STM32F4 peripherals.
@@ -34,7 +35,7 @@ void stm_flash_lock_sector(u8 sector)
 {
   /* Check that sector argument is valid. */
   if (sector >= STM_FLASH_N_SECTORS)
-    screaming_death("stm_flash_lock_sector received sector > " STR(STM_FLASH_N_SECTORS) " ");
+    screaming_death("stm_flash_lock_sector received sector > " STR(STM_FLASH_N_SECTORS));
 
   flash_unlock_option_bytes();
   while (FLASH_SR & FLASH_SR_BSY) ;
@@ -52,7 +53,7 @@ void stm_flash_unlock_sector(u8 sector)
 {
   /* Check that sector argument is valid. */
   if (sector >= STM_FLASH_N_SECTORS)
-    screaming_death("stm_flash_unlock_sector received sector > " STR(STM_FLASH_N_SECTORS) " ");
+    screaming_death("stm_flash_unlock_sector received sector > " STR(STM_FLASH_N_SECTORS));
 
   flash_unlock_option_bytes();
   while (FLASH_SR & FLASH_SR_BSY) ;
@@ -68,7 +69,7 @@ void stm_flash_erase_sector(u8 sector)
 {
   /* Check that sector argument is valid. */
   if (sector >= STM_FLASH_N_SECTORS)
-    screaming_death("stm_flash_erase_sector received sector > " STR(STM_FLASH_N_SECTORS) " ");
+    screaming_death("stm_flash_erase_sector received sector > " STR(STM_FLASH_N_SECTORS));
 
   /* Erase sector.
    * See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual"
@@ -91,11 +92,11 @@ void stm_flash_program(u32 address, u8 data[], u8 length)
 {
   /* Check that arguments are valid. */
   if (address > STM_FLASH_MAX_ADDR)
-    screaming_death("stm_flash_program received addr > " STR(STM_FLASH_MAX_ADDR) " ");
+    screaming_death("stm_flash_program received addr > " STR(STM_FLASH_MAX_ADDR));
   if (address < STM_FLASH_MIN_ADDR)
-    screaming_death("stm_flash_program received addr < " STR(STM_FLASH_MIN_ADDR) " ");
+    screaming_death("stm_flash_program received addr < " STR(STM_FLASH_MIN_ADDR));
   if (address+length-1 > STM_FLASH_MAX_ADDR)
-    screaming_death("stm_flash_program received addr+length+1 > " STR(STM_FLASH_MAX_ADDR) " ");
+    screaming_death("stm_flash_program received addr+length+1 > " STR(STM_FLASH_MAX_ADDR));
 
   /* Program specified addresses with data */
   flash_unlock();

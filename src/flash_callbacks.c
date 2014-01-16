@@ -17,6 +17,7 @@
 #include "peripherals/stm_flash.h"
 #include "board/m25_flash.h"
 #include "flash_callbacks.h"
+#include "main.h"
 
 /** Callback to erase a sector of either the STM or M25 flash.
  *
@@ -37,7 +38,7 @@ void flash_erase_sector_callback(u8 buff[])
     m25_sector_erase(addr);
     m25_write_disable();
   } else {
-    screaming_death("flash_erase_callback passed invalid flash argument ");
+    screaming_death("flash_erase_callback passed invalid flash argument");
   }
 
   /* Keep trying to send message until it makes it into the buffer. */
@@ -63,7 +64,7 @@ void flash_program_callback(u8 buff[])
   u8 *data = &buff[6];
 
   if (length > FLASH_ADDRS_PER_OP)
-    screaming_death("flash_program_callback received length > " STR(FLASH_ADDRS_PER_OP) " ");
+    screaming_death("flash_program_callback received length > " STR(FLASH_ADDRS_PER_OP));
 
   if (flash == FLASH_STM) {
     stm_flash_program(address, data, length);
@@ -72,7 +73,7 @@ void flash_program_callback(u8 buff[])
     m25_page_program(address, data, length);
     m25_write_disable();
   } else {
-    screaming_death("flash_program_callback passed invalid flash argument ");
+    screaming_death("flash_program_callback passed invalid flash argument");
   }
 
   /* Keep trying to send message until it makes it into the buffer. */
@@ -95,12 +96,12 @@ void flash_read_callback(u8 buff[])
 
   /* TODO: figure out what max length is, make it a macro */
   if (length > FLASH_ADDRS_PER_OP)
-    screaming_death("flash_read_callback received length > " STR(FLASH_ADDRS_PER_OP) " ");
+    screaming_death("flash_read_callback received length > " STR(FLASH_ADDRS_PER_OP));
   if (flash == FLASH_STM) {
     if (address < STM_FLASH_MIN_ADDR)
-      screaming_death("flash_read_callback received address < " STR(STM_FLASH_MIN_ADDR) " ");
+      screaming_death("flash_read_callback received address < " STR(STM_FLASH_MIN_ADDR));
     if (address+length-1 > STM_FLASH_MAX_ADDR)
-      screaming_death("flash_read_callback received address+length-1 > " STR(STM_FLASH_MAX_ADDR) " ");
+      screaming_death("flash_read_callback received address+length-1 > " STR(STM_FLASH_MAX_ADDR));
   }
 
   u8 callback_data[length + 5];
@@ -115,7 +116,7 @@ void flash_read_callback(u8 buff[])
   } else if (flash == FLASH_M25) {
     m25_read(address, &callback_data[5], length);
   } else {
-    screaming_death("flash_read_callback passed invalid flash argument ");
+    screaming_death("flash_read_callback passed invalid flash argument");
   }
 
   while (sbp_send_msg(MSG_FLASH_READ, length + 5, callback_data)) ;

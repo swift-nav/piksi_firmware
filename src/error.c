@@ -54,6 +54,7 @@ void screaming_death(char *msg)
   u8 i = 0;
   while (*msg && i < SPEAKING_MSG_N)  /* Don't want to use C library memcpy */
     err_msg[11 + (i++)] = *msg++;
+  err_msg[11 + i] = ' '; /* Insert ' ' after message */
 
   /* Insert CRC */
   u16 crc = crc16_ccitt((u8*)&err_msg[2], 2, 0);
