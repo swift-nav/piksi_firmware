@@ -124,7 +124,7 @@ void m25_read(u32 addr, u8 buff[], u32 len)
 void m25_page_program(u32 addr, u8 buff[], u8 len)
 {
   /* Check that address range to be written is valid. */
-  if (addr > STR(M25_MAX_ADDR))
+  if (addr > M25_MAX_ADDR)
     screaming_death("m25_page_program was passed address > " STR(M25_MAX_ADDR));
 
   /* Check if page boundary is crossed. */
