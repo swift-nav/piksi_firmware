@@ -26,6 +26,46 @@
 #include "board/nap/acq_channel.h"
 #include "board/nap/nap_common.h"
 
+/** Send results of an acquisition to the host.
+ *
+ * \param sv  PRN (0-31) of the acquisition
+ * \param snr Signal to noise ratio of best point from acquisition.
+ * \param cp  Code phase of best point.
+ * \param cf  Carrier frequency of best point.
+ * \param bc  Correlation of best point.
+ * \param mc  Mean correlation of all points.
+ * \return    Return value from sending message.
+ */
+//u32 acq_send_result(u8 sv, float snr, float cp, float cf, corr_t bc, u32 mc)
+u32 acq_send_result(u8 sv, float snr, float cp, float cf)
+{
+  typedef struct __attribute__((packed)) {
+    u8 sv;
+    float snr;
+    float cp;
+    float cf;
+    corr_t bc;
+    u32 mc;
+  } acq_result_msg_t;
+
+  acq_result_msg_t acq_result_msg;
+
+  acq_result_msg.sv = sv;
+  acq_result_msg.snr = snr;
+  acq_result_msg.cp = cp;
+  acq_result_msg.cf = cf;
+//  acq_result_msg.bc = bc;
+  acq_result_msg.bc.I = 0;
+  acq_result_msg.bc.Q = 0;
+  acq_result_msg.mc = 0;
+
+  /* Keep trying to send message until it makes it into the buffer. */
+  while (sbp_send_msg(MSG_ACQ_RESULT, sizeof(acq_result_msg_t), \
+                      (u8 *)&acq_result_msg)) ;
+
+  return 0;
+}
+
 int main(void)
 {
   init();
@@ -39,8 +79,8 @@ int main(void)
   float code_phase;
   float carrier_freq;
   float snr;
-  corr_t best_corr;
-  u32 mean_corr;
+//  corr_t best_corr;
+//  u32 mean_corr;
 
   u8 prn = 0;
   while (1) {
@@ -50,12 +90,12 @@ int main(void)
     nap_acq_code_wr_blocking(prn);
     acq_start(prn, 0, 1023, -7000, 7000, 300);
     while(!(acq_get_done()));
-    acq_get_results(&code_phase, &carrier_freq, &snr);
-    best_corr = acq_get_best_corr();
-    mean_corr = acq_get_mean_corr();
-    acq_send_result(prn, snr, code_phase, carrier_freq, best_corr, mean_corr);
 
-    printf("PRN %2u - CP: %7.2f, CF: % 7.1f, SNR: %5.2f, Max I: %6d, Max Q: %6d, Mean Corr: %5d", prn+1, code_phase, carrier_freq, snr, (unsigned int)best_corr.I, (unsigned int)best_corr.Q, (unsigned int)mean_corr);
+    acq_get_results(&code_phase, &carrier_freq, &snr);
+    acq_send_result(prn, snr, code_phase, carrier_freq);
+
+    //printf("PRN %2u - CP: %7.2f, CF: % 7.1f, SNR: %5.2f, Max I: %6d, Max Q: %6d, Mean Corr: %5d", prn+1, code_phase, carrier_freq, snr, (unsigned int)best_corr.I, (unsigned int)best_corr.Q, (unsigned int)mean_corr);
+    printf("PRN %2u - CP: %7.2f, CF: % 7.1f, SNR: %5.2f", prn+1, code_phase, carrier_freq, snr);
     if (snr > 25.0)
       printf("   :D\n");
     else
