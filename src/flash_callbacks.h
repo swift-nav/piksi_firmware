@@ -16,6 +16,8 @@
 #define FLASH_STM 0 /**< Value to pass flash callbacks to use STM Flash */
 #define FLASH_M25 1 /**< Value to pass flash callbacks to use M25 Flash */
 
+#define FLASH_ADDRS_PER_OP 128
+
 void flash_callbacks_register(void);
 void stm_unique_id_callback_register(void);
 

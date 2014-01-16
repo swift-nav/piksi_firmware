@@ -19,6 +19,11 @@
 /* TODO : put this in libopencm3 */
 #define STM_UNIQUE_ID_ADDR 0x1FFF7A10
 
+#define STM_FLASH_N_SECTORS 12
+
+#define STM_FLASH_MIN_ADDR 0x08000000
+#define STM_FLASH_MAX_ADDR 0x080FFFFF
+
 /** \} */
 
 void stm_flash_lock_sector(u8 sector);

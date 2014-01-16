@@ -62,8 +62,8 @@ void flash_program_callback(u8 buff[])
   u8 length = buff[5];
   u8 *data = &buff[6];
 
-  if (length > 128)
-    screaming_death("flash_program_callback received length > 128 ");
+  if (length > FLASH_ADDRS_PER_OP)
+    screaming_death("flash_program_callback received length > " STR(FLASH_ADDRS_PER_OP) " ");
 
   if (flash == FLASH_STM) {
     stm_flash_program(address, data, length);
@@ -94,13 +94,13 @@ void flash_read_callback(u8 buff[])
   u8 length = buff[5];
 
   /* TODO: figure out what max length is, make it a macro */
-  if (length > 128)
-    screaming_death("flash_read_callback received length > 128 ");
+  if (length > FLASH_ADDRS_PER_OP)
+    screaming_death("flash_read_callback received length > " STR(FLASH_ADDRS_PER_OP) " ");
   if (flash == FLASH_STM) {
-    if (address < 0x08000000)
-      screaming_death("flash_read_callback received address < 0x08000000 ");
-    if (address+length-1 > 0x080FFFFF)
-      screaming_death("flash_read_callback received address+length-1 > 0x080FFFFF ");
+    if (address < STM_FLASH_MIN_ADDR)
+      screaming_death("flash_read_callback received address < " STR(STM_FLASH_MIN_ADDR) " ");
+    if (address+length-1 > STM_FLASH_MAX_ADDR)
+      screaming_death("flash_read_callback received address+length-1 > " STR(STM_FLASH_MAX_ADDR) " ");
   }
 
   u8 callback_data[length + 5];

@@ -85,18 +85,18 @@ void m25_write_status(u8 sr)
 }
 
 /** Read data from flash memory.
+ * \todo Use fast read command instead of regular?
  * \param addr Starting address to read from
  * \param len Number of addresses to read
  * \param buff Array to write bytes read from flash to
  */
-/* TODO: Use fast read command instead of regular? */
 void m25_read(u32 addr, u8 buff[], u32 len)
 {
-  /* Valid M25P80 addresses are 0x00000-0xFFFFF. */
-  if (addr > 0xFFFFF)
-    screaming_death("m25_read was passed address > 0xFFFFF ");
-  if (addr+len-1 > 0xFFFFF)
-    screaming_death("m25_read was passed (address+len-1) > 0xFFFFF ");
+  /* Check that address range to be written is valid. */
+  if (addr > M25_MAX_ADDR)
+    screaming_death("m25_read was passed address > " STR(M25_MAX_ADDR) " ");
+  if (addr+len-1 > M25_MAX_ADDR)
+    screaming_death("m25_read was passed (address+len-1) > " STR(M25_MAX_ADDR) " ");
 
   spi_slave_select(SPI_SLAVE_FLASH);
 
@@ -122,9 +122,9 @@ void m25_read(u32 addr, u8 buff[], u32 len)
  */
 void m25_page_program(u32 addr, u8 buff[], u8 len)
 {
-  /* Valid M25P80 addresses are 0x00000-0xFFFFF. */
-  if (addr > 0xFFFFF)
-    screaming_death("m25_page_program was passed address > 0xFFFFF ");
+  /* Check that address range to be written is valid. */
+  if (addr > STR(M25_MAX_ADDR))
+    screaming_death("m25_page_program was passed address > " STR(M25_MAX_ADDR) " ");
 
   /* Check if page boundary is crossed. */
   if (addr>>8 < (addr+len-1)>>8)
@@ -155,9 +155,9 @@ void m25_page_program(u32 addr, u8 buff[], u8 len)
  */
 void m25_sector_erase(u32 addr)
 {
-  /* Valid M25P80 addresses are 0x00000-0xFFFFF. */
-  if (addr > 0xFFFFF)
-    screaming_death("m25_sector_erase was passed address > 0xFFFFF ");
+  /* Check that addr argument is valid. */
+  if (addr > M25_MAX_ADDR)
+    screaming_death("m25_sector_erase was passed address > " STR(M25_MAX_ADDR) " ");
 
   spi_slave_select(SPI_SLAVE_FLASH);
 

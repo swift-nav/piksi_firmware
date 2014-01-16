@@ -37,7 +37,7 @@
 #define M25_SR_WEL  (1 << 1)  /**< Status Register: Write Enable Latch Bit */
 #define M25_SR_WIP  (1 << 0)  /**< Status Register: Write In Progress Bit */
 
-#define M25_READ_SIZE 192
+#define M25_MAX_ADDR 0xFFFFF
 
 /** \} */
 
