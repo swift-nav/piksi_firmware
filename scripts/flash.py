@@ -119,6 +119,13 @@ class Flash():
     else:
       raise ValueError
 
+  def __del__(self):
+    self.stop()
+
+  def stop(self):
+    self.link.rm_callback(ids.FLASH_DONE)
+    self.link.rm_callback(ids.FLASH_READ)
+
   def __str__(self):
     return self.status
 
