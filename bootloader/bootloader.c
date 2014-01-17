@@ -104,7 +104,7 @@ int main(void)
    * receive_handshake_callback and we have a valid application, then boot
    * the application.
    */
-	for (u64 i=0; i<200000; i++){
+	for (u64 i=0; i<400000; i++){
     DO_EVERY(3000,
       led_toggle(LED_RED);
       send_handshake();
