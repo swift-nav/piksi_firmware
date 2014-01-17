@@ -32,20 +32,16 @@
  * \param snr Signal to noise ratio of best point from acquisition.
  * \param cp  Code phase of best point.
  * \param cf  Carrier frequency of best point.
- * \param bc  Correlation of best point.
- * \param mc  Mean correlation of all points.
- * \return    Return value from sending message.
  */
-//u32 acq_send_result(u8 sv, float snr, float cp, float cf, corr_t bc, u32 mc)
-u32 acq_send_result(u8 sv, float snr, float cp, float cf)
+void acq_send_result(u8 sv, float snr, float cp, float cf)
 {
   typedef struct __attribute__((packed)) {
-    u8 sv;
-    float snr;
-    float cp;
-    float cf;
-    corr_t bc;
-    u32 mc;
+    u8 sv;     /* SV searched for. */
+    float snr; /* SNR of best point. */
+    float cp;  /* Code phase of best point. */
+    float cf;  /* Carr freq of best point. */
+    corr_t bc; /* Correlations of best point. */
+    u32 mc;    /* Mean correlation. */
   } acq_result_msg_t;
 
   acq_result_msg_t acq_result_msg;
@@ -54,16 +50,16 @@ u32 acq_send_result(u8 sv, float snr, float cp, float cf)
   acq_result_msg.snr = snr;
   acq_result_msg.cp = cp;
   acq_result_msg.cf = cf;
-//  acq_result_msg.bc = bc;
-  acq_result_msg.bc.I = 0;
-  acq_result_msg.bc.Q = 0;
-  acq_result_msg.mc = 0;
+  //acq_result_msg.bc = bc;
+  acq_result_msg.bc.I = 0; /* Currently unused. */
+  acq_result_msg.bc.Q = 0; /* Currently unused. */
+  acq_result_msg.mc = 0;   /* Currently unused. */
 
-  /* Keep trying to send message until it makes it into the buffer. */
-  while (sbp_send_msg(MSG_ACQ_RESULT, sizeof(acq_result_msg_t), \
-                      (u8 *)&acq_result_msg)) ;
-
-  return 0;
+  /*
+   * Use 0xA0 as acq_result message, don't define in sbp_messages.h as we
+   * don'tneed an official message for it.
+   */
+  while (sbp_send_msg(0xA0, sizeof(acq_result_msg_t), (u8 *)&acq_result_msg)) ;
 }
 
 int main(void)
@@ -79,8 +75,8 @@ int main(void)
   float code_phase;
   float carrier_freq;
   float snr;
-//  corr_t best_corr;
-//  u32 mean_corr;
+  //corr_t best_corr;
+  //u32 mean_corr;
 
   u8 prn = 0;
   while (1) {

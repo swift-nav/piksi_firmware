@@ -30,8 +30,6 @@
 #define MSG_ALMANAC                 0x69  /**< Host   -> Piksi */
 #define MSG_SET_TIME                0x68  /**< Host   -> Piksi */
 
-#define MSG_ACQ_RESULT              0xA0  /**< Piksi  -> Host  */
-
 #define MSG_BOOTLOADER_HANDSHAKE    0xB0  /**< Host  <-> Piksi */
 #define MSG_BOOTLOADER_JUMP_TO_APP  0xB1  /**< Host   -> Piksi */
 
