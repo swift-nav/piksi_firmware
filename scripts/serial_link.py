@@ -181,7 +181,14 @@ class SerialLink:
     self.ser.write(char)
 
   def add_callback(self, msg_type, callback):
-    self.callbacks[msg_type] = callback
+    try:
+      self.callbacks[msg_type]
+      raise Exception("msg_type already exists in callbacks")
+    except KeyError:
+      self.callbacks[msg_type] = callback
+
+  def rm_callback(self, msg_type):
+    self.callbacks.pop(msg_type)
 
   def get_callback(self, msg_type):
     if msg_type in self.callbacks:
