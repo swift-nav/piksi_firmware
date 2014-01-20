@@ -171,7 +171,8 @@ void acq_service_irq()
       if (power_max > acq_state.best_power) {
         acq_state.best_power = power_max;
         acq_state.best_cf = acq_state.carrier_freq;
-        acq_state.best_cp = acq_state.code_phase + index_max;
+        acq_state.best_cp = acq_state.code_phase + (nap_acq_n_taps-index_max) \
+                            % (1<<NAP_ACQ_CODE_PHASE_WIDTH);
       }
       acq_state.count += nap_acq_n_taps;
       acq_state.code_phase += nap_acq_n_taps;
