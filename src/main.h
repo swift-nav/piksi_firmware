@@ -36,4 +36,10 @@
   } \
 } while(0)
 
+/* See gcc.gnu.org/onlinedocs/cpp/Stringification.html for
+ * explanation of pre-processing of macros into strings.
+ */
+#define STR_INNER(x) #x
+#define STR(x) STR_INNER(x)
+
 #endif

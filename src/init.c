@@ -12,11 +12,14 @@
 
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
+#include <libopencm3/cm3/scb.h>
 
 #include "board/leds.h"
 #include "board/m25_flash.h"
+#include "peripherals/stm_flash.h"
 #include "board/nap/nap_common.h"
 #include "sbp.h"
+#include "flash_callbacks.h"
 
 /** Clock settings for 130.944 MHz from 16.368 MHz HSE. */
 const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
@@ -33,6 +36,34 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
   .apb2_frequency = 32736000,
 };
 
+/** Resets the device back into the bootloader. */
+void reset_callback(u8 buff[] __attribute__((unused)))
+{
+  /* Ensure all outstanding memory accesses including buffered writes are
+   * completed before reset.
+   */
+  __asm__("DSB;");
+  /* Keep priority group unchanged. */
+  SCB_AIRCR = SCB_AIRCR_VECTKEY |
+              SCB_AIRCR_PRIGROUP_MASK |
+              SCB_AIRCR_SYSRESETREQ;
+  __asm__("DSB;");
+  /* Wait until reset. */
+  while(1);
+}
+
+/** Register the reset_callback. */
+void reset_callback_register()
+{
+  static msg_callbacks_node_t reset_node;
+
+  sbp_register_callback(
+    MSG_RESET,
+    &reset_callback,
+    &reset_node
+  );
+}
+
 void init(u8 check_fpga_auth)
 {
   /* Delay on start-up as some programmers reset the STM twice. */
@@ -45,7 +76,11 @@ void init(u8 check_fpga_auth)
 
   sbp_setup(1);
 
-  m25_setup();
+  reset_callback_register();
+
+  flash_callbacks_register();
+
+  stm_unique_id_callback_register();
 }
 
 /** Our own basic implementation of sbrk().

@@ -59,10 +59,11 @@ def crc16(s, crc=0):
 
 class ListenerThread (threading.Thread):
 
-  def __init__(self, link):
-    self.wants_to_stop = False
+  def __init__(self, link, print_unhandled=True):
     super(ListenerThread, self).__init__()
     self.link = link
+    self.wants_to_stop = False
+    self.print_unhandled = print_unhandled
 
   def stop(self):
     self.wants_to_stop = True
@@ -80,17 +81,18 @@ class ListenerThread (threading.Thread):
           if cb:
             cb(md)
           else:
-            print "Unhandled message %02X" % mt
+            if self.print_unhandled:
+              print "Host Side Unhandled message %02X" % mt
       except Exception, err:
         import traceback
         print traceback.format_exc()
 
 class SerialLink:
 
-  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False):
-    self.callbacks = {}
+  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False, print_unhandled=True):
+    self.print_unhandled = print_unhandled
     self.unhandled_bytes = 0
-
+    self.callbacks = {}
     if use_ftdi:
       import pylibftdi
       self.ser = pylibftdi.Device()
@@ -100,10 +102,10 @@ class SerialLink:
       self.ser = serial.Serial(port, baud, timeout=1)
 
     # Delay then flush the buffer to make sure the receive buffer starts empty.
-    time.sleep(0.2)
+    time.sleep(0.5)
     self.ser.flush()
 
-    self.lt = ListenerThread(self)
+    self.lt = ListenerThread(self, print_unhandled)
     self.lt.start()
 
   def __del__(self):
@@ -129,10 +131,16 @@ class SerialLink:
             break
           else:
             self.unhandled_bytes += 1
-            print "Unhandled byte : 0x%02x," % ord(magic), "total", self.unhandled_bytes
+            if self.print_unhandled:
+              print "Host Side Unhandled byte : 0x%02x," % ord(magic), \
+                                                              "total", \
+                                                 self.unhandled_bytes
         else:
           self.unhandled_bytes += 1
-          print "Unhandled byte : 0x%02x," % ord(magic), "total", self.unhandled_bytes
+          if self.print_unhandled:
+            print "Host Side Unhandled byte : 0x%02x," % ord(magic), \
+                                                            "total", \
+                                               self.unhandled_bytes
 
     hdr = ""
     while len(hdr) < 2:
@@ -152,7 +160,7 @@ class SerialLink:
     crc_received = struct.unpack('<H', crc_received)[0]
 
     if crc != crc_received:
-      print "CRC mismatch: 0x%04X 0x%04X" % (crc, crc_received)
+      print "Host Side CRC mismatch: 0x%04X 0x%04X" % (crc, crc_received)
       return (None, None)
 
     return (msg_type, data)
@@ -173,7 +181,14 @@ class SerialLink:
     self.ser.write(char)
 
   def add_callback(self, msg_type, callback):
-    self.callbacks[msg_type] = callback
+    try:
+      self.callbacks[msg_type]
+      raise Exception("callback for msg_type 0x%02x already exists" % msg_type)
+    except KeyError:
+      self.callbacks[msg_type] = callback
+
+  def rm_callback(self, msg_type):
+    self.callbacks.pop(msg_type)
 
   def get_callback(self, msg_type):
     if msg_type in self.callbacks:
@@ -197,7 +212,6 @@ if __name__ == "__main__":
   serial_port = args.port[0]
   link = SerialLink(serial_port, use_ftdi=args.ftdi)
   link.add_callback(ids.PRINT, default_print_callback)
-  char = 0
   try:
     while True:
       time.sleep(0.1)

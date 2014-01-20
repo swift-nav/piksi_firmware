@@ -1,6 +1,6 @@
 /*
  * bootloader for the Swift Navigation Piksi GPS Receiver
- * 
+ *
  * Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
  *
  * Contacts: Fergus Noble <fergusnoble@gmail.com>
@@ -23,7 +23,7 @@
 /* Define memory regions. */
 MEMORY
 {
-	rom (rx) : ORIGIN = 0x08000000, LENGTH = 64K
+	rom (rx) : ORIGIN = 0x08000000, LENGTH = 16K
 	ram (rwx) : ORIGIN = 0x20000000, LENGTH = 128K
   /* STM32F4 Core Coupled Memory, not accesible by peripherals or DMA. */
   ccm (rwx) : ORIGIN = 0x10000000, LENGTH = 64K

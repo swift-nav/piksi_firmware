@@ -44,28 +44,30 @@
 #define MSG_PRINT                   0x10  /**< Piksi  -> Host  */
 #define MSG_DEBUG_VAR               0x11  /**< Piksi  -> Host  */
 
-#define MSG_ALMANAC                 0x01  /**< Host   -> Piksi */
-#define MSG_SET_TIME                0x02  /**< Host   -> Piksi */
+#define MSG_ALMANAC                 0x69  /**< Host   -> Piksi */
+#define MSG_SET_TIME                0x68  /**< Host   -> Piksi */
 
-#define MSG_BOOTLOADER_HANDSHAKE    0x03  /**< Host  <-> Piksi */
-#define MSG_BOOTLOADER_JUMP_TO_APP  0x04  /**< Host   -> Piksi */
+#define MSG_BOOTLOADER_HANDSHAKE    0xB0  /**< Host  <-> Piksi */
+#define MSG_BOOTLOADER_JUMP_TO_APP  0xB1  /**< Host   -> Piksi */
 
-#define MSG_CW_START                0x12  /**< Host   -> Piksi */
-#define MSG_CW_RESULTS              0x13  /**< Piksi  -> Host  */
+#define MSG_RESET                   0xB2  /**< Host   -> Piksi */
 
-#define MSG_NAP_DEVICE_DNA          0x14  /**< Host  <-> Piksi */
+#define MSG_CW_START                0xC1  /**< Host   -> Piksi */
+#define MSG_CW_RESULTS              0xC0  /**< Piksi  -> Host  */
 
-#define MSG_STM_FLASH_WRITE         0x05  /**< Host   -> Piksi */
-#define MSG_STM_FLASH_READ          0x06  /**< Host  <-> Piksi */
-#define MSG_STM_FLASH_ERASE         0x07  /**< Host   -> Piksi */
-#define MSG_STM_FLASH_DONE          0x08  /**< Piksi  -> Host  */
+#define MSG_NAP_DEVICE_DNA          0xDD  /**< Host  <-> Piksi */
 
-#define MSG_STM_UNIQUE_ID           0x15  /**< Host  <-> Piksi */
+#define MSG_FLASH_PROGRAM           0xE0  /**< Host   -> Piksi */
+#define MSG_FLASH_DONE              0xE0  /**< Piksi  -> Host  */
+#define MSG_FLASH_READ              0xE1  /**< Host  <-> Piksi */
+#define MSG_FLASH_ERASE             0xE2  /**< Host   -> Piksi */
 
-#define MSG_M25_FLASH_WRITE         0x09  /**< Host   -> Piksi */
-#define MSG_M25_FLASH_READ          0x0A  /**< Host  <-> Piksi */
-#define MSG_M25_FLASH_ERASE         0x0B  /**< Host   -> Piksi */
-#define MSG_M25_FLASH_DONE          0x0C  /**< Piksi  -> Host  */
+#define MSG_STM_UNIQUE_ID           0xE5  /**< Host  <-> Piksi */
+
+#define MSG_STM_FLASH_LOCK_SECTOR   0xE3  /**< Host   -> Piksi */
+#define MSG_STM_FLASH_UNLOCK_SECTOR 0xE4  /**< Host   -> Piksi */
+
+#define MSG_M25_FLASH_WRITE_STATUS  0xF3  /**< Host   -> Piksi */
 
 #define MSG_SOLUTION                0x20  /**< Piksi  -> Host  */
 #define MSG_DOPS                    0x21  /**< Piksi  -> Host  */

@@ -18,13 +18,13 @@
 #include "../peripherals/usart.h"
 #include "../sbp.h"
 #include "m25_flash.h"
+#include "main.h"
 
 /** \addtogroup board
  * \{ */
 
 /** \defgroup m25 M25Pxx Flash
- * Interface to read, write, and erase sectors of the M25Pxx FPGA
- * configuration flash.
+ * Interface to the M25Pxx FPGA configuration flash.
  * \{ */
 
 /** Send "write enable" command to the flash. */
@@ -44,9 +44,9 @@ void m25_write_disable(void)
 }
 
 /** Read the manufacturer and device identification out of the flash.
- * \param man_id   Pointer to u8 where JEDEC manufacturer ID will be stored.
- * \param mem_type Pointer to u8 where memory type will be stored.
- * \param mem_type Pointer to u8 where memory capacity will be stored.
+ * \param man_id   JEDEC manufacturer ID
+ * \param mem_type Memory type
+ * \param mem_type Memory capacity
  */
 void m25_read_id(u8 *man_id, u8 *mem_type, u8 *mem_cap)
 {
@@ -86,12 +86,19 @@ void m25_write_status(u8 sr)
 }
 
 /** Read data from flash memory.
+ * \todo Use fast read command instead of regular?
  * \param addr Starting address to read from
  * \param len Number of addresses to read
  * \param buff Array to write bytes read from flash to
  */
-void m25_read(u32 addr, u32 len, u8 *buff)
+void m25_read(u32 addr, u8 buff[], u32 len)
 {
+  /* Check that address range to be written is valid. */
+  if (addr > M25_MAX_ADDR)
+    screaming_death("m25_read was passed address > " STR(M25_MAX_ADDR));
+  if (addr+len-1 > M25_MAX_ADDR)
+    screaming_death("m25_read was passed (address+len-1) > " STR(M25_MAX_ADDR));
+
   spi_slave_select(SPI_SLAVE_FLASH);
 
   spi_xfer(SPI_BUS_FLASH, M25_READ);
@@ -107,17 +114,23 @@ void m25_read(u32 addr, u32 len, u8 *buff)
 }
 
 /** Program a page of the flash.
- * Programs selected bits from 1 to 0. If addr is greater than the starting
- * address of the page and len is greater than the page length, the written
- * data that goes over the end of the page will wrap to the beginning of the
- * page.
+ * Programs selected bits from 1 to 0. If the write will cross a page
+ * boundary, the device will hang and report an error.
+ *
  * \param addr Starting address to write to
- * \param len Number of addresses to write
+ * \param len  Number of addresses to write
  * \param buff Array of bytes to write to flash
  */
-void m25_page_program(u32 addr, u8 len, u8 buff[])
+void m25_page_program(u32 addr, u8 buff[], u8 len)
 {
-  /* TODO: check for page boundary crossing. */
+  /* Check that address range to be written is valid. */
+  if (addr > M25_MAX_ADDR)
+    screaming_death("m25_page_program was passed address > " STR(M25_MAX_ADDR));
+
+  /* Check if page boundary is crossed. */
+  if (addr>>8 < (addr+len-1)>>8)
+    screaming_death("m25_page_program call will wrap page boundary");
+
   u32 i;
 
   spi_slave_select(SPI_SLAVE_FLASH);
@@ -137,12 +150,16 @@ void m25_page_program(u32 addr, u8 len, u8 buff[])
 }
 
 /** Erase a sector of the flash.
- * Erases all memory addresses in sector to 0xFF. Any address in the sector can
- * be passed.
+ * Erases all memory addresses in a sector to 0xFF. Any address in the sector
+ * can be passed.
  * \param addr Address inside sector to erase.
  */
 void m25_sector_erase(u32 addr)
 {
+  /* Check that addr argument is valid. */
+  if (addr > M25_MAX_ADDR)
+    screaming_death("m25_sector_erase was passed address > " STR(M25_MAX_ADDR));
+
   spi_slave_select(SPI_SLAVE_FLASH);
 
   spi_xfer(SPI_BUS_FLASH, M25_SE);
@@ -168,114 +185,6 @@ void m25_bulk_erase(void)
   spi_slave_deselect();
 
   while (m25_read_status() & M25_SR_WIP) ;
-}
-
-/** Callback to program a set of addresses of the flash.
- * Note : sector containing addresses must be erased before addresses can be
- * programmed.
- *
- * \param buff Array of u8 (length >= 6) :
- *             - [0:3]   starting address of set to program
- *             - [4]     length of set of addresses to program - counts up
- *                       from starting address
- *             - [5:end] data to program addresses with
- */
-void m25_flash_program_callback(u8 buff[])
-{
-  u32 addr = *(u32*)&buff[0];
-  u8 len = *(u8*)&buff[4];
-  u8 *data = &buff[5];
-
-  m25_write_enable();
-  m25_page_program(addr, len, data);
-
-  /* Keep trying to send message until it makes it into the buffer. */
-  while (sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0)) ;
-}
-
-/** Callback to read a set of addresses from the flash.
- *
- * \param buff Array of u8 (length 5) :
- *             - [0:3] starting address of set to read
- *             - [4]   length of set of addresses to read - counts up from
- *                     starting address
- */
-void m25_flash_read_callback(u8 buff[])
-{
-  u32 addr, len;
-  static char flash_data[M25_READ_SIZE];
-
-  addr = *(u32*)&buff[0];
-  len = buff[4];
-  u8 callback_data[M25_READ_SIZE + 5];
-
-  u8 chunk_len;
-  while (len > 0) {
-    chunk_len = (len < M25_READ_SIZE) ? len : M25_READ_SIZE;
-
-    m25_read(addr, chunk_len, (u8*)flash_data);
-
-    /* Pack data for read callback back to host.
-     * 3 bytes starting address, 1 byte length, chunk_len byes data */
-    callback_data[0] = (addr >> 24) & 0xFF;
-    callback_data[1] = (addr >> 16) & 0xFF;
-    callback_data[2] = (addr >> 8) & 0xFF;
-    callback_data[3] = (addr >> 0) & 0xFF;
-    callback_data[4] = chunk_len;
-
-    for (u8 i = 0; i < chunk_len; i++)
-      callback_data[i + 5] = flash_data[i];
-
-    /* Keep trying to send message until it makes it into the buffer. */
-    while (sbp_send_msg(MSG_M25_FLASH_READ, 5 + chunk_len, callback_data)) ;
-
-    len -= chunk_len;
-    addr += chunk_len;
-  }
-}
-
-/** Callback to erase a sector of the flash.
- * \param buff Array of u8 (length 1) :
- *             - [0] flash sector number to erase.
- */
-void m25_flash_erase_callback(u8 buff[])
-{
-  u8 sector = buff[0];
-  u32 addr = ((u32)sector) << 16;
-
-  m25_write_enable();
-  m25_sector_erase(addr);
-
-  /* Keep trying to send message until it makes it into the buffer. */
-  while (sbp_send_msg(MSG_M25_FLASH_DONE, 0, 0)) ;
-}
-
-/** Setup the M25 flash callback functions.
- * \note The SPI2 bus must be setup and uncontested for these callbacks to
- *       properly communicate with the M25 flash.
- */
-void m25_setup(void)
-{
-  /* Assumes SPI bus already setup. */
-  static msg_callbacks_node_t m25_flash_program_node;
-  static msg_callbacks_node_t m25_flash_read_node;
-  static msg_callbacks_node_t m25_flash_erase_node;
-
-  sbp_register_callback(
-    MSG_M25_FLASH_WRITE,
-    &m25_flash_program_callback,
-    &m25_flash_program_node
-    );
-  sbp_register_callback(
-    MSG_M25_FLASH_READ,
-    &m25_flash_read_callback,
-    &m25_flash_read_node
-    );
-  sbp_register_callback(
-    MSG_M25_FLASH_ERASE,
-    &m25_flash_erase_callback,
-    &m25_flash_erase_node
-    );
 }
 
 /** \} */

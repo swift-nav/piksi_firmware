@@ -1,9 +1,128 @@
+##
+## Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
+## Copyright (C) 2010 Piotr Esden-Tempski <piotr@esden.net>
+## Copyright (C) 2011 Fergus Noble <fergusnoble@gmail.com>
+##
+## Derived from libopenstm32 example Makefile.include
+##
+## This program is free software: you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation, either version 3 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+##
+
 BINARY = bootloader
-
-OBJS = bootloader.o
-
-SWIFTNAV_ROOT = ..
 
 LDSCRIPT = bootloader.ld
 
-include ../stm32/Makefile.include
+SWIFTNAV_ROOT ?= ..
+PREFIX ?= arm-none-eabi
+GIT_VERSION := $(shell $(SWIFTNAV_ROOT)/scripts/git-check.sh)
+# PREFIX ?= arm-elf
+CC = $(PREFIX)-gcc
+LD = $(PREFIX)-gcc
+OBJCOPY = $(PREFIX)-objcopy
+OBJDUMP = $(PREFIX)-objdump
+
+# Search these directories for .c files
+vpath %.c $(SWIFTNAV_ROOT)/src
+vpath %.c $(SWIFTNAV_ROOT)/src/board
+vpath %.c $(SWIFTNAV_ROOT)/src/board/nap
+vpath %.c $(SWIFTNAV_ROOT)/src/peripherals
+
+OBJS = \
+  bootloader.o \
+  sbp.o \
+  leds.o \
+  stm_flash.o \
+  usart.o \
+  usart_tx.o \
+  usart_rx.o \
+  error.o \
+  settings.o \
+  spi.o \
+  m25_flash.o \
+  nap_common.o \
+  flash_callbacks.o \
+
+CFLAGS += -Os -Wall -Wextra -Werror -std=gnu99 \
+			    -fdata-sections -ffunction-sections \
+			    -fno-common -MD -DSTM32F4 -DGIT_VERSION="\"$(GIT_VERSION)\"" \
+			    -mcpu=cortex-m4 -march=armv7e-m -mthumb \
+			    -mfloat-abi=hard -mfpu=fpv4-sp-d16
+
+CFLAGS += -I$(SWIFTNAV_ROOT)/src
+
+LDSCRIPT ?= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
+LDFLAGS += -lc -lnosys -T$(LDSCRIPT) -nostartfiles \
+					 -Wl,-wrap,printf -Wl,--gc-sections \
+					 -mcpu=cortex-m4 -march=armv7e-m -mthumb \
+					 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
+					 -lopencm3_stm32f4 -lswiftnav-static-cortex-m4 -lm
+
+# Be silent per default, but 'make V=1' will show all compiler calls.
+ifneq ($(V),1)
+Q := @
+NULL := 2>/dev/null
+else
+LDFLAGS += -Wl,--print-gc-sections
+endif
+
+.SUFFIXES: .elf .bin .hex .srec .list .images
+.SECONDEXPANSION:
+.SECONDARY:
+
+all: images
+
+images: $(BINARY).images
+flash: $(BINARY).flash
+
+%.images: %.bin %.hex %.srec %.list
+	@echo "*** $* images generated ***"
+
+%.bin: %.elf
+	@printf "  OBJCOPY $(*).bin\n"
+	$(Q)$(OBJCOPY) -Obinary $(*).elf $(*).bin
+
+%.hex: %.elf
+	@printf "  OBJCOPY $(*).hex\n"
+	$(Q)$(OBJCOPY) -Oihex $(*).elf $(*).hex
+
+%.srec: %.elf
+	@printf "  OBJCOPY $(*).srec\n"
+	$(Q)$(OBJCOPY) -Osrec $(*).elf $(*).srec
+
+%.list: %.elf
+	@printf "  OBJDUMP $(*).list\n"
+	$(Q)$(OBJDUMP) -S $(*).elf > $(*).list
+
+%.elf: $(OBJS)
+	@printf "  LD      $(subst $(shell pwd)/,,$(@))\n"
+	$(Q)$(LD) -o $(*).elf $(OBJS) -Xlinker -Map=$(*).map $(LDFLAGS)
+
+%.o: %.c Makefile
+	@printf "  CC      bootloader/$(@)\n"
+	$(Q)$(CC) $(CFLAGS) -o ./$@ -c $<
+
+clean:
+	$(Q)rm -f $(OBJS)
+	$(Q)rm -f $(OBJS:.o=.d)
+	$(Q)rm -f *.elf
+	$(Q)rm -f *.bin
+	$(Q)rm -f *.hex
+	$(Q)rm -f *.srec
+	$(Q)rm -f *.list
+	$(Q)rm -f *.map
+
+.PHONY: images clean
+
+-include $(OBJS:.o=.d)
+

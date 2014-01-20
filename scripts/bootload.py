@@ -24,25 +24,24 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import serial_link
 import sbp_messages as ids
-import flash
-import argparse
-import sys
-from intelhex import IntelHex
 import time
+import struct
 
 class Bootloader():
-  _handshake_received = False
 
   def __init__(self, link):
+    self._handshake_received = False
     self.link = link
     self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
+    self.version = None
 
   def _handshake_callback(self, data):
+    self.version = struct.unpack('B', data[0])[0]
     self._handshake_received = True
 
   def wait_for_handshake(self):
+    self._handshake_received = False
     while not self._handshake_received:
       time.sleep(0.1)
 
@@ -53,6 +52,12 @@ class Bootloader():
     self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
 
 if __name__ == "__main__":
+  import argparse
+  import thread
+  import serial_link
+  import flash
+  import sys
+  from intelhex import IntelHex
   parser = argparse.ArgumentParser(description='Piksi Bootloader')
   parser.add_argument("file",
                       help="the Intel hex file to write to flash.")
@@ -84,7 +89,8 @@ if __name__ == "__main__":
   found_device = False
   while not found_device:
     try:
-      link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi)
+      link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi,
+                                    print_unhandled = False)
       found_device = True
     except KeyboardInterrupt:
       # Clean up and exit
@@ -93,14 +99,22 @@ if __name__ == "__main__":
     except:
       # Couldn't find device
       time.sleep(0.01)
-  print "link with device successfully created."
+  print "link successfully created."
   link.add_callback(ids.PRINT, serial_link.default_print_callback)
 
   # Tell Bootloader we want to change flash data
   piksi_bootloader = Bootloader(link)
-  piksi_bootloader.wait_for_handshake()
-  print "Received handshake signal from device."
+  print "Waiting for bootloader handshake message from Piksi ...",
+  sys.stdout.flush()
+  try:
+    piksi_bootloader.wait_for_handshake()
+  except KeyboardInterrupt:
+    # Clean up and exit
+    link.close()
+    sys.exit()
   piksi_bootloader.reply_handshake()
+  print "received."
+  print "Piksi Onboard Bootloader Version:", piksi_bootloader.version
 
   if args.stm:
     piksi_flash = flash.Flash(link, flash_type="STM")
@@ -109,13 +123,13 @@ if __name__ == "__main__":
 
   piksi_flash.write_ihx(ihx)
 
-  print "Telling device to jump to application"
+  print "Bootloader jumping to application"
   piksi_bootloader.jump_to_app()
 
   # Wait for ctrl+C until we exit
   try:
     while(1):
-      time.sleep(0.1)
+      time.sleep(0.5)
   except KeyboardInterrupt:
     pass
 

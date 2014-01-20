@@ -25,6 +25,42 @@
 #include "board/m25_flash.h"
 #include "board/nap/acq_channel.h"
 
+/** Send results of an acquisition to the host.
+ *
+ * \param sv  PRN (0-31) of the acquisition
+ * \param snr Signal to noise ratio of best point from acquisition.
+ * \param cp  Code phase of best point.
+ * \param cf  Carrier frequency of best point.
+ */
+void acq_send_result(u8 sv, float snr, float cp, float cf)
+{
+  typedef struct __attribute__((packed)) {
+    u8 sv;     /* SV searched for. */
+    float snr; /* SNR of best point. */
+    float cp;  /* Code phase of best point. */
+    float cf;  /* Carr freq of best point. */
+    corr_t bc; /* Correlations of best point. */
+    u32 mc;    /* Mean correlation. */
+  } acq_result_msg_t;
+
+  acq_result_msg_t acq_result_msg;
+
+  acq_result_msg.sv = sv;
+  acq_result_msg.snr = snr;
+  acq_result_msg.cp = cp;
+  acq_result_msg.cf = cf;
+  //acq_result_msg.bc = bc;
+  acq_result_msg.bc.I = 0; /* Currently unused. */
+  acq_result_msg.bc.Q = 0; /* Currently unused. */
+  acq_result_msg.mc = 0;   /* Currently unused. */
+
+  /*
+   * Use 0xA0 as acq_result message, don't define in sbp_messages.h as we
+   * don'tneed an official message for it.
+   */
+  while (sbp_send_msg(0xA0, sizeof(acq_result_msg_t), (u8 *)&acq_result_msg)) ;
+}
+
 int main(void)
 {
 
@@ -37,24 +73,33 @@ int main(void)
   float carrier_freq;
   float snr;
 
-  acq_schedule_load(nap_timing_count() + 1000);
-  while(!(acq_get_load_done()));
-  led_off(LED_GREEN);
-  led_off(LED_RED);
+  u8 prn = 0;
+  while (1) {
+    acq_schedule_load(nap_timing_count() + 1000);
+    while(!(acq_get_load_done()));
 
-  for (u8 prn=0; prn<32; prn++) {
     nap_acq_code_wr_blocking(prn);
     acq_start(prn, 0, 1023, -7000, 7000, 300);
     while(!(acq_get_done()));
-    acq_get_results(&code_phase, &carrier_freq, &snr);
 
-    printf("PRN %2u - Code phase: %7.2f, Carrier freq: % 7.1f, SNR: %5.2f", prn+1, code_phase, carrier_freq, snr);
-    if (snr > 50.0)
+    acq_get_results(&code_phase, &carrier_freq, &snr);
+    acq_send_result(prn, snr, code_phase, carrier_freq);
+
+    printf("PRN %2u - CP: %7.2f, CF: % 7.1f, SNR: %5.2f", prn+1, code_phase, carrier_freq, snr);
+    if (snr > 25.0)
       printf("   :D\n");
     else
       printf("\n");
     led_toggle(LED_GREEN);
     led_toggle(LED_RED);
+
+    if (prn == 31) {
+      prn = 0;
+    } else {
+      prn++;
+    }
+
+    sbp_process_messages();
   }
 
   printf("DONE!\n");

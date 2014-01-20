@@ -21,7 +21,7 @@
 int main(void)
 {
   /* Don't check FPGA authentication hash status, purpose of this test is
-   * to program the authentication hash into the flash.
+   * to read the FPGA DNA and then program the authentication hash into the flash.
    */
   init(0);
 

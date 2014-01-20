@@ -11,11 +11,10 @@
  */
 
 #include <libopencm3/stm32/f4/flash.h>
-#include <stdio.h>
 
-#include "../error.h"
-#include "../sbp.h"
 #include "stm_flash.h"
+#include "../error.h"
+#include "main.h"
 
 /** \defgroup peripherals Peripherals
  * Functions to interact with the on-chip STM32F4 peripherals.
@@ -27,120 +26,82 @@
  *
  * \{ */
 
-/** Callback to erase a sector of the STM32F4 flash memory.
+/** Lock a sector of the STM flash memory.
+ * Locked sectors can not be erased or programmed.
  *
- * \param buff Array of u8 (length 1) :
- *             - [0] flash sector number to erase.
+ * \param sector Number of the sector to lock.
  */
-void stm_flash_erase_sector_callback(u8 buff[])
+void stm_flash_lock_sector(u8 sector)
 {
-  /* See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual" */
-  u8 sector = buff[0];
+  /* Check that sector argument is valid. */
+  if (sector >= STM_FLASH_N_SECTORS)
+    screaming_death("stm_flash_lock_sector received sector > " STR(STM_FLASH_N_SECTORS));
 
-  /* Check to make sure the sector to be erased is from 0-11,
-   * and complain if it isn't. */
-  if (sector > 11)
-    screaming_death("flash_erase_callback received sector > 11\n");
+  flash_unlock_option_bytes();
+  while (FLASH_SR & FLASH_SR_BSY) ;
+  FLASH_OPTCR &= ~(1 << (16+sector));
+  FLASH_OPTCR |= FLASH_OPTCR_OPTSTRT;
+  while (FLASH_SR & FLASH_SR_BSY) ;
+}
 
-  /* Erase sector. */
+/** Unlock a sector of the STM flash memory.
+ * Locked sectors can not be erased or programmed.
+ *
+ * \param sector Number of the sector to unlock.
+ */
+void stm_flash_unlock_sector(u8 sector)
+{
+  /* Check that sector argument is valid. */
+  if (sector >= STM_FLASH_N_SECTORS)
+    screaming_death("stm_flash_unlock_sector received sector > " STR(STM_FLASH_N_SECTORS));
+
+  flash_unlock_option_bytes();
+  while (FLASH_SR & FLASH_SR_BSY) ;
+  FLASH_OPTCR |= (1 << (16+sector));
+  FLASH_OPTCR |= FLASH_OPTCR_OPTSTRT;
+  while (FLASH_SR & FLASH_SR_BSY) ;
+}
+
+/** Erase a sector of the STM flash
+ * \param sector Number of the sector to erase.
+ */
+void stm_flash_erase_sector(u8 sector)
+{
+  /* Check that sector argument is valid. */
+  if (sector >= STM_FLASH_N_SECTORS)
+    screaming_death("stm_flash_erase_sector received sector > " STR(STM_FLASH_N_SECTORS));
+
+  /* Erase sector.
+   * See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual"
+   */
   flash_unlock();
   flash_erase_sector(sector, FLASH_CR_PROGRAM_X32);
   flash_lock();
-
-  /* Send message back to host to signal operation is finished */
-  sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
 }
 
-/** Callback to program a set of addresses of the STM32F4 flash memory.
+/** Program a set of addresses of the STM32F4 flash memory.
  * Note : sector containing addresses must be erased before addresses can be
  * programmed.
  *
- * \param buff Array of u8 (length >= 6) :
- *             - [0:3]   starting address of set to program
- *             - [4]     length of set of addresses to program - counts up
- *                       from starting address
- *             - [5:end] data to program addresses with
+ * \param address Starting address of set to program
+ * \param data    Data to program addresses with
+ * \param length  Length of set of addresses to program - counts up from
+ *                starting address
  */
-void stm_flash_program_callback(u8 buff[])
+void stm_flash_program(u32 address, u8 data[], u8 length)
 {
-  /* TODO : Add check to restrict addresses that can be programmed? */
-  u32 address = *(u32*)&buff[0];
-  u8 length = buff[4];
-  u8 *data = &buff[5];
+  /* Check that arguments are valid. */
+  if (address > STM_FLASH_MAX_ADDR)
+    screaming_death("stm_flash_program received addr > " STR(STM_FLASH_MAX_ADDR));
+  if (address < STM_FLASH_MIN_ADDR)
+    screaming_death("stm_flash_program received addr < " STR(STM_FLASH_MIN_ADDR));
+  if (address+length-1 > STM_FLASH_MAX_ADDR)
+    screaming_death("stm_flash_program received addr+length+1 > " STR(STM_FLASH_MAX_ADDR));
 
   /* Program specified addresses with data */
   flash_unlock();
   flash_program(address, data, length);
   flash_lock();
-
-  /* Send message back to host to signal operation is finished */
-  sbp_send_msg(MSG_STM_FLASH_DONE, 0, 0);
-}
-
-/** Callback to read a set of addresses of the STM32F4 flash memory.
- *
- * \param buff Array of u8 (length 5) :
- *             - [0:3] starting address of set to read
- *             - [4]   length of set of addresses to read - counts up from
- *                     starting address
- */
-void stm_flash_read_callback(u8 buff[])
-{
-  u32 address = *(u32*)&buff[0];
-  u8 length = buff[4];
-
-  u8 callback_data[length + 5];
-
-  /* Put address and length in array */
-  callback_data[0] = buff[0];
-  callback_data[1] = buff[1];
-  callback_data[2] = buff[2];
-  callback_data[3] = buff[3];
-  callback_data[4] = buff[4];
-  /* Copy data from addresses into array */
-  for (u16 i = 0; i < length; i++)
-    callback_data[5 + i] = *(u8*)(address + i);
-
-  /* If sending message fails (buffer is full), keep trying until successful */
-  while (sbp_send_msg(MSG_STM_FLASH_READ, length + 5, callback_data)) ;
-}
-
-/** Callback to read STM32F4's hardcoded unique ID.
- * Sends STM32F4 unique ID (12 bytes) back to host.
- */
-void stm_unique_id_callback()
-{
-  sbp_send_msg(MSG_STM_UNIQUE_ID, 12, (u8*)STM_UNIQUE_ID_ADDR);
-}
-
-/** Setup STM flash callbacks. */
-void stm_flash_callbacks_setup()
-{
-  static msg_callbacks_node_t stm_flash_erase_sector_node;
-  static msg_callbacks_node_t stm_flash_read_node;
-  static msg_callbacks_node_t stm_flash_program_node;
-  static msg_callbacks_node_t stm_unique_id_node;
-
-  sbp_register_callback(
-    MSG_STM_FLASH_ERASE,
-    &stm_flash_erase_sector_callback,
-    &stm_flash_erase_sector_node
-    );
-  sbp_register_callback(
-    MSG_STM_FLASH_READ,
-    &stm_flash_read_callback,
-    &stm_flash_read_node
-    );
-  sbp_register_callback(
-    MSG_STM_FLASH_WRITE,
-    &stm_flash_program_callback,
-    &stm_flash_program_node
-    );
-  sbp_register_callback(
-    MSG_STM_UNIQUE_ID,
-    &stm_unique_id_callback,
-    &stm_unique_id_node
-    );
 }
 
 /** \} */

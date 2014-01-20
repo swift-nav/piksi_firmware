@@ -7,10 +7,10 @@ import serial_link
 import sbp_messages as ids
 
 class STMUniqueID:
-  unique_id_returned = False
-  unique_id = None
 
   def __init__(self,link):
+    self.unique_id_returned = False
+    self.unique_id = None
     self.link = link
     link.add_callback(ids.STM_UNIQUE_ID, self.receive_stm_unique_id_callback)
 

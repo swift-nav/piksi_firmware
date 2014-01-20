@@ -15,6 +15,7 @@
 #include <libopencm3/stm32/f4/gpio.h>
 
 #include "board/nap/acq_channel.h"
+#include "board/nap/nap_exti.h"
 #include "acq.h"
 #include "track.h"
 
