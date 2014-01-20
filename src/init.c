@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Swift Navigation Inc.
+ * Copyright (C) 2013-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -19,6 +19,7 @@
 #include "peripherals/stm_flash.h"
 #include "board/nap/nap_common.h"
 #include "sbp.h"
+#include "flash_callbacks.h"
 
 /** Clock settings for 130.944 MHz from 16.368 MHz HSE. */
 const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
@@ -35,11 +36,12 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
   .apb2_frequency = 32736000,
 };
 
-/** Reset the device back into the bootloader. */
+/** Resets the device back into the bootloader. */
 void reset_callback(u8 buff[] __attribute__((unused)))
 {
   /* Ensure all outstanding memory accesses including buffered writes are
-   * completed before reset. */
+   * completed before reset.
+   */
   __asm__("DSB;");
   /* Keep priority group unchanged. */
   SCB_AIRCR = SCB_AIRCR_VECTKEY |
@@ -62,7 +64,7 @@ void reset_callback_register()
   );
 }
 
-void init(void)
+void init(u8 check_fpga_auth)
 {
   /* Delay on start-up as some programmers reset the STM twice. */
   for (u32 i = 0; i < 600000; i++)
@@ -70,13 +72,13 @@ void init(void)
 
   led_setup();
 
-  nap_setup();
+  nap_setup(check_fpga_auth);
 
   sbp_setup(1);
 
   reset_callback_register();
 
-  m25_register_callbacks();
+  flash_callbacks_register();
 
   stm_unique_id_callback_register();
 }

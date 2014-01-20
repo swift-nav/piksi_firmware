@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Swift Navigation Inc.
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -15,10 +15,9 @@
 #include <libopencm3/stm32/f4/gpio.h>
 
 #include "board/nap/acq_channel.h"
+#include "board/nap/nap_exti.h"
 #include "acq.h"
 #include "track.h"
-#include "sbp.h"
-#include "sbp_messages.h"
 
 /** \defgroup acq Acquisition
  * Do acquisition searches via interrupt driven scheduling of SwiftNAP
@@ -96,8 +95,6 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
   acq_state.count = 0;
   acq_state.carrier_freq = acq_state.cf_min;
   acq_state.code_phase = acq_state.cp_min;
-  acq_state.best_corr.I = 0;
-  acq_state.best_corr.Q = 0;
 
   /* Write first and second sets of acq parameters (for pipelining). */
   nap_acq_init_wr_params_blocking(prn, acq_state.cp_min, acq_state.cf_min);
@@ -173,9 +170,9 @@ void acq_service_irq()
                 + (u64)corr_max.Q*(u64)corr_max.Q;
       if (power_max > acq_state.best_power) {
         acq_state.best_power = power_max;
-        acq_state.best_corr = corr_max;
         acq_state.best_cf = acq_state.carrier_freq;
-        acq_state.best_cp = acq_state.code_phase + index_max;
+        acq_state.best_cp = acq_state.code_phase + (nap_acq_n_taps-index_max) \
+                            % (1<<NAP_ACQ_CODE_PHASE_WIDTH);
       }
       acq_state.count += nap_acq_n_taps;
       acq_state.code_phase += nap_acq_n_taps;
@@ -209,69 +206,6 @@ void acq_get_results(float* cp, float* cf, float* snr)
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   *snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
-}
-
-/** Get best correlation from last acquisition.
- *
- * \return Highest correlation from last acquisition.
- */
-corr_t acq_get_best_corr()
-{
-  return acq_state.best_corr;
-}
-
-/** Get mean correlation from last acquisition.
- * Calculated indirectly from accumulated power of each search point.
- *
- * \return Mean correlation of all points from last acquisition.
- */
-u32 acq_get_mean_corr()
-{
-  /* Undo Sum */
-  u64 tmp = (acq_state.power_acc / acq_state.count);
-  /* Undo Addition of I and Q */
-  tmp = tmp/2;
-  /* Undo Square of Correlation */
-  tmp = sqrt(tmp);
-
-  return (u32)tmp;
-}
-
-/** Send results of an acquisition to the host.
- *
- * \param sv  PRN (0-31) of the acquisition
- * \param snr Signal to noise ratio of best point from acquisition.
- * \param cp  Code phase of best point.
- * \param cf  Carrier frequency of best point.
- * \param bc  Correlation of best point.
- * \param mc  Mean correlation of all points.
- * \return    Return value from sending message.
- */
-u32 acq_send_result(u8 sv, float snr, float cp, float cf, corr_t bc, u32 mc)
-{
-  typedef struct __attribute__((packed)) {
-    u8 sv;
-    float snr;
-    float cp;
-    float cf;
-    corr_t bc;
-    u32 mc;
-  } acq_result_msg_t;
-
-  acq_result_msg_t acq_result_msg;
-
-  acq_result_msg.sv = sv;
-  acq_result_msg.snr = snr;
-  acq_result_msg.cp = cp;
-  acq_result_msg.cf = cf;
-  acq_result_msg.bc = bc;
-  acq_result_msg.mc = mc;
-
-  /* Keep trying to send message until it makes it into the buffer. */
-  while (sbp_send_msg(MSG_ACQ_RESULT, sizeof(acq_result_msg_t), \
-                      (u8 *)&acq_result_msg)) ;
-
-  return 0;
 }
 
 /** Do a blocking acquisition search in two stages : coarse and fine.

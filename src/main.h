@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Swift Navigation Inc.
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -35,5 +35,11 @@
     cmd; \
   } \
 } while(0)
+
+/* See gcc.gnu.org/onlinedocs/cpp/Stringification.html for
+ * explanation of pre-processing of macros into strings.
+ */
+#define STR_INNER(x) #x
+#define STR(x) STR_INNER(x)
 
 #endif

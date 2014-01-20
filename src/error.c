@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Swift Navigation Inc.
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -13,7 +13,7 @@
 #include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/usart.h>
 
-#include <libswiftnav/edc.h>
+#include "libswiftnav/edc.h"
 
 #include "board/leds.h"
 #include "peripherals/usart.h"
@@ -41,7 +41,7 @@ void screaming_death(char *msg)
   DMA2_S7CR = 0;                  /* Disable USART TX DMA */
   USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
 
-  #define SPEAKING_MSG_N 64       /* Maximum length of error message */
+  #define SPEAKING_MSG_N 76       /* Maximum length of error message */
 
   static char err_msg[SPEAKING_MSG_N+6] = {SBP_HEADER_1, SBP_HEADER_2,
                                            MSG_PRINT, SPEAKING_MSG_N,
@@ -56,6 +56,7 @@ void screaming_death(char *msg)
   u8 i = 0;
   while (*msg && i < SPEAKING_MSG_N)  /* Don't want to use C library memcpy */
     err_msg[11 + (i++)] = *msg++;
+  err_msg[11 + i] = ' '; /* Insert ' ' after message */
 
   /* Insert CRC */
   u16 crc = crc16_ccitt((u8*)&err_msg[2], 2, 0);

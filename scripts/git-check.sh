@@ -1,11 +1,20 @@
 #!/bin/sh
+# Copyright (C) 2011-2014 Swift Navigation Inc.
+# Contact: Fergus Noble <fergus@swift-nav.com>
+#
+# This source is subject to the license found in the file 'LICENSE' which must
+# be be distributed together with this source. All other rights reserved.
+#
+# THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+# EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 # warn-unclean: print a warning if the working tree and index are not clean
-
-#  For utmost strictness, set check_untracked=yes and check_ignored=yes.
-#  When both are 'yes', verify that working tree and index are identical to HEAD.
-#  When only check_untracked is yes, extra ignored files are allowed.
-#  When neither is yes, extra untracked files and ignored files are allowed.
+#
+# For utmost strictness, set check_untracked=yes and check_ignored=yes.
+# When both are 'yes', verify that working tree and index are identical to HEAD.
+# When only check_untracked is yes, extra ignored files are allowed.
+# When neither is yes, extra untracked files and ignored files are allowed.
 
 check_untracked=yes
 check_ignored=no

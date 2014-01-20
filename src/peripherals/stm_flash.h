@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Swift Navigation Inc.
+ * Copyright (C) 2013-2014 Swift Navigation Inc.
  * Contact: Colin Beighley <colin@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -19,9 +19,17 @@
 /* TODO : put this in libopencm3 */
 #define STM_UNIQUE_ID_ADDR 0x1FFF7A10
 
+#define STM_FLASH_N_SECTORS 12
+
+#define STM_FLASH_MIN_ADDR 0x08000000
+#define STM_FLASH_MAX_ADDR 0x080FFFFF
+
 /** \} */
 
-void register_stm_flash_callbacks();
-void stm_unique_id_callback_register(void);
+void stm_flash_lock_sector(u8 sector);
+void stm_flash_unlock_sector(u8 sector);
+
+void stm_flash_erase_sector(u8 sector);
+void stm_flash_program(u32 address, u8 data[], u8 length);
 
 #endif

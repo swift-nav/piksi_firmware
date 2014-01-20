@@ -4,28 +4,23 @@
 #
 # Copyright (C) 2010 Gareth McMullin <gareth@blacksphere.co.nz>
 # Copyright (C) 2011 Piotr Esden-Tempski <piotr@esden.net>
-# Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
+# Copyright (C) 2013-2014 Swift Navigation Inc <www.swift-nav.com>
 #
 # Contacts: Colin Beighley <colin@swift-nav.com>
 #           Fergus Noble <fergus@swift-nav.com>
 #
 # Based on luftboot, a bootloader for the Paparazzi UAV project.
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# This source is subject to the license found in the file 'LICENSE' which must
+# be be distributed together with this source. All other rights reserved.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+# EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import sbp_messages as ids
 import time
+import struct
 
 class Bootloader():
 
@@ -33,8 +28,10 @@ class Bootloader():
     self._handshake_received = False
     self.link = link
     self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
+    self.version = None
 
   def _handshake_callback(self, data):
+    self.version = struct.unpack('B', data[0])[0]
     self._handshake_received = True
 
   def wait_for_handshake(self):
@@ -86,7 +83,8 @@ if __name__ == "__main__":
   found_device = False
   while not found_device:
     try:
-      link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi)
+      link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi,
+                                    print_unhandled = False)
       found_device = True
     except KeyboardInterrupt:
       # Clean up and exit
@@ -95,14 +93,22 @@ if __name__ == "__main__":
     except:
       # Couldn't find device
       time.sleep(0.01)
-  print "link with device successfully created."
+  print "link successfully created."
   link.add_callback(ids.PRINT, serial_link.default_print_callback)
 
   # Tell Bootloader we want to change flash data
   piksi_bootloader = Bootloader(link)
-  piksi_bootloader.wait_for_handshake()
-  print "Received handshake signal from device."
+  print "Waiting for bootloader handshake message from Piksi ...",
+  sys.stdout.flush()
+  try:
+    piksi_bootloader.wait_for_handshake()
+  except KeyboardInterrupt:
+    # Clean up and exit
+    link.close()
+    sys.exit()
   piksi_bootloader.reply_handshake()
+  print "received."
+  print "Piksi Onboard Bootloader Version:", piksi_bootloader.version
 
   if args.stm:
     piksi_flash = flash.Flash(link, flash_type="STM")
@@ -111,6 +117,7 @@ if __name__ == "__main__":
 
   piksi_flash.write_ihx(ihx)
 
+  print "Bootloader jumping to application"
   piksi_bootloader.jump_to_app()
 
   # Wait for ctrl+C until we exit

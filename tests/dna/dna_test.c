@@ -1,7 +1,14 @@
 /*
- * Copyright (C) 2011 Fergus Noble <fergusnoble@gmail.com>
- * Copyright (C) 2012 Colin Beighley <colin@swift-nav.com>
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Contact: Fergus Noble <fergus@swift-nav.com>
+ *          Colin Beighley <colin@swift-nav.com>
  *
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
+ *
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 #include <stdio.h>
@@ -18,20 +25,15 @@
 #include "board/nap/nap_common.h"
 #include "peripherals/spi.h"
 
-int main(void) {
+int main(void)
+{
+  /* Don't check FPGA authentication hash status, purpose of this test is to
+   * read the FPGA DNA and then program the authentication hash into the flash.
+   */
+  init(0);
 
-  led_setup();
   led_on(LED_GREEN);
   led_on(LED_RED);
-
-  /* Force FPGA to configure itself by driving PROGRAM_B low, then high */
-  nap_conf_b_setup();
-  nap_conf_b_clear();
-  for (u32 i = 0; i < 50; i++)
-    __asm__("nop");
-  nap_conf_b_set();
-
-  init();
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- DNA TEST ---\n");

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Swift Navigation Inc.
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *          Colin Beighley <colin@swift-nav.com>
  *
@@ -31,19 +31,10 @@
 #define NAP_REG_DECEASED_COW        0xFF
 
 /* Status of NAP authentication hash comparison. */
+/* TODO: change NAP_HASH_MATCH to non 0x00/0xFF value so it is more reliable */
 #define NAP_HASH_MATCH              0
 #define NAP_HASH_MISMATCH           1
 #define NAP_HASH_NOTREADY           2
-
-/* NAP IRQ register bit definitions. */
-#define NAP_IRQ_ACQ_DONE            (1 << 31)
-#define NAP_IRQ_ACQ_LOAD_DONE       (1 << 30)
-#define NAP_IRQ_CW_DONE             (1 << 29)
-#define NAP_IRQ_CW_LOAD_DONE        (1 << 28)
-#define NAP_IRQ_TRACK_MASK          (~(NAP_IRQ_ACQ_DONE | \
-                                       NAP_IRQ_ACQ_LOAD_DONE | \
-                                       NAP_IRQ_CW_DONE | \
-                                       NAP_IRQ_CW_LOAD_DONE))
 
 /** A complex IQ correlation. */
 typedef struct {
@@ -63,8 +54,7 @@ typedef struct {
 
 /** \} */
 
-void nap_setup(void);
-void nap_reset(void);
+void nap_setup(u8 check_hash_status);
 
 u8 nap_conf_done(void);
 u8 nap_hash_rd_done(void);
@@ -73,14 +63,9 @@ void nap_conf_b_setup(void);
 void nap_conf_b_set(void);
 void nap_conf_b_clear(void);
 
-void nap_exti_setup(void);
-u32 last_nap_exti_count(void);
-void wait_for_nap_exti(void);
-
 void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[],
                        const u8 data_out[]);
 
-u32 nap_irq_rd_blocking(void);
 u32 nap_error_rd_blocking(void);
 
 u8 nap_hash_status(void);

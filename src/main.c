@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Swift Navigation Inc.
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -443,7 +443,7 @@ void foo_callback(u8 buff[])
   settings.uarta_usart.message_mask = buff[0];
 }
 
-void reset_callback(u8 buff[])
+void reset_ambs_callback(u8 buff[])
 {
   (void)buff;
   reset_ambs = 1;
@@ -493,7 +493,7 @@ void send_observations(u8 n, navigation_measurement_t *m)
 
 int main(void)
 {
-  init();
+  init(1);
 
   led_toggle(LED_RED);
 
@@ -518,13 +518,13 @@ int main(void)
 
   static msg_callbacks_node_t obs_hdr_node;
   static msg_callbacks_node_t obs_node;
-  static msg_callbacks_node_t reset_node;
+  static msg_callbacks_node_t reset_ambs_node;
   static msg_callbacks_node_t foo_node;
   static msg_callbacks_node_t drop_chan_node;
 
   sbp_register_callback(MSG_OBS_HDR, &obs_hdr_callback, &obs_hdr_node);
   sbp_register_callback(MSG_OBS, &obs_callback, &obs_node);
-  sbp_register_callback(0x99, &reset_callback, &reset_node);
+  sbp_register_callback(0x99, &reset_ambs_callback, &reset_ambs_node);
   sbp_register_callback(0x98, &foo_callback, &foo_node);
   sbp_register_callback(0x96, &drop_chan_callback, &drop_chan_node);
 

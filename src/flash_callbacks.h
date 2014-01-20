@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011-2014 Swift Navigation Inc.
- * Contact: Fergus Noble <fergus@swift-nav.com>
+ * Contact: Colin Beighley <colin@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,28 +10,15 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <stdio.h>
+#ifndef SWIFTNAV_FLASH_CALLBACKS_H
+#define SWIFTNAV_FLASH_CALLBACKS_H
 
-#include "main.h"
-#include "board/leds.h"
+#define FLASH_STM 0 /**< Value to pass flash callbacks to use STM Flash */
+#define FLASH_M25 1 /**< Value to pass flash callbacks to use M25 Flash */
 
-int main(void)
-{
-  for (u32 i = 0; i < 600000; i++)
-    __asm__("nop");
+#define FLASH_ADDRS_PER_OP 128
 
-	led_setup();
-  led_on(LED_RED);
-  led_on(LED_GREEN);
+void flash_callbacks_register(void);
+void stm_unique_id_callback_register(void);
 
-  while(1)
-  {
-    led_toggle(LED_RED);
-    for (u32 i = 0; i < 600000; i++)
-      __asm__("nop");
-  }
-
-  while (1);
-
-	return 0;
-}
+#endif /* SWIFTNAV_FLASH_CALLBACKS_H */

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Swift Navigation Inc.
+ * Copyright (C) 2013-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * Based on RTKLIB, Copyright (C) 2007-2013 by T.TAKASU, All rights reserved.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Swift Navigation Inc.
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *          Colin Beighley <colin@swift-nav.com>
  *
@@ -11,22 +11,18 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/cm3/nvic.h>
-#include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
-#include "../../acq.h"
-#include "../../cw.h"
+#include "../../error.h"
 #include "../../peripherals/spi.h"
 #include "../../sbp.h"
 #include "../../sbp_messages.h"
-#include "../../track.h"
 #include "../../init.h"
 #include "../max2769.h"
 #include "nap_conf.h"
 #include "nap_common.h"
-#include "track_channel.h"
+#include "nap_exti.h"
 
 /** \addtogroup board
  * \{ */
@@ -39,15 +35,12 @@
  * functions for interacting with the SwiftNAP internal register interface.
  * \{ */
 
-/* Number of NAP exti ISR's that have occured. */
-u32 nap_exti_count = 0;
-
 /** Set up peripherals and parts of receiver related to or depended on by NAP.
  * Sets up GPIOs associated with NAP, waits for NAP to finish configuring, sets
  * up SPI, sets up MAX2769 Frontend, sets up NAP interrupt, sets up NAP
  * callbacks, gets NAP configuration parameters from FPGA flash.
  */
-void nap_setup(void)
+void nap_setup(u8 check_hash_status)
 {
   /* Setup the FPGA conf done line. */
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
@@ -57,54 +50,56 @@ void nap_setup(void)
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
   gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO3);
 
-  /* We don't want spi_setup() called until the FPGA has finished configuring
-   * itself and has read the device hash out of the configuration flash.
-   * (It uses the SPI2 bus for this.)
-   */
-  /* TODO: Timeout here if FPGA doesn't configure in expected time? */
-  while (!(nap_conf_done() && nap_hash_rd_done())) ;
+  /* Set up the FPGA CONF_B line. */
+  nap_conf_b_setup();
+  /* Force FPGA to delay configuration (i.e. use of SPI2) by setting it low. */
+  nap_conf_b_clear();
 
-  /* Reset the NAP internal logic */
-  nap_reset();
-
-  /* Switch the STM's clock to use the Frontend clock from the NAP */
-  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
-
-  /* Initialise the SPI peripheral. */
+  /* Initialise the SPI peripheral so that we can set up the RF frontend. */
   spi_setup();
   //spi_dma_setup();
 
   /* Setup the front end. */
   max2769_setup();
 
-  /* Setup the reset line GPIO. */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
-  gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO2);
-  gpio_clear(GPIOA, GPIO2);
+  /* Deactivate SPI buses so the FPGA can use the SPI2 bus to configure. */
+  spi_deactivate();
 
-  /* Setup the external interrupts. */
+  /* Allow the FPGA to configure. */
+  nap_conf_b_set();
+
+  /* Wait for FPGA to finish configuring (uses SPI2 bus). */
+  while (!(nap_conf_done())) ;
+
+  /* Wait for FPGA to read authentication hash out of flash (uses SPI2 bus). */
+  while (!(nap_hash_rd_done())) ;
+
+  /* FPGA is done using SPI2: re-initialise the SPI peripheral. */
+  spi_setup();
+  //spi_dma_setup();
+
+  /* Switch the STM's clock to use the Frontend clock from the NAP */
+  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
+
+  /* Set up the NAP interrupt line. */
   nap_exti_setup();
 
-  /* Setup callback functions. */
+  /* Set up NAP callback functions. */
   nap_callbacks_setup();
 
   /* Get NAP parameters (number of acquisition taps, number of tracking
-   * channels, etc) from flash. */
+   * channels, etc) from configuration flash.
+   */
   nap_conf_rd_parameters();
-}
 
-/** Reset NAP logic.
- * Resets FPGA's DCM's and logic - except for DNA / hash logic. Should be
- * called before STM switches to using FPGA clock.
- */
-void nap_reset(void)
-{
-  gpio_set(GPIOA, GPIO2);
-  for (int i = 0; i < 50; i++)
-    __asm__("nop");
-  gpio_clear(GPIOA, GPIO2);
-  for (int i = 0; i < 200; i++)
-    __asm__("nop");
+  /* Check NAP verification status. */
+  if (check_hash_status) {
+    u8 nhs = nap_hash_status();
+    if (nhs == NAP_HASH_NOTREADY)
+      screaming_death("NAP Verification Failed: Timeout ");
+    else if (nhs == NAP_HASH_MISMATCH)
+      screaming_death("NAP Verification Failed: Hash mismatch ");
+  }
 }
 
 /** Check if NAP configuration is finished.
@@ -143,7 +138,7 @@ void nap_conf_b_clear(void)
 }
 
 /** See if NAP has finished reading authentication hash from configuration
-   flash.
+ * flash.
  *
  * \return 1 if hash read has finished else 0
  */
@@ -177,12 +172,9 @@ void nap_rd_dna(u8 dna[])
  *
  * \param buff Unused argument, callback takes no input.
  */
-void nap_rd_dna_callback(u8 buff[])
+void nap_rd_dna_callback(u8 buff[] __attribute__((unused)))
 {
   u8 dna[8];
-
-  (void)buff;
-
   nap_rd_dna(dna);
   sbp_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
 }
@@ -194,98 +186,6 @@ void nap_callbacks_setup(void)
 
   sbp_register_callback(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback,
                         &nap_dna_node);
-}
-
-
-/** Set up NAP GPIO interrupt.
- * Interrupt alerts STM that a channel in NAP needs to be serviced.
- */
-void nap_exti_setup(void)
-{
-  /* Signal from the FPGA is on PA1. */
-
-  /* Enable clock to GPIOA. */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
-  /* Enable clock to SYSCFG which contains the EXTI functionality. */
-  RCC_APB2ENR |= RCC_APB2ENR_SYSCFGEN;
-
-  exti_select_source(EXTI1, GPIOA);
-  exti_set_trigger(EXTI1, EXTI_TRIGGER_RISING);
-  exti_reset_request(EXTI1);
-  exti_enable_request(EXTI1);
-
-  /* Enable EXTI1 interrupt */
-  nvic_enable_irq(NVIC_EXTI1_IRQ);
-}
-
-/** NAP interrupt service routine.
- * Reads the IRQ register from NAP to determine what inside the NAP needs to be
- * serviced, and then calls the appropriate service routine.
- */
-void exti1_isr(void)
-{
-
-  exti_reset_request(EXTI1);
-
-  u32 irq = nap_irq_rd_blocking();
-
-  if (irq & NAP_IRQ_ACQ_DONE)
-    acq_service_irq();
-
-  if (irq & NAP_IRQ_ACQ_LOAD_DONE)
-    acq_service_load_done();
-
-  if (irq & NAP_IRQ_CW_DONE)
-    cw_service_irq();
-
-  if (irq & NAP_IRQ_CW_LOAD_DONE)
-    cw_service_load_done();
-
-  /* Mask off everything but tracking irqs. */
-  irq &= NAP_IRQ_TRACK_MASK;
-
-  /* Loop over tracking irq bit flags. */
-  for (u8 n = 0; n < nap_track_n_channels; n++) {
-    /* Save a bit of time by seeing if the rest of the bits
-     * are zero in one go so we don't have to loop over all
-     * of them.
-     */
-    if (!(irq >> n))
-      break;
-
-    /* Test if the nth tracking irq flag is set, if so service it. */
-    if ((irq >> n) & 1) {
-      tracking_channel_get_corrs(n);
-      tracking_channel_update(n);
-    }
-  }
-
-  nap_exti_count++;
-
-  /* We need a level (not edge) sensitive interrupt -
-   * if there is another interrupt pending on the Swift
-   * NAP then the IRQ line will stay high. Therefore if
-   * the line is still high, trigger another interrupt.
-   */
-  if (GPIOA_IDR & GPIO1)
-    EXTI_SWIER = (1 << 1);
-}
-
-/** Get number of NAP ISR's that have occurred.
- *
- * \return Latest NAP ISR count.
- */
-u32 last_nap_exti_count(void)
-{
-  return nap_exti_count;
-}
-
-/** Wait until next NAP ISR has occurred. */
-void wait_for_nap_exti(void)
-{
-  u32 last_last_exti = last_nap_exti_count();
-
-  while (last_nap_exti_count() == last_last_exti) ;
 }
 
 /** Do an SPI transfer to/from one of the NAP's internal registers.
@@ -388,20 +288,6 @@ void nap_timing_strobe(u32 falling_edge_count)
    */
   for (u32 i = 0; i < 50; i++)
     __asm__("nop");
-}
-
-/** Read NAP's IRQ register.
- * NAP's IRQ register shows which channels in NAP need to be serviced. NAP IRQ
- * line will stay high as long as any bit in IRQ register reads is high.
- *
- * \return 32 bit value from NAP's IRQ register.
- */
-u32 nap_irq_rd_blocking(void)
-{
-  u8 temp[4] = { 0, 0, 0, 0 };
-
-  nap_xfer_blocking(NAP_REG_IRQ, 4, temp, temp);
-  return (temp[0] << 24) | (temp[1] << 16) | (temp[2] << 8) | temp[3];
 }
 
 /** Read NAP's error register.

@@ -1,4 +1,14 @@
 #!/usr/bin/env python
+# Copyright (C) 2011-2014 Swift Navigation Inc.
+# Contact: Colin Beighley <colin@swift-nav.com>
+#
+# This source is subject to the license found in the file 'LICENSE' which must
+# be be distributed together with this source. All other rights reserved.
+#
+# THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+# EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+
 
 import serial_link
 import sbp_messages as ids
@@ -15,7 +25,8 @@ class AcqResults():
   def __init__(self, link):
     self.acqs = []
     self.link = link
-    self.link.add_callback(ids.ACQ_RESULT,self._receive_acq_result)
+    # Not an official msg type
+    self.link.add_callback(0xA0, self._receive_acq_result)
     self.max_corr = 0
 
   def __str__(self):
@@ -81,8 +92,8 @@ if __name__ == "__main__":
       time.sleep(0.01)
   print "link with device successfully created."
   link.add_callback(ids.PRINT, serial_link.default_print_callback)
-#  link.add_callback(ids.PRINT, lambda x: None)
-#  link.add_callback(ids.BOOTLOADER_HANDSHAKE, lambda x: None)
+  #link.add_callback(ids.PRINT, lambda x: None)
+  #link.add_callback(ids.BOOTLOADER_HANDSHAKE, lambda x: None)
 
   acq_results = AcqResults(link)
 

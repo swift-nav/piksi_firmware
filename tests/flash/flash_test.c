@@ -1,7 +1,14 @@
 /*
- * Copyright (C) 2011 Fergus Noble <fergusnoble@gmail.com>
- * Copyright (C) 2012 Colin Beighley <colin@swift-nav.com>
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Contact: Fergus Noble <fergus@swift-nav.com>
+ *          Colin Beighley <colin@swift-nav.com>
  *
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
+ *
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 #include <stdio.h>
@@ -13,10 +20,9 @@
 #include "sbp.h"
 #include "acq.h"
 #include "board/leds.h"
-#include "board/m25_flash.h"
 #include "board/nap/nap_common.h"
 #include "peripherals/spi.h"
-#include "peripherals/stm_flash.h"
+#include "flash_callbacks.h"
 
 int main(void)
 {
@@ -32,8 +38,7 @@ int main(void)
 
   spi_setup();
   sbp_setup(0);
-  m25_register_callbacks();
-  register_stm_flash_callbacks();
+  flash_callbacks_register();
 
   for (u32 i = 0; i < 600000; i++)
     __asm__("nop");
