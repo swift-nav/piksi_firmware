@@ -30,10 +30,9 @@
 
 #define NAP_ACQ_CODE_PHASE_WIDTH          12
 #define NAP_ACQ_CARRIER_FREQ_WIDTH        20
-#define NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP \
-  (1 << (NAP_ACQ_CODE_PHASE_WIDTH - 10))
-#define NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ \
-  ((1 << NAP_ACQ_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ)
+#define NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP (1 << (NAP_ACQ_CODE_PHASE_WIDTH - 10))
+#define NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ ((1 << NAP_ACQ_CARRIER_FREQ_WIDTH) \
+                                           / (float)SAMPLE_FREQ)
 
 /** \} */
 
@@ -49,8 +48,8 @@ void nap_acq_load_wr_disable_blocking(void);
 void nap_acq_init_pack(u8 pack[], u8 prn, u16 code_phase, s16 carrier_freq);
 void nap_acq_init_wr_params_blocking(u8 prn, u16 code_phase, s16 carrier_freq);
 void nap_acq_init_wr_disable_blocking(void);
-void nap_acq_corr_unpack(u8 packed[], corr_t corrs[]);
-void nap_acq_corr_rd_blocking(corr_t corrs[]);
+void nap_acq_corr_unpack(u8 packed[], u16 *index, corr_t *corr, acc_t *acc);
+void nap_acq_corr_rd_blocking(u16 *index, corr_t *corr, acc_t *acc);
 void nap_acq_code_wr_blocking(u8 prn);
 
 #endif  /* SWIFTNAV_ACQ_CHANNEL_H */
