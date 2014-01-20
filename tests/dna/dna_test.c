@@ -1,7 +1,14 @@
 /*
- * Copyright (C) 2011 Fergus Noble <fergusnoble@gmail.com>
- * Copyright (C) 2012 Colin Beighley <colin@swift-nav.com>
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Contact: Fergus Noble <fergus@swift-nav.com>
+ *          Colin Beighley <colin@swift-nav.com>
  *
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
+ *
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 #include <stdio.h>
@@ -20,8 +27,8 @@
 
 int main(void)
 {
-  /* Don't check FPGA authentication hash status, purpose of this test is
-   * to read the FPGA DNA and then program the authentication hash into the flash.
+  /* Don't check FPGA authentication hash status, purpose of this test is to
+   * read the FPGA DNA and then program the authentication hash into the flash.
    */
   init(0);
 

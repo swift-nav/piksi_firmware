@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Gareth McMullin <gareth@blacksphere.co.nz>
  * Copyright (C) 2011 Piotr Esden-Tempski <piotr@esden.net>
- * Copyright (C) 2013 Swift Navigation Inc <www.swift-nav.com>
+ * Copyright (C) 2013-2014 Swift Navigation Inc <www.swift-nav.com>
  *
  * Contact: Colin Beighley <colin@swift-nav.com>
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Swift Navigation Inc.
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *          Colin Beighley <colin@swift-nav.com>
  *
@@ -30,9 +30,10 @@
 
 #define NAP_ACQ_CODE_PHASE_WIDTH          12
 #define NAP_ACQ_CARRIER_FREQ_WIDTH        20
-#define NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP (1 << (NAP_ACQ_CODE_PHASE_WIDTH - 10))
-#define NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ ((1 << NAP_ACQ_CARRIER_FREQ_WIDTH) \
-                                           / (float)SAMPLE_FREQ)
+#define NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP \
+  (1 << (NAP_ACQ_CODE_PHASE_WIDTH - 10))
+#define NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ \
+  ((1 << NAP_ACQ_CARRIER_FREQ_WIDTH) / (float)SAMPLE_FREQ)
 
 /** \} */
 
