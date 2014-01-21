@@ -45,6 +45,9 @@ class AcqResults():
     else:
       return float(sum([a['MC'] for a in self.acqs]))/len(self.acqs)
 
+  def max_snr(self):
+    return max([a['SNR'] for a in self.acqs] + [0]) # + [0] otherwise error
+
   def _receive_acq_result(self, data):
     while N_RECORD > 0 and len(self.acqs) >= N_RECORD:
       self.acqs.pop(0)
