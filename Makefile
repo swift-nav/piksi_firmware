@@ -14,11 +14,11 @@ else
 	MAKEFLAGS += PRN=$(PRN)
 endif
 
-.PHONY: all tests firmware bootloader docs
+.PHONY: all tests firmware bootloader docs libopencm3
 
 all: firmware bootloader tests
 
-firmware:
+firmware: libopencm3
 	@printf "BUILD   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS)
 
@@ -34,11 +34,17 @@ tests:
 		fi; \
 	done
 
+libopencm3:
+	@printf "BUILD   libopencm3\n"; \
+	$(MAKE) -C libopencm3 $(MAKEFLAGS)
+
 clean:
 	@printf "CLEAN   src\n"; \
-	$(MAKE) -C bootloader $(MAKEFLAGS) clean
-	@printf "CLEAN   bootloader\n"; \
 	$(MAKE) -C src $(MAKEFLAGS) clean
+	@printf "CLEAN   bootloader\n"; \
+	$(MAKE) -C bootloader $(MAKEFLAGS) clean
+	@printf "CLEAN   libopencm3\n"; \
+	$(MAKE) -C libopencm3 $(MAKEFLAGS) clean
 	$(Q)for i in tests/*; do \
 		if [ -d $$i ]; then \
 			printf "CLEAN   $$i\n"; \
