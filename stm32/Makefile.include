@@ -60,13 +60,17 @@ CFLAGS += -O0 -g -Wall -Wextra -Werror -std=gnu99 \
           -mcpu=cortex-m4 -march=armv7e-m -mthumb \
           -mfloat-abi=hard -mfpu=fpv4-sp-d16
 
-CFLAGS += -I$(SWIFTNAV_ROOT)/src
+CFLAGS += -I$(SWIFTNAV_ROOT)/src \
+          -I$(SWIFTNAV_ROOT)/libopencm3/include \
+          -I$(SWIFTNAV_ROOT)/libswiftnav/include
 
 LDSCRIPT ?= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
 LDFLAGS += -lc -lnosys -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections \
            -mcpu=cortex-m4 -march=armv7e-m -mthumb \
            -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
-           -lopencm3_stm32f4 -lswiftnav-static-cortex-m4 -lm
+           -lopencm3_stm32f4 -lswiftnav-static-cortex-m4 -lm \
+           -L$(SWIFTNAV_ROOT)/libopencm3/lib \
+           -L$(SWIFTNAV_ROOT)/libswiftnav/build/src
 
 OOCD ?= openocd
 OOCD_INTERFACE ?= flossjtag
