@@ -14,11 +14,11 @@ else
 	MAKEFLAGS += PRN=$(PRN)
 endif
 
-.PHONY: all tests firmware bootloader docs libopencm3
+.PHONY: all tests firmware bootloader docs libopencm3 libswiftnav
 
 all: firmware bootloader tests
 
-firmware: libopencm3
+firmware: libopencm3 libswiftnav
 	@printf "BUILD   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS)
 
@@ -38,6 +38,12 @@ libopencm3:
 	@printf "BUILD   libopencm3\n"; \
 	$(MAKE) -C libopencm3 $(MAKEFLAGS)
 
+libswiftnav:
+	@printf "BUILD   libswiftnav\n"; \
+	mkdir -p libswiftnav/build; cd libswiftnav/build; \
+	cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake ../
+	
+	$(MAKE) -C libswiftnav/build $(MAKEFLAGS)
 clean:
 	@printf "CLEAN   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS) clean
@@ -45,6 +51,8 @@ clean:
 	$(MAKE) -C bootloader $(MAKEFLAGS) clean
 	@printf "CLEAN   libopencm3\n"; \
 	$(MAKE) -C libopencm3 $(MAKEFLAGS) clean
+	@printf "CLEAN   libswiftnav\n"; \
+	$(RM) -rf libswiftnav/build
 	$(Q)for i in tests/*; do \
 		if [ -d $$i ]; then \
 			printf "CLEAN   $$i\n"; \
