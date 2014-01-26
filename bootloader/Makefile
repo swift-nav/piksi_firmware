@@ -55,14 +55,14 @@ CFLAGS += -Os -Wall -Wextra -Werror -std=gnu99 \
 			    -mcpu=cortex-m4 -march=armv7e-m -mthumb \
 			    -mfloat-abi=hard -mfpu=fpv4-sp-d16
 
-CFLAGS += -I$(SWIFTNAV_ROOT)/src
+CFLAGS += -I$(SWIFTNAV_ROOT)/src -I../libopencm3/include
 
 LDSCRIPT ?= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
 LDFLAGS += -lc -lnosys -T$(LDSCRIPT) -nostartfiles \
 					 -Wl,-wrap,printf -Wl,--gc-sections \
 					 -mcpu=cortex-m4 -march=armv7e-m -mthumb \
 					 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
-					 -lopencm3_stm32f4 -lswiftnav-static-cortex-m4 -lm
+					 -lopencm3_stm32f4 -lswiftnav-static-cortex-m4 -lm -L../libopencm3/lib
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
 ifneq ($(V),1)
