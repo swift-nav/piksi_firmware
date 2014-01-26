@@ -8,6 +8,10 @@ Q := @
 MAKEFLAGS += --no-print-directory
 endif
 
+ifneq (,$(findstring W32,$(shell uname)))
+	CMAKEFLAGS += -G "MSYS Makefiles"
+endif
+
 ifndef PRN
 	MAKEFLAGS += $(warning PRN not defined, using default PRN (22) for tests, specify the PRN with 'make PRN=22')PRN=22
 else
@@ -41,7 +45,7 @@ libopencm3:
 libswiftnav:
 	@printf "BUILD   libswiftnav\n"; \
 	mkdir -p libswiftnav/build; cd libswiftnav/build; \
-	cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake ../
+	cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake $(CMAKEFLAGS) ../
 	
 	$(MAKE) -C libswiftnav/build $(MAKEFLAGS)
 clean:
