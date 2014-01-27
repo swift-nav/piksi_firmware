@@ -78,7 +78,7 @@ class ObservationView(HasTraits):
       self.rinex_file = None
 
   def update_obs(self):
-    self._obs_table_list = [(prn,) + obs for prn, obs in sorted(self.obs.items(), key=lambda x: x[0])]
+    self._obs_table_list = [(prn + 1,) + obs for prn, obs in sorted(self.obs.items(), key=lambda x: x[0])]
 
   def obs_hdr_callback(self, data):
     tow, wn, obs_count, n_obs = struct.unpack("<dHBB", data)
