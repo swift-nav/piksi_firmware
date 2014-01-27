@@ -12,8 +12,11 @@
 
 #include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/usart.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "libswiftnav/edc.h"
+#include <libswiftnav/edc.h>
+#include <libswiftnav/sbp.h>
 
 #include "board/leds.h"
 #include "peripherals/usart.h"
@@ -27,6 +30,15 @@
 /** \addtogroup error
  * Last resort, low-level, blocking, continuous error messages.
  * \{ */
+
+u32 fallback_write(u8 *buff, u32 n)
+{
+  for (u8 i=0; i<n; i++) {
+    while (!(USART6_SR & USART_SR_TXE));
+    USART6_DR = buff[i];
+  }
+  return n;
+}
 
 /** Error message.
  * Halts the program while continually sending a fixed error message in SBP
@@ -43,38 +55,19 @@ void screaming_death(char *msg)
 
   #define SPEAKING_MSG_N 76       /* Maximum length of error message */
 
-  static char err_msg[SPEAKING_MSG_N+6] = {SBP_HEADER_1, SBP_HEADER_2,
-                                           MSG_PRINT, SPEAKING_MSG_N,
-                                           'E', 'R', 'R', 'O', 'R', ':', ' ',
-                                           [11 ... SPEAKING_MSG_N+2] = '!',
-                                           [SPEAKING_MSG_N+3] = '\n',
-                                           /* CRC calculated below */
-                                           [SPEAKING_MSG_N+4] = 0x00,
-                                           [SPEAKING_MSG_N+5] = 0x00};
+  static char err_msg[SPEAKING_MSG_N] = "Error: ";
 
-  /* Insert message */
-  u8 i = 0;
-  while (*msg && i < SPEAKING_MSG_N)  /* Don't want to use C library memcpy */
-    err_msg[11 + (i++)] = *msg++;
-  err_msg[11 + i] = ' '; /* Insert ' ' after message */
-
-  /* Insert CRC */
-  u16 crc = crc16_ccitt((u8*)&err_msg[2], 2, 0);
-  crc = crc16_ccitt((u8*)&err_msg[4], SPEAKING_MSG_N, crc);
-  err_msg[SPEAKING_MSG_N + 4] = crc & 0xFF;
-  err_msg[SPEAKING_MSG_N + 5] = (crc >> 8) & 0xFF;
+  memcpy(err_msg+strlen(err_msg), msg, strlen(msg));
+  u8 len = strlen(err_msg);
+  err_msg[len++] = '\n';
+  err_msg[len++] = 0;
 
   /* Continuously send error message */
-  i = 0;
   while (1) {
-    while (!(USART6_SR & USART_SR_TXE)) ;
-    USART6_DR = err_msg[i];
-    if (++i == (SPEAKING_MSG_N + 6)) {
-      i = 0;
-      led_toggle(LED_RED);
-      for (u32 d = 0; d < 5000000; d++)
-        __asm__("nop");
-    }
+    sbp_send_message(MSG_PRINT, 0, len, (u8*)err_msg, &fallback_write);
+    led_toggle(LED_RED);
+    for (u32 d = 0; d < 5000000; d++)
+      __asm__("nop");
   }
 }
 

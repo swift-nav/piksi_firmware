@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <libopencm3/cm3/scb.h>
+#include <libswiftnav/sbp.h>
 
 #include "main.h"
 #include "sbp.h"
@@ -42,8 +43,10 @@ int __wrap_printf(const char *format __attribute__((unused)), ...)
   return 0;
 }
 
-void jump_to_app_callback(u8 buff[] __attribute__((unused)))
+void jump_to_app_callback(u16 sender_id, u8 len, u8 msg[])
 {
+  (void)sender_id; (void)len; (void)msg;
+
   /* Disable peripherals used in the bootloader. */
   sbp_disable();
   spi_deactivate();
@@ -56,8 +59,10 @@ void jump_to_app_callback(u8 buff[] __attribute__((unused)))
   (*(void(**)())(APP_ADDRESS + 4))();
 }
 
-void receive_handshake_callback(u8 buff[] __attribute__((unused)))
+void receive_handshake_callback(u16 sender_id, u8 len, u8 msg[])
 {
+  (void)sender_id; (void)len; (void)msg;
+
   /* Disable FPGA configuration and set up SPI in case we want to flash M25. */
   spi_setup();
   flash_callbacks_register();
@@ -66,7 +71,7 @@ void receive_handshake_callback(u8 buff[] __attribute__((unused)))
 
 u32 send_handshake(void)
 {
-  return sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE,1,&bootloader_version);
+  return sbp_send_msg(MSG_BOOTLOADER_HANDSHAKE, 1, &bootloader_version);
 }
 
 int main(void)
@@ -81,15 +86,15 @@ int main(void)
   led_off(LED_RED);
 
   /* Setup UART and SBP interface for transmitting and receiving callbacks. */
-  sbp_setup(0);
+  sbp_setup(0, 0);
 
   /* Add callback for jumping to application after bootloading is finished. */
-  static msg_callbacks_node_t jump_to_app_node;
+  static sbp_msg_callbacks_node_t jump_to_app_node;
   sbp_register_callback(MSG_BOOTLOADER_JUMP_TO_APP, &jump_to_app_callback,
                         &jump_to_app_node);
 
   /* Add callback for host to tell bootloader it wants to load program. */
-  static msg_callbacks_node_t receive_handshake_node;
+  static sbp_msg_callbacks_node_t receive_handshake_node;
   sbp_register_callback(MSG_BOOTLOADER_HANDSHAKE,&receive_handshake_callback,
                         &receive_handshake_node);
 
@@ -137,7 +142,7 @@ int main(void)
   }
 
   /* Host didn't want to update - boot the existing application. */
-  jump_to_app_callback(NULL);
+  jump_to_app_callback(0, 0, NULL);
 
   return 0;
 }

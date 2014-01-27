@@ -16,6 +16,7 @@
 #include <time.h>
 
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/sbp.h>
 
 #include "board/nap/nap_common.h"
 #include "main.h"
@@ -210,9 +211,11 @@ double gps2rxtime(gps_time_t t)
 }
 
 /** Callback to set receiver GPS time estimate. */
-static void set_time_callback(u8 buff[])
+static void set_time_callback(u16 sender_id, u8 len, u8 msg[])
 {
-  gps_time_t *t = (gps_time_t *)buff;
+  (void)sender_id; (void)len;
+
+  gps_time_t *t = (gps_time_t *)msg;
 
   set_time(TIME_COARSE, *t);
 }
@@ -224,7 +227,7 @@ void timing_setup(void)
 {
   /* TODO: Perhaps setup something to check for nap_timing_count overflows
    * periodically. */
-  static msg_callbacks_node_t set_time_node;
+  static sbp_msg_callbacks_node_t set_time_node;
 
   sbp_register_callback(MSG_SET_TIME, &set_time_callback, &set_time_node);
 

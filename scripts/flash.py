@@ -177,6 +177,11 @@ class Flash():
     return self._read_callback_data
 
   def _done_callback(self, data):
+    ret = ord(data)
+
+    if (ret != 0):
+      print "Flash operation returned error (%d)" % ret
+
     self._waiting_for_callback = False
 
   def _read_callback(self, data):

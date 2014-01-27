@@ -12,6 +12,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <libswiftnav/sbp.h>
 
 #include "board/nap/cw_channel.h"
 #include "sbp.h"
@@ -29,8 +30,10 @@ cw_state_t cw_state;
 /** Callback to start a set of CW searches.
  * Allows host to directly control CW channel searches.
  */
-void cw_start_callback(u8 msg[])
+void cw_start_callback(u16 sender_id, u8 len, u8 msg[])
 {
+  (void)sender_id; (void)len;
+
   cw_start_msg_t* start_msg = (cw_start_msg_t*)msg;
   cw_start(start_msg->freq_min, start_msg->freq_max, start_msg->freq_step);
 }
@@ -38,7 +41,7 @@ void cw_start_callback(u8 msg[])
 /** Register CW callbacks. */
 void cw_setup()
 {
-  static msg_callbacks_node_t cw_start_callback_node;
+  static sbp_msg_callbacks_node_t cw_start_callback_node;
   sbp_register_callback(MSG_CW_START, &cw_start_callback, &cw_start_callback_node);
 }
 

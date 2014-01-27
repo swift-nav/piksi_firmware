@@ -54,7 +54,7 @@ typedef struct {
 
 /** \} */
 
-void nap_setup(u8 check_hash_status);
+void nap_setup();
 
 u8 nap_conf_done(void);
 u8 nap_hash_rd_done(void);
@@ -71,7 +71,6 @@ u32 nap_error_rd_blocking(void);
 u8 nap_hash_status(void);
 
 void nap_rd_dna(u8 dna[]);
-void nap_rd_dna_callback(u8 buff[]);
 
 void nap_callbacks_setup(void);
 
