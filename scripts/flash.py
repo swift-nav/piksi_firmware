@@ -70,6 +70,21 @@ def ihx_ranges(ihx):
   return [first_last(v) for k, v in
           groupby(enumerate(ihx.addresses()), lambda (i, x) : i - x)]
 
+def sectors_used(addrs, addr_sector_map):
+  sectors = set()
+  for s, e in addrs:
+    sectors |= set(range(addr_sector_map(s), addr_sector_map(e)+1))
+  return sorted(list(sectors))
+
+# Operations it will take to write a particular hexfile using flash.write_ihx.
+def ihx_n_ops(ihx, addr_sector_map):
+  ihx_addrs = ihx_ranges(ihx)
+  erase_ops = len(sectors_used(ihx_addrs, addr_sector_map))
+  program_ops_addr_args = [range(s,e,ADDRS_PER_OP) for s,e in ihx_addrs]
+  program_ops = sum([len(l) for l in program_ops_addr_args])
+  read_ops = program_ops # One read callback for every program callback.
+  return erase_ops + program_ops + read_ops
+
 # Defining separate functions to lock/unlock STM sectors and to read/write M25
 # status register, as there isn't a great way to define lock/unlock sector
 # callbacks that will be general to both flashes (see M25Pxx datasheet).
@@ -110,6 +125,8 @@ class Flash():
     self._read_callback_data = []
     self.link.add_callback(ids.FLASH_DONE, self._done_callback)
     self.link.add_callback(ids.FLASH_READ, self._read_callback)
+    self.ihx_elapsed_ops = 0 # N operations finished in self.write_ihx
+    self.ihx_total_ops = None # Total operations in self.write_ihx call
     if self.flash_type == "STM":
       self.flash_type_byte = 0
       self.addr_sector_map = stm_addr_sector_map
@@ -137,12 +154,6 @@ class Flash():
 
   def __str__(self):
     return self.status
-
-  def sectors_used(self, addrs):
-    sectors = set()
-    for s, e in addrs:
-      sectors |= set(range(self.addr_sector_map(s), self.addr_sector_map(e)+1))
-    return sorted(list(sectors))
 
   def erase_sector(self, sector):
     msg_buf = struct.pack("BB", self.flash_type_byte, sector)
@@ -188,14 +199,18 @@ class Flash():
     self._waiting_for_callback = False
 
   def write_ihx(self, ihx, verbose=True):
+    self.ihx_total_ops = ihx_n_ops(ihx, self.addr_sector_map)
+    self.ihx_elapsed_ops = 0
+
     # Erase sectors
     ihx_addrs = ihx_ranges(ihx)
-    for sector in self.sectors_used(ihx_addrs):
+    for sector in sectors_used(ihx_addrs, addr_sector_map):
       self.status = self.flash_type + " Flash: Erasing sector %d" % sector
       if verbose:
         print '\r' + self.status,
         sys.stdout.flush()
       self.erase_sector(sector)
+      self.ihx_elapsed_ops += 1
     if verbose:
       print ''
 
@@ -210,7 +225,9 @@ class Flash():
           sys.stdout.flush()
         binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
         self.program(addr, binary)
+        self.ihx_elapsed_ops += 1
         flash_readback = self.read(addr, ADDRS_PER_OP)
+        self.ihx_elapsed_ops += 1
         if flash_readback != map(ord, binary):
           raise Exception('Data read from flash != Data written to flash')
     self.status = self.flash_type + " Flash: Successfully programmed and " + \
