@@ -52,9 +52,9 @@ int main(void)
 {
   clock_setup();
   gpio_setup();
-  usart_set_parameters(USART6, 57600);
-  usart_set_parameters(USART1, 57600);
-  usart_set_parameters(USART3, 57600);
+  usart_set_parameters(USART6, USART_DEFAULT_BAUD);
+  usart_set_parameters(USART1, USART_DEFAULT_BAUD);
+  usart_set_parameters(USART3, USART_DEFAULT_BAUD);
 
   led_setup();
 
