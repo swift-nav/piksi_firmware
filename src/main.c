@@ -574,8 +574,8 @@ int main(void)
 
     static u32 last_tow = 0;
     if (tracking_channel[0].state == TRACKING_RUNNING &&
-        (tracking_channel[0].TOW_ms - last_tow > 10) &&
-        ((tracking_channel[0].TOW_ms + 70) % 20 < 5))
+        (tracking_channel[0].TOW_ms - last_tow > 100) &&
+        ((tracking_channel[0].TOW_ms + 70) % 200 < 50))
     {
     last_tow = tracking_channel[0].TOW_ms;
 
