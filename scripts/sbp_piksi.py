@@ -14,7 +14,7 @@ import os
 
 header_file = os.path.join(
   os.path.dirname(__file__),
-  '..', 'src', 'sbp_messages.h'
+  '..', 'src', 'sbp_piksi.h'
 )
 
 with open(header_file, 'r') as f:

@@ -11,7 +11,7 @@
 
 
 import serial_link
-import sbp_messages as ids
+import sbp_piksi as ids
 import argparse
 import sys
 import time

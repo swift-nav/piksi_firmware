@@ -24,7 +24,7 @@ import os
 import numpy as np
 import datetime
 
-import sbp_messages as ids
+import sbp_piksi as ids
 
 class SimpleAdapter(TabularAdapter):
     columns = [('PRN', 0), ('Pseudorange',  1), ('Carrier Phase',  2), ('Doppler', 3), ('SNR', 4)]

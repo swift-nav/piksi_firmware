@@ -22,7 +22,7 @@ import struct
 
 import numpy as np
 
-import sbp_messages as ids
+import sbp_piksi as ids
 
 TRACKING_STATE_BYTES_PER_CHANNEL = 6
 NUM_POINTS = 200

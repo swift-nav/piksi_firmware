@@ -18,7 +18,6 @@
 #include "../../error.h"
 #include "../../peripherals/spi.h"
 #include "../../sbp.h"
-#include "../../sbp_messages.h"
 #include "../../init.h"
 #include "../max2769.h"
 #include "nap_conf.h"

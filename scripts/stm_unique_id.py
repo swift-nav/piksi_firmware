@@ -13,7 +13,7 @@ import time
 import struct
 import sys
 import serial_link
-import sbp_messages as ids
+import sbp_piksi as ids
 
 class STMUniqueID:
 

@@ -11,7 +11,7 @@
  */
 
 #include "peripherals/usart.h"
-#include "sbp_messages.h"
+#include "sbp.h"
 #include "settings.h"
 
 /** \addtogroup io
