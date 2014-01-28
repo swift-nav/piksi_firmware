@@ -189,21 +189,6 @@ void tracking_channel_update(u8 channel)
       if (chan->update_count == 1)
         chan->carrier_phase -= chan->carrier_freq_fp_prev;
 
-#if 0
-      u64 cp;
-      s32 cf;
-      nap_track_phase_rd_blocking(channel, &cf, &cp);
-      /*if ((cp&0xFFFFFFFF) != chan->code_phase_early) {*/
-        DO_EVERY_TICKS(TICK_FREQ,
-          struct { s32 xtend : 24; } sign;
-          sign.xtend = chan->carrier_phase & 0xFFFFFF;
-          s32 x = sign.xtend;
-          /*printf("%d %u CPR: 0x%08X, count: %d, NAP: 0x%011llX, STM: 0x%08X\n", chan->prn+1, (unsigned int)chan->update_count, (unsigned int)chan->code_phase_rate_fp_prev, (unsigned int)chan->corr_sample_count, (unsigned long long)cp, (unsigned int)chan->code_phase_early);*/
-          printf("CF: %f 0x%08X, NAP: %d (%f), STM: %f (%d %f) - %d\n", chan->carrier_freq, (int)(chan->carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ), (int)cf, (double)cf / (double)(1<<24), (double)chan->carrier_phase / (double)(1<<24), (int)x, (double)x / (double)(1<<24), (int)(cf - x));
-        );
-      /*}*/
-#endif
-
       /* Correlations should already be in chan->cs thanks to
        * tracking_channel_get_corrs.
        */
@@ -286,8 +271,6 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   /* Update our channel measurement. */
   meas->prn = chan->prn;
   meas->code_phase_chips = (double)chan->code_phase_early / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
-  //meas->code_phase_rate = (double)chan->code_phase_rate_fp_prev / NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  //meas->code_phase_rate = 1.023e6 * (1 + chan->carrier_freq/GPS_L1_HZ);
   meas->code_phase_rate = chan->code_phase_rate;
   meas->carrier_phase = chan->carrier_phase / (double)(1<<24);
   meas->carrier_freq = chan->carrier_freq;
