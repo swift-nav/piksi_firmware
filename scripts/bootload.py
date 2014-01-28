@@ -25,18 +25,18 @@ import struct
 class Bootloader():
 
   def __init__(self, link):
-    self._handshake_received = False
+    self.handshake_received = False
     self.link = link
     self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
     self.version = None
 
   def _handshake_callback(self, data):
     self.version = struct.unpack('B', data[0])[0]
-    self._handshake_received = True
+    self.handshake_received = True
 
   def wait_for_handshake(self):
-    self._handshake_received = False
-    while not self._handshake_received:
+    self.handshake_received = False
+    while not self.handshake_received:
       time.sleep(0.1)
 
   def reply_handshake(self):
