@@ -204,7 +204,7 @@ class Flash():
 
     # Erase sectors
     ihx_addrs = ihx_ranges(ihx)
-    for sector in sectors_used(ihx_addrs, addr_sector_map):
+    for sector in sectors_used(ihx_addrs, self.addr_sector_map):
       self.status = self.flash_type + " Flash: Erasing sector %d" % sector
       if verbose:
         print '\r' + self.status,
