@@ -40,7 +40,7 @@ tests:
 
 libopencm3:
 	@printf "BUILD   libopencm3\n"; \
-	$(MAKE) -C libopencm3 $(MAKEFLAGS)
+	$(MAKE) -C libopencm3 $(MAKEFLAGS) lib/stm32/f4
 
 libswiftnav:
 	@printf "BUILD   libswiftnav\n"; \
