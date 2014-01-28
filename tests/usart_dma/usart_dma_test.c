@@ -30,7 +30,7 @@ int main(void)
   nap_conf_b_setup();
   nap_conf_b_clear();
 
-  sbp_setup(0);
+  sbp_setup(0, 0);
 
   while (1) {
     led_toggle(LED_RED);

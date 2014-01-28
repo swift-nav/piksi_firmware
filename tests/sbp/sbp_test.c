@@ -11,6 +11,7 @@
  */
 
 #include <stdio.h>
+#include <libswiftnav/sbp.h>
 
 #include "init.h"
 #include "main.h"
@@ -18,17 +19,20 @@
 #include "board/leds.h"
 #include "peripherals/usart.h"
 
-msg_callbacks_node_t foo_callback_node;
-void foo_callback(u8 buff[])
+sbp_msg_callbacks_node_t foo_callback_node;
+void foo_callback(u16 sender_id, u8 len, u8 msg[])
 {
-  printf("Foo callback: %f\n", *((float*)buff));
+  (void)sender_id; (void)len;
+  printf("Foo callback: %f\n", *((float*)msg));
 }
 
-msg_callbacks_node_t led_callback_node;
-void led_callback(u8 buff[])
+sbp_msg_callbacks_node_t led_callback_node;
+void led_callback(u16 sender_id, u8 len, u8 msg[])
 {
+  (void)sender_id; (void)len;
+
   printf("Green LED: ");
-  if (buff[0] & 1) {
+  if (msg[0] & 1) {
     led_on(LED_GREEN);
     printf("ON");
   } else {
@@ -37,7 +41,7 @@ void led_callback(u8 buff[])
   }
 
   printf(", Red LED: ");
-  if (buff[0] & 2) {
+  if (msg[0] & 2) {
     led_on(LED_RED);
     printf("ON\n");
   } else {

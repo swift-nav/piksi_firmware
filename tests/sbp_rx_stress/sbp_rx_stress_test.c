@@ -15,6 +15,7 @@
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/timer.h>
 #include <libopencm3/cm3/nvic.h>
+#include <libswiftnav/sbp.h>
 
 #include "init.h"
 #include "main.h"
@@ -55,12 +56,15 @@ void tim2_isr() {
   old_ok_bytes = ok_bytes;
 }
 
-void callback(u8 buff[]) {
+void callback(u16 sender_id, u8 len, u8 msg[])
+{
+  (void)sender_id; (void)len;
+
   // Check this shit out
   ok_packets++;
   ok_bytes += 25;
   for (u8 i=0; i<22; i++)
-    if (buff[i] != i)
+    if (msg[i] != i)
       screaming_death("Test packet not received correctly");
 }
 
@@ -71,7 +75,7 @@ int main(void)
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- SWIFT BINARY PROTOCOL RX STRESS TEST ---\n");
 
-  static msg_callbacks_node_t callback_node;
+  static sbp_msg_callbacks_node_t callback_node;
   sbp_register_callback(0x22, &callback, &callback_node);
 
   for (u8 i=0; i<30; i++) {
