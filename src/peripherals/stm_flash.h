@@ -28,10 +28,10 @@
 
 /** \} */
 
-void stm_flash_lock_sector(u8 sector);
-void stm_flash_unlock_sector(u8 sector);
+u8 stm_flash_lock_sector(u8 sector);
+u8 stm_flash_unlock_sector(u8 sector);
 
-void stm_flash_erase_sector(u8 sector);
-void stm_flash_program(u32 address, u8 data[], u8 length);
+u8 stm_flash_erase_sector(u8 sector);
+u8 stm_flash_program(u32 address, u8 data[], u8 length);
 
 #endif

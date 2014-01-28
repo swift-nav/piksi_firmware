@@ -14,6 +14,7 @@
 
 #include "stm_flash.h"
 #include "../error.h"
+#include "../flash_callbacks.h"
 #include "main.h"
 
 /** \defgroup peripherals Peripherals
@@ -30,46 +31,53 @@
  * Locked sectors can not be erased or programmed.
  *
  * \param sector Number of the sector to lock.
+ * \return Error code
  */
-void stm_flash_lock_sector(u8 sector)
+u8 stm_flash_lock_sector(u8 sector)
 {
   /* Check that sector argument is valid. */
   if (sector >= STM_FLASH_N_SECTORS)
-    screaming_death("stm_flash_lock_sector received sector > " STR(STM_FLASH_N_SECTORS));
+    return FLASH_INVALID_SECTOR;
 
   flash_unlock_option_bytes();
   while (FLASH_SR & FLASH_SR_BSY) ;
   FLASH_OPTCR &= ~(1 << (16+sector));
   FLASH_OPTCR |= FLASH_OPTCR_OPTSTRT;
   while (FLASH_SR & FLASH_SR_BSY) ;
+
+  return FLASH_OK;
 }
 
 /** Unlock a sector of the STM flash memory.
  * Locked sectors can not be erased or programmed.
  *
  * \param sector Number of the sector to unlock.
+ * \return Error code
  */
-void stm_flash_unlock_sector(u8 sector)
+u8 stm_flash_unlock_sector(u8 sector)
 {
   /* Check that sector argument is valid. */
   if (sector >= STM_FLASH_N_SECTORS)
-    screaming_death("stm_flash_unlock_sector received sector > " STR(STM_FLASH_N_SECTORS));
+    return FLASH_INVALID_SECTOR;
 
   flash_unlock_option_bytes();
   while (FLASH_SR & FLASH_SR_BSY) ;
   FLASH_OPTCR |= (1 << (16+sector));
   FLASH_OPTCR |= FLASH_OPTCR_OPTSTRT;
   while (FLASH_SR & FLASH_SR_BSY) ;
+
+  return FLASH_OK;
 }
 
 /** Erase a sector of the STM flash
  * \param sector Number of the sector to erase.
+ * \return Error code
  */
-void stm_flash_erase_sector(u8 sector)
+u8 stm_flash_erase_sector(u8 sector)
 {
   /* Check that sector argument is valid. */
   if (sector >= STM_FLASH_N_SECTORS)
-    screaming_death("stm_flash_erase_sector received sector > " STR(STM_FLASH_N_SECTORS));
+    return FLASH_INVALID_SECTOR;
 
   /* Erase sector.
    * See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual"
@@ -77,6 +85,8 @@ void stm_flash_erase_sector(u8 sector)
   flash_unlock();
   flash_erase_sector(sector, FLASH_CR_PROGRAM_X32);
   flash_lock();
+
+  return FLASH_OK;
 }
 
 /** Program a set of addresses of the STM32F4 flash memory.
@@ -87,21 +97,24 @@ void stm_flash_erase_sector(u8 sector)
  * \param data    Data to program addresses with
  * \param length  Length of set of addresses to program - counts up from
  *                starting address
+ * \return Error code
  */
-void stm_flash_program(u32 address, u8 data[], u8 length)
+u8 stm_flash_program(u32 address, u8 data[], u8 length)
 {
   /* Check that arguments are valid. */
   if (address > STM_FLASH_MAX_ADDR)
-    screaming_death("stm_flash_program received addr > " STR(STM_FLASH_MAX_ADDR));
+    return FLASH_INVALID_ADDR;
   if (address < STM_FLASH_MIN_ADDR)
-    screaming_death("stm_flash_program received addr < " STR(STM_FLASH_MIN_ADDR));
+    return FLASH_INVALID_ADDR;
   if (address+length-1 > STM_FLASH_MAX_ADDR)
-    screaming_death("stm_flash_program received addr+length+1 > " STR(STM_FLASH_MAX_ADDR));
+    return FLASH_INVALID_RANGE;
 
   /* Program specified addresses with data */
   flash_unlock();
   flash_program(address, data, length);
   flash_lock();
+
+  return FLASH_OK;
 }
 
 /** \} */

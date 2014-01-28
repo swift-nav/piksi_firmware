@@ -46,9 +46,9 @@ void m25_write_disable(void);
 void m25_read_id(u8 *man_id, u8 *mem_type, u8 *mem_cap);
 u8 m25_read_status(void);
 void m25_write_status(u8 sr);
-void m25_read(u32 addr, u8 buff[], u32 len);
-void m25_page_program(u32 addr, u8 buff[], u8 len);
-void m25_sector_erase(u32 addr);
+u8 m25_read(u32 addr, u8 buff[], u32 len);
+u8 m25_page_program(u32 addr, u8 buff[], u8 len);
+u8 m25_sector_erase(u32 addr);
 void m25_bulk_erase(void);
 
 #endif /* SWIFTNAV_M25_FLASH_H */

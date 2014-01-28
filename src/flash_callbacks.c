@@ -31,23 +31,22 @@ void flash_erase_sector_callback(u16 sender_id, u8 len, u8 msg[])
 {
   (void)sender_id; (void)len;
 
-  u8 ret = FLASH_OK;
+  u8 ret;
   u8 flash = msg[0];
   u8 sector = msg[1];
 
   switch (flash) {
   case FLASH_STM:
-    stm_flash_erase_sector(sector);
+    ret = stm_flash_erase_sector(sector);
     break;
   case FLASH_M25: ;
     u32 addr = ((u32)sector) << 16;
     m25_write_enable();
-    m25_sector_erase(addr);
+    ret = m25_sector_erase(addr);
     m25_write_disable();
     break;
   default:
     ret = FLASH_INVALID_FLASH;
-    sbp_send_msg(MSG_FLASH_DONE, 1, &ret);
     break;
   }
 
@@ -87,16 +86,15 @@ void flash_program_callback(u16 sender_id, u8 len, u8 msg[])
 
   switch (flash) {
   case FLASH_STM:
-    stm_flash_program(address, data, length);
+    ret = stm_flash_program(address, data, length);
     break;
   case FLASH_M25:
     m25_write_enable();
-    m25_page_program(address, data, length);
+    ret = m25_page_program(address, data, length);
     m25_write_disable();
     break;
   default:
     ret = FLASH_INVALID_FLASH;
-    sbp_send_msg(MSG_FLASH_DONE, 1, &ret);
     break;
   }
 
@@ -124,6 +122,13 @@ void flash_read_callback(u16 sender_id, u8 len, u8 msg[])
   u32 address = *(u32 *)&msg[1];
   u8 length = msg[5];
 
+  u8 callback_data[length + 5];
+  callback_data[0] = (address >> 0) & 0xFF;
+  callback_data[1] = (address >> 8) & 0xFF;
+  callback_data[2] = (address >> 16) & 0xFF;
+  callback_data[3] = (address >> 24) & 0xFF;
+  callback_data[4] = length;
+
   if (length > FLASH_ADDRS_PER_OP) {
     ret = FLASH_INVALID_LEN;
     sbp_send_msg(MSG_FLASH_DONE, 1, &ret);
@@ -139,27 +144,22 @@ void flash_read_callback(u16 sender_id, u8 len, u8 msg[])
     }
   }
 
-  u8 callback_data[length + 5];
-  callback_data[0] = (address >> 0) & 0xFF;
-  callback_data[1] = (address >> 8) & 0xFF;
-  callback_data[2] = (address >> 16) & 0xFF;
-  callback_data[3] = (address >> 24) & 0xFF;
-  callback_data[4] = length;
-
   switch (flash) {
   case FLASH_STM:
     memcpy(&callback_data[5], (const void *)address, length);
     break;
   case FLASH_M25:
-    m25_read(address, &callback_data[5], length);
+    ret = m25_read(address, &callback_data[5], length);
     break;
   default:
     ret = FLASH_INVALID_FLASH;
-    sbp_send_msg(MSG_FLASH_DONE, 1, &ret);
     break;
   }
 
-  sbp_send_msg(MSG_FLASH_READ, length + 5, callback_data);
+  if (ret != 0)
+    sbp_send_msg(MSG_FLASH_DONE, 1, &ret);
+  else
+    sbp_send_msg(MSG_FLASH_READ, length + 5, callback_data);
 }
 
 /** Callback to write to the 8-bit M25 flash status register.
@@ -190,9 +190,9 @@ void stm_flash_unlock_sector_callback(u16 sender_id, u8 len, u8 msg[])
 {
   (void)sender_id; (void)len;
 
-  u8 ret = FLASH_OK;
+  u8 ret;
   u8 sector = msg[0];
-  stm_flash_unlock_sector(sector);
+  ret = stm_flash_unlock_sector(sector);
   sbp_send_msg(MSG_FLASH_DONE, 1, &ret);
 }
 
@@ -206,9 +206,9 @@ void stm_flash_lock_sector_callback(u16 sender_id, u8 len, u8 msg[])
 {
   (void)sender_id; (void)len;
 
-  u8 ret = FLASH_OK;
+  u8 ret;
   u8 sector = msg[0];
-  stm_flash_lock_sector(sector);
+  ret = stm_flash_lock_sector(sector);
   sbp_send_msg(MSG_FLASH_DONE, 1, &ret);
 }
 

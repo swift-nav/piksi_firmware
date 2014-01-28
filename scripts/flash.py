@@ -187,6 +187,7 @@ class Flash():
         (self._read_callback_length, length)
     return self._read_callback_data
 
+  # Returned for all commands other than read. Returned for read if failed.
   def _done_callback(self, data):
     ret = ord(data)
 
@@ -195,10 +196,11 @@ class Flash():
 
     self._waiting_for_callback = False
 
+  # Returned for read if successful.
   def _read_callback(self, data):
     # 4 bytes addr, 1 byte length, length bytes data
-    self._read_callback_address = struct.unpack('<I', data[0:4])[0];
-    self._read_callback_length = struct.unpack('B', data[4])[0];
+    self._read_callback_address = struct.unpack('<I', data[0:4])[0]
+    self._read_callback_length = struct.unpack('B', data[4])[0]
     length = self._read_callback_length
     self._read_callback_data = list(struct.unpack(str(length)+'B', data[5:]))
     self._waiting_for_callback = False

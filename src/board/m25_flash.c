@@ -17,6 +17,7 @@
 #include "../peripherals/spi.h"
 #include "../peripherals/usart.h"
 #include "../sbp.h"
+#include "../flash_callbacks.h"
 #include "m25_flash.h"
 #include "main.h"
 
@@ -90,14 +91,15 @@ void m25_write_status(u8 sr)
  * \param addr Starting address to read from
  * \param len Number of addresses to read
  * \param buff Array to write bytes read from flash to
+ * \return Error code
  */
-void m25_read(u32 addr, u8 buff[], u32 len)
+u8 m25_read(u32 addr, u8 buff[], u32 len)
 {
   /* Check that address range to be written is valid. */
   if (addr > M25_MAX_ADDR)
-    screaming_death("m25_read was passed address > " STR(M25_MAX_ADDR));
+    return FLASH_INVALID_ADDR;
   if (addr+len-1 > M25_MAX_ADDR)
-    screaming_death("m25_read was passed (address+len-1) > " STR(M25_MAX_ADDR));
+    return FLASH_INVALID_RANGE;
 
   spi_slave_select(SPI_SLAVE_FLASH);
 
@@ -111,6 +113,8 @@ void m25_read(u32 addr, u8 buff[], u32 len)
     buff[i] = spi_xfer(SPI_BUS_FLASH, 0x00);
 
   spi_slave_deselect();
+
+  return FLASH_OK;
 }
 
 /** Program a page of the flash.
@@ -120,16 +124,17 @@ void m25_read(u32 addr, u8 buff[], u32 len)
  * \param addr Starting address to write to
  * \param len  Number of addresses to write
  * \param buff Array of bytes to write to flash
+ * \return Error code
  */
-void m25_page_program(u32 addr, u8 buff[], u8 len)
+u8 m25_page_program(u32 addr, u8 buff[], u8 len)
 {
   /* Check that address range to be written is valid. */
   if (addr > M25_MAX_ADDR)
-    screaming_death("m25_page_program was passed address > " STR(M25_MAX_ADDR));
+    return FLASH_INVALID_ADDR;
 
   /* Check if page boundary is crossed. */
   if (addr>>8 < (addr+len-1)>>8)
-    screaming_death("m25_page_program call will wrap page boundary");
+    return FLASH_INVALID_RANGE;
 
   u32 i;
 
@@ -147,18 +152,21 @@ void m25_page_program(u32 addr, u8 buff[], u8 len)
   spi_slave_deselect();
 
   while (m25_read_status() & M25_SR_WIP) ;
+
+  return FLASH_OK;
 }
 
 /** Erase a sector of the flash.
  * Erases all memory addresses in a sector to 0xFF. Any address in the sector
  * can be passed.
  * \param addr Address inside sector to erase.
+ * \return Error code
  */
-void m25_sector_erase(u32 addr)
+u8 m25_sector_erase(u32 addr)
 {
   /* Check that addr argument is valid. */
   if (addr > M25_MAX_ADDR)
-    screaming_death("m25_sector_erase was passed address > " STR(M25_MAX_ADDR));
+    return FLASH_INVALID_ADDR;
 
   spi_slave_select(SPI_SLAVE_FLASH);
 
@@ -171,6 +179,8 @@ void m25_sector_erase(u32 addr)
   spi_slave_deselect();
 
   while (m25_read_status() & M25_SR_WIP) ;
+
+  return FLASH_OK;
 }
 
 /** Erase the entire flash.

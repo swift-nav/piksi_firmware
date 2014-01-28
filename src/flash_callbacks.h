@@ -16,10 +16,12 @@
 #define FLASH_STM 0 /**< Value to pass flash callbacks to use STM Flash */
 #define FLASH_M25 1 /**< Value to pass flash callbacks to use M25 Flash */
 
-#define FLASH_OK            0
-#define FLASH_INVALID_FLASH 1
-#define FLASH_INVALID_LEN   2
-#define FLASH_INVALID_ADDR  3
+#define FLASH_OK             0
+#define FLASH_INVALID_FLASH  1
+#define FLASH_INVALID_LEN    2
+#define FLASH_INVALID_ADDR   3
+#define FLASH_INVALID_RANGE  4
+#define FLASH_INVALID_SECTOR 5
 
 #define FLASH_ADDRS_PER_OP 128
 
