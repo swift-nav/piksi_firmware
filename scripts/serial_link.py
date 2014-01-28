@@ -21,8 +21,7 @@ import sbp_messages as ids
 DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 1000000
 
-SBP_HEADER_1 = 0xBE
-SBP_HEADER_2 = 0xEF
+SBP_PREAMBLE = 0x55
 
 crc16_tab = [
   0x0000,0x1021,0x2042,0x3063,0x4084,0x50a5,0x60c6,0x70e7,
@@ -134,16 +133,8 @@ class SerialLink:
       # Sync with magic start bytes
       magic = self.ser.read(1)
       if magic:
-        if ord(magic) == SBP_HEADER_1:
-          magic = self.ser.read(1)
-          if ord(magic) == SBP_HEADER_2:
-            break
-          else:
-            self.unhandled_bytes += 1
-            if self.print_unhandled:
-              print "Host Side Unhandled byte : 0x%02x," % ord(magic), \
-                                                              "total", \
-                                                 self.unhandled_bytes
+        if ord(magic) == SBP_PREAMBLE:
+          break
         else:
           self.unhandled_bytes += 1
           if self.print_unhandled:
@@ -152,10 +143,10 @@ class SerialLink:
                                                self.unhandled_bytes
 
     hdr = ""
-    while len(hdr) < 2:
-      hdr = self.ser.read(2 - len(hdr))
+    while len(hdr) < 5:
+      hdr = self.ser.read(5 - len(hdr))
 
-    msg_type, msg_len = map(ord, hdr)
+    msg_type, sender_id, msg_len = struct.unpack('<HHB', hdr)
     crc = crc16(hdr, 0)
 
     data = ""
@@ -174,17 +165,13 @@ class SerialLink:
 
     return (msg_type, data)
 
-  def send_message(self, msg_type, msg):
-    crc = crc16(map(chr, [msg_type, len(msg)]), 0)
-    crc_int = crc16(msg, crc)
-    crc = struct.pack('<H', crc_int)
+  def send_message(self, msg_type, msg, sender_id=0x42):
+    framed_msg = struct.pack('<BHHB', SBP_PREAMBLE, msg_type, sender_id, len(msg))
+    framed_msg += msg
+    crc = crc16(framed_msg[1:], 0)
+    framed_msg += struct.pack('<H', crc)
 
-    self.ser.write(chr(SBP_HEADER_1))
-    self.ser.write(chr(SBP_HEADER_2))
-    self.ser.write(chr(msg_type))
-    self.ser.write(chr(len(msg)))
-    self.ser.write(msg)
-    self.ser.write(crc)
+    self.ser.write(framed_msg)
 
   def send_char(self, char):
     self.ser.write(char)

@@ -26,7 +26,7 @@ typedef struct {
     RTCM
   } mode; /** Communication mode : Swift Binary Protocol or NMEA */
   u32 baud_rate;
-  u8 message_mask;
+  u16 message_mask;
 } usart_settings_t;
 
 /** Message and baud rate settings for all USARTs. */

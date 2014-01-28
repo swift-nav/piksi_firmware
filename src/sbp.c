@@ -19,6 +19,7 @@
 #include <libopencm3/stm32/f4/usart.h>
 
 #include <libswiftnav/edc.h>
+#include <libswiftnav/sbp.h>
 
 #include "board/leds.h"
 #include "board/m25_flash.h"
@@ -35,12 +36,12 @@
  * Send and receive messages using Swift Binary Protocol.
  * \{ */
 
-u8 msg_header[4] = { SBP_HEADER_1, SBP_HEADER_2, 0, 0 };
-
-/* Store a pointer to the head of our linked list. */
-msg_callbacks_node_t *msg_callbacks_head = 0;
-
+u16 my_sender_id;
 u8 sbp_use_settings = 0;
+
+sbp_state_t uarta_sbp_state;
+sbp_state_t uartb_sbp_state;
+sbp_state_t ftdi_sbp_state;
 
 /** Setup the SBP interface.
  * Configures USARTs and IO buffering.
@@ -48,8 +49,10 @@ u8 sbp_use_settings = 0;
  * \param use_settings If 0 use default baud rate, else use baud rates in
  *                     flash settings
  */
-void sbp_setup(u8 use_settings)
+void sbp_setup(u8 use_settings, u16 sender_id)
 {
+  my_sender_id = sender_id;
+
   if (use_settings && settings.settings_valid == VALID) {
     sbp_use_settings = 1;
     usarts_setup(
@@ -66,6 +69,10 @@ void sbp_setup(u8 use_settings)
       );
   }
 
+  sbp_state_init(&uarta_sbp_state);
+  sbp_state_init(&uartb_sbp_state);
+  sbp_state_init(&ftdi_sbp_state);
+
   /* Disable input and output buffering. */
   setvbuf(stdin, NULL, _IONBF, 0);
   setvbuf(stdout, NULL, _IONBF, 0);
@@ -79,54 +86,31 @@ void sbp_disable()
 }
 
 /** Checks if the message should be sent from a particular USART. */
-static inline u32 use_usart(usart_settings_t *us, u8 msg_type)
+static inline u32 use_usart(usart_settings_t *us, u16 msg_type)
 {
   if (sbp_use_settings) {
     if (us->mode != SBP)
       /* This USART is not in SBP mode. */
       return 0;
 
-    if ((msg_type & 0xF0) && !(us->message_mask & msg_type))
+    if (!(us->message_mask & msg_type))
       /* This message type is masked out on this USART. */
       return 0;
   }
   return 1;
 }
 
-/** Check if USART has room in its buffer. */
-static inline u32 check_usart(usart_settings_t *us, usart_tx_dma_state *s,
-                              u8 msg_type, u8 len)
+u32 uarta_write(u8 *buff, u32 n)
 {
-  return use_usart(us, msg_type) && usart_tx_n_free(s) < len + 4U + 2U + 1U;
+  return usart_write_dma(&uarta_tx_state, buff, n);
 }
-
-/** Handle writing of sbp message into TX DMA buffer
- * Returns 0 (successful) if this USART is not used to send this message type,
- * or if it is and the message is succesfully written into the TX buffer.
- * Returns -1 if the message is not successfully written to the TX buffer.
- *
- * \param us       Pointer to usart_settings_t struct
- * \param s        Pointer to usart_tx_dma_state struct
- * \param msg_type Message ID
- * \param len      Message data length
- * \param buff     Pointer to message data array
- * \param crc      CRC for the message
- *
- * \return         Error code
- */
-static inline u32 send_msg_helper(usart_settings_t *us, usart_tx_dma_state *s,
-                                  u8 msg_type, u8 len, u8 buff[], u16 crc)
+u32 uartb_write(u8 *buff, u32 n)
 {
-  if (!use_usart(us, msg_type))
-    return 0;
-
-  if ((4 != usart_write_dma(s, msg_header, 4)) ||
-      (len != usart_write_dma(s, buff, len)) ||
-      (2 != usart_write_dma(s, (u8 *)&crc, 2)))
-    /* Error during USART write. */
-    return -1;
-
-  return 0;
+  return usart_write_dma(&uartb_tx_state, buff, n);
+}
+u32 ftdi_write(u8 *buff, u32 n)
+{
+  return usart_write_dma(&ftdi_tx_state, buff, n);
 }
 
 /** Send a SBP message out over all applicable USARTs
@@ -137,105 +121,43 @@ static inline u32 send_msg_helper(usart_settings_t *us, usart_tx_dma_state *s,
  *
  * \return         Error code
  */
-u32 sbp_send_msg(u8 msg_type, u8 len, u8 buff[])
+u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[])
 {
   /* Global interrupt disable to avoid concurrency/reentrancy problems. */
   __asm__("CPSID i;");
 
-  msg_header[2] = msg_type;
-  msg_header[3] = len;
+  u16 ret = 0;
 
-  u16 crc = crc16_ccitt(&msg_header[2], 2, 0);
-  crc = crc16_ccitt(buff, len, crc);
+  if (use_usart(&settings.uarta_usart, msg_type))
+    ret |= sbp_send_message(msg_type, my_sender_id, len, buff, &uarta_write);
 
-  /* Check if required USARTs have room in their buffers. */
-  if (check_usart(&settings.ftdi_usart, &ftdi_tx_state, msg_type, len) ||
-      check_usart(&settings.uarta_usart, &uarta_tx_state, msg_type, len) ||
-      check_usart(&settings.uartb_usart, &uartb_tx_state, msg_type, len)) {
-    __asm__("CPSIE i;");  // Re-enable interrupts
-    return -1;
-  }
+  if (use_usart(&settings.uartb_usart, msg_type))
+    ret |= sbp_send_message(msg_type, my_sender_id, len, buff, &uarta_write);
 
-  /* Now send message. */
-  if (send_msg_helper(&settings.ftdi_usart, &ftdi_tx_state,
-                      msg_type, len, buff, crc) ||
-      send_msg_helper(&settings.uarta_usart, &uarta_tx_state,
-                      msg_type, len, buff, crc) ||
-      send_msg_helper(&settings.uartb_usart, &uartb_tx_state,
-                      msg_type, len, buff, crc)) {
-    __asm__("CPSIE i;");  // Re-enable interrupts
-    return -1;
+  if (use_usart(&settings.ftdi_usart, msg_type))
+    ret |= sbp_send_message(msg_type, my_sender_id, len, buff, &ftdi_write);
+
+  if (ret != 3*len) {
+    /* Return error if any sbp_send_message failed. */
+    __asm__("CPSIE i;");  /* Re-enable interrupts */
+    return ret;
   }
 
   __asm__("CPSIE i;");  // Re-enable interrupts
   return 0;
 }
 
-/** Register a callback for a message type.
- * Register a callback that is called when a message
- * with type msg_type is received.
- *
- * \param msg_type Message ID associated with callback
- * \param cb       Pointer to message callback function
- * \param node     Statically allocated msg_callbacks_node_t struct
- */
-void sbp_register_callback(u8 msg_type, msg_callback_t cb,
-                           msg_callbacks_node_t *node)
+u32 uarta_read(u8 *buff, u32 n)
 {
-  /* TODO: reject if msg_type already registered. */
-  /* Fill in our new msg_callback_node_t. */
-  node->msg_type = msg_type;
-  node->cb = cb;
-  /* The next pointer is set to NULL, i.e. this
-   * will be the new end of the linked list.
-   */
-  node->next = 0;
-
-  /* If our linked list is empty then just
-   * add the new node to the start.
-   */
-  if (msg_callbacks_head == 0) {
-    msg_callbacks_head = node;
-    return;
-  }
-
-  /* Find the tail of our linked list and
-   * add our new node to the end.
-   */
-  msg_callbacks_node_t *p = msg_callbacks_head;
-  while (p->next)
-    p = p->next;
-
-  p->next = node;
+  return usart_read_dma(&uarta_rx_state, buff, n);
 }
-
-/** Find the callback function associated with a message type
- * Searches through the list of registered callbacks to find the callback
- * associated with the passed message type.
- *
- * \param msg_type Message ID to find callback for
- *
- * \return Pointer to callback function (msg_callback_t)
- */
-msg_callback_t sbp_find_callback(u8 msg_type)
+u32 uartb_read(u8 *buff, u32 n)
 {
-  /* If our list is empty, return NULL. */
-  if (!msg_callbacks_head)
-    return 0;
-
-  /* Traverse the linked list and return the callback
-   * function pointer if we find a node with a matching
-   * message id.
-   */
-  msg_callbacks_node_t *p = msg_callbacks_head;
-  do
-    if (p->msg_type == msg_type)
-      return p->cb;
-
-  while ((p = p->next));
-
-  /* Didn't find a matching callback, return NULL. */
-  return 0;
+  return usart_read_dma(&uartb_rx_state, buff, n);
+}
+u32 ftdi_read(u8 *buff, u32 n)
+{
+  return usart_read_dma(&ftdi_rx_state, buff, n);
 }
 
 /** Process SBP messages received through the USARTs.
@@ -244,117 +166,14 @@ msg_callback_t sbp_find_callback(u8 msg_type)
  */
 void sbp_process_messages()
 {
-  static sbp_process_messages_state_t ftdi_s = {
-    .state    = WAITING_1,
-    .rx_state = &ftdi_rx_state,
-  };
-  static sbp_process_messages_state_t uarta_s = {
-    .state    = WAITING_1,
-    .rx_state = &uarta_rx_state,
-  };
-  static sbp_process_messages_state_t uartb_s = {
-    .state    = WAITING_1,
-    .rx_state = &uartb_rx_state,
-  };
-
-  sbp_process_usart(&ftdi_s);
-  sbp_process_usart(&uarta_s);
-  sbp_process_usart(&uartb_s);
-}
-
-/** Process SBP messages for a particular USART.
- * Extract data from the USART DMA buffer and parse SBP messages in the data.
- * When a valid SBP message is found (callback is registered for the message
- * ID and CRC is valid), call the callback function for it.
- *
- * \param s sbp_process_messages_state_t pointer of the USART to process.
- */
-void sbp_process_usart(sbp_process_messages_state_t *s)
-{
-  u8 len, temp;
-  u16 crc, crc_rx;
-
-  while ((len = usart_n_read_dma(s->rx_state))) {
-    /* If there are no bytes waiting to be processed then return. */
-    if (len == 0)
-      return;
-
-    switch (s->state) {
-    case WAITING_1:
-      if (usart_read_dma(s->rx_state, &temp, 1))
-        if (temp == SBP_HEADER_1)
-          s->state = WAITING_2;
-      break;
-
-    case WAITING_2:
-      if (usart_read_dma(s->rx_state, &temp, 1)) {
-        if (temp == SBP_HEADER_2)
-          s->state = GET_TYPE;
-        else
-          s->state = WAITING_1;
-      }
-      break;
-
-    case GET_TYPE:
-      if (usart_read_dma(s->rx_state, &(s->msg_type), 1))
-        s->state = GET_LEN;
-      break;
-
-    case GET_LEN:
-      if (usart_read_dma(s->rx_state, &(s->msg_len), 1)) {
-        s->msg_n_read = 0;
-        s->state = GET_MSG;
-      }
-      break;
-
-    case GET_MSG:
-      if (s->msg_len - s->msg_n_read > 0) {
-        /* Not received whole message yet, try and get some more. */
-        s->msg_n_read += usart_read_dma(
-          s->rx_state,
-          &(s->msg_buff[s->msg_n_read]),
-          s->msg_len - s->msg_n_read
-          );
-      }
-      /* TODO : <= ? change to == and have a separate case for < ?
-       * CRC should catch this though. */
-      if (s->msg_len - s->msg_n_read <= 0) {
-        s->crc_n_read = 0;
-        s->state = GET_CRC;
-      }
-      break;
-
-    case GET_CRC:
-      if (s->crc_n_read < 2) {
-        s->crc_n_read += usart_read_dma(
-          s->rx_state,
-          &(s->crc[s->crc_n_read]),
-          2 - s->crc_n_read
-          );
-      }
-      if (s->crc_n_read >= 2) {
-        crc = crc16_ccitt(&(s->msg_type), 1, 0);
-        crc = crc16_ccitt(&(s->msg_len), 1, crc);
-        crc = crc16_ccitt(s->msg_buff, s->msg_len, crc);
-        crc_rx = (s->crc[0]) |
-                 ((s->crc[1] & 0xFF) << 8);
-        if (crc_rx == crc) {
-          /* Message complete, process it. */
-          msg_callback_t cb = sbp_find_callback(s->msg_type);
-          if (cb)
-            (*cb)(s->msg_buff);
-          /*else*/
-            /*printf("no callback registered for msg type %02X\n", s->msg_type);*/
-        } else
-          printf("CRC error 0x%04X 0x%04X\n", crc, crc_rx);
-        s->state = WAITING_1;
-      }
-      break;
-
-    default:
-      s->state = WAITING_1;
-      break;
-    }
+  while (usart_n_read_dma(&uarta_rx_state) > 0) {
+    sbp_process(&uarta_sbp_state, &uarta_read);
+  }
+  while (usart_n_read_dma(&uartb_rx_state) > 0) {
+    sbp_process(&uartb_sbp_state, &uartb_read);
+  }
+  while (usart_n_read_dma(&ftdi_rx_state) > 0) {
+    sbp_process(&ftdi_sbp_state, &ftdi_read);
   }
 }
 

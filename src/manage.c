@@ -17,6 +17,7 @@
 #include <libswiftnav/almanac.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
+#include <libswiftnav/sbp.h>
 
 #include "main.h"
 #include "board/nap/track_channel.h"
@@ -43,10 +44,12 @@ almanac_t almanac[32];
 
 acq_manage_t acq_manage;
 
-msg_callbacks_node_t almanac_callback_node;
-void almanac_callback(u8 buff[])
+sbp_msg_callbacks_node_t almanac_callback_node;
+void almanac_callback(u16 sender_id, u8 len, u8 msg[])
 {
-  almanac_t *new_almanac = (almanac_t*)buff;
+  (void)sender_id; (void)len;
+
+  almanac_t *new_almanac = (almanac_t*)msg;
 
   printf("Received alamanc for PRN %02d\n", new_almanac->prn);
   memcpy(&almanac[new_almanac->prn-1], new_almanac, sizeof(almanac_t));

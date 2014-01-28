@@ -34,6 +34,7 @@
 #include "board/m25_flash.h"
 
 #include <libswiftnav/pvt.h>
+#include <libswiftnav/sbp.h>
 #include <libswiftnav/track.h>
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/coord_system.h>
@@ -438,23 +439,27 @@ void dd_soln(gps_time_t ta, u8 na, navigation_measurement_t* ma,
   }
 }
 
-void foo_callback(u8 buff[])
+void foo_callback(u16 sender_id, u8 len, u8 buff[])
 {
+  (void)sender_id; (void)len;
+
   settings.uarta_usart.message_mask = buff[0];
 }
 
-void reset_ambs_callback(u8 buff[])
+void reset_ambs_callback(u16 sender_id, u8 len, u8 buff[])
 {
-  (void)buff;
+  (void)sender_id; (void)len; (void)buff;
   reset_ambs = 1;
 }
-void obs_hdr_callback(u8 buff[])
+void obs_hdr_callback(u16 sender_id, u8 len, u8 buff[])
 {
+  (void)sender_id; (void)len;
   rx_obs_n = 0;
   rx_obs_hdr = *(msg_obs_hdr_t*)buff;
 }
-void obs_callback(u8 buff[])
+void obs_callback(u16 sender_id, u8 len, u8 buff[])
 {
+  (void)sender_id; (void)len;
   msg_obs_t *obs = (msg_obs_t *)buff;
   /* TODO: use msg_obs_t directly. */
   rx_nav_meas[rx_obs_n].prn = obs->prn;
@@ -470,8 +475,9 @@ void obs_callback(u8 buff[])
   }
 }
 
-void drop_chan_callback(u8 buff[])
+void drop_chan_callback(u16 sender_id, u8 len, u8 buff[])
 {
+  (void)sender_id; (void)len;
   tracking_channel_disable(buff[0]);
 }
 
@@ -516,11 +522,11 @@ int main(void)
   timing_setup();
   position_setup();
 
-  static msg_callbacks_node_t obs_hdr_node;
-  static msg_callbacks_node_t obs_node;
-  static msg_callbacks_node_t reset_ambs_node;
-  static msg_callbacks_node_t foo_node;
-  static msg_callbacks_node_t drop_chan_node;
+  static sbp_msg_callbacks_node_t obs_hdr_node;
+  static sbp_msg_callbacks_node_t obs_node;
+  static sbp_msg_callbacks_node_t reset_ambs_node;
+  static sbp_msg_callbacks_node_t foo_node;
+  static sbp_msg_callbacks_node_t drop_chan_node;
 
   sbp_register_callback(MSG_OBS_HDR, &obs_hdr_callback, &obs_hdr_node);
   sbp_register_callback(MSG_OBS, &obs_callback, &obs_node);
@@ -568,8 +574,8 @@ int main(void)
 
     static u32 last_tow = 0;
     if (tracking_channel[0].state == TRACKING_RUNNING &&
-        (tracking_channel[0].TOW_ms - last_tow > 100) &&
-        ((tracking_channel[0].TOW_ms + 70) % 200 < 10))
+        (tracking_channel[0].TOW_ms - last_tow > 10) &&
+        ((tracking_channel[0].TOW_ms + 70) % 20 < 5))
     {
     last_tow = tracking_channel[0].TOW_ms;
 

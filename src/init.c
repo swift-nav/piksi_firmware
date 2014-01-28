@@ -13,12 +13,14 @@
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/cm3/scb.h>
+#include <libswiftnav/sbp.h>
 
 #include "board/leds.h"
 #include "board/m25_flash.h"
 #include "peripherals/stm_flash.h"
 #include "board/nap/nap_common.h"
 #include "sbp.h"
+#include "error.h"
 #include "flash_callbacks.h"
 
 /** Clock settings for 130.944 MHz from 16.368 MHz HSE. */
@@ -37,8 +39,10 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
 };
 
 /** Resets the device back into the bootloader. */
-void reset_callback(u8 buff[] __attribute__((unused)))
+void reset_callback(u16 sender_id, u8 len, u8 msg[])
 {
+  (void)sender_id; (void)len; (void)msg;
+
   /* Ensure all outstanding memory accesses including buffered writes are
    * completed before reset.
    */
@@ -55,7 +59,7 @@ void reset_callback(u8 buff[] __attribute__((unused)))
 /** Register the reset_callback. */
 void reset_callback_register()
 {
-  static msg_callbacks_node_t reset_node;
+  static sbp_msg_callbacks_node_t reset_node;
 
   sbp_register_callback(
     MSG_RESET,
@@ -74,7 +78,16 @@ void init(u8 check_fpga_auth)
 
   nap_setup(check_fpga_auth);
 
-  sbp_setup(1);
+  sbp_setup(1, 0x2222);
+
+  /* Check NAP verification status. */
+  if (check_fpga_auth) {
+    u8 nhs = nap_hash_status();
+    if (nhs == NAP_HASH_NOTREADY)
+      screaming_death("NAP Verification Failed: Timeout ");
+    else if (nhs == NAP_HASH_MISMATCH)
+      screaming_death("NAP Verification Failed: Hash mismatch ");
+  }
 
   reset_callback_register();
 

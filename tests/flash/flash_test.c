@@ -37,7 +37,7 @@ int main(void)
   nap_conf_b_clear();
 
   spi_setup();
-  sbp_setup(0);
+  sbp_setup(0, 0);
   flash_callbacks_register();
 
   for (u32 i = 0; i < 600000; i++)

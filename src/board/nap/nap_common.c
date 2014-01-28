@@ -13,6 +13,7 @@
 
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
+#include <libswiftnav/sbp.h>
 
 #include "../../error.h"
 #include "../../peripherals/spi.h"
@@ -40,7 +41,7 @@
  * up SPI, sets up MAX2769 Frontend, sets up NAP interrupt, sets up NAP
  * callbacks, gets NAP configuration parameters from FPGA flash.
  */
-void nap_setup(u8 check_hash_status)
+void nap_setup()
 {
   /* Setup the FPGA conf done line. */
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
@@ -91,15 +92,6 @@ void nap_setup(u8 check_hash_status)
    * channels, etc) from configuration flash.
    */
   nap_conf_rd_parameters();
-
-  /* Check NAP verification status. */
-  if (check_hash_status) {
-    u8 nhs = nap_hash_status();
-    if (nhs == NAP_HASH_NOTREADY)
-      screaming_death("NAP Verification Failed: Timeout ");
-    else if (nhs == NAP_HASH_MISMATCH)
-      screaming_death("NAP Verification Failed: Hash mismatch ");
-  }
 }
 
 /** Check if NAP configuration is finished.
@@ -172,8 +164,9 @@ void nap_rd_dna(u8 dna[])
  *
  * \param buff Unused argument, callback takes no input.
  */
-void nap_rd_dna_callback(u8 buff[] __attribute__((unused)))
+void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[])
 {
+  (void)sender_id; (void)len; (void)msg;
   u8 dna[8];
   nap_rd_dna(dna);
   sbp_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
@@ -182,7 +175,7 @@ void nap_rd_dna_callback(u8 buff[] __attribute__((unused)))
 /** Setup NAP callbacks. */
 void nap_callbacks_setup(void)
 {
-  static msg_callbacks_node_t nap_dna_node;
+  static sbp_msg_callbacks_node_t nap_dna_node;
 
   sbp_register_callback(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback,
                         &nap_dna_node);
