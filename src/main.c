@@ -36,6 +36,7 @@
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/sbp.h>
 #include <libswiftnav/track.h>
+#include <libswiftnav/constants.h>
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
@@ -49,7 +50,6 @@ channel_measurement_t meas_old[MAX_SATS];
 navigation_measurement_t nav_meas[MAX_SATS];
 navigation_measurement_t nav_meas_old[MAX_SATS];
 u8 n_obs;
-gps_time_t t_obs;
 
 rtcm_t rtcm;
 
@@ -135,6 +135,8 @@ void send_observations(u8 n, navigation_measurement_t *m)
   }
 }
 
+
+
 int main(void)
 {
   init(1);
@@ -151,8 +153,6 @@ int main(void)
     printf(" (unclean)");
   printf("\n");
   printf("SwiftNAP configured with %d tracking channels\n\n", nap_track_n_channels);
-
-  /*helloWorld();*/
 
   cw_setup();
   manage_acq_setup();
@@ -235,26 +235,54 @@ int main(void)
           position_updated();
 
           n_obs = n_ready;
-          t_obs = position_solution.time;
-/*
-          set_time_fine(nav_tc, position_solution.clock_bias, position_solution.time);
-          printf("dt: %g\n", gpsdifftime(position_solution.time, rx2gpstime(nav_tc)));
-          printf("est clock freq: %g\n", 16.368e6 - 1.0/clock_state.clock_period);
-          printf("clock offset: %g, clock bias: %g\n", position_solution.clock_offset, position_solution.clock_bias);
-*/
+
           static u8 obs_count = 0;
           msg_obs_hdr_t obs_hdr = { .t = position_solution.time, .count = obs_count, .n_obs = n_ready };
           sbp_send_msg(MSG_OBS_HDR, sizeof(obs_hdr), (u8 *)&obs_hdr);
           send_observations(n_ready, nav_meas);
           obs_count++;
 
-          sbp_send_msg(MSG_SOLUTION, sizeof(gnss_solution), (u8 *) &position_solution);
+          sbp_gps_time_t gps_time;
+          gps_time.wn = position_solution.time.wn;
+          gps_time.tow = round(position_solution.time.tow * 1e3);
+          gps_time.ns = round((position_solution.time.tow - gps_time.tow*1e-3) * 1e9);
+          gps_time.flags = 0;
+          sbp_send_msg(SBP_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
+
+          sbp_pos_llh_t pos_llh;
+          pos_llh.tow = round(position_solution.time.tow * 1e3);
+          pos_llh.lat = position_solution.pos_llh[0] * R2D;
+          pos_llh.lon = position_solution.pos_llh[1] * R2D;
+          pos_llh.height = position_solution.pos_llh[2];
+          pos_llh.h_accuracy = 0;
+          pos_llh.v_accuracy = 0;
+          pos_llh.n_sats = n_ready;
+          pos_llh.flags = 0;
+          sbp_send_msg(SBP_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
+
+          sbp_vel_ned_t vel_ned;
+          vel_ned.tow = round(position_solution.time.tow * 1e3);
+          vel_ned.n = round(position_solution.vel_ned[0] * 1e3);
+          vel_ned.e = round(position_solution.vel_ned[1] * 1e3);
+          vel_ned.d = round(position_solution.vel_ned[2] * 1e3);
+          vel_ned.h_accuracy = 0;
+          vel_ned.v_accuracy = 0;
+          vel_ned.n_sats = n_ready;
+          vel_ned.flags = 0;
+          sbp_send_msg(SBP_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
+
           nmea_gpgga(&position_solution, &dops);
 
           sendrtcmobs(nav_meas, n_ready, position_solution.time);
 
           DO_EVERY(10,
-            sbp_send_msg(MSG_DOPS, sizeof(dops_t), (u8 *) &dops);
+            sbp_dops_t sbp_dops;
+            sbp_dops.pdop = round(dops.pdop * 100);
+            sbp_dops.gdop = round(dops.gdop * 100);
+            sbp_dops.tdop = round(dops.tdop * 100);
+            sbp_dops.hdop = round(dops.hdop * 100);
+            sbp_dops.vdop = round(dops.vdop * 100);
+            sbp_send_msg(SBP_DOPS, sizeof(sbp_dops_t), (u8 *) &sbp_dops);
             nmea_gpgsv(n_ready, nav_meas, &position_solution);
           );
         }
