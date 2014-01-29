@@ -201,12 +201,16 @@ if __name__ == "__main__":
   parser.add_argument('-p', '--port',
                      default=[DEFAULT_PORT], nargs=1,
                      help='specify the serial port to use.')
+  parser.add_argument("-b", "--baud",
+                     default=[DEFAULT_BAUD], nargs=1,
+                     help="specify the baud rate to use.")
   parser.add_argument("-f", "--ftdi",
-                    help="use pylibftdi instead of pyserial.",
-                    action="store_true")
+                     help="use pylibftdi instead of pyserial.",
+                     action="store_true")
   args = parser.parse_args()
   serial_port = args.port[0]
-  link = SerialLink(serial_port, use_ftdi=args.ftdi)
+  baud = args.baud[0]
+  link = SerialLink(serial_port, baud, use_ftdi=args.ftdi)
   link.add_callback(ids.PRINT, default_print_callback)
   try:
     while True:

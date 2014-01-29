@@ -61,14 +61,18 @@ if __name__ == "__main__":
   parser.add_argument('-s', '--stm',
                       help='write the file to the STM flash.',
                       action="store_true")
-  parser.add_argument("-f", "--ftdi",
-                      help="use pylibftdi instead of pyserial.",
-                      action="store_true")
   parser.add_argument('-p', '--port',
                       default=[serial_link.DEFAULT_PORT], nargs=1,
                       help='specify the serial port to use.')
+  parser.add_argument("-b", "--baud",
+                      default=[serial_link.DEFAULT_BAUD], nargs=1,
+                      help="specify the baud rate to use.")
+  parser.add_argument("-f", "--ftdi",
+                      help="use pylibftdi instead of pyserial.",
+                      action="store_true")
   args = parser.parse_args()
   serial_port = args.port[0]
+  baud = args.baud[0]
   if args.stm and args.m25:
     parser.error("Only one of -s or -m options may be chosen")
     sys.exit(2)
@@ -83,7 +87,7 @@ if __name__ == "__main__":
   found_device = False
   while not found_device:
     try:
-      link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi,
+      link = serial_link.SerialLink(serial_port, baud=baud, use_ftdi=args.ftdi,
                                     print_unhandled = False)
       found_device = True
     except KeyboardInterrupt:
