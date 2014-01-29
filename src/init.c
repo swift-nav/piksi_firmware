@@ -76,7 +76,7 @@ void init(u8 check_fpga_auth)
 
   led_setup();
 
-  nap_setup(check_fpga_auth);
+  nap_setup();
 
   sbp_setup(1, 0x2222);
 
