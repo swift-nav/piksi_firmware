@@ -115,7 +115,7 @@ u32 ftdi_write(u8 *buff, u32 n)
 
 /** Send a SBP message out over all applicable USARTs
  *
- * \param msg_type Message ID (defined in sbp_messages.h)
+ * \param msg_type Message ID
  * \param len      Length of message data
  * \param buff     Pointer to message data array
  *

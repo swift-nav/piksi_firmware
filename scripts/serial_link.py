@@ -15,7 +15,7 @@ import threading
 import time
 import sys
 
-import sbp_messages as ids
+import sbp_piksi as ids
 
 
 DEFAULT_PORT = '/dev/ttyUSB0'

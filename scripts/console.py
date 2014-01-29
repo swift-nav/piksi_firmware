@@ -10,7 +10,7 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import serial_link
-import sbp_messages as ids
+import sbp_piksi as ids
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')

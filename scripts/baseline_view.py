@@ -23,7 +23,7 @@ import os
 import numpy as np
 import datetime
 
-import sbp_messages as ids
+import sbp_piksi as ids
 
 class SimpleAdapter(TabularAdapter):
     columns = [('Item', 0), ('Value',  1)]

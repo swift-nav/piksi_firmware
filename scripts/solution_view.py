@@ -24,27 +24,16 @@ import os
 import numpy as np
 import datetime
 
-import sbp_messages as ids
+import sbp_piksi as ids
+
+import os, sys
+lib_path = os.path.abspath('../libswiftnav/sbp_generate')
+sys.path.append(lib_path)
+import sbp_messages
 
 class SimpleAdapter(TabularAdapter):
     columns = [('Item', 0), ('Value',  1)]
     width = 80
-
-class Solution:
-  def from_binary(self, data):
-    soln = struct.unpack('<3d3d3d3d7ddddHBB', data)
-    self.pos_llh = [soln[0]*(180/math.pi), soln[1]*(180/math.pi), soln[2]]
-    self.pos_ecef = soln[3:6]
-    self.vel_ned = soln[6:9]
-    self.vel_ecef = soln[9:12]
-    self.err_cov = soln[12:19]
-    self.clock_offset = soln[19]
-    self.clock_bias = soln[20]
-    self.gps_tow = soln[21]
-    self.gps_week = soln[22]
-    self.soln_valid = soln[23]
-    self.n_used = soln[24]
-
 
 class SolutionView(HasTraits):
   python_console_cmds = Dict()
@@ -55,7 +44,8 @@ class SolutionView(HasTraits):
 
   table = List()
   dops_table = List()
-  soln_table = List()
+  pos_table = List()
+  vel_table = List()
 
   plot = Instance(Plot)
   plot_data = Instance(ArrayPlotData)
@@ -125,40 +115,35 @@ class SolutionView(HasTraits):
     self.plot_data.set_data('alt', [])
     self.plot_data.set_data('t', [])
 
-  def _solution_callback(self, data):
+  def _pos_llh_callback(self, data):
     # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
     # actually perform the update in the UI thread.
     if self.running:
-      GUI.invoke_later(self.solution_callback, data)
+      GUI.invoke_later(self.pos_llh_callback, data)
 
   def update_table(self):
     self._table_list = self.table.items()
 
-  def solution_callback(self, data):
-    soln = Solution()
-    soln.from_binary(data)
-    self.soln_table = []
+  def pos_llh_callback(self, data):
+    soln = sbp_messages.PosLLH(data)
+    self.pos_table = []
 
-    t = datetime.datetime(1980, 1, 5) + \
-        datetime.timedelta(weeks=soln.gps_week) + \
-        datetime.timedelta(seconds=soln.gps_tow)
-    self.soln_table.append(('GPS Time', str(t)))
+    #t = datetime.datetime(1980, 1, 5) + \
+        #datetime.timedelta(weeks=soln.gps_week) + \
+        #datetime.timedelta(seconds=soln.gps_tow)
+    #self.pos_table.append(('GPS Time', soln.tow / 1e3))
 
-    self.soln_table.append(('Lat', soln.pos_llh[0]))
-    self.soln_table.append(('Lng', soln.pos_llh[1]))
-    self.soln_table.append(('Alt', soln.pos_llh[2]))
+    self.pos_table.append(('Lat', soln.lat))
+    self.pos_table.append(('Lng', soln.lon))
+    self.pos_table.append(('Alt', soln.height))
 
-    self.soln_table.append(('Vel. N', soln.vel_ned[0]))
-    self.soln_table.append(('Vel. E', soln.vel_ned[1]))
-    self.soln_table.append(('Vel. D', soln.vel_ned[2]))
+    self.pos_table.append(('GPS Week', str(self.week)))
+    self.pos_table.append(('GPS ToW', soln.tow / 1e3))
+    self.pos_table.append(('Num. sats', soln.n_sats))
 
-    self.soln_table.append(('GPS ToW', soln.gps_tow))
-    self.soln_table.append(('GPS Week', soln.gps_week))
-    self.soln_table.append(('Num. sats', soln.n_used))
-
-    self.lats.append(soln.pos_llh[0])
-    self.lngs.append(soln.pos_llh[1])
-    self.alts.append(soln.pos_llh[2])
+    self.lats.append(soln.lat)
+    self.lngs.append(soln.lon)
+    self.alts.append(soln.height)
 
     self.plot_data.set_data('lat', self.lats)
     self.plot_data.set_data('lng', self.lngs)
@@ -166,7 +151,7 @@ class SolutionView(HasTraits):
     t = range(len(self.lats))
     self.plot_data.set_data('t', t)
 
-    self.table = self.soln_table + self.dops_table
+    self.table = self.pos_table + self.vel_table + self.dops_table
 
     if self.position_centered:
       d = (self.plot.index_range.high - self.plot.index_range.low) / 2.
@@ -175,15 +160,27 @@ class SolutionView(HasTraits):
       self.plot.value_range.set_bounds(soln.pos_llh[1] - d, soln.pos_llh[1] + d)
 
   def dops_callback(self, data):
-    p, g, t, h, v = struct.unpack('<ddddd', data)
+    dops = sbp_messages.Dops(data)
     self.dops_table = [
-      ('PDOP', '%.1f' % p),
-      ('GDOP', '%.1f' % g),
-      ('TDOP', '%.1f' % t),
-      ('HDOP', '%.1f' % h),
-      ('VDOP', '%.1f' % v)
+      ('PDOP', '%.1f' % (dops.pdop * 0.01)),
+      ('GDOP', '%.1f' % (dops.gdop * 0.01)),
+      ('TDOP', '%.1f' % (dops.tdop * 0.01)),
+      ('HDOP', '%.1f' % (dops.hdop * 0.01)),
+      ('VDOP', '%.1f' % (dops.vdop * 0.01))
     ]
-    self.table = self.soln_table + self.dops_table
+    self.table = self.pos_table + self.vel_table + self.dops_table
+
+  def vel_ned_callback(self, data):
+    vel_ned = sbp_messages.VelNED(data)
+    self.vel_table = [
+      ('Vel. N', '% 8.4f' % (vel_ned.n * 1e-3)),
+      ('Vel. E', '% 8.4f' % (vel_ned.e * 1e-3)),
+      ('Vel. D', '% 8.4f' % (vel_ned.d * 1e-3)),
+    ]
+    self.table = self.pos_table + self.vel_table + self.dops_table
+
+  def gps_time_callback(self, data):
+    self.week = sbp_messages.GPSTime(data).wn
 
   def __init__(self, link):
     super(SolutionView, self).__init__()
@@ -207,8 +204,12 @@ class SolutionView(HasTraits):
     self.plot.overlays.append(zt)
 
     self.link = link
-    self.link.add_callback(ids.SOLUTION, self._solution_callback)
-    self.link.add_callback(ids.DOPS, self.dops_callback)
+    self.link.add_callback(sbp_messages.SBP_POS_LLH, self._pos_llh_callback)
+    self.link.add_callback(sbp_messages.SBP_VEL_NED, self.vel_ned_callback)
+    self.link.add_callback(sbp_messages.SBP_DOPS, self.dops_callback)
+    self.link.add_callback(sbp_messages.SBP_GPS_TIME, self.gps_time_callback)
+
+    self.week = None
 
     self.python_console_cmds = {
       'solution': self

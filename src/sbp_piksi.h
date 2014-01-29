@@ -10,35 +10,18 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_SBP_MESSAGES_H
-#define SWIFTNAV_SBP_MESSAGES_H
+#ifndef SWIFTNAV_SBP_PIKSI_H
+#define SWIFTNAV_SBP_PIKSI_H
 
 #include <libswiftnav/gpstime.h>
 
 /** \addtogroup sbp
  * \{ */
 
-#define MSG_ID(groups, id) ((groups) | ((id) & 3))
-
-/** \defgroup msg_groups Message Groups
- * Swift Binary Protocol Message Groups.
- * \{ */
-
-#define MSGS_NON_MASKABLE 0
-
-#define MSGS_DEBUGGING    (1<<4)
-#define MSGS_SOLUTION     (1<<5)
-#define MSGS_OBSERVATIONS (1<<6)
-
-/** \} */
-
-/** \defgroup msgs Message IDs
- * Swift Binary Protocol Message IDs.
+/** \defgroup msgs Piksi Message Types
+ * Swift Binary Protocol Message Types for Piksi defined messages.
  *
- * Upper nibble of msg_type is used as a bit field to group messages into
- * logical groups so they can be filtered using the SBP mask setting.
- *
- * The lower nibble identifies the particular message within the group.
+ * These messages are in the implimentation defined range (`0x0000-0x00FF`).
  * \{ */
 
 #define MSG_PRINT                   0x10  /**< Piksi  -> Host  */
@@ -108,5 +91,5 @@ typedef struct __attribute__((packed)) {
 
 /** \} */
 
-#endif  /* SWIFTNAV_SBP_MESSAGES_H */
+#endif  /* SWIFTNAV_SBP_PIKSI_H */
 

@@ -24,7 +24,7 @@ import os
 import numpy as np
 import datetime
 
-import sbp_messages as ids
+import sbp_piksi as ids
 
 class SimpleAdapter(TabularAdapter):
     columns = [('PRN', 0), ('Pseudorange',  1), ('Carrier Phase',  2), ('Doppler', 3), ('SNR', 4)]
@@ -81,6 +81,7 @@ class ObservationView(HasTraits):
     self._obs_table_list = [(prn + 1,) + obs for prn, obs in sorted(self.obs.items(), key=lambda x: x[0])]
 
   def obs_hdr_callback(self, data):
+    self.update_obs()
     tow, wn, obs_count, n_obs = struct.unpack("<dHBB", data)
     self.gps_tow = tow
     self.gps_week = wn
@@ -136,7 +137,6 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     prn = ob[6]
     flags = ob[7]
     self.obs[prn] = (P, L, D, snr)
-    self.update_obs()
     self.obs_count += 1
     if self.recording and self.obs_count == self.n_obs:
         prns = list(self.obs.iterkeys())

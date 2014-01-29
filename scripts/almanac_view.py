@@ -15,7 +15,7 @@ import threading
 import time
 import struct
 
-import sbp_messages as ids
+import sbp_piksi as ids
 from almanac import Almanac
 
 class AlmanacView(HasTraits):
