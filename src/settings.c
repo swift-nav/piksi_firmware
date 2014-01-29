@@ -25,12 +25,11 @@ settings_t settings /*__attribute__ ((section(".settings_area"))) */=
   .ftdi_usart = {
     .mode         = SBP,
     .baud_rate    = USART_DEFAULT_BAUD,
-    .message_mask = 0xFF,
+    .message_mask = 0xFFFF,
   },
   .uarta_usart = {
-    .mode         = SBP,
-    .baud_rate    = 57600,
-    .message_mask = MSGS_OBSERVATIONS,
+    .mode         = NMEA,
+    .baud_rate    = 115200,
   },
   .uartb_usart = {
     .mode         = RTCM,

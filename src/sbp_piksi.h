@@ -18,20 +18,6 @@
 /** \addtogroup sbp
  * \{ */
 
-#define MSG_ID(groups, id) ((groups) | ((id) & 3))
-
-/** \defgroup msg_groups Message Groups
- * Swift Binary Protocol Message Groups.
- * \{ */
-
-#define MSGS_NON_MASKABLE 0
-
-#define MSGS_DEBUGGING    (1<<4)
-#define MSGS_SOLUTION     (1<<5)
-#define MSGS_OBSERVATIONS (1<<6)
-
-/** \} */
-
 /** \defgroup msgs Piksi Message Types
  * Swift Binary Protocol Message Types for Piksi defined messages.
  *
