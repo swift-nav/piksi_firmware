@@ -24,7 +24,8 @@
 #define USART_TX_BUFFER_LEN 4096
 #define USART_RX_BUFFER_LEN 4096
 
-#define USART_DEFAULT_BAUD 1000000
+#define USART_DEFAULT_BAUD_FTDI 1000000
+#define USART_DEFAULT_BAUD_TTL  115200
 
 /** USART RX DMA state structure. */
 typedef struct {

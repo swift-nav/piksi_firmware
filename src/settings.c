@@ -24,16 +24,16 @@ settings_t settings /*__attribute__ ((section(".settings_area"))) */=
 
   .ftdi_usart = {
     .mode         = SBP,
-    .baud_rate    = USART_DEFAULT_BAUD,
+    .baud_rate    = USART_DEFAULT_BAUD_FTDI,
     .message_mask = 0xFFFF,
   },
   .uarta_usart = {
     .mode         = NMEA,
-    .baud_rate    = 115200,
+    .baud_rate    = USART_DEFAULT_BAUD_TTL,
   },
   .uartb_usart = {
     .mode         = RTCM,
-    .baud_rate    = 115200,
+    .baud_rate    = USART_DEFAULT_BAUD_TTL,
   },
 };
 

@@ -63,9 +63,9 @@ void sbp_setup(u8 use_settings, u16 sender_id)
   } else {
     sbp_use_settings = 0;
     usarts_setup(
-      USART_DEFAULT_BAUD,
-      USART_DEFAULT_BAUD,
-      USART_DEFAULT_BAUD
+      USART_DEFAULT_BAUD_FTDI,
+      USART_DEFAULT_BAUD_TTL,
+      USART_DEFAULT_BAUD_TTL
       );
   }
 
