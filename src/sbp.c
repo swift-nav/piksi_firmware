@@ -132,7 +132,7 @@ u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[])
     ret |= sbp_send_message(msg_type, my_sender_id, len, buff, &uarta_write);
 
   if (use_usart(&settings.uartb_usart, msg_type))
-    ret |= sbp_send_message(msg_type, my_sender_id, len, buff, &uarta_write);
+    ret |= sbp_send_message(msg_type, my_sender_id, len, buff, &uartb_write);
 
   if (use_usart(&settings.ftdi_usart, msg_type))
     ret |= sbp_send_message(msg_type, my_sender_id, len, buff, &ftdi_write);
