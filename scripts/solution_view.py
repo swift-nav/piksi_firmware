@@ -138,7 +138,11 @@ class SolutionView(HasTraits):
     self.pos_table.append(('Alt', soln.height))
 
     self.pos_table.append(('GPS Week', str(self.week)))
-    self.pos_table.append(('GPS ToW', soln.tow / 1e3))
+    self.pos_table.append(('GPS ToW ms', soln.tow / 1e3))
+    self.pos_table.append(('GPS ns', self.nsec))
+    t = soln.tow*1e-3 + self.nsec*1e-9
+    self.pos_table.append(('GPS ToW', t))
+    self.pos_table.append(('GPS ToW error (ms)', (t - round(t))*1e3))
     self.pos_table.append(('Num. sats', soln.n_sats))
 
     self.lats.append(soln.lat)
@@ -181,6 +185,7 @@ class SolutionView(HasTraits):
 
   def gps_time_callback(self, data):
     self.week = sbp_messages.GPSTime(data).wn
+    self.nsec = sbp_messages.GPSTime(data).ns
 
   def __init__(self, link):
     super(SolutionView, self).__init__()
@@ -210,6 +215,7 @@ class SolutionView(HasTraits):
     self.link.add_callback(sbp_messages.SBP_GPS_TIME, self.gps_time_callback)
 
     self.week = None
+    self.nsec = 0
 
     self.python_console_cmds = {
       'solution': self
