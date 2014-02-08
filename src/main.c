@@ -180,21 +180,32 @@ void tim5_isr()
         if (calc_PVT(n_ready, nav_meas, &position_solution, &dops) == 0) {
           position_updated();
 
+#define SOLN_FREQ 5.0
+
+          double expected_tow = round(position_solution.time.tow*SOLN_FREQ) / SOLN_FREQ;
+          double t_err = expected_tow - position_solution.time.tow;
+
+          for (u8 i=0; i<n_ready; i++) {
+            nav_meas[i].pseudorange -= t_err * nav_meas[i].doppler * (GPS_C / GPS_L1_HZ);
+            nav_meas[i].carrier_phase += t_err * nav_meas[i].doppler;
+            if (fabs(t_err) > 0.01)
+              printf("dphase[%d] = %f * %f = %f\n", i, t_err, nav_meas[i].doppler, t_err * nav_meas[i].doppler);
+          }
+          gps_time_t new_obs_time;
+          new_obs_time.wn = position_solution.time.wn;
+          new_obs_time.tow = round(position_solution.time.tow);
+
           n_obs = n_ready;
 
           static u8 obs_count = 0;
-          msg_obs_hdr_t obs_hdr = { .t = position_solution.time, .count = obs_count, .n_obs = n_ready };
+          msg_obs_hdr_t obs_hdr = { .t = new_obs_time, .count = obs_count, .n_obs = n_ready };
           sbp_send_msg(MSG_OBS_HDR, sizeof(obs_hdr), (u8 *)&obs_hdr);
           send_observations(n_ready, nav_meas);
           obs_count++;
 
-          double next_sec = ceil(position_solution.time.tow);
-          double dt = next_sec - position_solution.time.tow;
-          if (dt < 0.1)
-            dt += 1;
+          double dt = expected_tow + (1/SOLN_FREQ) - position_solution.time.tow;
 
           timer_set_period(TIM5, round(65472000 * dt));
-
 
           sbp_gps_time_t gps_time;
           gps_time.wn = position_solution.time.wn;

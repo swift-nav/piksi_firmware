@@ -128,22 +128,23 @@ class SolutionView(HasTraits):
     soln = sbp_messages.PosLLH(data)
     self.pos_table = []
 
-    #t = datetime.datetime(1980, 1, 5) + \
-        #datetime.timedelta(weeks=soln.gps_week) + \
-        #datetime.timedelta(seconds=soln.gps_tow)
-    #self.pos_table.append(('GPS Time', soln.tow / 1e3))
+    if self.week is not None:
+      t = datetime.datetime(1980, 1, 6) + \
+          datetime.timedelta(weeks=self.week) + \
+          datetime.timedelta(seconds=soln.tow/1e3)
+      self.pos_table.append(('GPS Time', t))
+      self.pos_table.append(('GPS Week', str(self.week)))
+
+    tow = soln.tow*1e-3 + self.nsec*1e-9
+    if self.nsec is not None:
+      tow += self.nsec*1e-9
+    self.pos_table.append(('GPS ToW', tow))
+
+    self.pos_table.append(('Num. sats', soln.n_sats))
 
     self.pos_table.append(('Lat', soln.lat))
     self.pos_table.append(('Lng', soln.lon))
     self.pos_table.append(('Alt', soln.height))
-
-    self.pos_table.append(('GPS Week', str(self.week)))
-    self.pos_table.append(('GPS ToW ms', soln.tow / 1e3))
-    self.pos_table.append(('GPS ns', self.nsec))
-    t = soln.tow*1e-3 + self.nsec*1e-9
-    self.pos_table.append(('GPS ToW', t))
-    self.pos_table.append(('GPS ToW error (ms)', (t - round(t))*1e3))
-    self.pos_table.append(('Num. sats', soln.n_sats))
 
     self.lats.append(soln.lat)
     self.lngs.append(soln.lon)
