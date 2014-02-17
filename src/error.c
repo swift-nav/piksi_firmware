@@ -31,8 +31,9 @@
  * Last resort, low-level, blocking, continuous error messages.
  * \{ */
 
-u32 fallback_write(u8 *buff, u32 n)
+u32 fallback_write(u8 *buff, u32 n, void *context)
 {
+  (void)context;
   for (u8 i=0; i<n; i++) {
     while (!(USART6_SR & USART_SR_TXE));
     USART6_DR = buff[i];
@@ -62,9 +63,12 @@ void screaming_death(char *msg)
   err_msg[len++] = '\n';
   err_msg[len++] = 0;
 
+  sbp_state_t sbp_state;
+  sbp_state_init(&sbp_state);
+
   /* Continuously send error message */
   while (1) {
-    sbp_send_message(MSG_PRINT, 0, len, (u8*)err_msg, &fallback_write);
+    sbp_send_message(&sbp_state, MSG_PRINT, 0, len, (u8*)err_msg, &fallback_write);
     led_toggle(LED_RED);
     for (u32 d = 0; d < 5000000; d++)
       __asm__("nop");
