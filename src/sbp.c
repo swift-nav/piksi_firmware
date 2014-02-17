@@ -78,6 +78,14 @@ void sbp_setup(u8 use_settings, u16 sender_id)
   setvbuf(stdout, NULL, _IONBF, 0);
 }
 
+void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb, sbp_msg_callbacks_node_t *node) 
+{
+  sbp_register_callback(&uarta_sbp_state, msg_type, cb, 0, node);
+  sbp_register_callback(&uartb_sbp_state, msg_type, cb, 0, node);
+  sbp_register_callback(&ftdi_sbp_state , msg_type, cb, 0, node);
+
+}
+
 /** Disable the SBP interface.
  * Disables the USART peripherals and DMA streams enabled by sbp_setup(). */
 void sbp_disable()
