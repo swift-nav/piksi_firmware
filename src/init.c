@@ -39,9 +39,9 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
 };
 
 /** Resets the device back into the bootloader. */
-void reset_callback(u16 sender_id, u8 len, u8 msg[])
+void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len; (void)msg;
+  (void)sender_id; (void)len; (void)msg; (void) context;
 
   /* Ensure all outstanding memory accesses including buffered writes are
    * completed before reset.
@@ -61,7 +61,7 @@ void reset_callback_register()
 {
   static sbp_msg_callbacks_node_t reset_node;
 
-  sbp_register_callback(
+  sbp_register_cbk(
     MSG_RESET,
     &reset_callback,
     &reset_node

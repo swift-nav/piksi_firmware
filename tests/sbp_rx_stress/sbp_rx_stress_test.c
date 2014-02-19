@@ -56,9 +56,9 @@ void tim2_isr() {
   old_ok_bytes = ok_bytes;
 }
 
-void callback(u16 sender_id, u8 len, u8 msg[])
+void callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len;
+  (void)sender_id; (void)len; (void) context;
 
   // Check this shit out
   ok_packets++;
@@ -76,7 +76,7 @@ int main(void)
   printf("--- SWIFT BINARY PROTOCOL RX STRESS TEST ---\n");
 
   static sbp_msg_callbacks_node_t callback_node;
-  sbp_register_callback(0x22, &callback, &callback_node);
+  sbp_register_cbk(0x22, &callback, &callback_node);
 
   for (u8 i=0; i<30; i++) {
     guard_below[i] = 0;

@@ -163,9 +163,9 @@ void nap_rd_dna(u8 dna[])
  *
  * \param buff Unused argument, callback takes no input.
  */
-void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[])
+void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len; (void)msg;
+  (void)sender_id; (void)len; (void)msg; (void) context;
   u8 dna[8];
   nap_rd_dna(dna);
   sbp_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
@@ -176,7 +176,7 @@ void nap_callbacks_setup(void)
 {
   static sbp_msg_callbacks_node_t nap_dna_node;
 
-  sbp_register_callback(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback,
+  sbp_register_cbk(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback,
                         &nap_dna_node);
 }
 

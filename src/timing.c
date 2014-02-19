@@ -211,9 +211,9 @@ double gps2rxtime(gps_time_t t)
 }
 
 /** Callback to set receiver GPS time estimate. */
-static void set_time_callback(u16 sender_id, u8 len, u8 msg[])
+static void set_time_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len;
+  (void)sender_id; (void)len; (void) context;
 
   gps_time_t *t = (gps_time_t *)msg;
 
@@ -229,7 +229,7 @@ void timing_setup(void)
    * periodically. */
   static sbp_msg_callbacks_node_t set_time_node;
 
-  sbp_register_callback(MSG_SET_TIME, &set_time_callback, &set_time_node);
+  sbp_register_cbk(MSG_SET_TIME, &set_time_callback, &set_time_node);
 
   clock_est_init(&clock_state);
 }

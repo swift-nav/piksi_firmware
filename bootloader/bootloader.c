@@ -43,9 +43,9 @@ int __wrap_printf(const char *format __attribute__((unused)), ...)
   return 0;
 }
 
-void jump_to_app_callback(u16 sender_id, u8 len, u8 msg[])
+void jump_to_app_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len; (void)msg;
+  (void)sender_id; (void)len; (void)msg; (void) context;
 
   /* Disable peripherals used in the bootloader. */
   sbp_disable();
@@ -59,9 +59,9 @@ void jump_to_app_callback(u16 sender_id, u8 len, u8 msg[])
   (*(void(**)())(APP_ADDRESS + 4))();
 }
 
-void receive_handshake_callback(u16 sender_id, u8 len, u8 msg[])
+void receive_handshake_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len; (void)msg;
+  (void)sender_id; (void)len; (void)msg; (void) context;
 
   /* Disable FPGA configuration and set up SPI in case we want to flash M25. */
   spi_setup();
@@ -90,12 +90,12 @@ int main(void)
 
   /* Add callback for jumping to application after bootloading is finished. */
   static sbp_msg_callbacks_node_t jump_to_app_node;
-  sbp_register_callback(MSG_BOOTLOADER_JUMP_TO_APP, &jump_to_app_callback,
+  sbp_register_cbk(MSG_BOOTLOADER_JUMP_TO_APP, &jump_to_app_callback,
                         &jump_to_app_node);
 
   /* Add callback for host to tell bootloader it wants to load program. */
   static sbp_msg_callbacks_node_t receive_handshake_node;
-  sbp_register_callback(MSG_BOOTLOADER_HANDSHAKE,&receive_handshake_callback,
+  sbp_register_cbk(MSG_BOOTLOADER_HANDSHAKE,&receive_handshake_callback,
                         &receive_handshake_node);
 
   /* Is current application we have in flash valid? Check this by seeing if
@@ -142,7 +142,7 @@ int main(void)
   }
 
   /* Host didn't want to update - boot the existing application. */
-  jump_to_app_callback(0, 0, NULL);
+  jump_to_app_callback(0, 0, NULL, NULL);
 
   return 0;
 }

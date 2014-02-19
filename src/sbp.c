@@ -78,6 +78,14 @@ void sbp_setup(u8 use_settings, u16 sender_id)
   setvbuf(stdout, NULL, _IONBF, 0);
 }
 
+void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb, sbp_msg_callbacks_node_t *node) 
+{
+  sbp_register_callback(&uarta_sbp_state, msg_type, cb, 0, node);
+  sbp_register_callback(&uartb_sbp_state, msg_type, cb, 0, node);
+  sbp_register_callback(&ftdi_sbp_state , msg_type, cb, 0, node);
+
+}
+
 /** Disable the SBP interface.
  * Disables the USART peripherals and DMA streams enabled by sbp_setup(). */
 void sbp_disable()
@@ -100,16 +108,19 @@ static inline u32 use_usart(usart_settings_t *us, u16 msg_type)
   return 1;
 }
 
-u32 uarta_write(u8 *buff, u32 n)
+u32 uarta_write(u8 *buff, u32 n, void *context)
 {
+  (void)context;
   return usart_write_dma(&uarta_tx_state, buff, n);
 }
-u32 uartb_write(u8 *buff, u32 n)
+u32 uartb_write(u8 *buff, u32 n, void *context)
 {
+  (void)context;
   return usart_write_dma(&uartb_tx_state, buff, n);
 }
-u32 ftdi_write(u8 *buff, u32 n)
+u32 ftdi_write(u8 *buff, u32 n, void *context)
 {
+  (void)context;
   return usart_write_dma(&ftdi_tx_state, buff, n);
 }
 
@@ -129,13 +140,13 @@ u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[])
   u16 ret = 0;
 
   if (use_usart(&settings.uarta_usart, msg_type))
-    ret |= sbp_send_message(msg_type, my_sender_id, len, buff, &uarta_write);
+    ret |= sbp_send_message(&uarta_sbp_state, msg_type, my_sender_id, len, buff, &uarta_write);
 
   if (use_usart(&settings.uartb_usart, msg_type))
-    ret |= sbp_send_message(msg_type, my_sender_id, len, buff, &uartb_write);
+    ret |= sbp_send_message(&uartb_sbp_state, msg_type, my_sender_id, len, buff, &uartb_write);
 
   if (use_usart(&settings.ftdi_usart, msg_type))
-    ret |= sbp_send_message(msg_type, my_sender_id, len, buff, &ftdi_write);
+    ret |= sbp_send_message(&ftdi_sbp_state, msg_type, my_sender_id, len, buff, &ftdi_write);
 
   if (ret != 3*len) {
     /* Return error if any sbp_send_message failed. */
@@ -147,16 +158,19 @@ u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[])
   return 0;
 }
 
-u32 uarta_read(u8 *buff, u32 n)
+u32 uarta_read(u8 *buff, u32 n, void *context)
 {
+  (void)context;
   return usart_read_dma(&uarta_rx_state, buff, n);
 }
-u32 uartb_read(u8 *buff, u32 n)
+u32 uartb_read(u8 *buff, u32 n, void *context)
 {
+  (void)context;
   return usart_read_dma(&uartb_rx_state, buff, n);
 }
-u32 ftdi_read(u8 *buff, u32 n)
+u32 ftdi_read(u8 *buff, u32 n, void *context)
 {
+  (void)context;
   return usart_read_dma(&ftdi_rx_state, buff, n);
 }
 

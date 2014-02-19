@@ -45,9 +45,9 @@ almanac_t almanac[32];
 acq_manage_t acq_manage;
 
 sbp_msg_callbacks_node_t almanac_callback_node;
-void almanac_callback(u16 sender_id, u8 len, u8 msg[])
+void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len;
+  (void)sender_id; (void)len; (void) context;
 
   almanac_t *new_almanac = (almanac_t*)msg;
 
@@ -89,7 +89,7 @@ void manage_acq_setup()
     }
   }
 
-  sbp_register_callback(
+  sbp_register_cbk(
     MSG_ALMANAC,
     &almanac_callback,
     &almanac_callback_node
