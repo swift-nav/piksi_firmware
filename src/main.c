@@ -50,7 +50,6 @@
 #define MAX_SATS 14
 
 channel_measurement_t meas[MAX_SATS];
-channel_measurement_t meas_old[MAX_SATS];
 navigation_measurement_t nav_meas[MAX_SATS];
 navigation_measurement_t nav_meas_old[MAX_SATS];
 u8 n_obs;
@@ -138,9 +137,10 @@ void send_observations(u8 n, navigation_measurement_t *m)
     sbp_send_msg(MSG_OBS, sizeof(obs), (u8 *)&obs);
   }
 }
-  /* TODO: Think about thread safety when updating ephemerides. */
-  ephemeris_t es[32];
-  ephemeris_t es_old[32];
+
+/* TODO: Think about thread safety when updating ephemerides. */
+ephemeris_t es[32];
+ephemeris_t es_old[32];
 
 void tim5_isr()
 {
@@ -157,7 +157,6 @@ void tim5_isr()
             es[tracking_channel[i].prn].healthy == 1 && \
             tracking_channel[i].state == TRACKING_RUNNING && \
             tracking_channel[i].TOW_ms > 0) {
-          memcpy(meas_old, meas, sizeof(meas));
           __asm__("CPSID i;");
           tracking_update_measurement(i, &meas[n_ready]);
           __asm__("CPSIE i;");
@@ -172,12 +171,15 @@ void tim5_isr()
         /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
          * more intelligent with the solution time.
          */
+        static u8 n_ready_old = 0;
         u64 nav_tc = nap_timing_count();
-        memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
         calc_navigation_measurement(n_ready, meas, nav_meas, (double)((u32)nav_tc)/SAMPLE_FREQ, es);
 
+        navigation_measurement_t nav_meas_tdcp[MAX_SATS];
+        u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old, nav_meas_old, nav_meas_tdcp);
+
         dops_t dops;
-        if (calc_PVT(n_ready, nav_meas, &position_solution, &dops) == 0) {
+        if (calc_PVT(n_ready_tdcp, nav_meas_tdcp, &position_solution, &dops) == 0) {
           position_updated();
 
 #define SOLN_FREQ 5.0
@@ -185,22 +187,22 @@ void tim5_isr()
           double expected_tow = round(position_solution.time.tow*SOLN_FREQ) / SOLN_FREQ;
           double t_err = expected_tow - position_solution.time.tow;
 
-          for (u8 i=0; i<n_ready; i++) {
-            nav_meas[i].pseudorange -= t_err * nav_meas[i].doppler * (GPS_C / GPS_L1_HZ);
-            nav_meas[i].carrier_phase += t_err * nav_meas[i].doppler;
+          for (u8 i=0; i<n_ready_tdcp; i++) {
+            nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler * (GPS_C / GPS_L1_HZ);
+            nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
             if (fabs(t_err) > 0.01)
-              printf("dphase[%d] = %f * %f = %f\n", i, t_err, nav_meas[i].doppler, t_err * nav_meas[i].doppler);
+              printf("dphase[%d] = %f * %f = %f\n", i, t_err, nav_meas_tdcp[i].doppler, t_err * nav_meas_tdcp[i].doppler);
           }
           gps_time_t new_obs_time;
           new_obs_time.wn = position_solution.time.wn;
           new_obs_time.tow = round(position_solution.time.tow);
 
-          n_obs = n_ready;
+          n_obs = n_ready_tdcp;
 
           static u8 obs_count = 0;
-          msg_obs_hdr_t obs_hdr = { .t = new_obs_time, .count = obs_count, .n_obs = n_ready };
+          msg_obs_hdr_t obs_hdr = { .t = new_obs_time, .count = obs_count, .n_obs = n_ready_tdcp };
           sbp_send_msg(MSG_OBS_HDR, sizeof(obs_hdr), (u8 *)&obs_hdr);
-          send_observations(n_ready, nav_meas);
+          send_observations(n_ready_tdcp, nav_meas_tdcp);
           obs_count++;
 
           double dt = expected_tow + (1/SOLN_FREQ) - position_solution.time.tow;
@@ -221,7 +223,7 @@ void tim5_isr()
           pos_llh.height = position_solution.pos_llh[2];
           pos_llh.h_accuracy = 0;
           pos_llh.v_accuracy = 0;
-          pos_llh.n_sats = n_ready;
+          pos_llh.n_sats = n_ready_tdcp;
           pos_llh.flags = 0;
           sbp_send_msg(SBP_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
 
@@ -232,13 +234,13 @@ void tim5_isr()
           vel_ned.d = round(position_solution.vel_ned[2] * 1e3);
           vel_ned.h_accuracy = 0;
           vel_ned.v_accuracy = 0;
-          vel_ned.n_sats = n_ready;
+          vel_ned.n_sats = n_ready_tdcp;
           vel_ned.flags = 0;
           sbp_send_msg(SBP_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
 
           nmea_gpgga(&position_solution, &dops);
 
-          sendrtcmobs(nav_meas, n_ready, position_solution.time);
+          sendrtcmobs(nav_meas_tdcp, n_ready_tdcp, position_solution.time);
 
           DO_EVERY(10,
             sbp_dops_t sbp_dops;
@@ -248,9 +250,11 @@ void tim5_isr()
             sbp_dops.hdop = round(dops.hdop * 100);
             sbp_dops.vdop = round(dops.vdop * 100);
             sbp_send_msg(SBP_DOPS, sizeof(sbp_dops_t), (u8 *) &sbp_dops);
-            nmea_gpgsv(n_ready, nav_meas, &position_solution);
+            nmea_gpgsv(n_ready_tdcp, nav_meas_tdcp, &position_solution);
           );
         }
+        memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
+        n_ready_old = n_ready;
       }
     }
 
