@@ -153,9 +153,9 @@ void tim5_isr()
 
       u8 n_ready = 0;
       for (u8 i=0; i<nap_track_n_channels; i++) {
-        if (es[tracking_channel[i].prn].valid == 1 && \
+        if (tracking_channel[i].state == TRACKING_RUNNING && \
+            es[tracking_channel[i].prn].valid == 1 && \
             es[tracking_channel[i].prn].healthy == 1 && \
-            tracking_channel[i].state == TRACKING_RUNNING && \
             tracking_channel[i].TOW_ms > 0) {
           __asm__("CPSID i;");
           tracking_update_measurement(i, &meas[n_ready]);
