@@ -207,6 +207,10 @@ void tim5_isr()
 
           double dt = expected_tow + (1/SOLN_FREQ) - position_solution.time.tow;
 
+          /* Limit dt to 2 seconds maximum to prevent hang if dt calculated incorrectly. */
+          if (dt > 2)
+            dt = 2;
+
           timer_set_period(TIM5, round(65472000 * dt));
 
           sbp_gps_time_t gps_time;
