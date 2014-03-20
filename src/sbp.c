@@ -38,6 +38,7 @@
 
 u16 my_sender_id;
 u8 sbp_use_settings = 0;
+u32 crc_errors = 0;
 
 sbp_state_t uarta_sbp_state;
 sbp_state_t uartb_sbp_state;
@@ -78,7 +79,7 @@ void sbp_setup(u8 use_settings, u16 sender_id)
   setvbuf(stdout, NULL, _IONBF, 0);
 }
 
-void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb, sbp_msg_callbacks_node_t *node) 
+void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb, sbp_msg_callbacks_node_t *node)
 {
   sbp_register_callback(&uarta_sbp_state, msg_type, cb, 0, node);
   sbp_register_callback(&uartb_sbp_state, msg_type, cb, 0, node);
@@ -180,14 +181,22 @@ u32 ftdi_read(u8 *buff, u32 n, void *context)
  */
 void sbp_process_messages()
 {
+  s8 ret;
+
   while (usart_n_read_dma(&uarta_rx_state) > 0) {
-    sbp_process(&uarta_sbp_state, &uarta_read);
+    ret = sbp_process(&uarta_sbp_state, &uarta_read);
+    if (ret == SBP_CRC_ERROR)
+      crc_errors++;
   }
   while (usart_n_read_dma(&uartb_rx_state) > 0) {
-    sbp_process(&uartb_sbp_state, &uartb_read);
+    ret = sbp_process(&uartb_sbp_state, &uartb_read);
+    if (ret == SBP_CRC_ERROR)
+      crc_errors++;
   }
   while (usart_n_read_dma(&ftdi_rx_state) > 0) {
-    sbp_process(&ftdi_sbp_state, &ftdi_read);
+    ret = sbp_process(&ftdi_sbp_state, &ftdi_read);
+    if (ret == SBP_CRC_ERROR)
+      crc_errors++;
   }
 }
 
