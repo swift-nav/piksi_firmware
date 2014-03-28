@@ -16,6 +16,8 @@
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
+#include <ch.h>
+
 #include "nap_exti.h"
 
 #include "../../acq.h"
@@ -59,6 +61,8 @@ void nap_exti_setup(void)
  */
 void exti1_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
 
   exti_reset_request(EXTI1);
 
@@ -104,6 +108,9 @@ void exti1_isr(void)
    */
   if (GPIOA_IDR & GPIO1)
     EXTI_SWIER = (1 << 1);
+
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 
 /** Get number of NAP ISR's that have occurred.

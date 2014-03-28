@@ -15,6 +15,13 @@
 
 #include <libswiftnav/common.h>
 
+#define dma2_stream6_isr Vector154
+#define dma2_stream1_isr Vector124
+#define dma2_stream7_isr Vector158
+#define dma2_stream2_isr Vector128
+#define dma1_stream3_isr Vector78
+#define dma1_stream1_isr Vector70
+
 /** \addtogroup peripherals
  * \{ */
 

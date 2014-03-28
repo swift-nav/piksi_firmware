@@ -74,8 +74,8 @@ void sbp_setup(u8 use_settings, u16 sender_id)
   sbp_state_init(&ftdi_sbp_state);
 
   /* Disable input and output buffering. */
-  setvbuf(stdin, NULL, _IONBF, 0);
-  setvbuf(stdout, NULL, _IONBF, 0);
+  /*setvbuf(stdin, NULL, _IONBF, 0);*/
+  /*setvbuf(stdout, NULL, _IONBF, 0);*/
 }
 
 void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb, sbp_msg_callbacks_node_t *node) 

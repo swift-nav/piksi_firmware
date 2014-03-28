@@ -15,6 +15,8 @@
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/usart.h>
 
+#include <ch.h>
+
 #include "../settings.h"
 #include "usart.h"
 
@@ -125,32 +127,56 @@ void usarts_disable()
 /** DMA 2 Stream 6 Interrupt Service Routine. */
 void dma2_stream6_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_tx_dma_isr(&ftdi_tx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 /** DMA 2 Stream 1 Interrupt Service Routine. */
 void dma2_stream1_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_rx_dma_isr(&ftdi_rx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 /** DMA 2 Stream 7 Interrupt Service Routine. */
 void dma2_stream7_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_tx_dma_isr(&uarta_tx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 /** DMA 2 Stream 2 Interrupt Service Routine. */
 void dma2_stream2_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_rx_dma_isr(&uarta_rx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 /** DMA 1 Stream 3 Interrupt Service Routine. */
 void dma1_stream3_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_tx_dma_isr(&uartb_tx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 /** DMA 1 Stream 1 Interrupt Service Routine. */
 void dma1_stream1_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_rx_dma_isr(&uartb_rx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 
 /** \} */
