@@ -14,6 +14,8 @@
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/spi.h>
 
+#include "ch.h"
+
 #include "spi.h"
 
 /** \addtogroup peripherals
@@ -23,6 +25,8 @@
  * Functions to setup and use STM32F4 SPI peripherals to communicate with the
  * SwiftNAP FPGA, MAX2769 front-end and the M25 configuration flash.
  * \{ */
+
+static BinarySemaphore spi_sem;
 
 /** Set up the SPI buses.
  * Set up the SPI peripheral, SPI clocks, SPI pins, and SPI pins' clocks.
@@ -63,6 +67,8 @@ void spi_setup(void)
   /* Finally enable the SPI. */
   spi_enable(SPI1);
   spi_enable(SPI2);
+
+  chBSemInit(&spi_sem, FALSE);
 }
 
 /** Deactivate SPI buses.
@@ -102,9 +108,7 @@ void spi_deactivate(void)
  */
 void spi_slave_select(u8 slave)
 {
-
-  spi_slave_deselect();
-  __asm__("CPSID i;");  /* Disable interrupts */
+  chBSemWait(&spi_sem);
 
   switch (slave) {
   case SPI_SLAVE_FPGA:
@@ -131,7 +135,7 @@ void spi_slave_deselect(void)
   /* Deselect configuration flash and front-end CS */
   gpio_set(GPIOB, GPIO11 | GPIO12);
 
-  __asm__("CPSIE i;");  /* Re-enable interrupts */
+  chBSemSignal(&spi_sem);
 }
 
 /** \} */
