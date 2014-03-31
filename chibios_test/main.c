@@ -30,7 +30,7 @@
 #define SYSTEM_CLOCK 130944000
 #endif
 
-static WORKING_AREA(wa_manage_track_thread, 128);
+static WORKING_AREA(wa_manage_track_thread, 1024);
 static msg_t manage_track_thread(void *arg)
 {
   (void)arg;
@@ -42,7 +42,7 @@ static msg_t manage_track_thread(void *arg)
   return 0;
 }
 
-static WORKING_AREA(wa_manage_acq_thread, 128);
+static WORKING_AREA(wa_manage_acq_thread, 1024);
 static msg_t manage_acq_thread(void *arg)
 {
   (void)arg;
@@ -60,9 +60,6 @@ static msg_t manage_acq_thread(void *arg)
  */
 int main(void)
 {
-  init(1);
-  __asm__("CPSID i;");
-
   /**
    * Hardware initialization, in this simple demo just the systick timer is
    * initialized.
@@ -77,6 +74,7 @@ int main(void)
    *   RTOS is active.
    */
   chSysInit();
+  init(1);
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   u8 nap_git_hash[20];
