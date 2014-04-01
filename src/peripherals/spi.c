@@ -41,7 +41,12 @@ void spi_setup(void)
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN | RCC_AHB1ENR_IOPBEN;
 
   /* Setup CS line GPIOs */
-  spi_slave_deselect();
+
+  /* Deselect FPGA CS */
+  gpio_set(GPIOA, GPIO4);
+  /* Deselect configuration flash and front-end CS */
+  gpio_set(GPIOB, GPIO11 | GPIO12);
+
   /* FPGA CS */
   gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO4);
   /* Configuration flash CS */
