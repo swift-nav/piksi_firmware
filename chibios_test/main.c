@@ -25,6 +25,7 @@
 #include "../src/sbp.h"
 #include "../src/init.h"
 #include "../src/manage.h"
+#include "../src/track.h"
 
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
@@ -35,8 +36,9 @@ static msg_t manage_track_thread(void *arg)
 {
   (void)arg;
   while (TRUE) {
-    chThdSleepMilliseconds(1000);
+    chThdSleepMilliseconds(200);
     manage_track();
+    tracking_send_state();
   }
 
   return 0;
@@ -50,6 +52,20 @@ static msg_t manage_acq_thread(void *arg)
     led_toggle(LED_GREEN);
     chThdSleepMilliseconds(100);
     manage_acq();
+  }
+
+  return 0;
+}
+
+static WORKING_AREA(wa_nap_error_thread, 1024);
+static msg_t nap_error_thread(void *arg)
+{
+  (void)arg;
+  while (TRUE) {
+    chThdSleepMilliseconds(500);
+    u32 err = nap_error_rd_blocking();
+    if (err)
+      printf("Error: 0x%08X\n", (unsigned int)err);
   }
 
   return 0;
@@ -94,6 +110,7 @@ int main(void)
    */
   chThdCreateStatic(wa_manage_track_thread, sizeof(wa_manage_track_thread), NORMALPRIO, manage_track_thread, NULL);
   chThdCreateStatic(wa_manage_acq_thread, sizeof(wa_manage_acq_thread), NORMALPRIO, manage_acq_thread, NULL);
+  chThdCreateStatic(wa_nap_error_thread, sizeof(wa_nap_error_thread), NORMALPRIO, nap_error_thread, NULL);
 
   /*
    * Normal main() thread activity, in this demo it does nothing except
