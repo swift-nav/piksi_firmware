@@ -28,6 +28,8 @@
 /** \addtogroup usart
  * \{ */
 
+#define USART_DMA_ISR_PRIORITY 7
+
 #define USART_TX_BUFFER_LEN 4096
 #define USART_RX_BUFFER_LEN 4096
 
