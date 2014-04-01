@@ -28,6 +28,8 @@
 #ifndef _CHCONF_H_
 #define _CHCONF_H_
 
+#include "../src/error.h"
+
 /*===========================================================================*/
 /**
  * @name Kernel parameters and options
@@ -517,6 +519,7 @@
 #if !defined(SYSTEM_HALT_HOOK) || defined(__DOXYGEN__)
 #define SYSTEM_HALT_HOOK() {                                                \
   /* System halt code here.*/                                               \
+  screaming_death(dbg_panic_msg);                                           \
 }
 #endif
 
