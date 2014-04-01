@@ -31,7 +31,19 @@
 #define SYSTEM_CLOCK 130944000
 #endif
 
-static WORKING_AREA(wa_manage_track_thread, 1024);
+size_t get_thd_free_stack(void *wsp, size_t size)
+{
+  size_t n = 0;
+#if CH_DBG_FILL_THREADS
+  uint8_t *startp = (uint8_t *)wsp + sizeof(Thread);
+  uint8_t *endp = (uint8_t *)wsp + size;
+  while (startp < endp)
+    if(*startp++ == 0x55) ++n;
+#endif
+  return n;
+}
+
+static WORKING_AREA(wa_manage_track_thread, 4096);
 static msg_t manage_track_thread(void *arg)
 {
   (void)arg;
@@ -44,7 +56,7 @@ static msg_t manage_track_thread(void *arg)
   return 0;
 }
 
-static WORKING_AREA(wa_manage_acq_thread, 1024);
+static WORKING_AREA(wa_manage_acq_thread, 4096);
 static msg_t manage_acq_thread(void *arg)
 {
   (void)arg;
@@ -71,6 +83,23 @@ static msg_t nap_error_thread(void *arg)
   return 0;
 }
 
+extern u8 __main_stack_base__;
+extern u8 __process_stack_base__;
+/*
+void debug_threads()
+{
+  printf("t = %lu\nThreads:\n", chTimeNow());
+  Thread *tp = chRegFirstThread();
+  while (tp) {
+    printf("\t%s: %lu (%.1f)"
+        chRegGetThreadName(),
+        chThdGetTicks(),
+        chThdGetTicks() / (float)chTimeNow()
+    );
+    tp = chRegNextThread(tp);
+  }
+}
+*/
 /*
  * Application entry point.
  */
@@ -104,6 +133,8 @@ int main(void)
   printf("SwiftNAP configured with %d tracking channels\n\n", nap_track_n_channels);
 
   manage_acq_setup();
+  timing_setup();
+  position_setup();
 
   /*
    * Creates the example thread.
@@ -117,6 +148,15 @@ int main(void)
    * increasing the minutes counter.
    */
   while (TRUE) {
-    chThdSleepSeconds(60);
+    chThdSleepSeconds(1);
+    /*debug_threads();*/
+    /*
+    printf("main: %d\nproc: %d\nma: %d\nmt: %d\nne: %d\nexti: \n",
+        get_thd_free_stack(&__main_stack_base__, 0x400),
+        get_thd_free_stack(&__process_stack_base__, 0x1000),
+        get_thd_free_stack(wa_manage_acq_thread, 1024),
+        get_thd_free_stack(wa_manage_track_thread, 1024),
+        get_thd_free_stack(wa_nap_error_thread, 1024));
+    */
   }
 }
