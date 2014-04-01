@@ -26,6 +26,8 @@
 #include "../src/init.h"
 #include "../src/manage.h"
 #include "../src/track.h"
+#include "../src/timing.h"
+#include "../src/position.h"
 
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
