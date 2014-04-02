@@ -182,7 +182,7 @@ void manage_acq()
       acq_manage.prn = best_prn;
       acq_prn_param[best_prn].state = ACQ_PRN_ACQUIRING;
       acq_manage.state = ACQ_MANAGE_LOADING_COARSE;
-      acq_manage.coarse_timer_count = nap_timing_count() + 1000;
+      acq_manage.coarse_timer_count = nap_timing_count() + 20000;
       acq_schedule_load(acq_manage.coarse_timer_count);
       break;
     }
@@ -239,7 +239,7 @@ void manage_acq()
       }
       /* Looks like we have a winner! */
       acq_manage.state = ACQ_MANAGE_LOADING_FINE;
-      acq_manage.fine_timer_count = nap_timing_count() + 1000;
+      acq_manage.fine_timer_count = nap_timing_count() + 20000;
       acq_schedule_load(acq_manage.fine_timer_count);
       break;
 
