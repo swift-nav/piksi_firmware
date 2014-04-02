@@ -48,7 +48,7 @@ u32 fallback_write(u8 *buff, u32 n, void *context)
  *
  * \param msg A pointer to an array of chars containing the error message.
  */
-void screaming_death(char *msg)
+void screaming_death(const char *msg)
 {
   __asm__("CPSID if;");           /* Disable all interrupts and faults */
   DMA2_S7CR = 0;                  /* Disable USART TX DMA */

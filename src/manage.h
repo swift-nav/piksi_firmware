@@ -68,9 +68,9 @@ typedef struct __attribute__((packed)) {
 
 /** \} */
 
-void manage_acq_setup();
-void manage_acq();
+void manage_acq_setup(void);
+void manage_acq(void);
 u8 manage_track_new_acq(float snr);
-void manage_track();
+void manage_track(void);
 
 #endif

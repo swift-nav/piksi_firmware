@@ -80,7 +80,7 @@ extern usart_tx_dma_state uartb_tx_state;
 extern usart_rx_dma_state uartb_rx_state;
 
 void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud);
-void usarts_disable();
+void usarts_disable(void);
 
 void usart_set_parameters(u32 usart, u32 baud);
 

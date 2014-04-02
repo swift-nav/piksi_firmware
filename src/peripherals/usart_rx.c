@@ -14,7 +14,6 @@
 
 #include <ch.h>
 
-#include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>

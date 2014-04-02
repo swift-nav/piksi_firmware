@@ -57,7 +57,7 @@ void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 }
 
 /** Register the reset_callback. */
-void reset_callback_register()
+static void reset_callback_register(void)
 {
   static sbp_msg_callbacks_node_t reset_node;
 

@@ -96,7 +96,7 @@ void manage_acq_setup()
   );
 }
 
-void manage_calc_scores()
+static void manage_calc_scores(void)
 {
   double az, el;
   gps_time_t t;

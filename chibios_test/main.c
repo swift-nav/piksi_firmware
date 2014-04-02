@@ -18,7 +18,6 @@
 #include <string.h>
 #include "ch.h"
 
-#include <libopencm3/stm32/f4/nvic.h>
 #include <libopencm3/stm32/f4/timer.h>
 
 #include "../src/board/leds.h"
@@ -140,6 +139,7 @@ static msg_t nav_msg_thread(void *arg)
 
 static Thread *tp = NULL;
 #define tim5_isr Vector108
+#define NVIC_TIM5_IRQ 50
 void tim5_isr()
 {
   CH_IRQ_PROLOGUE();
