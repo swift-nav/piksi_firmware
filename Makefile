@@ -20,7 +20,7 @@ endif
 
 .PHONY: all tests firmware bootloader docs .FORCE
 
-all: firmware bootloader tests
+all: firmware # bootloader tests
 
 firmware: libopencm3/lib/libopencm3_stm32f4.a libswiftnav/build/src/libswiftnav-static.a
 	@printf "BUILD   src\n"; \
