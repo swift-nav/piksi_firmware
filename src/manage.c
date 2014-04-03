@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <ch.h>
+
 #include <libswiftnav/almanac.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
@@ -67,6 +69,20 @@ void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 }
 
+static WORKING_AREA(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
+static msg_t manage_acq_thread(void *arg)
+{
+  /* TODO: This should be trigged by a semaphore from the acq ISR code, not
+   * just ran periodically. */
+  (void)arg;
+  while (TRUE) {
+    chThdSleepMilliseconds(100);
+    manage_acq();
+  }
+
+  return 0;
+}
+
 void manage_acq_setup()
 {
   for (u8 prn=0; prn<32; prn++) {
@@ -93,6 +109,13 @@ void manage_acq_setup()
     MSG_ALMANAC,
     &almanac_callback,
     &almanac_callback_node
+  );
+
+  chThdCreateStatic(
+      wa_manage_acq_thread,
+      sizeof(wa_manage_acq_thread),
+      MANAGE_ACQ_THREAD_PRIORITY,
+      manage_acq_thread, NULL
   );
 }
 
@@ -333,6 +356,29 @@ u8 manage_track_new_acq(float snr __attribute__((unused)))
   }
 
   return MANAGE_NO_CHANNELS_FREE;
+}
+
+static WORKING_AREA(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
+static msg_t manage_track_thread(void *arg)
+{
+  (void)arg;
+  while (TRUE) {
+    chThdSleepMilliseconds(200);
+    manage_track();
+    tracking_send_state();
+  }
+
+  return 0;
+}
+
+void manage_track_setup()
+{
+  chThdCreateStatic(
+      wa_manage_track_thread,
+      sizeof(wa_manage_track_thread),
+      MANAGE_TRACK_THREAD_PRIORITY,
+      manage_track_thread, NULL
+  );
 }
 
 /** Disable any tracking channel whose SNR is below a certain margin. */

@@ -68,39 +68,13 @@ void send_observations(u8 n, navigation_measurement_t *m)
 }
 
 
-static WORKING_AREA(wa_manage_track_thread, 4096);
-static msg_t manage_track_thread(void *arg)
-{
-  (void)arg;
-  while (TRUE) {
-    chThdSleepMilliseconds(200);
-    manage_track();
-    tracking_send_state();
-  }
-
-  return 0;
-}
-
-static WORKING_AREA(wa_manage_acq_thread, 4096);
-static msg_t manage_acq_thread(void *arg)
-{
-  /* TODO: This should be trigged by a semaphore from the acq ISR code, not
-   * just ran periodically. */
-  (void)arg;
-  while (TRUE) {
-    led_toggle(LED_GREEN);
-    chThdSleepMilliseconds(100);
-    manage_acq();
-  }
-
-  return 0;
-}
 
 static WORKING_AREA(wa_nap_error_thread, 1024);
 static msg_t nap_error_thread(void *arg)
 {
   (void)arg;
   while (TRUE) {
+    led_toggle(LED_GREEN);
     chThdSleepMilliseconds(500);
     u32 err = nap_error_rd_blocking();
     if (err)
@@ -377,17 +351,17 @@ int main(void)
   printf("\n");
   printf("SwiftNAP configured with %d tracking channels\n\n", nap_track_n_channels);
 
-  manage_acq_setup();
   timing_setup();
   position_setup();
+
+  manage_acq_setup();
+  manage_track_setup();
   soln_timer_setup();
 
   /*
    * Creates the example thread.
    */
-  chThdCreateStatic(wa_manage_track_thread, sizeof(wa_manage_track_thread), NORMALPRIO-2, manage_track_thread, NULL);
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread), NORMALPRIO-1, nav_msg_thread, NULL);
-  chThdCreateStatic(wa_manage_acq_thread, sizeof(wa_manage_acq_thread), NORMALPRIO, manage_acq_thread, NULL);
   chThdCreateStatic(wa_nap_error_thread, sizeof(wa_nap_error_thread), NORMALPRIO-22, nap_error_thread, NULL);
   chThdCreateStatic(wa_sbp_thread, sizeof(wa_sbp_thread), HIGHPRIO-22, sbp_thread, NULL);
   chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread), HIGHPRIO-1, solution_thread, NULL);
