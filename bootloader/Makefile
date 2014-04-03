@@ -64,7 +64,7 @@ LDFLAGS += -lc -lnosys -T$(LDSCRIPT) -nostartfiles \
 					 -Wl,-wrap,printf -Wl,--gc-sections \
 					 -mcpu=cortex-m4 -march=armv7e-m -mthumb \
 					 -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
-					 -lopencm3_stm32f4 -lswiftnav-static-cortex-m4 -lm \
+					 -lopencm3_stm32f4 -lswiftnav-static -lm \
 					 -L$(SWIFTNAV_ROOT)/libopencm3/lib \
 					 -L$(SWIFTNAV_ROOT)/libswiftnav/build/src
 

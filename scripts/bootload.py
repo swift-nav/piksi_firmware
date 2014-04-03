@@ -100,6 +100,9 @@ if __name__ == "__main__":
   print "link successfully created."
   link.add_callback(ids.PRINT, serial_link.default_print_callback)
 
+  # Reset device if the payload is running
+  link.send_message(ids.RESET, '')
+
   # Tell Bootloader we want to change flash data
   piksi_bootloader = Bootloader(link)
   print "Waiting for bootloader handshake message from Piksi ...",
