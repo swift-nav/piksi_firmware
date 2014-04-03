@@ -53,6 +53,7 @@ from almanac_view import AlmanacView
 from solution_view import SolutionView
 from baseline_view import BaselineView
 from observation_view import ObservationView
+from system_monitor_view import SystemMonitorView
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -65,6 +66,7 @@ class SwiftConsole(HasTraits):
   solution_view = Instance(SolutionView)
   baseline_view = Instance(BaselineView)
   observation_view = Instance(ObservationView)
+  system_monitor_view = Instance(SystemMonitorView)
 
   view = View(
     VSplit(
@@ -74,6 +76,7 @@ class SwiftConsole(HasTraits):
         Item('solution_view', style='custom', label='Solution'),
         Item('baseline_view', style='custom', label='Baseline'),
         Item('observation_view', style='custom', label='Observations'),
+        Item('system_monitor_view', style='custom', label='System Monitor'),
         Item(
           'python_console_env', style='custom',
           label='Python Console', editor=ShellEditor()
@@ -118,6 +121,7 @@ class SwiftConsole(HasTraits):
     self.solution_view = SolutionView(self.link)
     self.baseline_view = BaselineView(self.link)
     self.observation_view = ObservationView(self.link)
+    self.system_monitor_view = SystemMonitorView(self.link)
 
     self.python_console_env = {
         'send_message': self.link.send_message,
@@ -128,6 +132,7 @@ class SwiftConsole(HasTraits):
     self.python_console_env.update(self.solution_view.python_console_cmds)
     self.python_console_env.update(self.baseline_view.python_console_cmds)
     self.python_console_env.update(self.observation_view.python_console_cmds)
+    self.python_console_env.update(self.system_monitor_view.python_console_cmds)
 
   def stop(self):
     self.link.close()

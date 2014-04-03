@@ -71,6 +71,7 @@ static WORKING_AREA(wa_sbp_thread, 4096);
 static msg_t sbp_thread(void *arg)
 {
   (void)arg;
+  chRegSetThreadName("SBP");
   while (TRUE) {
     led_toggle(LED_GREEN);
     chThdSleepMilliseconds(50);
@@ -84,6 +85,7 @@ static WORKING_AREA(wa_nav_msg_thread, 4096);
 static msg_t nav_msg_thread(void *arg)
 {
   (void)arg;
+  chRegSetThreadName("nav msg");
   while (TRUE) {
     chThdSleepMilliseconds(1000);
 
@@ -147,6 +149,7 @@ static WORKING_AREA(wa_solution_thread, 8000);
 static msg_t solution_thread(void *arg)
 {
   (void)arg;
+  chRegSetThreadName("solution");
 
   while (TRUE) {
     /* Waiting for the IRQ to happen.*/

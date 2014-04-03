@@ -76,6 +76,7 @@ static msg_t manage_acq_thread(void *arg)
   /* TODO: This should be trigged by a semaphore from the acq ISR code, not
    * just ran periodically. */
   (void)arg;
+  chRegSetThreadName("manage acq");
   while (TRUE) {
     chThdSleepMilliseconds(100);
     manage_acq();
@@ -363,6 +364,7 @@ static WORKING_AREA(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
 static msg_t manage_track_thread(void *arg)
 {
   (void)arg;
+  chRegSetThreadName("manage track");
   while (TRUE) {
     chThdSleepMilliseconds(200);
     DO_EVERY(5,

@@ -122,6 +122,7 @@ static void handle_nap_exti(void)
 static msg_t nap_exti_thread(void *arg)
 {
   (void)arg;
+  chRegSetThreadName("NAP ISR");
 
   while (TRUE) {
     /* Waiting for the IRQ to happen.*/

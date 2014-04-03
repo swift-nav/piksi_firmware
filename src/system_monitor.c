@@ -11,37 +11,49 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #include <ch.h>
 
 #include "board/nap/nap_common.h"
+#include "main.h"
+#include "sbp.h"
+#include "sbp_piksi.h"
 #include "system_monitor.h"
 
 /*
 extern u8 __main_stack_base__;
 extern u8 __process_stack_base__;
+*/
 
-void debug_threads()
+void send_thread_states()
 {
-  printf("t = %lu\nThreads:\n", chTimeNow());
   Thread *tp = chRegFirstThread();
   while (tp) {
-    printf("\t%s: %lu (%.1f)"
-        chRegGetThreadName(),
-        chThdGetTicks(),
-        chThdGetTicks() / (float)chTimeNow()
-    );
+    msg_thread_state_t tp_state;
+    tp_state.cpu = chThdGetTicks(tp);
+    strncpy(tp_state.name, chRegGetThreadName(tp), sizeof(tp_state.name));
+    sbp_send_msg(MSG_THREAD_STATE, sizeof(tp_state), (u8 *)&tp_state);
+
+    /* This works because chThdGetTicks is actually a define that pulls out a
+     * value from a struct, hopefully if that fact changes then this statement
+     * will no longer compile. */
+    chThdGetTicks(tp) = 0;
     tp = chRegNextThread(tp);
   }
 }
-*/
 
 static WORKING_AREA(wa_nap_error_thread, 4096);
 static msg_t nap_error_thread(void *arg)
 {
   (void)arg;
+  chRegSetThreadName("system monitor");
   while (TRUE) {
     chThdSleepMilliseconds(500);
+    DO_EVERY(2,
+        sbp_send_msg(MSG_HEARTBEAT, 0, 0);
+        send_thread_states();
+    );
     u32 err = nap_error_rd_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);
