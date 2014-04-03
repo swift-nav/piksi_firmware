@@ -25,17 +25,16 @@
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/constants.h>
 
-#include "../src/board/leds.h"
+#include "board/leds.h"
 #include "board/nap/nap_common.h"
 #include "board/nap/nap_conf.h"
 #include "board/nap/track_channel.h"
-
-#include "../src/sbp.h"
-#include "../src/init.h"
-#include "../src/manage.h"
-#include "../src/track.h"
-#include "../src/timing.h"
-#include "../src/position.h"
+#include "sbp.h"
+#include "init.h"
+#include "manage.h"
+#include "track.h"
+#include "timing.h"
+#include "position.h"
 
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000

@@ -3,6 +3,10 @@
 # NOTE: Can be overridden externally.
 #
 
+ifeq ($(SWIFTNAV_ROOT),)
+  SWIFTNAV_ROOT = ..
+endif
+
 # Compiler options here.
 ifeq ($(USE_OPT),)
   USE_OPT = -O0 -ggdb3 -fomit-frame-pointer -falign-functions=16
@@ -43,6 +47,10 @@ ifeq ($(USE_VERBOSE_COMPILE),)
   USE_VERBOSE_COMPILE = no
 endif
 
+ifeq ($(BUILDDIR),)
+  BUILDDIR = $(SWIFTNAV_ROOT)/build
+endif
+
 #
 # Build global options
 ##############################################################################
@@ -65,7 +73,7 @@ endif
 #
 
 # Define project name here
-PROJECT = ch
+PROJECT = piksi_firmware
 
 # Imported source files and paths
 CHIBIOS = ../ChibiOS-RT
@@ -77,7 +85,6 @@ LDSCRIPT= STM32F405xG.ld
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
-SWIFTNAV_ROOT = ../
 CSRC = $(PORTSRC) \
        $(KERNSRC) \
        $(SWIFTNAV_ROOT)/src/board/nap/nap_common.o \
