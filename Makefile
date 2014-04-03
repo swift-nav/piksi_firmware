@@ -38,7 +38,7 @@ tests:
 		fi; \
 	done
 
-libopencm3/lib/libopencm3_stm32f4.a: .FORCE
+libopencm3/lib/libopencm3_stm32f4.a:
 	@printf "BUILD   libopencm3\n"; \
 	$(MAKE) -C libopencm3 $(MAKEFLAGS) lib/stm32/f4
 
