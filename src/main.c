@@ -201,7 +201,7 @@ static msg_t solution_thread(void *arg)
         }
         gps_time_t new_obs_time;
         new_obs_time.wn = position_solution.time.wn;
-        new_obs_time.tow = round(position_solution.time.tow);
+        new_obs_time.tow = expected_tow;
 
         n_obs = n_ready_tdcp;
 
@@ -223,6 +223,7 @@ static msg_t solution_thread(void *arg)
         gps_time.wn = position_solution.time.wn;
         gps_time.tow = round(position_solution.time.tow * 1e3);
         gps_time.ns = round((position_solution.time.tow - gps_time.tow*1e-3) * 1e9);
+
         gps_time.flags = 0;
         sbp_send_msg(SBP_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
 
