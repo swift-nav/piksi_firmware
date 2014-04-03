@@ -14,6 +14,7 @@
 
 #include <ch.h>
 
+#include "board/nap/nap_common.h"
 #include "system_monitor.h"
 
 /*
