@@ -29,6 +29,7 @@
 #include "timing.h"
 #include "position.h"
 #include "manage.h"
+#include "nmea.h"
 #include "sbp.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
@@ -364,7 +365,10 @@ static msg_t manage_track_thread(void *arg)
   (void)arg;
   while (TRUE) {
     chThdSleepMilliseconds(200);
-    manage_track();
+    DO_EVERY(5,
+      manage_track();
+      nmea_gpgsa(tracking_channel, 0);
+    );
     tracking_send_state();
   }
 
