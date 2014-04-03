@@ -234,39 +234,5 @@ void timing_setup(void)
   clock_est_init(&clock_state);
 }
 
-/** Setup STM timer to use as a rough system tick count. */
-void tick_timer_setup(void)
-{
-  /* Setup Timer 2 as our global tick counter. */
-  RCC_APB1ENR |= RCC_APB1ENR_TIM2EN;
-
-  /* Set timer prescale to divide APB bus to the tick frequency.
-   *
-   * NOTE: This will only work for ppre1_freq that is an integer
-   *       multiple of the tick frequency.
-   * NOTE: Assumes APB1 prescale != 1, see Ref Man pg. 84
-   */
-  timer_set_prescaler(TIM2, 2 * rcc_ppre1_frequency / TICK_FREQ - 1);
-
-  /* Set time auto-reload value to the longest possible period. */
-  timer_set_period(TIM2, 0xFFFFFFFF);
-
-  /* Enable timer */
-  TIM2_CNT = 0;
-  timer_generate_event(TIM2, TIM_EGR_UG);
-  timer_enable_counter(TIM2);
-}
-
-/** Return current system tick count.
- * Used for rough timing - mainly to schedule housekeeping operations that
- * do not need GPS time precision.
- * \return System tick count.
- */
-u32 time_ticks(void)
-{
-  /* TODO: think about overflows. */
-  return TIM2_CNT;
-}
-
 /** \} */
 
