@@ -35,6 +35,7 @@
 #include "track.h"
 #include "timing.h"
 #include "position.h"
+#include "system_monitor.h"
 
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
@@ -67,28 +68,12 @@ void send_observations(u8 n, navigation_measurement_t *m)
   }
 }
 
-
-
-static WORKING_AREA(wa_nap_error_thread, 1024);
-static msg_t nap_error_thread(void *arg)
-{
-  (void)arg;
-  while (TRUE) {
-    led_toggle(LED_GREEN);
-    chThdSleepMilliseconds(500);
-    u32 err = nap_error_rd_blocking();
-    if (err)
-      printf("Error: 0x%08X\n", (unsigned int)err);
-  }
-
-  return 0;
-}
-
 static WORKING_AREA(wa_sbp_thread, 4096);
 static msg_t sbp_thread(void *arg)
 {
   (void)arg;
   while (TRUE) {
+    led_toggle(LED_GREEN);
     chThdSleepMilliseconds(50);
     sbp_process_messages();
   }
@@ -302,23 +287,6 @@ void soln_timer_setup()
   timer_enable_irq(TIM5, TIM_DIER_UIE);
 }
 
-extern u8 __main_stack_base__;
-extern u8 __process_stack_base__;
-/*
-void debug_threads()
-{
-  printf("t = %lu\nThreads:\n", chTimeNow());
-  Thread *tp = chRegFirstThread();
-  while (tp) {
-    printf("\t%s: %lu (%.1f)"
-        chRegGetThreadName(),
-        chThdGetTicks(),
-        chThdGetTicks() / (float)chTimeNow()
-    );
-    tp = chRegNextThread(tp);
-  }
-}
-*/
 /*
  * Application entry point.
  */
@@ -356,30 +324,14 @@ int main(void)
 
   manage_acq_setup();
   manage_track_setup();
+  system_monitor_setup();
   soln_timer_setup();
 
-  /*
-   * Creates the example thread.
-   */
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread), NORMALPRIO-1, nav_msg_thread, NULL);
-  chThdCreateStatic(wa_nap_error_thread, sizeof(wa_nap_error_thread), NORMALPRIO-22, nap_error_thread, NULL);
   chThdCreateStatic(wa_sbp_thread, sizeof(wa_sbp_thread), HIGHPRIO-22, sbp_thread, NULL);
   chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread), HIGHPRIO-1, solution_thread, NULL);
 
-  /*
-   * Normal main() thread activity, in this demo it does nothing except
-   * increasing the minutes counter.
-   */
-  while (TRUE) {
-    chThdSleepSeconds(1);
-    /*debug_threads();*/
-    /*
-    printf("main: %d\nproc: %d\nma: %d\nmt: %d\nne: %d\nexti: \n",
-        get_thd_free_stack(&__main_stack_base__, 0x400),
-        get_thd_free_stack(&__process_stack_base__, 0x1000),
-        get_thd_free_stack(wa_manage_acq_thread, 1024),
-        get_thd_free_stack(wa_manage_track_thread, 1024),
-        get_thd_free_stack(wa_nap_error_thread, 1024));
-    */
+  while (1) {
+    chThdSleepSeconds(60);
   }
 }

@@ -115,6 +115,7 @@ CSRC = $(PORTSRC) \
        $(SWIFTNAV_ROOT)/src/position.o \
        $(SWIFTNAV_ROOT)/src/nmea.o \
        $(SWIFTNAV_ROOT)/src/rtcm.o \
+       $(SWIFTNAV_ROOT)/src/system_monitor.o \
        $(SWIFTNAV_ROOT)/src/flash_callbacks.o \
        main.c
 
