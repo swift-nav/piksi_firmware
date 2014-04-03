@@ -26,7 +26,6 @@
 #include <libswiftnav/constants.h>
 
 #include "board/leds.h"
-#include "board/nap/nap_common.h"
 #include "board/nap/nap_conf.h"
 #include "board/nap/track_channel.h"
 #include "sbp.h"
@@ -124,7 +123,6 @@ static msg_t nav_msg_thread(void *arg)
   return 0;
 }
 
-u8 n_ready = 0;
 static Thread *tp = NULL;
 #define tim5_isr Vector108
 #define NVIC_TIM5_IRQ 50
@@ -132,21 +130,6 @@ void tim5_isr()
 {
   CH_IRQ_PROLOGUE();
   chSysLockFromIsr();
-
-  n_ready = 0;
-  for (u8 i=0; i<nap_track_n_channels; i++) {
-    if (tracking_channel[i].state == TRACKING_RUNNING && \
-        es[tracking_channel[i].prn].valid == 1 && \
-        es[tracking_channel[i].prn].healthy == 1 && \
-        tracking_channel[i].TOW_ms > 0) {
-      __asm__("CPSID i;");
-      tracking_update_measurement(i, &meas[n_ready]);
-      __asm__("CPSIE i;");
-
-      if (meas[n_ready].snr > 2)
-        n_ready++;
-    }
-  }
 
   /* Wake up processing thread */
   if (tp != NULL) {
@@ -173,6 +156,21 @@ static msg_t solution_thread(void *arg)
     chSysUnlock();
 
     led_toggle(LED_RED);
+
+    u8 n_ready = 0;
+    for (u8 i=0; i<nap_track_n_channels; i++) {
+      if (tracking_channel[i].state == TRACKING_RUNNING && \
+          es[tracking_channel[i].prn].valid == 1 && \
+          es[tracking_channel[i].prn].healthy == 1 && \
+          tracking_channel[i].TOW_ms > 0) {
+        __asm__("CPSID i;");
+        tracking_update_measurement(i, &meas[n_ready]);
+        __asm__("CPSIE i;");
+
+        if (meas[n_ready].snr > 2)
+          n_ready++;
+      }
+    }
 
     if (n_ready >= 4) {
       /* Got enough sats/ephemerides, do a solution. */
@@ -287,28 +285,23 @@ void soln_timer_setup()
   timer_enable_irq(TIM5, TIM_DIER_UIE);
 }
 
-/*
- * Application entry point.
- */
 int main(void)
 {
-  /**
-   * Hardware initialization, in this simple demo just the systick timer is
-   * initialized.
-   */
+  /* Initialise SysTick timer that will be used as the ChibiOS kernel tick
+   * timer. */
   STBase->RVR = SYSTEM_CLOCK / CH_FREQUENCY - 1;
   STBase->CVR = 0;
   STBase->CSR = CLKSOURCE_CORE_BITS | ENABLE_ON_BITS | TICKINT_ENABLED_BITS;
 
-  /*
-   * System initializations.
-   * - Kernel initialization, the main() function becomes a thread and the
-   *   RTOS is active.
-   */
+  /* Kernel initialization, the main() function becomes a thread and the RTOS
+   * is active. */
   chSysInit();
+
+  /* Piksi hardware initialization. */
   init(1);
 
-  printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
+  printf("\n\nFirmware info - git: " GIT_VERSION \
+         ", built: " __DATE__ " " __TIME__ "\n");
   u8 nap_git_hash[20];
   nap_conf_rd_git_hash(nap_git_hash);
   printf("SwiftNAP git: ");
@@ -317,7 +310,8 @@ int main(void)
   if (nap_conf_rd_git_unclean())
     printf(" (unclean)");
   printf("\n");
-  printf("SwiftNAP configured with %d tracking channels\n\n", nap_track_n_channels);
+  printf("SwiftNAP configured with %d tracking channels\n\n",
+         nap_track_n_channels);
 
   timing_setup();
   position_setup();
