@@ -209,7 +209,7 @@ DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src
 
 # List all default libraries here
-DLIBS = -lopencm3_stm32f4 -lswiftnav-static-cortex-m4 -lc -lm -lnosys
+DLIBS = -lopencm3_stm32f4 -lswiftnav-static -lc -lm -lnosys
 
 #
 # End of default section
