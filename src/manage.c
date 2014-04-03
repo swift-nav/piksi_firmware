@@ -218,8 +218,8 @@ void manage_acq()
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
       /* Wait until we are done loading. */
-      if (!acq_get_load_done())
-        break;
+      acq_wait_load_done();
+
       /* Done loading, now lets set that coarse acquisition going. */
       nap_acq_code_wr_blocking(acq_manage.prn);
       if (almanac[acq_manage.prn].valid && time_quality == TIME_COARSE) {
@@ -273,8 +273,8 @@ void manage_acq()
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
       /* Wait until we are done loading. */
-      if (!acq_get_load_done())
-        break;
+      acq_wait_load_done();
+
       /* Done loading, now lets set the fine acquisition going. */
       float fine_cp = propagate_code_phase(
                         acq_manage.coarse_cp,
