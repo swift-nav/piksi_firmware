@@ -113,6 +113,7 @@ CSRC = $(PORTSRC) \
        $(SWIFTNAV_ROOT)/src/settings.o \
        $(SWIFTNAV_ROOT)/src/timing.o \
        $(SWIFTNAV_ROOT)/src/position.o \
+       $(SWIFTNAV_ROOT)/src/solution.o \
        $(SWIFTNAV_ROOT)/src/nmea.o \
        $(SWIFTNAV_ROOT)/src/rtcm.o \
        $(SWIFTNAV_ROOT)/src/system_monitor.o \
