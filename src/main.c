@@ -18,6 +18,7 @@
 #include <libopencm3/stm32/f4/timer.h>
 
 #include <libswiftnav/pvt.h>
+#include <libswiftnav/sbp_utils.h>
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/constants.h>
 
@@ -218,34 +219,19 @@ static msg_t solution_thread(void *arg)
 
         timer_set_period(TIM5, round(65472000 * dt));
 
+        /* Send GPS_TIME message first. */
         sbp_gps_time_t gps_time;
-        gps_time.wn = position_solution.time.wn;
-        gps_time.tow = round(position_solution.time.tow * 1e3);
-        gps_time.ns = round((position_solution.time.tow - gps_time.tow*1e-3) * 1e9);
-
-        gps_time.flags = 0;
+        sbp_make_gps_time(&gps_time, &position_solution.time, 0);
         sbp_send_msg(SBP_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
 
+        /* Position in LLH. */
         sbp_pos_llh_t pos_llh;
-        pos_llh.tow = round(position_solution.time.tow * 1e3);
-        pos_llh.lat = position_solution.pos_llh[0] * R2D;
-        pos_llh.lon = position_solution.pos_llh[1] * R2D;
-        pos_llh.height = position_solution.pos_llh[2];
-        pos_llh.h_accuracy = 0;
-        pos_llh.v_accuracy = 0;
-        pos_llh.n_sats = n_ready_tdcp;
-        pos_llh.flags = 0;
+        sbp_make_pos_llh(&pos_llh, &position_solution, 0);
         sbp_send_msg(SBP_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
 
+        /* Velocity in NED. */
         sbp_vel_ned_t vel_ned;
-        vel_ned.tow = round(position_solution.time.tow * 1e3);
-        vel_ned.n = round(position_solution.vel_ned[0] * 1e3);
-        vel_ned.e = round(position_solution.vel_ned[1] * 1e3);
-        vel_ned.d = round(position_solution.vel_ned[2] * 1e3);
-        vel_ned.h_accuracy = 0;
-        vel_ned.v_accuracy = 0;
-        vel_ned.n_sats = n_ready_tdcp;
-        vel_ned.flags = 0;
+        sbp_make_vel_ned(&vel_ned, &position_solution, 0);
         sbp_send_msg(SBP_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
 
         /*nmea_gpgga(&position_solution, &dops);*/
@@ -254,11 +240,7 @@ static msg_t solution_thread(void *arg)
 
         DO_EVERY(10,
           sbp_dops_t sbp_dops;
-          sbp_dops.pdop = round(dops.pdop * 100);
-          sbp_dops.gdop = round(dops.gdop * 100);
-          sbp_dops.tdop = round(dops.tdop * 100);
-          sbp_dops.hdop = round(dops.hdop * 100);
-          sbp_dops.vdop = round(dops.vdop * 100);
+          sbp_make_dops(&sbp_dops, &dops);
           sbp_send_msg(SBP_DOPS, sizeof(sbp_dops_t), (u8 *) &sbp_dops);
           /*nmea_gpgsv(n_ready_tdcp, nav_meas_tdcp, &position_solution);*/
         );
@@ -321,9 +303,12 @@ int main(void)
   system_monitor_setup();
   soln_timer_setup();
 
-  chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread), NORMALPRIO-1, nav_msg_thread, NULL);
-  chThdCreateStatic(wa_sbp_thread, sizeof(wa_sbp_thread), HIGHPRIO-22, sbp_thread, NULL);
-  chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread), HIGHPRIO-1, solution_thread, NULL);
+  chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
+                    NORMALPRIO-1, nav_msg_thread, NULL);
+  chThdCreateStatic(wa_sbp_thread, sizeof(wa_sbp_thread),
+                    HIGHPRIO-22, sbp_thread, NULL);
+  chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread),
+                    HIGHPRIO-1, solution_thread, NULL);
 
   while (1) {
     chThdSleepSeconds(60);
