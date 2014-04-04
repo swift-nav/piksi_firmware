@@ -395,27 +395,31 @@ void manage_track()
   for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracking_channel[i].state == TRACKING_RUNNING) {
       if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
+        tracking_channel[i].snr_below_threshold_count = tracking_channel[i].update_count;
         if (tracking_channel[i].update_count > TRACK_SNR_INIT_COUNT &&
-            tracking_channel[i].update_count - tracking_channel[i].snr_threshold_count > TRACK_SNR_THRES_COUNT) {
+            tracking_channel[i].update_count - tracking_channel[i].snr_above_threshold_count > TRACK_SNR_THRES_COUNT) {
           /* This tracking channel has lost its satellite. */
           printf("Disabling channel %d\n", i);
           tracking_channel_disable(i);
           acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_TRIED;
         }
       } else {
-        tracking_channel[i].snr_threshold_count = tracking_channel[i].update_count;
+        tracking_channel[i].snr_above_threshold_count = tracking_channel[i].update_count;
       }
     }
   }
 }
 
-extern ephemeris_t *es;
+extern ephemeris_t es[32];
 s8 use_tracking_channel(u8 i)
 {
-  return (tracking_channel[i].state == TRACKING_RUNNING &&
-          es[tracking_channel[i].prn].valid == 1 &&
-          es[tracking_channel[i].prn].healthy == 1 &&
-          tracking_channel[i].TOW_ms > 0);
+  return (tracking_channel[i].state == TRACKING_RUNNING)
+      && (es[tracking_channel[i].prn].valid == 1)
+      && (es[tracking_channel[i].prn].healthy == 1)
+      && (tracking_channel[i].update_count
+            - tracking_channel[i].snr_below_threshold_count
+            > TRACK_SNR_THRES_COUNT)
+      && (tracking_channel[i].TOW_ms > 0);
 }
 
 /** \} */

@@ -289,3 +289,4 @@ int main(void)
     chThdSleepSeconds(60);
   }
 }
+

@@ -42,7 +42,8 @@ typedef struct {
   /* TODO : u32's big enough? */
   u32 update_count;            /**< Total number of tracking channel ms updates. */
   s32 TOW_ms;                  /**< TOW in ms. */
-  u32 snr_threshold_count;     /**< Number of ms tracking channel's SNR has been above a certain margin. */
+  u32 snr_above_threshold_count;     /**< update_count value when SNR was last above a certain margin. */
+  u32 snr_below_threshold_count;     /**< update_count value when SNR was last below a certain margin. */
   u8 prn;                      /**< CA Code (0-31) channel is tracking. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   u32 code_phase_early;        /**< Early code phase. */
