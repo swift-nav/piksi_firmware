@@ -346,8 +346,10 @@ void manage_acq()
  * \param snr SNR of the acquisition.
  * \return Index of first unused tracking channel.
  */
-u8 manage_track_new_acq(float snr __attribute__((unused)))
+u8 manage_track_new_acq(float snr)
 {
+  (void)snr;
+
   /* Decide which (if any) tracking channel to put
    * a newly acquired satellite into.
    */
@@ -405,6 +407,15 @@ void manage_track()
       }
     }
   }
+}
+
+extern ephemeris_t *es;
+s8 use_tracking_channel(u8 i)
+{
+  return (tracking_channel[i].state == TRACKING_RUNNING &&
+          es[tracking_channel[i].prn].valid == 1 &&
+          es[tracking_channel[i].prn].healthy == 1 &&
+          tracking_channel[i].TOW_ms > 0);
 }
 
 /** \} */

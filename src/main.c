@@ -159,10 +159,7 @@ static msg_t solution_thread(void *arg)
 
     u8 n_ready = 0;
     for (u8 i=0; i<nap_track_n_channels; i++) {
-      if (tracking_channel[i].state == TRACKING_RUNNING && \
-          es[tracking_channel[i].prn].valid == 1 && \
-          es[tracking_channel[i].prn].healthy == 1 && \
-          tracking_channel[i].TOW_ms > 0) {
+      if (use_tracking_channel(i)) {
         __asm__("CPSID i;");
         tracking_update_measurement(i, &meas[n_ready]);
         __asm__("CPSIE i;");
