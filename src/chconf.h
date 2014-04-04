@@ -28,6 +28,7 @@
 #ifndef _CHCONF_H_
 #define _CHCONF_H_
 
+#include <libswiftnav/common.h>
 #include "../src/error.h"
 
 /*===========================================================================*/
@@ -450,7 +451,11 @@
  */
 #if !defined(THREAD_EXT_FIELDS) || defined(__DOXYGEN__)
 #define THREAD_EXT_FIELDS                                                   \
-  /* Add threads custom fields here.*/
+  /* Add threads custom fields here.*/                                      \
+  /* CPU cycle measurement fields, */                                       \
+  /* see http://sourceforge.net/p/chibios/feature-requests/23/ .*/          \
+  u64 p_ctime;                                                              \
+  u32 p_cref;
 #endif
 
 /**
@@ -463,6 +468,10 @@
 #if !defined(THREAD_EXT_INIT_HOOK) || defined(__DOXYGEN__)
 #define THREAD_EXT_INIT_HOOK(tp) {                                          \
   /* Add threads initialization code here.*/                                \
+  /* CPU cycle measurement fields, */                                       \
+  /* see http://sourceforge.net/p/chibios/feature-requests/23/ .*/          \
+  tp->p_ctime = 0;                                                          \
+  tp->p_cref = DWT_CYCCNT;                                                  \
 }
 #endif
 
@@ -484,9 +493,16 @@
  * @brief   Context switch hook.
  * @details This hook is invoked just before switching between threads.
  */
+extern u64 g_ctime;
 #if !defined(THREAD_CONTEXT_SWITCH_HOOK) || defined(__DOXYGEN__)
 #define THREAD_CONTEXT_SWITCH_HOOK(ntp, otp) {                              \
   /* System halt code here.*/                                               \
+  ntp->p_cref = DWT_CYCCNT;                                                 \
+  if (otp) {                                                                \
+    u32 cnt = ntp->p_cref - otp->p_cref;                                    \
+    otp->p_ctime += cnt;                                                    \
+    g_ctime += cnt;                                                         \
+  }                                                                         \
 }
 #endif
 
