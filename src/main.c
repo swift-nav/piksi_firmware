@@ -69,8 +69,10 @@ static msg_t nav_msg_thread(void *arg)
       if (tracking_channel[i].state == TRACKING_RUNNING &&
           tracking_channel[i].nav_msg.subframe_start_index) {
 
+        __asm__("CPSID i;");
         s8 ret = process_subframe(&tracking_channel[i].nav_msg,
                                   &es[tracking_channel[i].prn]);
+        __asm__("CPSIE i;");
 
         if (ret < 0)
           printf("PRN %02d ret %d\n", tracking_channel[i].prn+1, ret);
