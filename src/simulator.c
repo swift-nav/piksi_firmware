@@ -13,6 +13,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <libswiftnav/coord_system.h>
 #include <ch.h>
@@ -25,8 +26,9 @@
 /** \simulator 
  * \{ */
 
+simulation_mode_t simulation_mode = SIM_DISABLED;
+
 simulation_settings_t simulation_settings = {
-  .mode = 0,
   .speed = 4.0,
   .radius = 100.0,
   .pos_variance = 2.0,
@@ -51,6 +53,7 @@ dops_t simulation_dops = {
   .hdop = 1.6,
   .vdop = 1.5,
 };
+
 
 #define TWO_PI (M_PI*2.0)
 
@@ -132,6 +135,51 @@ void simulation_step(void)
 
 }
 
+/** Returns true if the simulation is at all enabled
+*
+*/
+
+bool simulation_enabled() 
+{
+	return (simulation_mode > SIM_DISABLED);
+}
+
+/** Returns true if at least this level of the simulation is enabled
+*
+*/
+bool simulation_enabled_for(simulation_mode_t mode) 
+{
+	return (simulation_mode >= mode);
+}
+
+
+inline gnss_solution* simulation_current_gnss_solution(void) {
+	return &simulation_solution;
+}
+
+inline dops_t* simulation_current_dops_solution(void) {
+	return &simulation_dops;
+}
+
+/** Changes simulation mode when an SBP callback triggers this function
+*
+*/
+void set_simulation_toggle_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void) context;
+  
+  simulation_mode = msg[0];
+
+  if (simulation_mode > 0) {
+    led_on(LED_RED);
+  } else {
+    led_off(LED_RED);
+  }
+  
+  printf("Simulation Mode: %d\n", simulation_mode);
+
+}
+
 /** Changes simulation mode when an SBP callback triggers this function
 *
 */
@@ -139,30 +187,31 @@ void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* con
 {
   (void)sender_id; (void)len; (void) context;
   
-  simulation_settings.mode = msg[0];
-
-  if (simulation_settings.mode > 0) {
-    led_on(LED_RED);
-  } else {
-    led_off(LED_RED);
-  }
+  simulation_settings.speed = *(float*)msg;
   
-  printf("Simulation Mode: %d\n", simulation_settings.mode);
+  printf("Got new simulation settings\n");
 
 }
-
 /** Must be called from main() or equivalent function before simulator runs
 *
 */
 void simulator_setup(void) {
 
   //Setting up callback to listen for simulation being enabled or settings changed.
+  static sbp_msg_callbacks_node_t set_simulation_toggle_node;
+  sbp_register_cbk(
+    MSG_SIMULATION_TOGGLE,
+    &set_simulation_toggle_callback,
+    &set_simulation_toggle_node
+  );
+
   static sbp_msg_callbacks_node_t set_simulation_settings_node;
   sbp_register_cbk(
     MSG_SIMULATION_SETTINGS,
     &set_simulation_settings_callback,
     &set_simulation_settings_node
   );
+  
   simulation_solution.time.wn = simulation_settings.starting_week_number;
   simulation_solution.time.tow = 0;
   simulation_solution.n_used = simulation_settings.num_sats;

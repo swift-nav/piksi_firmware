@@ -209,10 +209,10 @@ static msg_t solution_thread(void *arg)
     chSchGoSleepS(THD_STATE_SUSPENDED);
     chSysUnlock();
 
-    if (!simulation_settings.mode) {
-      led_toggle(LED_RED);
-    } else {
+    if (simulation_enabled()) {
       led_on(LED_RED);
+    } else {
+      led_toggle(LED_RED);      
     }
 
     u8 n_ready = 0;
@@ -267,7 +267,7 @@ static msg_t solution_thread(void *arg)
           send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
         }
 
-        if (!simulation_settings.mode) {
+        if (!simulation_enabled()) {
           /* Output solution. */
           solution_send_sbp(&position_solution, &dops);
           solution_send_nmea(&position_solution, &dops, n_ready_tdcp, nav_meas_tdcp);
@@ -293,7 +293,7 @@ static msg_t solution_thread(void *arg)
     }
 
     //Here we do all the nice simulation-related stuff.
-    if (simulation_settings.mode > 0) {
+    if (simulation_enabled_for(SIM_PVT)) {
 
       //Set the timer period appropriately
       timer_set_period(TIM5, round(65472000 * (1.0/SOLN_FREQ)));
@@ -301,7 +301,7 @@ static msg_t solution_thread(void *arg)
       simulation_step();
 
       //Then we send fake messages
-      solution_send_sbp(&simulation_solution, &simulation_dops);
+      solution_send_sbp(simulation_current_gnss_solution(), simulation_current_dops_solution());
 
     }
   }

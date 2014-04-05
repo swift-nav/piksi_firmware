@@ -55,7 +55,8 @@
 #define MSG_SOLUTION                0x20  /**< Piksi  -> Host  */
 #define MSG_DOPS                    0x21  /**< Piksi  -> Host  */
 
-#define MSG_SIMULATION_SETTINGS     0x94  /**< Host   -> Piksi */
+#define MSG_SIMULATION_TOGGLE       0x94  /**< Host   -> Piksi */
+#define MSG_SIMULATION_SETTINGS     0x93  /**< Host  <-> Piksi */
 
 #define MSG_BASELINE                0x23  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {

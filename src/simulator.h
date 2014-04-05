@@ -26,16 +26,22 @@
  *   Currently only supports single-point-position messages.
  * \{ */
 
+/* Levels of simulation supported */
+typedef enum {
+	SIM_DISABLED = 0,
+	SIM_PVT,
+	SIM_PVT_AND_BASELINE
+} simulation_mode_t;
+
 /* User-configurable GPS Simulator Settings */
 typedef struct {
-  u8      mode;                 //0 == off, 1 == PVT only, 2 == PVT & Baseline
-  float   speed;                //speed (variance of velocity) in meters per second
-  float   radius;               //radius of circle in meters
-  float   pos_variance;         //in meters squared
-  float   speed_variance;       //variance in speed (magnitude of velocity) in meters squared
-  double  center_ecef[3];       //centerpoint that defines simulation absolute location
-  u16     starting_week_number; //time start point
-  u8      num_sats;             //number of simulated satellites to report
+  float      speed;                //speed (variance of velocity) in meters per second
+  float      radius;               //radius of circle in meters
+  float      pos_variance;         //in meters squared
+  float      speed_variance;       //variance in speed (magnitude of velocity) in meters squared
+  double     center_ecef[3];       //centerpoint that defines simulation absolute location
+  u16        starting_week_number; //time start point
+  u8         num_sats;             //number of simulated satellites to report
 } simulation_settings_t;
 
 /* Internal Simulation State */
@@ -46,21 +52,17 @@ typedef struct {
 
 /** \} */
 
-//Simulation Input Parameters:
-extern simulation_settings_t simulation_settings;
-
-//Internal State:
-extern simulation_state_t    simulation_state;
-
-//Simulation Output:
-extern gnss_solution         simulation_solution;
-extern dops_t                simulation_dops;
-
 //Math Helpers:
 double rand_gaussian(const double variance);
 
 //Running the Simulation:
 void simulation_step(void);
+bool simulation_enabled();
+bool simulation_enabled_for(simulation_mode_t mode);
+
+//Getting data from the simulation
+gnss_solution* simulation_current_gnss_solution(void);
+dops_t* simulation_current_dops_solution(void);
 
 //Initialization:
 void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context);
