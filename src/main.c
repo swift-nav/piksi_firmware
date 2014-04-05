@@ -25,7 +25,8 @@
 #include "solution.h"
 #include "position.h"
 #include "system_monitor.h"
-
+#include "simulator.h"
+ 
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
 #endif
@@ -123,6 +124,8 @@ int main(void)
   manage_track_setup();
   system_monitor_setup();
   solution_setup();
+
+  simulator_setup();
 
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);
