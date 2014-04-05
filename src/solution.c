@@ -73,6 +73,24 @@ navigation_measurement_t nav_meas_old[MAX_SATS];
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 {
+  static u8 buff[256];
+
+  memcpy(buff, t, sizeof(gps_time_t));
+  msg_obs_t *obs = (msg_obs_t *)&buff[sizeof(gps_time_t)];
+  if (n * sizeof(msg_obs_t) > 255 - sizeof(gps_time_t))
+    n = 255 / sizeof(msg_obs_t);
+  for (u8 i=0; i<n; i++) {
+    obs[i].prn = m[i].prn;
+    obs[i].P = m[i].raw_pseudorange;
+    obs[i].L = m[i].carrier_phase;
+    obs[i].snr = m[i].snr;
+  }
+  sbp_send_msg(MSG_NEW_OBS, sizeof(gps_time_t) + n*sizeof(msg_obs_t), buff);
+}
+
+/*
+void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
+{
   static u8 obs_count = 0;
   msg_obs_hdr_t obs_hdr = {
     .t = *t,
@@ -95,6 +113,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
     sbp_send_msg(MSG_OBS, sizeof(obs), (u8 *)&obs);
   }
 }
+*/
 
 static Thread *tp = NULL;
 #define tim5_isr Vector108
