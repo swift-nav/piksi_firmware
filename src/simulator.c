@@ -30,9 +30,10 @@ simulation_settings_t simulation_settings = {
   .speed = 4.0,
   .radius = 100.0,
   .pos_variance = 2.0,
-  .speed_variance = 0.02,
+  .speed_variance = 0.01,
   .center_ecef = {-2700303.10144031,-4292474.39651309,3855434.34087421},
   .starting_week_number = 1768,
+  .num_sats = 9
 };
 
 simulation_state_t simulation_state = {
@@ -164,6 +165,7 @@ void simulator_setup(void) {
   );
   simulation_solution.time.wn = simulation_settings.starting_week_number;
   simulation_solution.time.tow = 0;
+  simulation_solution.n_used = simulation_settings.num_sats;
 
 }
 

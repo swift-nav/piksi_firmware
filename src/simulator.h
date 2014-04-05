@@ -35,7 +35,7 @@ typedef struct {
   float   speed_variance;       //variance in speed (magnitude of velocity) in meters squared
   double  center_ecef[3];       //centerpoint that defines simulation absolute location
   u16     starting_week_number; //time start point
-
+  u8      num_sats;             //number of simulated satellites to report
 } simulation_settings_t;
 
 /* Internal Simulation State */
