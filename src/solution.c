@@ -12,11 +12,13 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <libswiftnav/sbp_utils.h>
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/constants.h>
+#include <libswiftnav/coord_system.h>
 
 #include <libopencm3/stm32/f4/timer.h>
 #include <libopencm3/stm32/f4/rcc.h>
@@ -64,12 +66,70 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
   );
 }
 
+void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
+                            double ref_ecef[3])
+{
+  if (1) {
+    sbp_baseline_ecef_t sbp_ecef = {
+      .tow = t->tow,
+      .x = (s32)round(1e3 * b_ecef[0]),
+      .y = (s32)round(1e3 * b_ecef[1]),
+      .z = (s32)round(1e3 * b_ecef[2]),
+      .n_sats = n_sats,
+    };
+    sbp_send_msg(SBP_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
+  }
+
+  if (1) {
+    double b_ned[3];
+    wgsecef2ned(b_ecef, ref_ecef, b_ned);
+
+    sbp_baseline_ned_t sbp_ned = {
+      .tow = t->tow,
+      .n = (s32)round(1e3 * b_ned[0]),
+      .e = (s32)round(1e3 * b_ned[1]),
+      .d = (s32)round(1e3 * b_ned[2]),
+      .n_sats = n_sats,
+    };
+    sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
+  }
+}
+
 #define MAX_SATS 14
+#define MAX_CHANNELS 14
 
 extern ephemeris_t es[32];
 channel_measurement_t meas[MAX_SATS];
 navigation_measurement_t nav_meas[MAX_SATS];
 navigation_measurement_t nav_meas_old[MAX_SATS];
+
+navigation_measurement_t nav_meas_base[MAX_CHANNELS];
+u8 n_base;
+double tow_base = -1;
+
+void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void) context;
+
+  tow_base = ((gps_time_t *)msg)->tow;
+  n_base = (len - sizeof(gps_time_t)) / sizeof(msg_obs_t);
+  msg_obs_t *obs = (msg_obs_t *)(msg + sizeof(gps_time_t));
+  for (u8 i=0; i<n_base; i++) {
+    nav_meas_base[i].prn = obs[i].prn;
+    nav_meas_base[i].raw_pseudorange = obs[i].P;
+    nav_meas_base[i].carrier_phase = obs[i].L;
+    nav_meas_base[i].snr = obs[i].snr;
+  }
+
+  /* Ensure observations sorted by PRN. */
+  qsort(nav_meas_base, n_base, sizeof(navigation_measurement_t), nav_meas_cmp);
+
+  static u32 obs_count = 0;
+  obs_count++;
+  if (obs_count % 20 == 0) {
+    printf("Obs count: %u\n", (unsigned int)obs_count);
+  }
+}
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 {
