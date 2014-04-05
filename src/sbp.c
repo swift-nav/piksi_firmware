@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <ch.h>
+
 #include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/usart.h>
 
@@ -27,6 +29,9 @@
 #include "peripherals/usart.h"
 #include "sbp.h"
 #include "settings.h"
+#include "main.h"
+
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 /** \defgroup io Input/Output
  * Communications to and from host.
@@ -38,14 +43,36 @@
 
 u16 my_sender_id;
 u8 sbp_use_settings = 0;
-u32 crc_errors = 0;
+
+msg_uart_state_t uart_state_msg;
 
 sbp_state_t uarta_sbp_state;
 sbp_state_t uartb_sbp_state;
 sbp_state_t ftdi_sbp_state;
 
+static WORKING_AREA(wa_sbp_thread, 4096);
+static msg_t sbp_thread(void *arg)
+{
+  (void)arg;
+  chRegSetThreadName("SBP");
+  while (TRUE) {
+    led_toggle(LED_GREEN);
+    chThdSleepMilliseconds(50);
+    sbp_process_messages();
+
+    DO_EVERY(50,
+        sbp_send_msg(MSG_UART_STATE, sizeof(msg_uart_state_t),
+                     (u8*)&uart_state_msg);
+        memset(&uart_state_msg, 0, sizeof(uart_state_msg));
+    );
+  }
+
+  return 0;
+}
+
 /** Setup the SBP interface.
- * Configures USARTs and IO buffering.
+ * Configures USARTs and IO buffering. Starts the SBP message processing
+ * thread.
  *
  * \param use_settings If 0 use default baud rate, else use baud rates in
  *                     flash settings
@@ -77,6 +104,9 @@ void sbp_setup(u8 use_settings, u16 sender_id)
   /* Disable input and output buffering. */
   /*setvbuf(stdin, NULL, _IONBF, 0);*/
   /*setvbuf(stdout, NULL, _IONBF, 0);*/
+
+  chThdCreateStatic(wa_sbp_thread, sizeof(wa_sbp_thread),
+                    HIGHPRIO-22, sbp_thread, NULL);
 }
 
 void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb, sbp_msg_callbacks_node_t *node)
@@ -143,11 +173,20 @@ u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[])
   if (use_usart(&settings.uarta_usart, msg_type))
     ret |= sbp_send_message(&uarta_sbp_state, msg_type, my_sender_id, len, buff, &uarta_write);
 
+  uart_state_msg.uarts[0].tx_buffer_level = MAX(uart_state_msg.uarts[0].tx_buffer_level,
+      255 - (255 * usart_tx_n_free(&uarta_tx_state)) / (USART_TX_BUFFER_LEN-1));
+
   if (use_usart(&settings.uartb_usart, msg_type))
     ret |= sbp_send_message(&uartb_sbp_state, msg_type, my_sender_id, len, buff, &uartb_write);
 
+  uart_state_msg.uarts[1].tx_buffer_level = MAX(uart_state_msg.uarts[1].tx_buffer_level,
+      255 - (255 * usart_tx_n_free(&uartb_tx_state)) / (USART_TX_BUFFER_LEN-1));
+
   if (use_usart(&settings.ftdi_usart, msg_type))
     ret |= sbp_send_message(&ftdi_sbp_state, msg_type, my_sender_id, len, buff, &ftdi_write);
+
+  uart_state_msg.uarts[2].tx_buffer_level = MAX(uart_state_msg.uarts[2].tx_buffer_level,
+      255 - (255 * usart_tx_n_free(&ftdi_tx_state)) / (USART_TX_BUFFER_LEN-1));
 
   if (ret != 3*len) {
     /* Return error if any sbp_send_message failed. */
@@ -183,20 +222,31 @@ void sbp_process_messages()
 {
   s8 ret;
 
+  uart_state_msg.uarts[0].rx_buffer_level = MAX(uart_state_msg.uarts[0].rx_buffer_level,
+      (255 * usart_n_read_dma(&uarta_rx_state)) / USART_RX_BUFFER_LEN);
+
   while (usart_n_read_dma(&uarta_rx_state) > 0) {
     ret = sbp_process(&uarta_sbp_state, &uarta_read);
     if (ret == SBP_CRC_ERROR)
-      crc_errors++;
+      uart_state_msg.uarts[0].crc_error_count++;
   }
+
+  uart_state_msg.uarts[1].rx_buffer_level = MAX(uart_state_msg.uarts[1].rx_buffer_level,
+      (255 * usart_n_read_dma(&uartb_rx_state)) / USART_RX_BUFFER_LEN);
+
   while (usart_n_read_dma(&uartb_rx_state) > 0) {
     ret = sbp_process(&uartb_sbp_state, &uartb_read);
     if (ret == SBP_CRC_ERROR)
-      crc_errors++;
+      uart_state_msg.uarts[1].crc_error_count++;
   }
+
+  uart_state_msg.uarts[2].rx_buffer_level = MAX(uart_state_msg.uarts[2].rx_buffer_level,
+      (255 * usart_n_read_dma(&ftdi_rx_state)) / USART_RX_BUFFER_LEN);
+
   while (usart_n_read_dma(&ftdi_rx_state) > 0) {
     ret = sbp_process(&ftdi_sbp_state, &ftdi_read);
     if (ret == SBP_CRC_ERROR)
-      crc_errors++;
+      uart_state_msg.uarts[2].crc_error_count++;
   }
 }
 

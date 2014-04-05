@@ -22,7 +22,7 @@ import datetime
 import sbp_piksi as ids
 
 class SimpleAdapter(TabularAdapter):
-    columns = [('Name', 0), ('CPU %',  1)]
+    columns = [('Thread Name', 0), ('CPU %',  1)]
 
 class ThreadState:
   def from_binary(self, data):
@@ -39,9 +39,45 @@ class SystemMonitorView(HasTraits):
   _threads_table_list = List()
   threads = List()
 
+  uart_a_crc_error_count = Int(0)
+  uart_a_rx = Float(0)
+  uart_a_tx = Float(0)
+
+  uart_b_crc_error_count = Int(0)
+  uart_b_rx = Float(0)
+  uart_b_tx = Float(0)
+
+  ftdi_crc_error_count = Int(0)
+  ftdi_rx = Float(0)
+  ftdi_tx = Float(0)
+
   traits_view = View(
-    VGroup(
-      Item('_threads_table_list', style = 'readonly', editor = TabularEditor(adapter=SimpleAdapter()), show_label=False),
+    HSplit(
+      Item(
+        '_threads_table_list', style = 'readonly',
+        editor = TabularEditor(adapter=SimpleAdapter()),
+        show_label=False, width=0.8,
+      ),
+      VGroup(
+        VGroup(
+          Item('uart_a_crc_error_count', label='CRC Errors'),
+          Item('uart_a_tx', label='TX Buffer %', format_str='%.1f'),
+          Item('uart_a_rx', label='RX Buffer %', format_str='%.1f'),
+          label='UART A', show_border=True,
+        ),
+        VGroup(
+          Item('uart_b_crc_error_count', label='CRC Errors'),
+          Item('uart_b_tx', label='TX Buffer %', format_str='%.1f'),
+          Item('uart_b_rx', label='RX Buffer %', format_str='%.1f'),
+          label='UART B', show_border=True,
+        ),
+        VGroup(
+          Item('ftdi_crc_error_count', label='CRC Errors'),
+          Item('ftdi_tx', label='TX Buffer %', format_str='%.1f'),
+          Item('ftdi_rx', label='RX Buffer %', format_str='%.1f'),
+          label='USB UART', show_border=True,
+        ),
+      ),
     )
   )
 
@@ -57,12 +93,22 @@ class SystemMonitorView(HasTraits):
     th.from_binary(data)
     self.threads.append((th.name, th))
 
+  def uart_state_callback(self, data):
+    state = struct.unpack('<HBBHBBHBB', data)
+    self.uart_a_crc_error_count = state[0]
+    self.uart_a_tx, self.uart_a_rx = map(lambda x: 100.0 * x / 255.0, state[1:3])
+    self.uart_b_crc_error_count = state[3]
+    self.uart_b_tx, self.uart_b_rx = map(lambda x: 100.0 * x / 255.0, state[4:6])
+    self.ftdi_crc_error_count = state[6]
+    self.ftdi_tx, self.ftdi_rx = map(lambda x: 100.0 * x / 255.0, state[7:9])
+
   def __init__(self, link):
     super(SystemMonitorView, self).__init__()
 
     self.link = link
     self.link.add_callback(ids.HEARTBEAT, self.heartbeat_callback)
     self.link.add_callback(ids.THREAD_STATE, self.thread_state_callback)
+    self.link.add_callback(ids.UART_STATE, self.uart_state_callback)
 
     self.python_console_cmds = {
       'mon': self

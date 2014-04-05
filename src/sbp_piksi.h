@@ -96,6 +96,15 @@ typedef struct __attribute__((packed)) {
   u16 cpu;
 } msg_thread_state_t;
 
+#define MSG_UART_STATE            0x18  /**< Piksi  -> Host  */
+typedef struct __attribute__((packed)) {
+  struct __attribute__((packed)) {
+    u16 crc_error_count;
+    u8 tx_buffer_level;
+    u8 rx_buffer_level;
+  } uarts[3];
+} msg_uart_state_t;
+
 /** \} */
 
 /** \} */

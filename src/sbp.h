@@ -20,8 +20,6 @@
 #include "peripherals/usart.h"
 #include "sbp_piksi.h"
 
-extern u32 crc_errors;
-
 void sbp_setup(u8 use_settings, u16 sender_id);
 void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb, sbp_msg_callbacks_node_t *node);
 void sbp_disable(void);

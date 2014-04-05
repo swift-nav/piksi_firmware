@@ -54,6 +54,7 @@ static msg_t nap_error_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("system monitor");
+
   while (TRUE) {
     chThdSleepMilliseconds(500);
     DO_EVERY(2,

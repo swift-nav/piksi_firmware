@@ -30,20 +30,6 @@
 #define SYSTEM_CLOCK 130944000
 #endif
 
-static WORKING_AREA(wa_sbp_thread, 4096);
-static msg_t sbp_thread(void *arg)
-{
-  (void)arg;
-  chRegSetThreadName("SBP");
-  while (TRUE) {
-    led_toggle(LED_GREEN);
-    chThdSleepMilliseconds(50);
-    sbp_process_messages();
-  }
-
-  return 0;
-}
-
 /* TODO: Think about thread safety when updating ephemerides. */
 ephemeris_t es[32];
 ephemeris_t es_old[32];
@@ -140,8 +126,6 @@ int main(void)
 
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);
-  chThdCreateStatic(wa_sbp_thread, sizeof(wa_sbp_thread),
-                    HIGHPRIO-22, sbp_thread, NULL);
 
   while (1) {
     chThdSleepSeconds(60);
