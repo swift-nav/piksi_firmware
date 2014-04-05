@@ -70,10 +70,18 @@ extern ephemeris_t es[32];
 channel_measurement_t meas[MAX_SATS];
 navigation_measurement_t nav_meas[MAX_SATS];
 navigation_measurement_t nav_meas_old[MAX_SATS];
-u8 n_obs;
 
-void send_observations(u8 n, navigation_measurement_t *m)
+void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 {
+  static u8 obs_count = 0;
+  msg_obs_hdr_t obs_hdr = {
+    .t = *t,
+    .count = obs_count,
+    .n_obs = n
+  };
+  obs_count++;
+  sbp_send_msg(MSG_OBS_HDR, sizeof(obs_hdr), (u8 *)&obs_hdr);
+
   msg_obs_t obs;
   for (u8 i=0; i<n; i++) {
     obs.prn = m[i].prn;
@@ -115,7 +123,7 @@ static msg_t solution_thread(void *arg)
   chRegSetThreadName("solution");
 
   while (TRUE) {
-    /* Waiting for the IRQ to happen.*/
+    /* Waiting for the timer IRQ fire.*/
     chSysLock();
     tp = chThdSelf();
     chSchGoSleepS(THD_STATE_SUSPENDED);
@@ -153,43 +161,47 @@ static msg_t solution_thread(void *arg)
 
 #define SOLN_FREQ 2.0
 
-        double expected_tow = round(position_solution.time.tow*SOLN_FREQ) / SOLN_FREQ;
+        double expected_tow = round(position_solution.time.tow*SOLN_FREQ)
+                                / SOLN_FREQ;
         double t_err = expected_tow - position_solution.time.tow;
 
         for (u8 i=0; i<n_ready_tdcp; i++) {
           nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler * (GPS_C / GPS_L1_HZ);
           nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
-          if (fabs(t_err) > 0.01)
-            printf("dphase[%d] = %f * %f = %f\n", i, t_err, nav_meas_tdcp[i].doppler, t_err * nav_meas_tdcp[i].doppler);
         }
-        gps_time_t new_obs_time;
-        new_obs_time.wn = position_solution.time.wn;
-        new_obs_time.tow = expected_tow;
 
-        n_obs = n_ready_tdcp;
+        /* Only send observations that are closely aligned with the desired
+         * solution epochs to ensure they haven't been propagated too far. */
+        if (fabs(t_err) < 10e-3) {
+          gps_time_t new_obs_time;
+          new_obs_time.wn = position_solution.time.wn;
+          new_obs_time.tow = expected_tow;
+          /* Output obervations. */
+          send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
+        }
 
-        static u8 obs_count = 0;
-        msg_obs_hdr_t obs_hdr = { .t = new_obs_time, .count = obs_count, .n_obs = n_ready_tdcp };
-        sbp_send_msg(MSG_OBS_HDR, sizeof(obs_hdr), (u8 *)&obs_hdr);
-        send_observations(n_ready_tdcp, nav_meas_tdcp);
-        obs_count++;
-
-        double dt = expected_tow + (1/SOLN_FREQ) - position_solution.time.tow;
-
-        /* Limit dt to 2 seconds maximum to prevent hang if dt calculated incorrectly. */
-        if (dt > 2)
-          dt = 2;
-
-        timer_set_period(TIM5, round(65472000 * dt));
-
+        /* Output solution. */
         solution_send_sbp(&position_solution, &dops);
         solution_send_nmea(&position_solution, &dops, n_ready_tdcp, nav_meas_tdcp);
 
+        /* Calculate time till the next desired solution epoch. */
+        double dt = expected_tow + (1/SOLN_FREQ) - position_solution.time.tow;
+
+        /* Limit dt to 2 seconds maximum to prevent hang if dt calculated
+         * incorrectly. */
+        if (dt > 2)
+          dt = 2;
+
+        /* Reset timer period with the count that we will estimate will being
+         * us up to the next solution time. */
+        timer_set_period(TIM5, round(65472000 * dt));
       }
+
+      /* Store current observations for next time for
+       * TDCP Doppler caluclation. */
       memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
       n_ready_old = n_ready;
     }
-
   }
   return 0;
 }
