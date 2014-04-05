@@ -171,19 +171,22 @@ u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[])
   u16 ret = 0;
 
   if (use_usart(&settings.uarta_usart, msg_type))
-    ret |= sbp_send_message(&uarta_sbp_state, msg_type, my_sender_id, len, buff, &uarta_write);
+    ret |= sbp_send_message(&uarta_sbp_state, msg_type, my_sender_id,
+                            len, buff, &uarta_write);
 
   uart_state_msg.uarts[0].tx_buffer_level = MAX(uart_state_msg.uarts[0].tx_buffer_level,
       255 - (255 * usart_tx_n_free(&uarta_tx_state)) / (USART_TX_BUFFER_LEN-1));
 
   if (use_usart(&settings.uartb_usart, msg_type))
-    ret |= sbp_send_message(&uartb_sbp_state, msg_type, my_sender_id, len, buff, &uartb_write);
+    ret |= sbp_send_message(&uartb_sbp_state, msg_type, my_sender_id,
+                            len, buff, &uartb_write);
 
   uart_state_msg.uarts[1].tx_buffer_level = MAX(uart_state_msg.uarts[1].tx_buffer_level,
       255 - (255 * usart_tx_n_free(&uartb_tx_state)) / (USART_TX_BUFFER_LEN-1));
 
   if (use_usart(&settings.ftdi_usart, msg_type))
-    ret |= sbp_send_message(&ftdi_sbp_state, msg_type, my_sender_id, len, buff, &ftdi_write);
+    ret |= sbp_send_message(&ftdi_sbp_state, msg_type, my_sender_id,
+                            len, buff, &ftdi_write);
 
   uart_state_msg.uarts[2].tx_buffer_level = MAX(uart_state_msg.uarts[2].tx_buffer_level,
       255 - (255 * usart_tx_n_free(&ftdi_tx_state)) / (USART_TX_BUFFER_LEN-1));
