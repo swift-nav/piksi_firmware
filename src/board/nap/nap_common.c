@@ -271,6 +271,9 @@ void nap_timing_strobe(u32 falling_edge_count)
   temp[3] = (falling_edge_count >> 0) & 0xFF;
   nap_xfer_blocking(NAP_REG_TIMING_COMPARE, 4, temp, temp);
 
+  /* TODO: Check the value read from the latched count register to check that
+   * the timing strobe value requested really was in the future. */
+
   /* TODO: need to wait until the timing strobe has finished but also don't
    * want to spin in a busy loop. */
   while ((u32)nap_timing_count() < falling_edge_count) ;

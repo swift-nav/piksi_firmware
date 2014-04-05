@@ -71,21 +71,39 @@ typedef struct __attribute__((packed)) {
 } msg_obs_hdr_t;
 
 #define MSG_OBS                     0x41  /**< Piksi  -> Host  */
+#define MSG_NEW_OBS                 0x42  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
   double P;      /**< Pseudorange (m) */
   double L;      /**< Carrier-phase (cycles) */
-  float D;       /**< Doppler frequency (Hz) */
+  //float D;       /**< Doppler frequency (Hz) */
   float snr;     /**< Signal-to-Noise ratio */
-  u8 lock_count; /**< Number of epochs that phase lock has been maintained. */
-  u8 signal;     /**< Upper nibble: Satellite system designator,
-                      Lower nibble: Signal type designator.
-                      TODO: Add defs.*/
+  //u8 lock_count; /**< Number of epochs that phase lock has been maintained. */
+  //u8 signal;     /**< Upper nibble: Satellite system designator,
+  //                    Lower nibble: Signal type designator.
+  //                    TODO: Add defs.*/
   u8 prn;        /**< Satellite number. */
-  u8 flags;      /**< Observation flags. TODO: Add defs. */
-  u8 obs_n;      /**< Observation number in set. */
+  //u8 flags;      /**< Observation flags. TODO: Add defs. */
+  //u8 obs_n;      /**< Observation number in set. */
 } msg_obs_t;
 
-#define MSG_TRACKING_STATE          0x16  /**< Piksi  -> Host  */
+#define MSG_TRACKING_STATE        0x16  /**< Piksi  -> Host  */
+
+#define MSG_HEARTBEAT             0x01  /**< Piksi  -> Host  */
+
+#define MSG_THREAD_STATE          0x17  /**< Piksi  -> Host  */
+typedef struct __attribute__((packed)) {
+  char name[20];
+  u16 cpu;
+} msg_thread_state_t;
+
+#define MSG_UART_STATE            0x18  /**< Piksi  -> Host  */
+typedef struct __attribute__((packed)) {
+  struct __attribute__((packed)) {
+    u16 crc_error_count;
+    u8 tx_buffer_level;
+    u8 rx_buffer_level;
+  } uarts[3];
+} msg_uart_state_t;
 
 /** \} */
 

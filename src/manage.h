@@ -13,6 +13,7 @@
 #ifndef SWIFTNAV_MANAGE_H
 #define SWIFTNAV_MANAGE_H
 
+#include <ch.h>
 #include <libswiftnav/common.h>
 
 /** \addtogroup manage
@@ -26,11 +27,17 @@
 #define ACQ_FULL_CF_MIN  -8500
 #define ACQ_FULL_CF_MAX   8500
 #define ACQ_FULL_CF_STEP  400
-#define ACQ_FINE_CF_WIDTH 300
+#define ACQ_FINE_CF_WIDTH 500
 #define ACQ_FINE_CP_WIDTH 20
-#define ACQ_FINE_CF_STEP  100
+#define ACQ_FINE_CF_STEP  50
 
 #define MANAGE_NO_CHANNELS_FREE 255
+
+#define MANAGE_ACQ_THREAD_PRIORITY NORMALPRIO
+#define MANAGE_ACQ_THREAD_STACK    4096
+
+#define MANAGE_TRACK_THREAD_PRIORITY (NORMALPRIO-2)
+#define MANAGE_TRACK_THREAD_STACK    4096
 
 /** Acquisition management states. */
 typedef enum {
@@ -68,9 +75,12 @@ typedef struct __attribute__((packed)) {
 
 /** \} */
 
-void manage_acq_setup();
-void manage_acq();
+void manage_acq_setup(void);
+void manage_acq(void);
+
+void manage_track_setup(void);
 u8 manage_track_new_acq(float snr);
-void manage_track();
+void manage_track(void);
+s8 use_tracking_channel(u8 i);
 
 #endif

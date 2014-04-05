@@ -12,6 +12,9 @@
 
 #include <math.h>
 #include <stdio.h>
+
+#include <ch.h>
+
 #include <libopencm3/stm32/f4/gpio.h>
 
 #include "board/nap/acq_channel.h"
@@ -26,6 +29,9 @@
 
 acq_state_t acq_state;
 
+BinarySemaphore load_wait_sem;
+BinarySemaphore acq_wait_sem;
+
 /** Schedule a load of samples into the acquisition channel's sample ram.
  * The load starts at the end of the next timing strobe and continues until the
  * ram is full, at which time an interrupt is raised to the STM. This interrupt
@@ -37,6 +43,10 @@ acq_state_t acq_state;
  */
 void acq_schedule_load(u32 count)
 {
+  /* Initialise semaphore in the taken state, the calling thread can then wait
+   * for the load to complete by waiting on this semaphore. */
+  chBSemInit(&load_wait_sem, TRUE);
+
   acq_state.state = ACQ_LOADING;
   nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
@@ -50,6 +60,17 @@ void acq_service_load_done()
 {
   nap_acq_load_wr_disable_blocking();
   acq_state.state = ACQ_LOADING_DONE;
+
+  /* Release semaphore to signal to waiting thread that
+   * the load is complete. */
+  chBSemSignal(&load_wait_sem);
+}
+
+/** Pause thread until acquisition channel sample ram loading is complete.
+ */
+void acq_wait_load_done()
+{
+  chBSemWait(&load_wait_sem);
 }
 
 /** Query the state of the acquisition channel sample ram loading.
@@ -75,6 +96,10 @@ u8 acq_get_load_done()
  */
 void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width)
 {
+  /* Initialise semaphore in the taken state, the calling thread can then wait
+   * for the acq to complete by waiting on this semaphore. */
+  chBSemInit(&acq_wait_sem, TRUE);
+
   /* Calculate the range parameters in acq units. Explicitly expand
    * the range to the nearest multiple of the step size to make sure
    * we cover at least the specified range.
@@ -133,6 +158,10 @@ void acq_service_irq()
     case ACQ_RUNNING_FINISHING:
       nap_acq_init_wr_disable_blocking();
       acq_state.state = ACQ_RUNNING_DONE;
+
+      /* Release semaphore to signal to waiting thread that
+       * the acquisition is complete. */
+      chBSemSignal(&acq_wait_sem);
       break;
 
     case ACQ_RUNNING:
@@ -182,6 +211,13 @@ void acq_service_irq()
       }
       break;
   }
+}
+
+/** Pause thread until acquisition is complete.
+ */
+void acq_wait_done()
+{
+  chBSemWait(&acq_wait_sem);
 }
 
 /** Query if the acquisition search has finished.

@@ -128,7 +128,7 @@ void nap_cw_corr_unpack(u8 packed[], corr_t* corrs)
  */
 void nap_cw_corr_rd_blocking(corr_t* corrs)
 {
-  u8 temp[6]; /* 6 u8 = 48 bits = 2*(24 bits) */
+  u8 temp[6] = {0}; /* 6 u8 = 48 bits = 2*(24 bits) */
 
   nap_cw_corr_unpack(temp, corrs);
   nap_xfer_blocking(NAP_REG_CW_CORR, 6, temp, temp);

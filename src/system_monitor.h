@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 Swift Navigation Inc.
+ * Copyright (C) 2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -10,10 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_ERROR_H
-#define SWIFTNAV_ERROR_H
+#ifndef SWIFTNAV_SYSTEM_MONITOR_H
+#define SWIFTNAV_SYSTEM_MONITOR_H
 
-void screaming_death(const char *msg);
+#include <libswiftnav/common.h>
 
-#endif  /* SWIFTNAV_ERROR_H */
+void system_monitor_setup(void);
 
+#endif

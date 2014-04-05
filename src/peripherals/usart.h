@@ -15,11 +15,20 @@
 
 #include <libswiftnav/common.h>
 
+#define dma2_stream6_isr Vector154
+#define dma2_stream1_isr Vector124
+#define dma2_stream7_isr Vector158
+#define dma2_stream2_isr Vector128
+#define dma1_stream3_isr Vector78
+#define dma1_stream1_isr Vector70
+
 /** \addtogroup peripherals
  * \{ */
 
 /** \addtogroup usart
  * \{ */
+
+#define USART_DMA_ISR_PRIORITY 7
 
 #define USART_TX_BUFFER_LEN 4096
 #define USART_RX_BUFFER_LEN 4096
@@ -71,7 +80,7 @@ extern usart_tx_dma_state uartb_tx_state;
 extern usart_rx_dma_state uartb_rx_state;
 
 void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud);
-void usarts_disable();
+void usarts_disable(void);
 
 void usart_set_parameters(u32 usart, u32 baud);
 
