@@ -28,12 +28,14 @@ settings_t settings /*__attribute__ ((section(".settings_area"))) */=
     .message_mask = 0xFFFF,
   },
   .uarta_usart = {
-    .mode         = NMEA,
+    .mode         = SBP,
     .baud_rate    = USART_DEFAULT_BAUD_TTL,
+    .message_mask = 0x40,
   },
   .uartb_usart = {
-    .mode         = RTCM,
+    .mode         = SBP,
     .baud_rate    = USART_DEFAULT_BAUD_TTL,
+    .message_mask = 0xFF00
   },
 };
 
