@@ -545,6 +545,9 @@ extern u64 g_ctime;
 /* Port-specific settings (override port settings defaulted in chcore.h).    */
 /*===========================================================================*/
 
+/* Change vector table location for compatibility with the bootloader. */
+#define CORTEX_VTOR_INIT 0x08004000
+
 #endif  /* _CHCONF_H_ */
 
 /** @} */

@@ -30,7 +30,6 @@
 #define SYSTEM_CLOCK 130944000
 #endif
 
-
 static WORKING_AREA(wa_sbp_thread, 4096);
 static msg_t sbp_thread(void *arg)
 {
