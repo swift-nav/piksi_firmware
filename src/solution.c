@@ -150,10 +150,12 @@ static msg_t solution_thread(void *arg)
        */
       static u8 n_ready_old = 0;
       u64 nav_tc = nap_timing_count();
-      calc_navigation_measurement(n_ready, meas, nav_meas, (double)((u32)nav_tc)/SAMPLE_FREQ, es);
+      calc_navigation_measurement(n_ready, meas, nav_meas,
+                                  (double)((u32)nav_tc)/SAMPLE_FREQ, es);
 
       navigation_measurement_t nav_meas_tdcp[MAX_SATS];
-      u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old, nav_meas_old, nav_meas_tdcp);
+      u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
+                                     nav_meas_old, nav_meas_tdcp);
 
       dops_t dops;
       if (calc_PVT(n_ready_tdcp, nav_meas_tdcp, &position_solution, &dops) == 0) {
@@ -166,7 +168,8 @@ static msg_t solution_thread(void *arg)
         double t_err = expected_tow - position_solution.time.tow;
 
         for (u8 i=0; i<n_ready_tdcp; i++) {
-          nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler * (GPS_C / GPS_L1_HZ);
+          nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
+            (GPS_C / GPS_L1_HZ);
           nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
         }
 
