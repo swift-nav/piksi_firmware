@@ -55,7 +55,15 @@ dops_t simulation_dops = {
 };
 
 
-#define TWO_PI (M_PI*2.0)
+
+#define DEBUGGING 1
+#if DEBUGGING
+	#define Debug(fmt, args ...)  do {printf("%s:%d: " fmt "\n", __FUNCTION__, __LINE__, ## args); } while(0)
+#else
+	#define Debug(fmt, args ...)
+#endif
+
+#define Notify(fmt, args ...)  do {printf("Piksi: " fmt "\n", ## args); } while(0)
 
 /** Generates a sample from the normal distribution 
 * with given variance.
@@ -81,7 +89,7 @@ double rand_gaussian(const double variance)
   rand1 = rand() / ((double) RAND_MAX);
   if(rand1 < 1e-100) rand1 = 1e-100;
   rand1 = -2 * log(rand1);
-  rand2 = (rand() / ((double) RAND_MAX)) * TWO_PI;
+  rand2 = (rand() / ((double) RAND_MAX)) * (M_PI*2.0);
  
   return sqrt(variance * rand1) * cos(rand2);
 }
@@ -164,11 +172,17 @@ inline dops_t* simulation_current_dops_solution(void) {
 /** Changes simulation mode when an SBP callback triggers this function
 *
 */
-void set_simulation_toggle_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+void set_simulation_mode_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void) context;
   
-  simulation_mode = msg[0];
+  if (len == 0) {
+  	sbp_send_msg(MSG_SIMULATION_MODE, sizeof(simulation_mode_t), &simulation_mode);
+  } else if (len == 1) {
+  	  simulation_mode = msg[0];
+  } else {
+  	Notify("Received malformed simulation settings: Incorrect size.");
+  }
 
   if (simulation_mode > 0) {
     led_on(LED_RED);
@@ -176,7 +190,7 @@ void set_simulation_toggle_callback(u16 sender_id, u8 len, u8 msg[], void* conte
     led_off(LED_RED);
   }
   
-  printf("Simulation Mode: %d\n", simulation_mode);
+  Notify("Simulation Mode: %d", simulation_mode);
 
 }
 
@@ -185,12 +199,25 @@ void set_simulation_toggle_callback(u16 sender_id, u8 len, u8 msg[], void* conte
 */
 void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len; (void) context;
-  
-  simulation_settings.speed = *(float*)msg;
-  
-  printf("Got new simulation settings\n");
+  (void)sender_id; (void) context;
 
+  if (len == 0) {
+	  
+	  Notify("Sending current settings.");
+	  sbp_send_msg(MSG_SIMULATION_SETTINGS, sizeof(simulation_settings), (u8 *) &simulation_settings);
+
+  } else if (len == sizeof(simulation_settings)) {
+
+	  simulation_settings.speed = *(float*)msg;
+	  memcpy((uint8_t*)&simulation_settings, msg, len);
+	  Notify("Got new simulation settings.");
+
+  } else {
+
+  	Notify("Received malformed simulation settings: Incorrect size.");
+  
+  }
+  
 }
 /** Must be called from main() or equivalent function before simulator runs
 *
@@ -198,11 +225,11 @@ void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* con
 void simulator_setup(void) {
 
   //Setting up callback to listen for simulation being enabled or settings changed.
-  static sbp_msg_callbacks_node_t set_simulation_toggle_node;
+  static sbp_msg_callbacks_node_t set_simulation_mode_node;
   sbp_register_cbk(
-    MSG_SIMULATION_TOGGLE,
-    &set_simulation_toggle_callback,
-    &set_simulation_toggle_node
+    MSG_SIMULATION_MODE,
+    &set_simulation_mode_callback,
+    &set_simulation_mode_node
   );
 
   static sbp_msg_callbacks_node_t set_simulation_settings_node;
