@@ -61,12 +61,14 @@ class ObservationView(HasTraits):
   )
 
   traits_view = View(
-    VGroup(
-      Item('_obs_table_list', style = 'readonly', editor = TabularEditor(adapter=SimpleAdapter()), show_label=False),
-      HGroup(
-        Item('record_button', show_label=False),
-      )
-    )
+  	HSplit(
+	    VGroup(
+	      Item('_obs_table_list', style = 'readonly', editor = TabularEditor(adapter=SimpleAdapter()), show_label=False),
+	      HGroup(
+	        Item('record_button', show_label=False),
+	      )
+	    )
+  	),
   )
 
 
