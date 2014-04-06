@@ -43,7 +43,7 @@ class SimulationSettings(HasTraits):
 			self.speed_variance = 0.0
 			self.starting_week_number = 0.0
 			self.num_sats = 0.0
-			self.mode = 0
+			self.enabled = 0
 
 	def from_binary(self, d):
 		(
@@ -56,7 +56,7 @@ class SimulationSettings(HasTraits):
 			self.speed_variance,
 			self.starting_week_number,
 			self.num_sats,
-			self.mode,
+			self.enabled,
 		) = struct.unpack('<dddffffHBB', d)
 
 	def to_binary(self):
@@ -70,12 +70,12 @@ class SimulationSettings(HasTraits):
 			self.speed_variance,
 			self.starting_week_number,
 			self.num_sats,
-			self.mode,
+			self.enabled,
 		)
 	
 	def to_list(self):
 		l = [];
-		l.append(['Simulation Mode', self.mode])
+		l.append(['Simulation Enabled', self.enabled])
 		l.append(['Speed (m/s)', self.speed])
 		l.append(['Circle Radius (m)', self.radius])
 		l.append(['Position Variance (m^2)', self.pos_variance])
@@ -88,7 +88,7 @@ class SimulationSettings(HasTraits):
 		return l
 
 	def from_list(self, l):
-		self.mode = int(l[0][1]) % 256
+		self.enabled = int(l[0][1]) % 256
 		self.speed = float(l[1][1])
 		self.radius = float(l[2][1])
 		self.pos_variance = float(l[3][1])
@@ -101,7 +101,7 @@ class SimulationSettings(HasTraits):
 
 	def __str__(self):
 		return "%d %f %f %f %f %f %f %f %d %d" % (
-			self.mode,
+			self.enabled,
 			self.speed,
 			self.radius,
 			self.pos_variance,
@@ -142,12 +142,12 @@ class SimulatorView(HasTraits):
 	def _simulator_enable_button_fired(self):
 		print "Requesting piksi to enter simulation mode"
 		data = struct.pack("<B", 1)
-		self.link.send_message(ids.SIMULATION_MODE, data)
+		self.link.send_message(ids.SIMULATION_ENABLED, data)
 
 	def _simulator_disable_button_fired(self):
 		print "Requesting piksi to enter simulation mode"
 		data = struct.pack("<B", 0)
-		self.link.send_message(ids.SIMULATION_MODE, data)
+		self.link.send_message(ids.SIMULATION_ENABLED, data)
 
 	def _simulator_get_settings_button_fired(self):
 		print "Requesting simulation settings..."
@@ -164,7 +164,7 @@ class SimulatorView(HasTraits):
 		simulation_settings = SimulationSettings(d=data)
 		self.settings_table = simulation_settings.to_list()
 
-	def simulation_mode_message_callback(self, data):
+	def simulation_enabled_message_callback(self, data):
 		self.link.send_message(ids.SIMULATION_SETTINGS, '');
     
 	def __init__(self, link):
@@ -172,10 +172,10 @@ class SimulatorView(HasTraits):
 
 		self.link = link
 		self.link.add_callback(ids.SIMULATION_SETTINGS, self.simulation_settings_message_callback)
-		self.link.add_callback(ids.SIMULATION_MODE, self.simulation_mode_message_callback)
+		self.link.add_callback(ids.SIMULATION_ENABLED, self.simulation_enabled_message_callback)
 
 		#On startup, we request the current simulation mode and settings
-		self.link.send_message(ids.SIMULATION_MODE, '');
+		self.link.send_message(ids.SIMULATION_ENABLED, '');
 		self.link.send_message(ids.SIMULATION_SETTINGS, '');
 
 		self.python_console_cmds = {

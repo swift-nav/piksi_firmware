@@ -293,7 +293,7 @@ static msg_t solution_thread(void *arg)
     }
 
     //Here we do all the nice simulation-related stuff.
-    if (simulation_enabled_for(SIM_PVT)) {
+    if (simulation_enabled()) {
 
       //Set the timer period appropriately
       timer_set_period(TIM5, round(65472000 * (1.0/SOLN_FREQ)));
