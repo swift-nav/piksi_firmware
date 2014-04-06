@@ -54,6 +54,7 @@ from solution_view import SolutionView
 from baseline_view import BaselineView
 from observation_view import ObservationView
 from system_monitor_view import SystemMonitorView
+from simulator_view import SimulatorView
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -67,6 +68,7 @@ class SwiftConsole(HasTraits):
   baseline_view = Instance(BaselineView)
   observation_view = Instance(ObservationView)
   system_monitor_view = Instance(SystemMonitorView)
+  simulator_view = Instance(SimulatorView)
 
   view = View(
     VSplit(
@@ -77,6 +79,7 @@ class SwiftConsole(HasTraits):
         Item('baseline_view', style='custom', label='Baseline'),
         Item('observation_view', style='custom', label='Observations'),
         Item('system_monitor_view', style='custom', label='System Monitor'),
+        Item('simulator_view', style='custom', label='Simulator'),
         Item(
           'python_console_env', style='custom',
           label='Python Console', editor=ShellEditor()
@@ -90,25 +93,12 @@ class SwiftConsole(HasTraits):
         height=0.3,
         show_label=False,
       ),
-      Item('simulator_toggle_button', show_label=False, height=20),
     ),
     resizable = True,
     width = 1000,
     height = 800,
     title = 'Piksi console'
   )
-
-  simulation_mode = False;
-  simulator_toggle_button = Button(label='Toggle hardware\'s simulation mode')
-
-  def _simulator_toggle_button_fired(self):
-    self.simulation_mode = not(self.simulation_mode)
-    if (self.simulation_mode):
-      print "Requesting piksi to enter simulation mode"
-    else:
-      print "Requesting piksi to exit simulation mode"
-    data = struct.pack("<?", self.simulation_mode)
-    self.link.send_message(0x94, data)
 
   def print_message_callback(self, data):
     try:
@@ -135,6 +125,7 @@ class SwiftConsole(HasTraits):
     self.baseline_view = BaselineView(self.link)
     self.observation_view = ObservationView(self.link)
     self.system_monitor_view = SystemMonitorView(self.link)
+    self.simulator_view = SimulatorView(self.link)
 
     self.python_console_env = {
         'send_message': self.link.send_message,

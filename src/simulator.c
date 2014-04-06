@@ -26,16 +26,15 @@
 /** \simulator 
  * \{ */
 
-simulation_mode_t simulation_mode = SIM_DISABLED;
-
 simulation_settings_t simulation_settings = {
+  .center_ecef = {-2700303.10144031,-4292474.39651309,3855434.34087421},
   .speed = 4.0,
   .radius = 100.0,
   .pos_variance = 2.0,
-  .speed_variance = 0.01,
-  .center_ecef = {-2700303.10144031,-4292474.39651309,3855434.34087421},
+  .speed_variance = 0.02,
   .starting_week_number = 1768,
-  .num_sats = 9
+  .num_sats = 9,
+  .mode = SIM_DISABLED,
 };
 
 simulation_state_t simulation_state = {
@@ -147,9 +146,9 @@ void simulation_step(void)
 *
 */
 
-bool simulation_enabled() 
+bool simulation_enabled(void) 
 {
-	return (simulation_mode > SIM_DISABLED);
+	return (simulation_settings.mode > SIM_DISABLED);
 }
 
 /** Returns true if at least this level of the simulation is enabled
@@ -157,9 +156,18 @@ bool simulation_enabled()
 */
 bool simulation_enabled_for(simulation_mode_t mode) 
 {
-	return (simulation_mode >= mode);
+	return (simulation_settings.mode >= mode);
 }
 
+void sbp_send_simulation_mode(void) 
+{
+  sbp_send_msg(MSG_SIMULATION_MODE, sizeof(simulation_mode_t), &simulation_settings.mode);
+}
+
+void sbp_send_simulation_settings(void) 
+{
+    sbp_send_msg(MSG_SIMULATION_SETTINGS, sizeof(simulation_settings), (u8 *) &simulation_settings);
+}
 
 inline gnss_solution* simulation_current_gnss_solution(void) {
 	return &simulation_solution;
@@ -175,22 +183,18 @@ inline dops_t* simulation_current_dops_solution(void) {
 void set_simulation_mode_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void) context;
-  
-  if (len == 0) {
-  	sbp_send_msg(MSG_SIMULATION_MODE, sizeof(simulation_mode_t), &simulation_mode);
-  } else if (len == 1) {
-  	  simulation_mode = msg[0];
-  } else {
-  	Notify("Received malformed simulation settings: Incorrect size.");
+  if (len == 1) {
+  	simulation_settings.mode = msg[0];
   }
 
-  if (simulation_mode > 0) {
+  if (simulation_settings.mode > 0) {
     led_on(LED_RED);
   } else {
     led_off(LED_RED);
   }
-  
-  Notify("Simulation Mode: %d", simulation_mode);
+
+  sbp_send_simulation_mode();
+  Notify("Simulation Mode: %d", simulation_settings.mode);
 
 }
 
@@ -200,17 +204,15 @@ void set_simulation_mode_callback(u16 sender_id, u8 len, u8 msg[], void* context
 void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void) context;
-
   if (len == 0) {
 	  
-	  Notify("Sending current settings.");
-	  sbp_send_msg(MSG_SIMULATION_SETTINGS, sizeof(simulation_settings), (u8 *) &simulation_settings);
+	  Notify("Sending current simulation settings.");
+    sbp_send_simulation_settings();
 
   } else if (len == sizeof(simulation_settings)) {
 
-	  simulation_settings.speed = *(float*)msg;
 	  memcpy((uint8_t*)&simulation_settings, msg, len);
-	  Notify("Got new simulation settings.");
+	  Notify("Received new simulation settings.");
 
   } else {
 
@@ -242,6 +244,8 @@ void simulator_setup(void) {
   simulation_solution.time.wn = simulation_settings.starting_week_number;
   simulation_solution.time.tow = 0;
   simulation_solution.n_used = simulation_settings.num_sats;
+
+  sbp_send_simulation_settings();
 
 }
 

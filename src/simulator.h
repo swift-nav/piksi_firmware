@@ -27,21 +27,26 @@
  * \{ */
 
 /* Levels of simulation supported */
-typedef enum {
+enum simulation_mode_t {
 	SIM_DISABLED = 0,
 	SIM_PVT,
 	SIM_PVT_AND_BASELINE
-} simulation_mode_t;
+};
 
-/* User-configurable GPS Simulator Settings */
-typedef struct {
-  float      speed;                //speed (variance of velocity) in meters per second
-  float      radius;               //radius of circle in meters
-  float      pos_variance;         //in meters squared
-  float      speed_variance;       //variance in speed (magnitude of velocity) in meters squared
-  double     center_ecef[3];       //centerpoint that defines simulation absolute location
-  u16        starting_week_number; //time start point
-  u8         num_sats;             //number of simulated satellites to report
+typedef uint8_t simulation_mode_t; //Force uint8_t size for simulation_mode
+
+/* User-configurable GPS Simulator Settings 
+ * WARNING: THIS STRUCT IS PACKED! CAREFUL MEMORY ALIGNMENT!
+*/
+typedef struct __attribute__((packed)) { 
+  double            center_ecef[3];       //centerpoint that defines simulation absolute location
+  float             speed;                //speed (variance of velocity) in meters per second
+  float             radius;               //radius of circle in meters
+  float             pos_variance;         //in meters squared
+  float             speed_variance;       //variance in speed (magnitude of velocity) in meters squared
+  u16               starting_week_number; //time start point
+  u8                num_sats;             //number of simulated satellites to report
+  simulation_mode_t mode;                 //Current mode of simulation
 } simulation_settings_t;
 
 /* Internal Simulation State */
@@ -59,6 +64,10 @@ double rand_gaussian(const double variance);
 void simulation_step(void);
 bool simulation_enabled();
 bool simulation_enabled_for(simulation_mode_t mode);
+
+//Sending simulation settings to the outside world
+void sbp_send_simulation_mode(void);
+void sbp_send_simulation_settings(void);
 
 //Getting data from the simulation
 gnss_solution* simulation_current_gnss_solution(void);
