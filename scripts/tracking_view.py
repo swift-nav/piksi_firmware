@@ -10,7 +10,7 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 from traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int
-from traitsui.api import Item, View, HGroup, ArrayEditor
+from traitsui.api import Item, View, HGroup, ArrayEditor, HSplit
 
 from chaco.api import BarPlot, ArrayDataSource, DataRange1D, LinearMapper, OverlayPlotContainer, LabelAxis, PlotAxis, ArrayPlotData, Plot, Legend
 from chaco.tools.api import LegendTool
@@ -64,7 +64,7 @@ class TrackingView(HasTraits):
   plot_data = Instance(ArrayPlotData)
 
   traits_view = View(
-    HGroup(
+    HSplit(
       Item(
         'plot',
         editor = ComponentEditor(bgcolor = (0.8, 0.8, 0.8)),

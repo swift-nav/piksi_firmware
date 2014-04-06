@@ -31,6 +31,7 @@
 #include "sbp.h"
 #include "solution.h"
 #include "manage.h"
+#include "simulator.h"
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -208,7 +209,11 @@ static msg_t solution_thread(void *arg)
     chSchGoSleepS(THD_STATE_SUSPENDED);
     chSysUnlock();
 
-    led_toggle(LED_RED);
+    if (simulation_enabled()) {
+      led_on(LED_RED);
+    } else {
+      led_toggle(LED_RED);      
+    }
 
     u8 n_ready = 0;
     for (u8 i=0; i<nap_track_n_channels; i++) {
@@ -262,9 +267,11 @@ static msg_t solution_thread(void *arg)
           send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
         }
 
-        /* Output solution. */
-        solution_send_sbp(&position_solution, &dops);
-        solution_send_nmea(&position_solution, &dops, n_ready_tdcp, nav_meas_tdcp);
+        if (!simulation_enabled()) {
+          /* Output solution. */
+          solution_send_sbp(&position_solution, &dops);
+          solution_send_nmea(&position_solution, &dops, n_ready_tdcp, nav_meas_tdcp);
+        }
 
         /* Calculate time till the next desired solution epoch. */
         double dt = expected_tow + (1/SOLN_FREQ) - position_solution.time.tow;
@@ -283,6 +290,19 @@ static msg_t solution_thread(void *arg)
        * TDCP Doppler caluclation. */
       memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
       n_ready_old = n_ready;
+    }
+
+    //Here we do all the nice simulation-related stuff.
+    if (simulation_enabled_for(SIM_PVT)) {
+
+      //Set the timer period appropriately
+      timer_set_period(TIM5, round(65472000 * (1.0/SOLN_FREQ)));
+
+      simulation_step();
+
+      //Then we send fake messages
+      solution_send_sbp(simulation_current_gnss_solution(), simulation_current_dops_solution());
+
     }
   }
   return 0;

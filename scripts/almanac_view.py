@@ -9,7 +9,7 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 from traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, Button, Int
-from traitsui.api import Item, View
+from traitsui.api import Item, View, HSplit, VSplit, VGroup
 
 import threading
 import time
@@ -28,11 +28,13 @@ class AlmanacView(HasTraits):
   alm_txt = Str
 
   traits_view = View(
-    Item('alm_txt', label='PRNs visible'),
-    Item('download_almanac'),
-    Item('load_almanac'),
-    Item('send_alm'),
-    Item('send_time')
+  	VGroup(
+	    Item('alm_txt', label='PRNs visible'),
+	    Item('download_almanac'),
+	    Item('load_almanac'),
+	    Item('send_alm'),
+	    Item('send_time')
+  	)
   )
 
   def _send_time_fired(self):
