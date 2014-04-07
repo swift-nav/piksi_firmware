@@ -62,6 +62,7 @@ bool simulation_enabled();
 //Internals of the simulator
 void simulation_step_position_in_circle(double);
 void simulation_step_tracking(double);
+void simulation_step_observations(double);
 
 //Sending simulation settings to the outside world
 void sbp_send_simulation_mode(void);
@@ -73,6 +74,7 @@ dops_t* simulation_current_dops_solution(void);
 double* simulation_ref_ecef(void);
 double* simulation_baseline_ecef(void);
 tracking_state_msg_t simulator_get_tracking_state(u8 channel);
+navigation_measurement_t* simulator_get_navigation_measurements(void);
 
 //Initialization:
 void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context);

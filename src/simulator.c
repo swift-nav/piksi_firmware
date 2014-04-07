@@ -17,10 +17,12 @@
 
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/track.h>
 #include <ch.h>
 #include <track.h>
 
 #include "simulator.h"
+#include "solution.h"
 #include "sbp_piksi.h"
 #include "board/leds.h"
 #include "sbp.h"
@@ -59,6 +61,8 @@ dops_t simulation_dops = {
 double baseline_ecef[3] = {0.0,0.0,0.0};
 
 tracking_state_msg_t simulation_tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
+
+navigation_measurement_t simulation_nav_meas[MAX_SATS];
 
 #define DEBUGGING 1
 #if DEBUGGING
@@ -135,6 +139,8 @@ void simulation_step(void)
 
   simulation_step_position_in_circle(elapsed_seconds);
   simulation_step_tracking(elapsed_seconds);
+  simulation_step_observations(elapsed_seconds);
+
 }
 
 void simulation_step_position_in_circle(double elapsed_seconds) 
@@ -179,11 +185,23 @@ void simulation_step_tracking(double elapsed_seconds)
   (void)elapsed_seconds;
   for (u8 i=0; i<NAP_MAX_N_TRACK_CHANNELS; i++) {
     simulation_tracking_channel[i].state = TRACKING_RUNNING;
-    simulation_tracking_channel[i].prn = i;
+    simulation_tracking_channel[i].prn = 255 - i;
     simulation_tracking_channel[i].cn0 = i + 4 + rand_gaussian(simulation_settings.tracking_cn0_variance);
   }
 
 }
+
+void simulation_step_observations(double elapsed_seconds)
+{
+  (void)elapsed_seconds;
+  for (u8 i=0; i<MAX_SATS; i++) {
+    simulation_nav_meas[i].prn = 255 - i;
+    simulation_nav_meas[i].raw_pseudorange = 200000 - 10*i;
+    simulation_nav_meas[i].carrier_phase = i;
+    simulation_nav_meas[i].snr = i + 4 + rand_gaussian(simulation_settings.tracking_cn0_variance);
+  }
+}
+
 
 /** Returns true if the simulation is at all enabled
 *
@@ -243,6 +261,12 @@ tracking_state_msg_t simulator_get_tracking_state(u8 channel)
   }
   return simulation_tracking_channel[channel];
 }
+
+navigation_measurement_t* simulator_get_navigation_measurements(void)
+{
+  return simulation_nav_meas;
+}
+
 
 /** Changes simulation mode when an SBP callback triggers this function
 *

@@ -96,9 +96,6 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
   }
 }
 
-#define MAX_SATS 14
-#define MAX_CHANNELS 14
-
 extern ephemeris_t es[32];
 channel_measurement_t meas[MAX_SATS];
 navigation_measurement_t nav_meas[MAX_SATS];
@@ -302,10 +299,15 @@ static msg_t solution_thread(void *arg)
 
       //Then we send fake messages
       solution_send_sbp(simulation_current_gnss_solution(), simulation_current_dops_solution());
+      
       solution_send_baseline(&simulation_current_gnss_solution()->time,
         simulation_current_gnss_solution()->n_used, 
         simulation_baseline_ecef(),
         simulation_ref_ecef());
+
+      send_observations(simulation_current_gnss_solution()->n_used,
+        &simulation_current_gnss_solution()->time, 
+        simulator_get_navigation_measurements());
 
     }
   }
