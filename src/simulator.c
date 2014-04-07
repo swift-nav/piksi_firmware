@@ -58,7 +58,7 @@ dops_t simulation_dops = {
   .vdop = 1.5,
 };
 
-double baseline_ecef[3] = {0.0,0.0,0.0};
+double simulation_baseline_ecef_value[3] = {0.0,0.0,0.0};
 
 tracking_state_msg_t simulation_tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
 
@@ -161,7 +161,7 @@ void simulation_step_position_in_circle(double elapsed_seconds)
   wgsned2ecef_d(pos_ned, simulation_settings.center_ecef, simulation_solution.pos_ecef);
 
   //Calculate an accurate baseline for simulating RTK
-  vector_subtract(3, simulation_solution.pos_ecef, simulation_settings.center_ecef, baseline_ecef);
+  vector_subtract(3, simulation_solution.pos_ecef, simulation_settings.center_ecef, simulation_baseline_ecef_value);
 
   // //Add gaussian noise to PVT position
   simulation_solution.pos_ecef[0] += rand_gaussian(simulation_settings.pos_variance);
@@ -251,7 +251,7 @@ inline double* simulation_ref_ecef(void)
 */
 inline double* simulation_baseline_ecef(void) 
 {
-  return baseline_ecef;
+  return simulation_baseline_ecef_value;
 }
 
 tracking_state_msg_t simulator_get_tracking_state(u8 channel)
