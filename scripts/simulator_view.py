@@ -136,7 +136,7 @@ class SimulatorView(HasTraits):
 		self.link.send_message(ids.SIMULATION_ENABLED, data)
 
 	def _simulator_disable_button_fired(self):
-		print "Requesting piksi to enter simulation mode"
+		print "Requesting piksi to exit simulation mode"
 		data = struct.pack("<B", 0)
 		self.link.send_message(ids.SIMULATION_ENABLED, data)
 
