@@ -58,6 +58,8 @@
 #define MSG_SIMULATION_MODE         0x94  /**< Host  <-> Piksi */
 #define MSG_SIMULATION_SETTINGS     0x93  /**< Host  <-> Piksi */
 
+#define MSG_SETTINGS                0xA0  /**< Host  <-> Piksi */
+
 #define MSG_BASELINE                0x23  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
   double ned[3]; /**< Baseline in local North, East, Down frame (m). */

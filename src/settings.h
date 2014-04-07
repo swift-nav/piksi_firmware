@@ -45,5 +45,41 @@ typedef struct {
 
 extern settings_t settings;
 
+enum setting_types {
+  TYPE_INT,
+  TYPE_FLOAT,
+  TYPE_STRING,
+};
+
+struct setting_type {
+  int (*to_string)(void *priv, char *str, int slen, const void *blob, int blen);
+  bool (*from_string)(void *priv, void *blob, int len, const char *str);
+  void *priv;
+  struct setting_type *next;
+};
+
+struct setting {
+  const char *section;
+  const char *name;
+  void *addr;
+  int len;
+  bool (*notify)(struct setting *setting, const char *val);
+  struct setting *next;
+  const struct setting_type *type;
+};
+
+#define SETTING_NOTIFY(section, name, var, type, notify) do {         \
+  static struct setting setting = \
+    {(section), (name), &(var), sizeof(var), (notify), NULL, NULL}; \
+  settings_register(&(setting), (type)); \
+} while(0)
+
+#define SETTING(section, name, var, type) \
+  SETTING_NOTIFY(section, name, var, type, settings_default_notify)
+
+void settings_setup(void);
+void settings_register(struct setting *s, enum setting_types type);
+bool settings_default_notify(struct setting *setting, const char *val);
+
 #endif  /* SWIFTNAV_SETTINGS_H */
 
