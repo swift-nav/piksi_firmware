@@ -76,7 +76,9 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
       .x = (s32)round(1e3 * b_ecef[0]),
       .y = (s32)round(1e3 * b_ecef[1]),
       .z = (s32)round(1e3 * b_ecef[2]),
+      .accuracy = 0,
       .n_sats = n_sats,
+      .flags = 0
     };
     sbp_send_msg(SBP_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
   }
@@ -90,7 +92,10 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
       .n = (s32)round(1e3 * b_ned[0]),
       .e = (s32)round(1e3 * b_ned[1]),
       .d = (s32)round(1e3 * b_ned[2]),
+      .h_accuracy = 0,
+      .v_accuracy = 0,
       .n_sats = n_sats,
+      .flags = 0
     };
     sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
   }
