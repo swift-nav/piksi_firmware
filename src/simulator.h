@@ -27,21 +27,21 @@
  *   Currently only supports single-point-position messages.
  * \{ */
 
-typedef uint8_t simulation_mode_t; //Force uint8_t size for simulation_mode
+typedef uint8_t simulation_mode_t; /* Force uint8_t size for simulation_mode */
 
 /* User-configurable GPS Simulator Settings 
  * WARNING: THIS STRUCT IS PACKED! CAREFUL MEMORY ALIGNMENT!
 */
 typedef struct __attribute__((packed)) { 
-  double            center_ecef[3];       //centerpoint that defines simulation absolute location
-  float             speed;                //speed (variance of velocity) in meters per second
-  float             radius;               //radius of circle in meters
-  float             pos_variance;         //in meters squared
-  float             speed_variance;       //variance in speed (magnitude of velocity) in meters squared
-  float             tracking_cn0_variance;//variance in signal-to-noise ratio of tracking channels
-  u16               starting_week_number; //time start point
-  u8                num_sats;             //number of simulated satellites to report
-  u8                enabled;              //Current mode of simulation
+  double            center_ecef[3];        /**< centerpoint that defines simulation absolute location */
+  float             speed;                 /**< speed (variance of velocity) in meters per second */
+  float             radius;                /**< radius of circle in meters */
+  float             pos_variance;          /**< in meters squared */
+  float             speed_variance;        /**< variance in speed (magnitude of velocity) in meters squared */
+  float             tracking_cn0_variance; /**< variance in signal-to-noise ratio of tracking channels */
+  u16               starting_week_number;  /**< time start point */
+  u8                num_sats;              /**< number of simulated satellites to report */
+  u8                enabled;               /**< Current mode of simulation */
 } simulation_settings_t;
 
 /* Internal Simulation State */

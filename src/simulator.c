@@ -66,9 +66,9 @@ navigation_measurement_t simulation_nav_meas[MAX_SATS];
 
 #define DEBUGGING 1
 #if DEBUGGING
-	#define Debug(fmt, args ...)  do {printf("%s:%d: " fmt "\n", __FUNCTION__, __LINE__, ## args); } while(0)
+  #define Debug(fmt, args ...)  do {printf("%s:%d: " fmt "\n", __FUNCTION__, __LINE__, ## args); } while(0)
 #else
-	#define Debug(fmt, args ...)
+  #define Debug(fmt, args ...)
 #endif
 
 #define Notify(fmt, args ...)  do {printf("Piksi: " fmt "\n", ## args); } while(0)
@@ -209,7 +209,7 @@ void simulation_step_observations(double elapsed_seconds)
 
 bool simulation_enabled(void) 
 {
-	return (simulation_settings.enabled > 0);
+  return (simulation_settings.enabled > 0);
 }
 
 void sbp_send_simulation_enabled(void) 
@@ -227,7 +227,7 @@ void sbp_send_simulation_settings(void)
 */
 inline gnss_solution* simulation_current_gnss_solution(void) 
 {
-	return &simulation_solution;
+  return &simulation_solution;
 }
 
 /** Get current simulated DOPS.
@@ -235,7 +235,7 @@ inline gnss_solution* simulation_current_gnss_solution(void)
 */
 inline dops_t* simulation_current_dops_solution(void) 
 {
-	return &simulation_dops;
+  return &simulation_dops;
 }
 
 /** Get current simulated baseline reference point.
@@ -275,7 +275,7 @@ void set_simulation_enabled_callback(u16 sender_id, u8 len, u8 msg[], void* cont
 {
   (void)sender_id; (void)len; (void) context;
   if (len == 1) {
-  	simulation_settings.enabled = (msg[0] != 0);
+    simulation_settings.enabled = (msg[0] != 0);
   }
 
   if (simulation_settings.enabled) {
@@ -317,9 +317,9 @@ void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* con
 /** Must be called from main() or equivalent function before simulator runs
 *
 */
-void simulator_setup(void) {
+void simulator_setup(void) 
+{
 
-  //Setting up callback to listen for simulation being enabled or settings changed.
   static sbp_msg_callbacks_node_t set_simulation_enabled_node;
   sbp_register_cbk(
     MSG_SIMULATION_ENABLED,
