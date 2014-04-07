@@ -126,7 +126,11 @@ class BaselineView(HasTraits):
     self.plot_data.set_data('d', [])
     self.plot_data.set_data('t', [])
 
-  def _baseline_callback(self, data):
+  def _baseline_callback_ecef(self, data):
+    #Don't do anything for ECEF currently
+    return
+
+  def _baseline_callback_ned(self, data):
     # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
     # actually perform the update in the UI thread.
     if self.running:
@@ -143,9 +147,6 @@ class BaselineView(HasTraits):
 
     dist = np.sqrt(soln.n**2 + soln.e**2 + soln.d**2)
 
-    if dist > 200:
-      return
-
     table = []
 
     table.append(('N', soln.n))
@@ -153,7 +154,7 @@ class BaselineView(HasTraits):
     table.append(('D', soln.d))
     table.append(('Dist.', dist))
     table.append(('Num. Sats.', soln.n_sats))
-    table.append(('Flags', '0x' + hex(soln.flags)))
+    table.append(('Flags', hex(soln.flags)))
 
     self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow * 1e3, soln.n, soln.e, soln.d, soln.n_sats))
     self.log_file.flush()
@@ -214,7 +215,8 @@ class BaselineView(HasTraits):
     self.plot.overlays.append(zt)
 
     self.link = link
-    self.link.add_callback(sbp_messages.SBP_BASELINE_NED, self._baseline_callback)
+    self.link.add_callback(sbp_messages.SBP_BASELINE_NED, self._baseline_callback_ned)
+    self.link.add_callback(sbp_messages.SBP_BASELINE_ECEF, self._baseline_callback_ecef)
 
     self.python_console_cmds = {
       'baseline': self
