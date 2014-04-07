@@ -88,7 +88,7 @@ class SimulationSettings(HasTraits):
 		l.append(['Centerpoint Coordinate Y (ECEF)', self.center_ecef_y])
 		l.append(['Centerpoint Coordinate Z (ECEF)', self.center_ecef_z])
 		l.append(['Simulated GPS Week Number', self.starting_week_number])
-		l.append(['Simulated Number of Sate', self.num_sats])
+		l.append(['Simulated Number of Sats', self.num_sats])
 		return l
 
 	def from_list(self, l):
