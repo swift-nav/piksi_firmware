@@ -41,6 +41,7 @@ class SimulationSettings(HasTraits):
 			self.radius = 0.0
 			self.pos_variance = 0.0
 			self.speed_variance = 0.0
+			self.tracking_cn0_variance = 0.0
 			self.starting_week_number = 0.0
 			self.num_sats = 0.0
 			self.enabled = 0
@@ -54,13 +55,14 @@ class SimulationSettings(HasTraits):
 			self.radius,
 			self.pos_variance,
 			self.speed_variance,
+			self.tracking_cn0_variance,
 			self.starting_week_number,
 			self.num_sats,
 			self.enabled,
-		) = struct.unpack('<dddffffHBB', d)
+		) = struct.unpack('<dddfffffHBB', d)
 
 	def to_binary(self):
-		return struct.pack('<dddffffHBB',
+		return struct.pack('<dddfffffHBB',
 			self.center_ecef_x,
 			self.center_ecef_y,
 			self.center_ecef_z,
@@ -68,6 +70,7 @@ class SimulationSettings(HasTraits):
 			self.radius,
 			self.pos_variance,
 			self.speed_variance,
+			self.tracking_cn0_variance,
 			self.starting_week_number,
 			self.num_sats,
 			self.enabled,
@@ -80,6 +83,7 @@ class SimulationSettings(HasTraits):
 		l.append(['Circle Radius (m)', self.radius])
 		l.append(['Position Variance (m^2)', self.pos_variance])
 		l.append(['Speed Variance (m^2)', self.speed_variance])
+		l.append(['Tracking CN0 Variance (m^2)', self.tracking_cn0_variance])
 		l.append(['Centerpoint Coordinate X (ECEF)', self.center_ecef_x])
 		l.append(['Centerpoint Coordinate Y (ECEF)', self.center_ecef_y])
 		l.append(['Centerpoint Coordinate Z (ECEF)', self.center_ecef_z])
@@ -93,25 +97,12 @@ class SimulationSettings(HasTraits):
 		self.radius = float(l[2][1])
 		self.pos_variance = float(l[3][1])
 		self.speed_variance = float(l[4][1])
-		self.center_ecef_x = float(l[5][1])
-		self.center_ecef_y = float(l[6][1])
-		self.center_ecef_z = float(l[7][1])
-		self.starting_week_number = int(l[8][1])
-		self.num_sats = int(l[9][1])
-
-	def __str__(self):
-		return "%d %f %f %f %f %f %f %f %d %d" % (
-			self.enabled,
-			self.speed,
-			self.radius,
-			self.pos_variance,
-			self.speed_variance,
-			self.center_ecef_x,
-			self.center_ecef_y,
-			self.center_ecef_z,
-			self.starting_week_number,
-			self.num_sats
-		)
+		self.tracking_cn0_variance = float(l[5][1])
+		self.center_ecef_x = float(l[6][1])
+		self.center_ecef_y = float(l[7][1])
+		self.center_ecef_z = float(l[8][1])
+		self.starting_week_number = int(l[9][1])
+		self.num_sats = int(l[10][1])
 
 
 class SimpleAdapter(TabularAdapter):

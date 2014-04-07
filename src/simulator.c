@@ -18,6 +18,7 @@
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
 #include <ch.h>
+#include <track.h>
 
 #include "simulator.h"
 #include "sbp_piksi.h"
@@ -33,6 +34,7 @@ simulation_settings_t simulation_settings = {
   .radius = 100.0,
   .pos_variance = 2.0,
   .speed_variance = 0.02,
+  .tracking_cn0_variance = 0.1,
   .starting_week_number = 1768,
   .num_sats = 9,
   .enabled = 0,
@@ -55,6 +57,8 @@ dops_t simulation_dops = {
 };
 
 double baseline_ecef[3] = {0.0,0.0,0.0};
+
+tracking_state_msg_t simulation_tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
 
 #define DEBUGGING 1
 #if DEBUGGING
@@ -129,6 +133,12 @@ void simulation_step(void)
   //Update the time
   simulation_solution.time.tow += 1000.0*elapsed_seconds;
 
+  simulation_step_position_in_circle(elapsed_seconds);
+  simulation_step_tracking(elapsed_seconds);
+}
+
+void simulation_step_position_in_circle(double elapsed_seconds) 
+{
   //Update the angle, making a small angle approximation.
   simulation_state.current_angle_rad += (simulation_settings.speed * elapsed_seconds) / simulation_settings.radius;
   if (simulation_state.current_angle_rad > 2*M_PI) {
@@ -162,6 +172,16 @@ void simulation_step(void)
   simulation_solution.vel_ned[2] = 0.0;
 
   wgsned2ecef(simulation_solution.vel_ned, simulation_solution.pos_ecef, simulation_solution.vel_ecef);
+}
+
+void simulation_step_tracking(double elapsed_seconds)
+{
+  (void)elapsed_seconds;
+  for (u8 i=0; i<NAP_MAX_N_TRACK_CHANNELS; i++) {
+    simulation_tracking_channel[i].state = TRACKING_RUNNING;
+    simulation_tracking_channel[i].prn = i;
+    simulation_tracking_channel[i].cn0 = i + 4 + rand_gaussian(simulation_settings.tracking_cn0_variance);
+  }
 
 }
 
@@ -181,7 +201,7 @@ void sbp_send_simulation_enabled(void)
 
 void sbp_send_simulation_settings(void) 
 {
-    sbp_send_msg(MSG_SIMULATION_SETTINGS, sizeof(simulation_settings), (u8 *) &simulation_settings);
+  sbp_send_msg(MSG_SIMULATION_SETTINGS, sizeof(simulation_settings), (u8 *) &simulation_settings);
 }
 
 /** Get current simulated PVT solution
@@ -216,6 +236,14 @@ inline double* simulation_baseline_ecef(void)
   return baseline_ecef;
 }
 
+tracking_state_msg_t simulator_get_tracking_state(u8 channel)
+{
+  if (channel >= NAP_MAX_N_TRACK_CHANNELS) {
+    channel = NAP_MAX_N_TRACK_CHANNELS - 1;
+  }
+  return simulation_tracking_channel[channel];
+}
+
 /** Changes simulation mode when an SBP callback triggers this function
 *
 */
@@ -244,18 +272,20 @@ void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* con
 {
   (void)sender_id; (void) context;
   if (len == 0) {
-	  
-	  Notify("Sending current simulation settings.");
+    
+    Notify("Sending current simulation settings.");
     sbp_send_simulation_settings();
 
   } else if (len == sizeof(simulation_settings)) {
 
-	  memcpy((uint8_t*)&simulation_settings, msg, len);
-	  Notify("Received new simulation settings.");
+    memcpy((uint8_t*)&simulation_settings, msg, len);
+    //Clip values appropriately
+    simulation_settings.num_sats = simulation_settings.num_sats;
+    Notify("Received new simulation settings.");
 
   } else {
 
-  	Notify("Received malformed simulation settings: Incorrect size.");
+    Notify("Received malformed simulation settings: Incorrect size.");
   
   }
   

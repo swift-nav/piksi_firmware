@@ -20,7 +20,8 @@
 #include "board/nap/track_channel.h"
 #include "sbp.h"
 #include "track.h"
-
+#include "simulator.h"
+ 
 #include <libswiftnav/constants.h>
 
 /** \defgroup tracking Tracking
@@ -298,16 +299,30 @@ float tracking_channel_snr(u8 channel)
  */
 void tracking_send_state()
 {
+
   tracking_state_msg_t states[nap_track_n_channels];
-  for (u8 i=0; i<nap_track_n_channels; i++) {
-    states[i].state = tracking_channel[i].state;
-    states[i].prn = tracking_channel[i].prn;
-    if (tracking_channel[i].state == TRACKING_RUNNING)
-      states[i].cn0 = tracking_channel_snr(i);
-    else
-      states[i].cn0 = -1;
+
+  if (simulation_enabled()) {
+  
+    for (u8 i=0; i<nap_track_n_channels; i++) {
+      states[i] = simulator_get_tracking_state(i);
+    }
+  
+  } else {
+    
+    for (u8 i=0; i<nap_track_n_channels; i++) {
+      states[i].state = tracking_channel[i].state;
+      states[i].prn = tracking_channel[i].prn;
+      if (tracking_channel[i].state == TRACKING_RUNNING)
+        states[i].cn0 = tracking_channel_snr(i);
+      else
+        states[i].cn0 = -1;
+    }
+
   }
+
   sbp_send_msg(MSG_TRACKING_STATE, sizeof(states), (u8*)states);
+
 }
 
 /** \} */

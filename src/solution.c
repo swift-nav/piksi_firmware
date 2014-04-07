@@ -245,7 +245,7 @@ static msg_t solution_thread(void *arg)
       if (calc_PVT(n_ready_tdcp, nav_meas_tdcp, &position_solution, &dops) == 0) {
         position_updated();
 
-#define SOLN_FREQ 2.0
+#define SOLN_FREQ 5.0
 
         double expected_tow = round(position_solution.time.tow*SOLN_FREQ)
                                 / SOLN_FREQ;
@@ -302,6 +302,10 @@ static msg_t solution_thread(void *arg)
 
       //Then we send fake messages
       solution_send_sbp(simulation_current_gnss_solution(), simulation_current_dops_solution());
+      solution_send_baseline(&simulation_current_gnss_solution()->time,
+        simulation_current_gnss_solution()->n_used, 
+        simulation_baseline_ecef(),
+        simulation_ref_ecef());
 
     }
   }

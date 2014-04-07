@@ -15,6 +15,7 @@
 
 #include <libswiftnav/common.h>
 #include <libswiftnav/pvt.h>
+#include "track.h"
 
 /** \addtogroup simulator
  * \{ */
@@ -37,6 +38,7 @@ typedef struct __attribute__((packed)) {
   float             radius;               //radius of circle in meters
   float             pos_variance;         //in meters squared
   float             speed_variance;       //variance in speed (magnitude of velocity) in meters squared
+  float             tracking_cn0_variance;//variance in signal-to-noise ratio of tracking channels
   u16               starting_week_number; //time start point
   u8                num_sats;             //number of simulated satellites to report
   u8                enabled;              //Current mode of simulation
@@ -57,6 +59,10 @@ double rand_gaussian(const double variance);
 void simulation_step(void);
 bool simulation_enabled();
 
+//Internals of the simulator
+void simulation_step_position_in_circle(double);
+void simulation_step_tracking(double);
+
 //Sending simulation settings to the outside world
 void sbp_send_simulation_mode(void);
 void sbp_send_simulation_settings(void);
@@ -66,6 +72,8 @@ gnss_solution* simulation_current_gnss_solution(void);
 dops_t* simulation_current_dops_solution(void);
 double* simulation_ref_ecef(void);
 double* simulation_baseline_ecef(void);
+tracking_state_msg_t simulator_get_tracking_state(u8 channel);
+
 //Initialization:
 void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context);
 void simulator_setup(void);
