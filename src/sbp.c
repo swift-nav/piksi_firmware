@@ -163,27 +163,37 @@ u32 ftdi_write(u8 *buff, u32 n, void *context)
  */
 u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[])
 {
+  return sbp_send_msg_(msg_type, len, buff, my_sender_id);
+}
+
+u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
+{
   /* Global interrupt disable to avoid concurrency/reentrancy problems. */
   __asm__("CPSID i;");
 
   u16 ret = 0;
 
-  if (use_usart(&settings.uarta_usart, msg_type))
-    ret |= sbp_send_message(&uarta_sbp_state, msg_type, my_sender_id,
-                            len, buff, &uarta_write);
+  /* Only send relayed messages (sender_id 0) on the FTDI UART. */
+  if (sender_id != 0) {
 
-  uart_state_msg.uarts[0].tx_buffer_level = MAX(uart_state_msg.uarts[0].tx_buffer_level,
-      255 - (255 * usart_tx_n_free(&uarta_tx_state)) / (USART_TX_BUFFER_LEN-1));
+    if (use_usart(&settings.uarta_usart, msg_type))
+      ret |= sbp_send_message(&uarta_sbp_state, msg_type, sender_id,
+                              len, buff, &uarta_write);
 
-  if (use_usart(&settings.uartb_usart, msg_type))
-    ret |= sbp_send_message(&uartb_sbp_state, msg_type, my_sender_id,
-                            len, buff, &uartb_write);
+    uart_state_msg.uarts[0].tx_buffer_level = MAX(uart_state_msg.uarts[0].tx_buffer_level,
+        255 - (255 * usart_tx_n_free(&uarta_tx_state)) / (USART_TX_BUFFER_LEN-1));
 
-  uart_state_msg.uarts[1].tx_buffer_level = MAX(uart_state_msg.uarts[1].tx_buffer_level,
-      255 - (255 * usart_tx_n_free(&uartb_tx_state)) / (USART_TX_BUFFER_LEN-1));
+    if (use_usart(&settings.uartb_usart, msg_type))
+      ret |= sbp_send_message(&uartb_sbp_state, msg_type, sender_id,
+                              len, buff, &uartb_write);
+
+    uart_state_msg.uarts[1].tx_buffer_level = MAX(uart_state_msg.uarts[1].tx_buffer_level,
+        255 - (255 * usart_tx_n_free(&uartb_tx_state)) / (USART_TX_BUFFER_LEN-1));
+
+  }
 
   if (use_usart(&settings.ftdi_usart, msg_type))
-    ret |= sbp_send_message(&ftdi_sbp_state, msg_type, my_sender_id,
+    ret |= sbp_send_message(&ftdi_sbp_state, msg_type, sender_id,
                             len, buff, &ftdi_write);
 
   uart_state_msg.uarts[2].tx_buffer_level = MAX(uart_state_msg.uarts[2].tx_buffer_level,
