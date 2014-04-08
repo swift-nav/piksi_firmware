@@ -192,7 +192,9 @@ void tim5_isr()
   CH_IRQ_EPILOGUE();
 }
 
-static WORKING_AREA(wa_solution_thread, 8000);
+#define SOLN_FREQ 5.0
+
+static WORKING_AREA_CCM(wa_solution_thread, 8000);
 static msg_t solution_thread(void *arg)
 {
   (void)arg;

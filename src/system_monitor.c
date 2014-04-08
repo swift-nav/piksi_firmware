@@ -43,7 +43,7 @@ void send_thread_states()
   g_ctime = 0;
 }
 
-static WORKING_AREA(wa_nap_error_thread, 4096);
+static WORKING_AREA_CCM(wa_nap_error_thread, 4096);
 static msg_t nap_error_thread(void *arg)
 {
   (void)arg;

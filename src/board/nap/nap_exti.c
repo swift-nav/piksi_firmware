@@ -33,7 +33,7 @@
  *        if an exti has occurred, maybe we should change to u64? */
 u32 nap_exti_count;
 
-static WORKING_AREA(wa_nap_exti, 8000);
+static WORKING_AREA_CCM(wa_nap_exti, 8000);
 static msg_t nap_exti_thread(void *arg);
 
 /** Set up NAP GPIO interrupt.

@@ -48,7 +48,7 @@ sbp_state_t uarta_sbp_state;
 sbp_state_t uartb_sbp_state;
 sbp_state_t ftdi_sbp_state;
 
-static WORKING_AREA(wa_sbp_thread, 4096);
+static WORKING_AREA_CCM(wa_sbp_thread, 4096);
 static msg_t sbp_thread(void *arg)
 {
   (void)arg;

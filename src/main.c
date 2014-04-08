@@ -34,7 +34,13 @@
 ephemeris_t es[32];
 ephemeris_t es_old[32];
 
-static WORKING_AREA(wa_nav_msg_thread, 4096);
+/* Required by exit() which is called from BLAS/LAPACK. */
+void _fini(void)
+{
+  return;
+}
+
+static WORKING_AREA_CCM(wa_nav_msg_thread, 4096);
 static msg_t nav_msg_thread(void *arg)
 {
   (void)arg;

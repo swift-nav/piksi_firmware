@@ -26,8 +26,8 @@ __process_stack_size__  = 0x1000;
 
 MEMORY
 {
-    flash : org = 0x08004000, len = 368K
-    coffee_fs_rom : org = 0x08060000, len = 640K
+    flash : org = 0x08004000, len = 496K
+    coffee_fs_rom : org = 0x08080000, len = 512K
     ram : org = 0x20000000, len = 112k
     ethram : org = 0x2001C000, len = 16k
     ccmram : org = 0x10000000, len = 64k
@@ -97,7 +97,7 @@ SECTIONS
     {
         *(.eh_frame)
     } > flash
-    
+
     .textalign : ONLY_IF_RO
     {
         . = ALIGN(8);
@@ -119,6 +119,12 @@ SECTIONS
         . = ALIGN(8);
         __main_stack_end__ = ORIGIN(ccmram) + LENGTH(ccmram);
         __main_stack_base__ = __main_stack_end__ - __main_stack_size__;
+    } > ccmram
+
+    .ccmram : {
+      _settings_area = .;
+      *(.ccmram*)
+      _esettings_area = .;
     } > ccmram
 
     .data :
@@ -145,7 +151,7 @@ SECTIONS
         *(COMMON)
         . = ALIGN(4);
         PROVIDE(_bss_end = .);
-    } > ram    
+    } > ram
 }
 
 PROVIDE(_coffee_fs_area = ORIGIN(coffee_fs_rom));
