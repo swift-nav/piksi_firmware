@@ -95,13 +95,10 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
   }
 }
 
-#define MAX_SATS 14
-#define MAX_CHANNELS 14
-
-extern ephemeris_t es[32];
-channel_measurement_t meas[MAX_SATS];
-navigation_measurement_t nav_meas[MAX_SATS];
-navigation_measurement_t nav_meas_old[MAX_SATS];
+extern ephemeris_t es[MAX_SATS];
+channel_measurement_t meas[MAX_CHANNELS];
+navigation_measurement_t nav_meas[MAX_CHANNELS];
+navigation_measurement_t nav_meas_old[MAX_CHANNELS];
 
 navigation_measurement_t nav_meas_base[MAX_CHANNELS];
 u8 n_base;
@@ -232,7 +229,7 @@ static msg_t solution_thread(void *arg)
       calc_navigation_measurement(n_ready, meas, nav_meas,
                                   (double)((u32)nav_tc)/SAMPLE_FREQ, es);
 
-      navigation_measurement_t nav_meas_tdcp[MAX_SATS];
+      navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
       u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
                                      nav_meas_old, nav_meas_tdcp);
 
