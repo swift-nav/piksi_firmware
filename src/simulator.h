@@ -39,15 +39,27 @@ typedef struct __attribute__((packed)) {
   float             pos_variance;          /**< in meters squared */
   float             speed_variance;        /**< variance in speed (magnitude of velocity) in meters squared */
   float             tracking_cn0_variance; /**< variance in signal-to-noise ratio of tracking channels */
-  u16               starting_week_number;  /**< time start point */
   u8                num_sats;              /**< number of simulated satellites to report */
   u8                enabled;               /**< Current mode of simulation */
 } simulation_settings_t;
 
 /* Internal Simulation State */
 typedef struct {
-  u32     last_update_ticks;
-  float   current_angle_rad;
+  u32            last_update_ticks;
+  float          current_angle_rad;
+  double         true_pos_ecef[3];
+  double         true_baseline_ecef[3];
+
+  //Accessing the simulator_data.c almanacs:
+  u8             num_sats_selected;
+  u8             selected_sat_indices[NAP_MAX_N_TRACK_CHANNELS];
+
+  //Simulated solutions
+  tracking_state_msg_t      tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
+  navigation_measurement_t  nav_meas[NAP_MAX_N_TRACK_CHANNELS];
+  dops_t                    dops;
+  gnss_solution             noisy_solution;
+
 } simulation_state_t;
 
 /** \} */
@@ -61,8 +73,7 @@ bool simulation_enabled();
 
 //Internals of the simulator
 void simulation_step_position_in_circle(double);
-void simulation_step_tracking(double);
-void simulation_step_observations(double);
+void simulation_step_tracking_and_observations(double);
 
 //Sending simulation settings to the outside world
 void sbp_send_simulation_mode(void);
@@ -78,6 +89,7 @@ navigation_measurement_t* simulator_get_navigation_measurements(void);
 
 //Initialization:
 void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context);
+void simulator_setup_almanacs(void);
 void simulator_setup(void);
 
 

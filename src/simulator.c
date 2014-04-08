@@ -18,6 +18,7 @@
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
 #include <libswiftnav/track.h>
+#include <libswiftnav/almanac.h>
 #include <ch.h>
 #include <track.h>
 
@@ -26,6 +27,8 @@
 #include "sbp_piksi.h"
 #include "board/leds.h"
 #include "sbp.h"
+
+#include "simulator_data.h"
 
 /** \simulator 
  * \{ */
@@ -37,32 +40,33 @@ simulation_settings_t simulation_settings = {
   .pos_variance = 2.0,
   .speed_variance = 0.02,
   .tracking_cn0_variance = 0.1,
-  .starting_week_number = 1768,
   .num_sats = 9,
   .enabled = 0,
 };
 
 simulation_state_t simulation_state = {
     .last_update_ticks = 0,
-    .current_angle_rad = 0.0
+    .current_angle_rad = 0.0,
+    .true_pos_ecef = {0.0, 0.0, 0.0},
+    .true_baseline_ecef = {0.0,0.0,0.0},
+
+    .num_sats_selected = 0,
+
+    .dops = {
+      .pdop = 1.9,
+      .gdop = 1.8,
+      .tdop = 1.7,
+      .hdop = 1.6,
+      .vdop = 1.5,
+    },
+
 };
 
-gnss_solution simulation_solution; //No initialization required
 
-//Fill out fake dops
-dops_t simulation_dops = {
-  .pdop = 1.9,
-  .gdop = 1.8,
-  .tdop = 1.7,
-  .hdop = 1.6,
-  .vdop = 1.5,
-};
 
-double simulation_baseline_ecef_value[3] = {0.0,0.0,0.0};
-
-tracking_state_msg_t simulation_tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
-
-navigation_measurement_t simulation_nav_meas[MAX_SATS];
+u8 selected_sats[NAP_MAX_N_TRACK_CHANNELS];
+double simulation_observed_code[NAP_MAX_N_TRACK_CHANNELS];
+double simulation_observed_carrier[NAP_MAX_N_TRACK_CHANNELS];
 
 #define DEBUGGING 1
 #if DEBUGGING
@@ -104,7 +108,7 @@ double rand_gaussian(const double variance)
 
 
 /** Performs a timestep of the simulation that flies in a circle around a point.
-* Updates the simulation_state and simulation_solution structs.
+* Updates the simulation_state and simulation_state.noisy_solution structs.
 *
 * This simulator models a system moving in a perfect circle. We use this fact to
 * write a simple but smart numerically stable simulator.
@@ -135,11 +139,10 @@ void simulation_step(void)
   simulation_state.last_update_ticks = now_ticks;
 
   //Update the time
-  simulation_solution.time.tow += 1000.0*elapsed_seconds;
+  simulation_state.noisy_solution.time.tow += elapsed_seconds;
 
   simulation_step_position_in_circle(elapsed_seconds);
-  simulation_step_tracking(elapsed_seconds);
-  simulation_step_observations(elapsed_seconds);
+  simulation_step_tracking_and_observations(elapsed_seconds);
 
 }
 
@@ -158,48 +161,73 @@ void simulation_step_position_in_circle(double elapsed_seconds)
   };
 
   //Fill out position simulation's gnss_solution pos_ECEF, pos_LLH structures
-  wgsned2ecef_d(pos_ned, simulation_settings.center_ecef, simulation_solution.pos_ecef);
+  wgsned2ecef_d(pos_ned, simulation_settings.center_ecef, simulation_state.true_pos_ecef);
 
   //Calculate an accurate baseline for simulating RTK
-  vector_subtract(3, simulation_solution.pos_ecef, simulation_settings.center_ecef, simulation_baseline_ecef_value);
+  vector_subtract(3, simulation_state.true_pos_ecef, simulation_settings.center_ecef, simulation_state.true_baseline_ecef);
 
   // //Add gaussian noise to PVT position
-  simulation_solution.pos_ecef[0] += rand_gaussian(simulation_settings.pos_variance);
-  simulation_solution.pos_ecef[1] += rand_gaussian(simulation_settings.pos_variance);
-  simulation_solution.pos_ecef[2] += rand_gaussian(simulation_settings.pos_variance);
+  simulation_state.noisy_solution.pos_ecef[0] = simulation_state.true_pos_ecef[0] + rand_gaussian(simulation_settings.pos_variance);
+  simulation_state.noisy_solution.pos_ecef[1] = simulation_state.true_pos_ecef[1] + rand_gaussian(simulation_settings.pos_variance);
+  simulation_state.noisy_solution.pos_ecef[2] = simulation_state.true_pos_ecef[2] + rand_gaussian(simulation_settings.pos_variance);
   
-  wgsecef2llh(simulation_solution.pos_ecef, simulation_solution.pos_llh);
+  wgsecef2llh(simulation_state.noisy_solution.pos_ecef, simulation_state.noisy_solution.pos_llh);
 
   //Calculate Velocity vector tangent to the sphere
   double noisy_speed = simulation_settings.speed + rand_gaussian(simulation_settings.speed_variance);
 
-  simulation_solution.vel_ned[0] = noisy_speed * cos(simulation_state.current_angle_rad);
-  simulation_solution.vel_ned[1] = noisy_speed * -1.0 * sin(simulation_state.current_angle_rad);
-  simulation_solution.vel_ned[2] = 0.0;
+  simulation_state.noisy_solution.vel_ned[0] = noisy_speed * cos(simulation_state.current_angle_rad);
+  simulation_state.noisy_solution.vel_ned[1] = noisy_speed * -1.0 * sin(simulation_state.current_angle_rad);
+  simulation_state.noisy_solution.vel_ned[2] = 0.0;
 
-  wgsned2ecef(simulation_solution.vel_ned, simulation_solution.pos_ecef, simulation_solution.vel_ecef);
+  wgsned2ecef(simulation_state.noisy_solution.vel_ned, simulation_state.noisy_solution.pos_ecef, simulation_state.noisy_solution.vel_ecef);
 }
 
-void simulation_step_tracking(double elapsed_seconds)
+void simulation_step_tracking_and_observations(double elapsed_seconds)
 {
   (void)elapsed_seconds;
-  for (u8 i=0; i<NAP_MAX_N_TRACK_CHANNELS; i++) {
-    simulation_tracking_channel[i].state = TRACKING_RUNNING;
-    simulation_tracking_channel[i].prn = 255 - i;
-    simulation_tracking_channel[i].cn0 = i + 4 + rand_gaussian(simulation_settings.tracking_cn0_variance);
+
+
+  u8 week = -1; //TODO: calc week from day
+  double t = simulation_state.noisy_solution.time.tow; //TODO: correct?
+
+  //First we calculate all the current sat positions, velocities
+  for (u8 i=0; i<simulation_num_almanacs; i++) {
+    calc_sat_state_almanac(&simulation_almanacs[i], t, week, 
+      simulation_sats_pos[i], simulation_sats_vel[i]);
   }
 
-}
 
-void simulation_step_observations(double elapsed_seconds)
-{
-  (void)elapsed_seconds;
-  for (u8 i=0; i<MAX_SATS; i++) {
-    simulation_nav_meas[i].prn = 255 - i;
-    simulation_nav_meas[i].raw_pseudorange = 200000 - 10*i;
-    simulation_nav_meas[i].carrier_phase = i;
-    simulation_nav_meas[i].snr = i + 4 + rand_gaussian(simulation_settings.tracking_cn0_variance);
+  //Calculate which sats are visible and select simulation_settings.num_sats of them
+  //fill in selected_sats array
+  u8 num_sats_selected = 0;
+  double az, el;
+  for (u8 i=0; i<simulation_num_almanacs; i++) {
+    calc_sat_az_el_almanac(&simulation_almanacs[i], t, week,
+                            simulation_state.true_pos_ecef, &az, &el);
+
+    if (el > 0 && 
+        num_sats_selected < simulation_settings.num_sats &&
+        num_sats_selected < NAP_MAX_N_TRACK_CHANNELS) {      
+      selected_sats[num_sats_selected] = i;
+
+      //Generate a code measurement which is just the pseudorange:
+      
+      simulation_state.nav_meas[num_sats_selected].prn = simulation_almanacs[i].prn;
+      simulation_state.nav_meas[num_sats_selected].raw_pseudorange = 200000 - 10*i;
+      simulation_state.nav_meas[num_sats_selected].carrier_phase = i;
+      simulation_state.nav_meas[num_sats_selected].snr = i + 4 + rand_gaussian(simulation_settings.tracking_cn0_variance);      
+
+      //As for tracking, we just set each sat consecutively in each channel.
+      //This will cause weird jumps when a satellite sets.
+      simulation_state.tracking_channel[num_sats_selected].state = TRACKING_RUNNING;
+      simulation_state.tracking_channel[num_sats_selected].prn = simulation_almanacs[i].prn;
+      simulation_state.tracking_channel[num_sats_selected].cn0 = i + 4 + rand_gaussian(simulation_settings.tracking_cn0_variance);
+
+      num_sats_selected++;
+    }
   }
+  
 }
 
 
@@ -227,7 +255,7 @@ void sbp_send_simulation_settings(void)
 */
 inline gnss_solution* simulation_current_gnss_solution(void) 
 {
-  return &simulation_solution;
+  return &simulation_state.noisy_solution;
 }
 
 /** Get current simulated DOPS.
@@ -235,7 +263,7 @@ inline gnss_solution* simulation_current_gnss_solution(void)
 */
 inline dops_t* simulation_current_dops_solution(void) 
 {
-  return &simulation_dops;
+  return &simulation_state.dops;
 }
 
 /** Get current simulated baseline reference point.
@@ -251,7 +279,7 @@ inline double* simulation_ref_ecef(void)
 */
 inline double* simulation_baseline_ecef(void) 
 {
-  return simulation_baseline_ecef_value;
+  return simulation_state.true_baseline_ecef;
 }
 
 tracking_state_msg_t simulator_get_tracking_state(u8 channel)
@@ -259,12 +287,12 @@ tracking_state_msg_t simulator_get_tracking_state(u8 channel)
   if (channel >= NAP_MAX_N_TRACK_CHANNELS) {
     channel = NAP_MAX_N_TRACK_CHANNELS - 1;
   }
-  return simulation_tracking_channel[channel];
+  return simulation_state.tracking_channel[channel];
 }
 
 navigation_measurement_t* simulator_get_navigation_measurements(void)
 {
-  return simulation_nav_meas;
+  return simulation_state.nav_meas;
 }
 
 
@@ -314,6 +342,15 @@ void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* con
   }
   
 }
+
+void simulator_setup_almanacs(void)
+{
+
+  u8 num_sats = simulation_num_almanacs;
+
+  //Do any setup we need for the satellite almanacs
+
+}
 /** Must be called from main() or equivalent function before simulator runs
 *
 */
@@ -334,10 +371,12 @@ void simulator_setup(void)
     &set_simulation_settings_node
   );
   
-  simulation_solution.time.wn = simulation_settings.starting_week_number;
-  simulation_solution.time.tow = 0;
-  simulation_solution.n_used = simulation_settings.num_sats;
+  simulation_state.noisy_solution.time.wn = simulation_week_number;
+  simulation_state.noisy_solution.time.tow = 0;
+  simulation_state.noisy_solution.n_used = simulation_settings.num_sats;
 
+  simulator_setup_almanacs();
+  
   sbp_send_simulation_settings();
 
 }

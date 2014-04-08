@@ -42,7 +42,6 @@ class SimulationSettings(HasTraits):
       self.pos_variance = 0.0
       self.speed_variance = 0.0
       self.tracking_cn0_variance = 0.0
-      self.starting_week_number = 0.0
       self.num_sats = 0.0
       self.enabled = 0
 
@@ -56,13 +55,12 @@ class SimulationSettings(HasTraits):
       self.pos_variance,
       self.speed_variance,
       self.tracking_cn0_variance,
-      self.starting_week_number,
       self.num_sats,
       self.enabled,
-    ) = struct.unpack('<dddfffffHBB', d)
+    ) = struct.unpack('<dddfffffBB', d)
 
   def to_binary(self):
-    return struct.pack('<dddfffffHBB',
+    return struct.pack('<dddfffffBB',
       self.center_ecef_x,
       self.center_ecef_y,
       self.center_ecef_z,
@@ -71,7 +69,6 @@ class SimulationSettings(HasTraits):
       self.pos_variance,
       self.speed_variance,
       self.tracking_cn0_variance,
-      self.starting_week_number,
       self.num_sats,
       self.enabled,
     )
@@ -87,7 +84,6 @@ class SimulationSettings(HasTraits):
     l.append(['Centerpoint Coordinate X (ECEF)', self.center_ecef_x])
     l.append(['Centerpoint Coordinate Y (ECEF)', self.center_ecef_y])
     l.append(['Centerpoint Coordinate Z (ECEF)', self.center_ecef_z])
-    l.append(['Simulated GPS Week Number', self.starting_week_number])
     l.append(['Simulated Number of Sats', self.num_sats])
     return l
 
@@ -101,8 +97,7 @@ class SimulationSettings(HasTraits):
     self.center_ecef_x = float(l[6][1])
     self.center_ecef_y = float(l[7][1])
     self.center_ecef_z = float(l[8][1])
-    self.starting_week_number = int(l[9][1])
-    self.num_sats = int(l[10][1])
+    self.num_sats = int(l[9][1])
 
 
 class SimpleAdapter(TabularAdapter):
