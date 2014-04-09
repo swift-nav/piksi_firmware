@@ -55,6 +55,7 @@ from baseline_view import BaselineView
 from observation_view import ObservationView
 from system_monitor_view import SystemMonitorView
 from simulator_view import SimulatorView
+from settings_view import SettingsView
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -69,6 +70,7 @@ class SwiftConsole(HasTraits):
   observation_view = Instance(ObservationView)
   system_monitor_view = Instance(SystemMonitorView)
   simulator_view = Instance(SimulatorView)
+  settings_view = Instance(SettingsView)
 
   view = View(
     VSplit(
@@ -80,6 +82,7 @@ class SwiftConsole(HasTraits):
         Item('observation_view', style='custom', label='Observations'),
         Item('system_monitor_view', style='custom', label='System Monitor'),
         Item('simulator_view', style='custom', label='Simulator'),
+        Item('settings_view', style='custom', label='Settings'),
         Item(
           'python_console_env', style='custom',
           label='Python Console', editor=ShellEditor()
@@ -126,6 +129,7 @@ class SwiftConsole(HasTraits):
     self.observation_view = ObservationView(self.link)
     self.system_monitor_view = SystemMonitorView(self.link)
     self.simulator_view = SimulatorView(self.link)
+    self.settings_view = SettingsView(self.link)
 
     self.python_console_env = {
         'send_message': self.link.send_message,
