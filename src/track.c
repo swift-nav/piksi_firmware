@@ -304,10 +304,18 @@ void tracking_send_state()
 
   if (simulation_enabled()) {
   
-    for (u8 i=0; i < simulation_current_num_sats(); i++) {
+    u8 num_sats = simulation_current_num_sats();
+    for (u8 i=0; i < num_sats; i++) {
       states[i] = simulator_get_tracking_state(i);
     }
-  
+    if (num_sats < nap_track_n_channels) {
+      for (u8 i = num_sats; i < nap_track_n_channels; i++) {
+        states[i].state = TRACKING_DISABLED;
+        states[i].prn   = 0;
+        states[i].cn0   = -1;        
+      }
+    }
+    
   } else {
     
     for (u8 i=0; i<nap_track_n_channels; i++) {
