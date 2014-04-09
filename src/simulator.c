@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
 #include <libswiftnav/track.h>
@@ -40,6 +41,8 @@ simulation_settings_t simulation_settings = {
   .pos_variance = 2.0,
   .speed_variance = 0.02,
   .tracking_cn0_variance = 0.1,
+  .pseudorange_variance = 16,
+  .carrier_phase_variance = 9e-4,
   .num_sats = 9,
   .enabled = 0,
 };
@@ -61,12 +64,6 @@ simulation_state_t simulation_state = {
     },
 
 };
-
-
-
-u8 selected_sats[NAP_MAX_N_TRACK_CHANNELS];
-double simulation_observed_code[NAP_MAX_N_TRACK_CHANNELS];
-double simulation_observed_carrier[NAP_MAX_N_TRACK_CHANNELS];
 
 #define DEBUGGING 1
 #if DEBUGGING
@@ -104,6 +101,16 @@ double rand_gaussian(const double variance)
   rand2 = (rand() / ((double) RAND_MAX)) * (M_PI*2.0);
  
   return sqrt(variance * rand1) * cos(rand2);
+}
+
+/** Performs a 1D linear interpolation from a point on the line segment
+* defined between points U and V, into a point on the line segment defined by
+* points X and Y.
+*
+* Assumes V > U, and Y > X
+*/
+double lerp(double t, double u, double v, double x, double y) {
+  return (t - u) / (v - u) * (y - x) + x;
 }
 
 
@@ -187,7 +194,8 @@ void simulation_step_tracking_and_observations(double elapsed_seconds)
 {
   (void)elapsed_seconds;
 
-
+  double GPS_L1_LAMBDA = (GPS_C / GPS_L1_HZ);
+  
   u8 week = -1; //TODO: calc week from day
   double t = simulation_state.noisy_solution.time.tow; //TODO: correct?
 
@@ -209,24 +217,34 @@ void simulation_step_tracking_and_observations(double elapsed_seconds)
     if (el > 0 && 
         num_sats_selected < simulation_settings.num_sats &&
         num_sats_selected < NAP_MAX_N_TRACK_CHANNELS) {      
-      selected_sats[num_sats_selected] = i;
+      simulation_state.selected_sat_indices[num_sats_selected] = i;
 
       //Generate a code measurement which is just the pseudorange:
-      
-      simulation_state.nav_meas[num_sats_selected].prn = simulation_almanacs[i].prn;
-      simulation_state.nav_meas[num_sats_selected].raw_pseudorange = 200000 - 10*i;
-      simulation_state.nav_meas[num_sats_selected].carrier_phase = i;
-      simulation_state.nav_meas[num_sats_selected].snr = i + 4 + rand_gaussian(simulation_settings.tracking_cn0_variance);      
+      double points_to_sat[3];
+      vector_subtract(3, simulation_sats_pos[i], simulation_state.true_pos_ecef, points_to_sat);
+
+      double distance_to_sat = vector_norm(3, points_to_sat);
+
+      //Fill out the observation details into the NAV_MEAS structure for this satellite,
+      //We simulate the pseudorange as a noisy range measurement, and
+      //the carrier phase as a noisy range in wavelengths + an integer offset.
+      navigation_measurement_t *nm = &simulation_state.nav_meas[num_sats_selected];
+      nm->prn             = simulation_almanacs[i].prn;
+      nm->raw_pseudorange = distance_to_sat + rand_gaussian(simulation_settings.pseudorange_variance);
+      nm->carrier_phase   = distance_to_sat / GPS_L1_LAMBDA + simulation_fake_carrier_bias[i] + rand_gaussian(simulation_settings.carrier_phase_variance);
+      nm->snr             = lerp(el, 0, M_PI/2, 4, 12) + rand_gaussian(simulation_settings.tracking_cn0_variance);      
 
       //As for tracking, we just set each sat consecutively in each channel.
-      //This will cause weird jumps when a satellite sets.
+      //This will cause weird jumps when a satellite rises or sets.
       simulation_state.tracking_channel[num_sats_selected].state = TRACKING_RUNNING;
       simulation_state.tracking_channel[num_sats_selected].prn = simulation_almanacs[i].prn;
-      simulation_state.tracking_channel[num_sats_selected].cn0 = i + 4 + rand_gaussian(simulation_settings.tracking_cn0_variance);
+      simulation_state.tracking_channel[num_sats_selected].cn0 = nm->snr;
 
       num_sats_selected++;
     }
   }
+
+  simulation_state.noisy_solution.n_used = num_sats_selected;
   
 }
 
@@ -282,10 +300,15 @@ inline double* simulation_baseline_ecef(void)
   return simulation_state.true_baseline_ecef;
 }
 
+u8 simulation_current_num_sats(void)
+{
+  return simulation_state.noisy_solution.n_used;
+}
+
 tracking_state_msg_t simulator_get_tracking_state(u8 channel)
 {
-  if (channel >= NAP_MAX_N_TRACK_CHANNELS) {
-    channel = NAP_MAX_N_TRACK_CHANNELS - 1;
+  if (channel >= simulation_current_num_sats()) {
+    channel = simulation_current_num_sats() - 1;
   }
   return simulation_state.tracking_channel[channel];
 }
@@ -346,9 +369,10 @@ void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* con
 void simulator_setup_almanacs(void)
 {
 
-  u8 num_sats = simulation_num_almanacs;
-
   //Do any setup we need for the satellite almanacs
+  for (u8 i = 0; i < simulation_num_almanacs; i++) {
+    simulation_fake_carrier_bias[i] = (rand() % 1000) * 10;    
+  }
 
 }
 /** Must be called from main() or equivalent function before simulator runs
@@ -373,7 +397,6 @@ void simulator_setup(void)
   
   simulation_state.noisy_solution.time.wn = simulation_week_number;
   simulation_state.noisy_solution.time.tow = 0;
-  simulation_state.noisy_solution.n_used = simulation_settings.num_sats;
 
   simulator_setup_almanacs();
   

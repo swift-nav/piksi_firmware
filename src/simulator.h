@@ -39,6 +39,8 @@ typedef struct __attribute__((packed)) {
   float             pos_variance;          /**< in meters squared */
   float             speed_variance;        /**< variance in speed (magnitude of velocity) in meters squared */
   float             tracking_cn0_variance; /**< variance in signal-to-noise ratio of tracking channels */
+  float             pseudorange_variance;  /**< variance in each sat's simulated pseudorange */
+  float             carrier_phase_variance;/**< variance in each sat's simulated carrier phase */
   u8                num_sats;              /**< number of simulated satellites to report */
   u8                enabled;               /**< Current mode of simulation */
 } simulation_settings_t;
@@ -66,6 +68,7 @@ typedef struct {
 
 //Math Helpers:
 double rand_gaussian(const double variance);
+double lerp(double t, double u, double v, double x, double y);
 
 //Running the Simulation:
 void simulation_step(void);
@@ -84,6 +87,7 @@ gnss_solution* simulation_current_gnss_solution(void);
 dops_t* simulation_current_dops_solution(void);
 double* simulation_ref_ecef(void);
 double* simulation_baseline_ecef(void);
+u8 simulation_current_num_sats(void);
 tracking_state_msg_t simulator_get_tracking_state(u8 channel);
 navigation_measurement_t* simulator_get_navigation_measurements(void);
 

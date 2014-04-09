@@ -42,6 +42,8 @@ class SimulationSettings(HasTraits):
       self.pos_variance = 0.0
       self.speed_variance = 0.0
       self.tracking_cn0_variance = 0.0
+      self.pseudorange_variance = 0.0
+      self.carrier_phase_variance = 0.0
       self.num_sats = 0.0
       self.enabled = 0
 
@@ -55,12 +57,14 @@ class SimulationSettings(HasTraits):
       self.pos_variance,
       self.speed_variance,
       self.tracking_cn0_variance,
+      self.pseudorange_variance,
+      self.carrier_phase_variance,
       self.num_sats,
       self.enabled,
-    ) = struct.unpack('<dddfffffBB', d)
+    ) = struct.unpack('<dddfffffffBB', d)
 
   def to_binary(self):
-    return struct.pack('<dddfffffBB',
+    return struct.pack('<dddfffffffBB',
       self.center_ecef_x,
       self.center_ecef_y,
       self.center_ecef_z,
@@ -69,6 +73,8 @@ class SimulationSettings(HasTraits):
       self.pos_variance,
       self.speed_variance,
       self.tracking_cn0_variance,
+      self.pseudorange_variance,
+      self.carrier_phase_variance,
       self.num_sats,
       self.enabled,
     )
@@ -81,6 +87,8 @@ class SimulationSettings(HasTraits):
     l.append(['Position Variance (m^2)', self.pos_variance])
     l.append(['Speed Variance (m^2)', self.speed_variance])
     l.append(['Tracking CN0 Variance (m^2)', self.tracking_cn0_variance])
+    l.append(['Pseudorange Variance (m^2)', self.pseudorange_variance])
+    l.append(['Carrier phase Variance (lambda^2)', self.carrier_phase_variance])
     l.append(['Centerpoint Coordinate X (ECEF)', self.center_ecef_x])
     l.append(['Centerpoint Coordinate Y (ECEF)', self.center_ecef_y])
     l.append(['Centerpoint Coordinate Z (ECEF)', self.center_ecef_z])
@@ -94,10 +102,12 @@ class SimulationSettings(HasTraits):
     self.pos_variance = float(l[3][1])
     self.speed_variance = float(l[4][1])
     self.tracking_cn0_variance = float(l[5][1])
-    self.center_ecef_x = float(l[6][1])
-    self.center_ecef_y = float(l[7][1])
-    self.center_ecef_z = float(l[8][1])
-    self.num_sats = int(l[9][1])
+    self.pseudorange_variance = float(l[6][1])
+    self.carrier_phase_variance = float(l[7][1])
+    self.center_ecef_x = float(l[8][1])
+    self.center_ecef_y = float(l[9][1])
+    self.center_ecef_z = float(l[10][1])
+    self.num_sats = int(l[11][1])
 
 
 class SimpleAdapter(TabularAdapter):
