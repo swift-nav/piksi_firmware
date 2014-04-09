@@ -21,10 +21,9 @@
  * \{ */
 
 /** \defgroup simulator GPS Simulator
- * Functions used to simulate PVT and baseline fixes for hardware-in-the-loop testing.
- * Generates GPS output from Piksi as if the GPS was performing solutions.
- *
- *   Currently only supports single-point-position messages.
+* Functions used to simulate PVT and baseline fixes for hardware-in-the-loop testing.
+* Generates GPS output from Piksi as if the GPS was performing solutions.
+*
  * \{ */
 
 typedef uint8_t simulation_mode_t; /* Force uint8_t size for simulation_mode */
