@@ -190,6 +190,20 @@ void simulation_step_position_in_circle(double elapsed_seconds)
   wgsned2ecef(simulation_state.noisy_solution.vel_ned, simulation_state.noisy_solution.pos_ecef, simulation_state.noisy_solution.vel_ecef);
 }
 
+/** Simulates real observations for the current position and the satellite almanac and week
+* given in simulator_data.
+*
+* NOTES:
+*
+* - This simulates the pseudorange as the true distance to the satellite + noise.
+* - This simulates the carrier phase as the true distance in wavelengths + bais + noise.
+* - The bias is an integer multiple of 10 for easy debugging.
+* - The satellite SNR/CN0 is proportional to the elevation of the satellite.
+*
+* USES:
+* - Pipe observations into internals for testing 
+* - For integration testing with other devices that has to carry the radio signal.
+*/
 void simulation_step_tracking_and_observations(double elapsed_seconds)
 {
   (void)elapsed_seconds;
