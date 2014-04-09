@@ -19,6 +19,7 @@
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
+#include <libswiftnav/single_diff.h>
 
 #include <libopencm3/stm32/f4/timer.h>
 #include <libopencm3/stm32/f4/rcc.h>
@@ -106,7 +107,15 @@ double tow_base = -1;
 
 void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len; (void) context;
+  (void) context;
+
+  /* Sender ID of zero means that the messages are relayed observations,
+   * ignore them. */
+  if (sender_id == 0)
+    return;
+
+  /* Relay observations using sender_if = 0. */
+  sbp_send_msg_(MSG_NEW_OBS, len, msg, 0);
 
   tow_base = ((gps_time_t *)msg)->tow;
   n_base = (len - sizeof(gps_time_t)) / sizeof(msg_obs_t);
@@ -120,12 +129,6 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   /* Ensure observations sorted by PRN. */
   qsort(nav_meas_base, n_base, sizeof(navigation_measurement_t), nav_meas_cmp);
-
-  static u32 obs_count = 0;
-  obs_count++;
-  if (obs_count % 20 == 0) {
-    printf("Obs count: %u\n", (unsigned int)obs_count);
-  }
 }
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
@@ -144,33 +147,6 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
   }
   sbp_send_msg(MSG_NEW_OBS, sizeof(gps_time_t) + n*sizeof(msg_obs_t), buff);
 }
-
-/*
-void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
-{
-  static u8 obs_count = 0;
-  msg_obs_hdr_t obs_hdr = {
-    .t = *t,
-    .count = obs_count,
-    .n_obs = n
-  };
-  obs_count++;
-  sbp_send_msg(MSG_OBS_HDR, sizeof(obs_hdr), (u8 *)&obs_hdr);
-
-  msg_obs_t obs;
-  for (u8 i=0; i<n; i++) {
-    obs.prn = m[i].prn;
-    obs.P = m[i].raw_pseudorange;
-    obs.L = m[i].carrier_phase;
-    obs.D = m[i].doppler;
-    obs.snr = m[i].snr;
-    obs.lock_count = 255;
-    obs.flags = 0;
-    obs.obs_n = i;
-    sbp_send_msg(MSG_OBS, sizeof(obs), (u8 *)&obs);
-  }
-}
-*/
 
 static Thread *tp = NULL;
 #define tim5_isr Vector108
@@ -237,10 +213,103 @@ static msg_t solution_thread(void *arg)
 
       dops_t dops;
       if (calc_PVT(n_ready_tdcp, nav_meas_tdcp, &position_solution, &dops) == 0) {
+
+        /* Update global position solution state. */
         position_updated();
 
-#define SOLN_FREQ 2.0
+        /* Output solution. */
+        solution_send_sbp(&position_solution, &dops);
+        solution_send_nmea(&position_solution, &dops, n_ready_tdcp, nav_meas_tdcp);
 
+        /* If we have a recent set of observations from the base station, do a
+         * differential solution. */
+        gps_time_t t_base = {
+          /* TODO: Handle end of week rollover properly. */
+          .wn = position_solution.time.wn,
+          .tow = tow_base
+        };
+        double pdt;
+        if (n_base > 0) {
+          if ((pdt = gpsdifftime(position_solution.time, t_base)) < 1.0) {
+
+            static u8 init_done = 0;
+            static u8 filter_choice = 0;
+            static navigation_measurement_t nav_meas_prop[MAX_CHANNELS];
+            static sdiff_t sds[MAX_CHANNELS];
+
+            propagate(n_ready_tdcp, position_solution.pos_ecef,
+                      nav_meas_base, &t_base,
+                      nav_meas_tdcp, &position_solution.time,
+                      nav_meas_prop);
+
+            /* Calculate single difference observations for differential filters. */
+            u8 n_sds = single_diff(
+                n_ready_tdcp, nav_meas_tdcp,
+                n_base, nav_meas_prop,
+                sds
+            );
+
+            if (n_sds > 4) {
+
+              if (init_done == 0) {
+                printf("====== INIT =======\n");
+                static double b_init[3] = {0, 0, 0}; /* Zero baseline. */
+                dgnss_init(
+                    n_sds, sds,
+                    position_solution.pos_ecef, b_init,
+                    1.0 / SOLN_FREQ
+                );
+                init_done = 1;
+              }
+
+              double b[3];
+              dgnss_update(
+                  n_sds, sds,
+                  position_solution.pos_ecef,
+                  1.0 / SOLN_FREQ,
+                  filter_choice, b
+              );
+              solution_send_baseline(&position_solution.time, n_sds,
+                                     b, position_solution.pos_ecef);
+            }
+
+          } else {
+            printf("Max age of differential exceeded (%f)\n",
+                position_solution.time.tow - tow_base);
+          }
+        }
+
+        /*
+
+        static navigation_measurement_t nav_meas_0[MAX_CHANNELS];
+        static gps_time_t t0;
+        static navigation_measurement_t nav_meas_prop[MAX_CHANNELS];
+
+        DO_ONLY(1,
+            memcpy(nav_meas_0, nav_meas_tdcp, sizeof(nav_meas_tdcp));
+            t0 = position_solution.time;
+        );
+
+        DO_ONLY(20,
+            double pdt = gpsdifftime(position_solution.time, t0);
+            propagate(n_ready_tdcp, position_solution.pos_ecef,
+                      nav_meas_0, &t0,
+                      nav_meas_tdcp, &position_solution.time,
+                      nav_meas_prop);
+            sdiff_t sds[14];
+            sdiff_t dds[14];
+            u8 nsds = single_diff(n_ready_tdcp, nav_meas_tdcp, n_ready_tdcp, nav_meas_prop, sds);
+            printf("(%f, [", pdt);
+            double_diff(nsds, sds, dds, 0);
+            for (u8 i=1; i<nsds; i++) {
+              printf("%f,", dds[i].carrier_phase);
+            }
+            printf("]),\n");
+        );
+
+        */
+
+        /* Align observations to the desired epoch. */
         double expected_tow = round(position_solution.time.tow*SOLN_FREQ)
                                 / SOLN_FREQ;
         double t_err = expected_tow - position_solution.time.tow;
@@ -254,16 +323,14 @@ static msg_t solution_thread(void *arg)
         /* Only send observations that are closely aligned with the desired
          * solution epochs to ensure they haven't been propagated too far. */
         if (fabs(t_err) < 10e-3) {
+          /* Updated observation time. */
           gps_time_t new_obs_time;
           new_obs_time.wn = position_solution.time.wn;
           new_obs_time.tow = expected_tow;
+
           /* Output obervations. */
           send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
         }
-
-        /* Output solution. */
-        solution_send_sbp(&position_solution, &dops);
-        solution_send_nmea(&position_solution, &dops, n_ready_tdcp, nav_meas_tdcp);
 
         /* Calculate time till the next desired solution epoch. */
         double dt = expected_tow + (1/SOLN_FREQ) - position_solution.time.tow;
@@ -279,7 +346,7 @@ static msg_t solution_thread(void *arg)
       }
 
       /* Store current observations for next time for
-       * TDCP Doppler caluclation. */
+       * TDCP Doppler calculation. */
       memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
       n_ready_old = n_ready;
     }
@@ -303,5 +370,12 @@ void solution_setup()
 
   chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread),
                     HIGHPRIO-1, solution_thread, NULL);
+
+  static sbp_msg_callbacks_node_t obs_node;
+  sbp_register_cbk(
+    MSG_NEW_OBS,
+    &obs_callback,
+    &obs_node
+  );
 }
 

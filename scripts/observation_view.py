@@ -9,8 +9,8 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool
-from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor
+from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool, Str
+from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, VSplit
 from traitsui.tabular_adapter import TabularAdapter
 from chaco.api import ArrayPlotData, Plot
 from chaco.tools.api import ZoomTool, PanTool
@@ -51,6 +51,8 @@ class ObservationView(HasTraits):
   _obs_table_list = List()
   obs = Dict()
 
+  name = 'Rover'
+
   recording = Bool(False)
 
   record_button = SVGButton(
@@ -60,15 +62,17 @@ class ObservationView(HasTraits):
     width=16, height=16
   )
 
-  traits_view = View(
-    VGroup(
-      Item('_obs_table_list', style = 'readonly', editor = TabularEditor(adapter=SimpleAdapter()), show_label=False),
+  def trait_view(self, view):
+    return View(
       HGroup(
-        Item('record_button', show_label=False),
+        Item('_obs_table_list', style = 'readonly', editor = TabularEditor(adapter=SimpleAdapter()), show_label=False),
+        VGroup(
+          Item('record_button', show_label=False),
+        ),
+        label = self.name,
+        show_border = True
       )
     )
-  )
-
 
   def _record_button_fired(self):
     self.recording = not self.recording
@@ -80,9 +84,12 @@ class ObservationView(HasTraits):
   def update_obs(self):
     self._obs_table_list = [(prn + 1,) + obs for prn, obs in sorted(self.obs.items(), key=lambda x: x[0])]
 
-  def obs_callback(self, data):
+  def obs_callback(self, data, sender=None):
+    if sender is not None and sender != self.sender_id:
+      return
+
     if self.rinex_file is None and self.recording:
-      self.rinex_file = open(self.t.strftime("%Y%m%d-%H%M%S.obs"),  'w')
+      self.rinex_file = open(self.name+self.t.strftime("-%Y%m%d-%H%M%S.obs"),  'w')
       header = """     2.11           OBSERVATION DATA    G (GPS)             RINEX VERSION / TYPE
 pyNEX                                   %s UTC PGM / RUN BY / DATE 
                                                             MARKER NAME         
@@ -153,11 +160,14 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
 
     self.update_obs()
 
-  def __init__(self, link):
+  def __init__(self, link, name='Rover', sender_id=0x2222):
     super(ObservationView, self).__init__()
 
     self.obs_count = 0
     self.n_obs = 1
+
+    self.sender_id = sender_id
+    self.name = name
 
     self.rinex_file = None
 

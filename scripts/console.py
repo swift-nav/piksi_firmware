@@ -66,6 +66,7 @@ class SwiftConsole(HasTraits):
   solution_view = Instance(SolutionView)
   baseline_view = Instance(BaselineView)
   observation_view = Instance(ObservationView)
+  observation_view_base = Instance(ObservationView)
   system_monitor_view = Instance(SystemMonitorView)
 
   view = View(
@@ -75,7 +76,11 @@ class SwiftConsole(HasTraits):
         Item('almanac_view', style='custom', label='Almanac'),
         Item('solution_view', style='custom', label='Solution'),
         Item('baseline_view', style='custom', label='Baseline'),
-        Item('observation_view', style='custom', label='Observations'),
+        VSplit(
+          Item('observation_view', style='custom', show_label=False),
+          Item('observation_view_base', style='custom', show_label=False),
+          label='Observations',
+        ),
         Item('system_monitor_view', style='custom', label='System Monitor'),
         Item(
           'python_console_env', style='custom',
@@ -120,7 +125,8 @@ class SwiftConsole(HasTraits):
     self.almanac_view = AlmanacView(self.link)
     self.solution_view = SolutionView(self.link)
     self.baseline_view = BaselineView(self.link)
-    self.observation_view = ObservationView(self.link)
+    self.observation_view = ObservationView(self.link, name='Rover', sender_id=0x2222)
+    self.observation_view_base = ObservationView(self.link, name='Base', sender_id=0)
     self.system_monitor_view = SystemMonitorView(self.link)
 
     self.python_console_env = {
