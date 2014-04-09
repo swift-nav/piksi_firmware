@@ -35,7 +35,7 @@
  * \{ */
 
 simulation_settings_t simulation_settings = {
-  .center_ecef = {-2700303.10144031,-4292474.39651309,3855434.34087421},
+  .base_ecef = {-2700303.10144031,-4292474.39651309,3855434.34087421},
   .speed = 4.0,
   .radius = 100.0,
   .pos_variance = 2.0,
@@ -169,10 +169,10 @@ void simulation_step_position_in_circle(double elapsed_seconds)
   };
 
   //Fill out position simulation's gnss_solution pos_ECEF, pos_LLH structures
-  wgsned2ecef_d(pos_ned, simulation_settings.center_ecef, simulation_state.true_pos_ecef);
+  wgsned2ecef_d(pos_ned, simulation_settings.base_ecef, simulation_state.true_pos_ecef);
 
   //Calculate an accurate baseline for simulating RTK
-  vector_subtract(3, simulation_state.true_pos_ecef, simulation_settings.center_ecef, simulation_state.true_baseline_ecef);
+  vector_subtract(3, simulation_state.true_pos_ecef, simulation_settings.base_ecef, simulation_state.true_baseline_ecef);
 
   // //Add gaussian noise to PVT position
   simulation_state.noisy_solution.pos_ecef[0] = simulation_state.true_pos_ecef[0] + rand_gaussian(simulation_settings.pos_variance);
@@ -236,9 +236,13 @@ void simulation_step_tracking_and_observations(double elapsed_seconds)
 
       //Generate a code measurement which is just the pseudorange:
       double points_to_sat[3];
+      double base_points_to_sat[3];
+      
       vector_subtract(3, simulation_sats_pos[i], simulation_state.true_pos_ecef, points_to_sat);
+      vector_subtract(3, simulation_sats_pos[i], simulation_settings.base_ecef, base_points_to_sat);
 
       double distance_to_sat = vector_norm(3, points_to_sat);
+      double base_distance_to_sat = vector_norm(3, base_points_to_sat);
 
       //Fill out the observation details into the NAV_MEAS structure for this satellite,
       //We simulate the pseudorange as a noisy range measurement, and
@@ -248,6 +252,12 @@ void simulation_step_tracking_and_observations(double elapsed_seconds)
       nm->raw_pseudorange = distance_to_sat + rand_gaussian(simulation_settings.pseudorange_variance);
       nm->carrier_phase   = distance_to_sat / GPS_L1_LAMBDA + simulation_fake_carrier_bias[i] + rand_gaussian(simulation_settings.carrier_phase_variance);
       nm->snr             = lerp(el, 0, M_PI/2, 4, 12) + rand_gaussian(simulation_settings.tracking_cn0_variance);      
+
+      navigation_measurement_t *base_nm = &simulation_state.base_nav_meas[num_sats_selected];
+      base_nm->prn             = simulation_almanacs[i].prn;
+      base_nm->raw_pseudorange = base_distance_to_sat + rand_gaussian(simulation_settings.pseudorange_variance);
+      base_nm->carrier_phase   = base_distance_to_sat / GPS_L1_LAMBDA + simulation_fake_carrier_bias[i] + rand_gaussian(simulation_settings.carrier_phase_variance);
+      base_nm->snr             = lerp(el, 0, M_PI/2, 4, 12) + rand_gaussian(simulation_settings.tracking_cn0_variance);      
 
       //As for tracking, we just set each sat consecutively in each channel.
       //This will cause weird jumps when a satellite rises or sets.
@@ -308,7 +318,7 @@ inline dops_t* simulation_current_dops_solution(void)
 */
 inline double* simulation_ref_ecef(void) 
 {
-  return simulation_settings.center_ecef;
+  return simulation_settings.base_ecef;
 }
 
 /** Get current simulated baseline vector
@@ -335,6 +345,15 @@ tracking_state_msg_t simulation_current_tracking_state(u8 channel)
 navigation_measurement_t* simulation_current_navigation_measurements(void)
 {
   return simulation_state.nav_meas;
+}
+
+/** Returns the simulated navigation measurement at the base position
+* for the simulation (aka the non-moving point around which the simulation moves).
+* This is useful for testing RTK algorithms in hardware.
+*/ 
+navigation_measurement_t* simulation_current_base_navigation_measurements(void)
+{
+  return simulation_state.base_nav_meas;
 }
 
 

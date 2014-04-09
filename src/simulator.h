@@ -43,7 +43,7 @@ typedef enum {
  * WARNING: THIS STRUCT IS PACKED! CAREFUL MEMORY ALIGNMENT!
 */
 typedef struct __attribute__((packed)) { 
-  double            center_ecef[3];        /**< centerpoint that defines simulation absolute location */
+  double            base_ecef[3];        /**< centerpoint that defines simulation absolute location */
   float             speed;                 /**< speed (variance of velocity) in meters per second */
   float             radius;                /**< radius of circle in meters */
   float             pos_variance;          /**< in meters squared */
@@ -70,6 +70,7 @@ typedef struct {
   //Simulated solutions
   tracking_state_msg_t      tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
   navigation_measurement_t  nav_meas[NAP_MAX_N_TRACK_CHANNELS];
+  navigation_measurement_t  base_nav_meas[NAP_MAX_N_TRACK_CHANNELS];
   dops_t                    dops;
   gnss_solution             noisy_solution;
 

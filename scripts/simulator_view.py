@@ -34,9 +34,9 @@ class SimulationSettings(HasTraits):
     elif l is not None:
       self.from_list(l)
     else:
-      self.center_ecef_x = 0.0
-      self.center_ecef_y = 0.0
-      self.center_ecef_z = 0.0
+      self.base_ecef_x = 0.0
+      self.base_ecef_y = 0.0
+      self.base_ecef_z = 0.0
       self.speed = 0.0
       self.radius = 0.0
       self.pos_variance = 0.0
@@ -50,9 +50,9 @@ class SimulationSettings(HasTraits):
 
   def from_binary(self, d):
     (
-      self.center_ecef_x,
-      self.center_ecef_y,
-      self.center_ecef_z,
+      self.base_ecef_x,
+      self.base_ecef_y,
+      self.base_ecef_z,
       self.speed,
       self.radius,
       self.pos_variance,
@@ -67,9 +67,9 @@ class SimulationSettings(HasTraits):
 
   def to_binary(self):
     return struct.pack('<dddfffffffBBB',
-      self.center_ecef_x,
-      self.center_ecef_y,
-      self.center_ecef_z,
+      self.base_ecef_x,
+      self.base_ecef_y,
+      self.base_ecef_z,
       self.speed,
       self.radius,
       self.pos_variance,
@@ -93,9 +93,9 @@ class SimulationSettings(HasTraits):
     l.append(['Tracking CN0 Variance (m^2)', self.tracking_cn0_variance])
     l.append(['Pseudorange Variance (m^2)', self.pseudorange_variance])
     l.append(['Carrier phase Variance (lambda^2)', self.carrier_phase_variance])
-    l.append(['Centerpoint Coordinate X (ECEF)', self.center_ecef_x])
-    l.append(['Centerpoint Coordinate Y (ECEF)', self.center_ecef_y])
-    l.append(['Centerpoint Coordinate Z (ECEF)', self.center_ecef_z])
+    l.append(['Centerpoint Coordinate X (ECEF)', self.base_ecef_x])
+    l.append(['Centerpoint Coordinate Y (ECEF)', self.base_ecef_y])
+    l.append(['Centerpoint Coordinate Z (ECEF)', self.base_ecef_z])
     l.append(['Simulated Number of Sats', self.num_sats])
     return l
 
@@ -109,9 +109,9 @@ class SimulationSettings(HasTraits):
     self.tracking_cn0_variance = float(l[6][1])
     self.pseudorange_variance = float(l[7][1])
     self.carrier_phase_variance = float(l[8][1])
-    self.center_ecef_x = float(l[9][1])
-    self.center_ecef_y = float(l[10][1])
-    self.center_ecef_z = float(l[11][1])
+    self.base_ecef_x = float(l[9][1])
+    self.base_ecef_y = float(l[10][1])
+    self.base_ecef_z = float(l[11][1])
     self.num_sats = int(l[12][1])
 
 
