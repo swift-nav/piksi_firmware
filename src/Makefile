@@ -103,6 +103,8 @@ CSRC = $(PORTSRC) \
        $(SWIFTNAV_ROOT)/src/peripherals/usart_rx.o \
        $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee.o \
        $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee-arch.o \
+       $(SWIFTNAV_ROOT)/src/minIni/minIni.o \
+       $(SWIFTNAV_ROOT)/src/minIni/minGlue.o \
        $(SWIFTNAV_ROOT)/src/init.o \
        $(SWIFTNAV_ROOT)/src/sbp.o \
        $(SWIFTNAV_ROOT)/src/error.o \
