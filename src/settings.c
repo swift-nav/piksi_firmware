@@ -13,9 +13,12 @@
 #include "peripherals/usart.h"
 #include "sbp.h"
 #include "settings.h"
+#include "minIni/minIni.h"
 
 #include <string.h>
 #include <stdio.h>
+
+#define SETTINGS_FILE "config"
 
 /** \addtogroup io
  * \{ */
@@ -111,6 +114,7 @@ static const struct setting_type type_int = {
 };
 
 static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context);
+static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* context);
 
 void settings_setup(void)
 {
@@ -119,6 +123,12 @@ void settings_setup(void)
     MSG_SETTINGS,
     &settings_msg_callback,
     &settings_msg_node
+  );
+  static sbp_msg_callbacks_node_t settings_save_node;
+  sbp_register_cbk(
+    MSG_SETTINGS_SAVE,
+    &settings_save_callback,
+    &settings_save_node
   );
   SETTING("ftdi_uart", "baudrate", settings.ftdi_usart.baud_rate, TYPE_INT);
   SETTING("uarta_uart", "baudrate", settings.uarta_usart.baud_rate, TYPE_INT);
@@ -137,11 +147,23 @@ void settings_register(struct setting *setting, enum setting_types type)
 
   if (!settings_head) {
     settings_head = setting;
-    return;
+  } else {
+    for (s = settings_head; s->next; s = s->next) {
+      if (strcmp(s->section, setting->section) == 0)
+        break;
+    }
+    setting->next = s->next;
+    s->next = setting;
   }
-  for (s = settings_head; s->next; s = s->next)
-    ;
-  s->next = setting;
+  char buf[128];
+  ini_gets(setting->section, setting->name, "", buf, sizeof(buf), SETTINGS_FILE);
+  if (buf[0] == 0) {
+    setting->type->to_string(setting->type->priv, buf, sizeof(buf),
+                             setting->addr, setting->len);
+  } else {
+    setting->dirty = true;
+  }
+  setting->notify(setting, buf);
 }
 
 static struct setting *settings_lookup(const char *section, const char *setting)
@@ -187,7 +209,8 @@ static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context
           setting = (const char *)&msg[i+1];
           break;
         case 2:
-          value = (const char *)&msg[i+1];
+          if (i + 1 < len)
+            value = (const char *)&msg[i+1];
           break;
         case 3:
           if (i == len-1)
@@ -206,6 +229,7 @@ static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context
     /* This is an assignment, call notify function */
     if (!s->notify(s, value))
       goto error;
+    s->dirty = true;
   }
 
   /* build and send reply */
@@ -221,5 +245,44 @@ static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context
 
 error:
   printf("Error in settings read message\n");
+}
+
+static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  int f = cfs_open(SETTINGS_FILE, CFS_WRITE);
+  const char *sec = NULL;
+  char buf[128];
+  int i;
+
+  (void)sender_id; (void) context; (void)len; (void)msg;
+
+  if (f < 0) {
+    printf("Error opening config file!\n");
+    return;
+  }
+
+  for (struct setting *s = settings_head; s; s = s->next) {
+    /* Skip unchanged parameters */
+    if (!s->dirty)
+      continue;
+
+    if ((sec == NULL) || (strcmp(s->section, sec) != 0)) {
+      /* New section, write section header */
+      sec = s->section;
+      i = snprintf(buf, sizeof(buf), "[%s]\n", sec);
+      if (cfs_write(f, buf, i) != i)
+        printf("Error writing to config file!\n");
+    }
+
+    /* Write setting */
+    i = snprintf(buf, sizeof(buf), "%s=", s->name);
+    i += s->type->to_string(s->type->priv, &buf[i], sizeof(buf) - i - 1, s->addr, s->len);
+    buf[i++] = '\n';
+    if (cfs_write(f, buf, i) != i)
+      printf("Error writing to config file!\n");
+  }
+
+  cfs_close(f);
+  printf("Wrote settings to config file.\n");
 }
 
