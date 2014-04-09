@@ -24,9 +24,20 @@
 * Functions used to simulate PVT and baseline fixes for hardware-in-the-loop testing.
 * Generates GPS output from Piksi as if the GPS was performing solutions.
 *
+* Expected usage:
+* First call `simulation_setup()`,
+* To update the simulation, call `simulation_step()`
+* and to get the current simulated data, call any of the `simulation_current_xxx` functions
+* 
  * \{ */
 
 typedef uint8_t simulation_mode_t; /* Force uint8_t size for simulation_mode */
+
+typedef enum {
+  SIMULATION_MODE_PVT      = (1<<0),
+  SIMULATION_MODE_TRACKING = (1<<1),
+  SIMULATION_MODE_RTK      =(1<<2),
+} simulation_modes_t;
 
 /* User-configurable GPS Simulator Settings 
  * WARNING: THIS STRUCT IS PACKED! CAREFUL MEMORY ALIGNMENT!
@@ -41,7 +52,8 @@ typedef struct __attribute__((packed)) {
   float             pseudorange_variance;  /**< variance in each sat's simulated pseudorange */
   float             carrier_phase_variance;/**< variance in each sat's simulated carrier phase */
   u8                num_sats;              /**< number of simulated satellites to report */
-  u8                enabled;               /**< Current mode of simulation */
+  u8                enabled;               /**< Is the simulator enabled? */
+  u8                mode_mask;             /** < Current mode of the simulator */
 } simulation_settings_t;
 
 /* Internal Simulation State */
@@ -72,23 +84,24 @@ double lerp(double t, double u, double v, double x, double y);
 //Running the Simulation:
 void simulation_step(void);
 bool simulation_enabled();
+bool simulation_enabled_for(u8 mode_mask);
 
 //Internals of the simulator
 void simulation_step_position_in_circle(double);
 void simulation_step_tracking_and_observations(double);
 
 //Sending simulation settings to the outside world
-void sbp_send_simulation_mode(void);
+void sbp_send_simulation_enabled(void);
 void sbp_send_simulation_settings(void);
 
 //Getting data from the simulation
-gnss_solution* simulation_current_gnss_solution(void);
-dops_t* simulation_current_dops_solution(void);
-double* simulation_ref_ecef(void);
-double* simulation_baseline_ecef(void);
-u8 simulation_current_num_sats(void);
-tracking_state_msg_t simulator_get_tracking_state(u8 channel);
-navigation_measurement_t* simulator_get_navigation_measurements(void);
+gnss_solution*             simulation_current_gnss_solution(void);
+dops_t*                    simulation_current_dops_solution(void);
+double*                    simulation_ref_ecef(void);
+double*                    simulation_current_baseline_ecef(void);
+u8                         simulation_current_num_sats(void);
+tracking_state_msg_t       simulation_current_tracking_state(u8 channel);
+navigation_measurement_t*  simulation_current_navigation_measurements(void);
 
 //Initialization:
 void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context);

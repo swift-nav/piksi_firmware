@@ -46,6 +46,7 @@ class SimulationSettings(HasTraits):
       self.carrier_phase_variance = 0.0
       self.num_sats = 0.0
       self.enabled = 0
+      self.mode_mask = 0
 
   def from_binary(self, d):
     (
@@ -61,10 +62,11 @@ class SimulationSettings(HasTraits):
       self.carrier_phase_variance,
       self.num_sats,
       self.enabled,
-    ) = struct.unpack('<dddfffffffBB', d)
+      self.mode_mask,
+    ) = struct.unpack('<dddfffffffBBB', d)
 
   def to_binary(self):
-    return struct.pack('<dddfffffffBB',
+    return struct.pack('<dddfffffffBBB',
       self.center_ecef_x,
       self.center_ecef_y,
       self.center_ecef_z,
@@ -77,11 +79,13 @@ class SimulationSettings(HasTraits):
       self.carrier_phase_variance,
       self.num_sats,
       self.enabled,
+      self.mode_mask,
     )
   
   def to_list(self):
     l = [];
     l.append(['Simulation Enabled', self.enabled])
+    l.append(['Simulator Mode Mask', self.mode_mask])
     l.append(['Speed (m/s)', self.speed])
     l.append(['Circle Radius (m)', self.radius])
     l.append(['Position Variance (m^2)', self.pos_variance])
@@ -97,17 +101,18 @@ class SimulationSettings(HasTraits):
 
   def from_list(self, l):
     self.enabled = int(l[0][1]) % 256
-    self.speed = float(l[1][1])
-    self.radius = float(l[2][1])
-    self.pos_variance = float(l[3][1])
-    self.speed_variance = float(l[4][1])
-    self.tracking_cn0_variance = float(l[5][1])
-    self.pseudorange_variance = float(l[6][1])
-    self.carrier_phase_variance = float(l[7][1])
-    self.center_ecef_x = float(l[8][1])
-    self.center_ecef_y = float(l[9][1])
-    self.center_ecef_z = float(l[10][1])
-    self.num_sats = int(l[11][1])
+    self.mode_mask = int(l[1][1]) % 256
+    self.speed = float(l[2][1])
+    self.radius = float(l[3][1])
+    self.pos_variance = float(l[4][1])
+    self.speed_variance = float(l[5][1])
+    self.tracking_cn0_variance = float(l[6][1])
+    self.pseudorange_variance = float(l[7][1])
+    self.carrier_phase_variance = float(l[8][1])
+    self.center_ecef_x = float(l[9][1])
+    self.center_ecef_y = float(l[10][1])
+    self.center_ecef_z = float(l[11][1])
+    self.num_sats = int(l[12][1])
 
 
 class SimpleAdapter(TabularAdapter):
@@ -172,7 +177,6 @@ class SimulatorView(HasTraits):
 
     #On startup, we request the current simulation mode and settings
     self.link.send_message(ids.SIMULATION_ENABLED, '');
-    self.link.send_message(ids.SIMULATION_SETTINGS, '');
 
     self.python_console_cmds = {
       'sim': self

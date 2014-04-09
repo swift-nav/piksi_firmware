@@ -45,6 +45,7 @@ simulation_settings_t simulation_settings = {
   .carrier_phase_variance = 9e-4,
   .num_sats = 9,
   .enabled = 0,
+  .mode_mask = SIMULATION_MODE_PVT || SIMULATION_MODE_TRACKING || SIMULATION_MODE_RTK,
 };
 
 simulation_state_t simulation_state = {
@@ -272,6 +273,10 @@ bool simulation_enabled(void)
   return (simulation_settings.enabled > 0);
 }
 
+bool simulation_enabled_for(u8 mode_mask) {
+  return (simulation_settings.enabled > 0) && ((simulation_settings.mode_mask & mode_mask) > 0);
+}
+
 void sbp_send_simulation_enabled(void) 
 {
   sbp_send_msg(MSG_SIMULATION_ENABLED, sizeof(uint8_t), &simulation_settings.enabled);
@@ -309,7 +314,7 @@ inline double* simulation_ref_ecef(void)
 /** Get current simulated baseline vector
 * The structure returned by this changes every time simulation_step is called.
 */
-inline double* simulation_baseline_ecef(void) 
+inline double* simulation_current_baseline_ecef(void) 
 {
   return simulation_state.true_baseline_ecef;
 }
@@ -319,7 +324,7 @@ u8 simulation_current_num_sats(void)
   return simulation_state.noisy_solution.n_used;
 }
 
-tracking_state_msg_t simulator_get_tracking_state(u8 channel)
+tracking_state_msg_t simulation_current_tracking_state(u8 channel)
 {
   if (channel >= simulation_current_num_sats()) {
     channel = simulation_current_num_sats() - 1;
@@ -327,7 +332,7 @@ tracking_state_msg_t simulator_get_tracking_state(u8 channel)
   return simulation_state.tracking_channel[channel];
 }
 
-navigation_measurement_t* simulator_get_navigation_measurements(void)
+navigation_measurement_t* simulation_current_navigation_measurements(void)
 {
   return simulation_state.nav_meas;
 }
@@ -340,6 +345,9 @@ void set_simulation_enabled_callback(u16 sender_id, u8 len, u8 msg[], void* cont
 {
   (void)sender_id; (void)len; (void) context;
   if (len == 1) {
+    if (simulation_state.last_update_ticks == 0) {
+      simulation_state.last_update_ticks = chTimeNow();
+    }
     simulation_settings.enabled = (msg[0] != 0);
   }
 
@@ -368,8 +376,6 @@ void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* con
   } else if (len == sizeof(simulation_settings)) {
 
     memcpy((uint8_t*)&simulation_settings, msg, len);
-    //Clip values appropriately
-    simulation_settings.num_sats = simulation_settings.num_sats;
     Notify("Received new simulation settings.");
 
   } else {

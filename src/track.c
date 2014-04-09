@@ -302,11 +302,11 @@ void tracking_send_state()
 
   tracking_state_msg_t states[nap_track_n_channels];
 
-  if (simulation_enabled()) {
+  if (simulation_enabled_for(SIMULATION_MODE_TRACKING)) {
   
     u8 num_sats = simulation_current_num_sats();
     for (u8 i=0; i < num_sats; i++) {
-      states[i] = simulator_get_tracking_state(i);
+      states[i] = simulation_current_tracking_state(i);
     }
     if (num_sats < nap_track_n_channels) {
       for (u8 i = num_sats; i < nap_track_n_channels; i++) {
