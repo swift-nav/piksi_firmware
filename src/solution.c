@@ -306,11 +306,11 @@ static msg_t solution_thread(void *arg)
       solution_send_sbp(simulation_current_gnss_solution(), simulation_current_dops_solution());
       
       solution_send_baseline(&simulation_current_gnss_solution()->time,
-        simulation_current_gnss_solution()->n_used, 
+        simulation_current_num_sats(), 
         simulation_baseline_ecef(),
         simulation_ref_ecef());
 
-      send_observations(simulation_current_gnss_solution()->n_used,
+      send_observations(simulation_current_num_sats(),
         &simulation_current_gnss_solution()->time, 
         simulator_get_navigation_measurements());
 
