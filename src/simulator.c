@@ -45,7 +45,7 @@ simulation_settings_t simulation_settings = {
   .carrier_phase_variance = 9e-4,
   .num_sats = 9,
   .enabled = 0,
-  .mode_mask = SIMULATION_MODE_PVT || SIMULATION_MODE_TRACKING || SIMULATION_MODE_RTK,
+  .mode_mask = SIMULATION_MODE_PVT | SIMULATION_MODE_TRACKING | SIMULATION_MODE_RTK,
 };
 
 simulation_state_t simulation_state = {
