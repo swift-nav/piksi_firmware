@@ -49,7 +49,7 @@ settings_t settings /*__attribute__ ((section(".settings_area"))) */=
 
 static struct setting *settings_head;
 
-static int float_to_string(void *priv, char *str, int slen, const void *blob, int blen)
+static int float_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
   (void)priv;
 
@@ -62,7 +62,7 @@ static int float_to_string(void *priv, char *str, int slen, const void *blob, in
   return -1;
 }
 
-static bool float_from_string(void *priv, void *blob, int blen, const char *str)
+static bool float_from_string(const void *priv, void *blob, int blen, const char *str)
 {
   (void)priv;
 
@@ -75,7 +75,7 @@ static bool float_from_string(void *priv, void *blob, int blen, const char *str)
   return false;
 }
 
-static int int_to_string(void *priv, char *str, int slen, const void *blob, int blen)
+static int int_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
   (void)priv;
 
@@ -90,7 +90,7 @@ static int int_to_string(void *priv, char *str, int slen, const void *blob, int 
   return -1;
 }
 
-static bool int_from_string(void *priv, void *blob, int blen, const char *str)
+static bool int_from_string(const void *priv, void *blob, int blen, const char *str)
 {
   (void)priv;
 
@@ -105,8 +105,57 @@ static bool int_from_string(void *priv, void *blob, int blen, const char *str)
   return false;
 }
 
+static int str_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
+{
+  (void)priv;
+  if (blen < slen)
+    slen = blen;
+  strncpy(str, blob, slen);
+  return slen;
+}
+
+static bool str_from_string(const void *priv, void *blob, int blen, const char *str)
+{
+  (void)priv;
+  strncpy(blob, str, blen);
+  return true;
+}
+
+static int enum_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
+{
+  const char * const *enumnames = priv;
+  if (blen != sizeof(u8))
+    asm("bkpt");
+  int index = *(u8*)blob;
+  strncpy(str, enumnames[index], slen);
+  return strlen(str);
+}
+
+static bool enum_from_string(const void *priv, void *blob, int blen, const char *str)
+{
+  const char * const *enumnames = priv;
+  int i;
+
+  if (blen != sizeof(u8))
+    asm("bkpt");
+
+  for (i = 0; enumnames[i] && (strcmp(str, enumnames[i]) != 0); i++)
+    ;
+
+  if (!enumnames[i])
+    return false;
+
+  *(u8*)blob = i;
+
+  return true;
+}
+
+static struct setting_type type_string = {
+  str_to_string, str_from_string, NULL, NULL,
+};
+
 static struct setting_type type_float = {
-  float_to_string, float_from_string, NULL, NULL,
+  float_to_string, float_from_string, NULL, &type_string,
 };
 
 static const struct setting_type type_int = {
@@ -115,6 +164,20 @@ static const struct setting_type type_int = {
 
 static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context);
 static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* context);
+
+int settings_type_register_enum(const char * const enumnames[], struct setting_type *type)
+{
+  int i;
+  struct setting_type *t;
+  type->to_string = enum_to_string;
+  type->from_string = enum_from_string;
+  type->priv = enumnames;
+  for (i = 0, t = (struct setting_type*)&type_int; t->next; t = t->next, i++)
+    ;
+  i++;
+  t->next = type;
+  return i;
+}
 
 void settings_setup(void)
 {
@@ -130,8 +193,15 @@ void settings_setup(void)
     &settings_save_callback,
     &settings_save_node
   );
+  static const char const * portmode_enum[] = {"SBP", "NMEA", "RTCM", NULL};
+  static struct setting_type portmode;
+  int TYPE_PORTMODE = settings_type_register_enum(portmode_enum, &portmode);
+
+  SETTING("ftdi_uart", "mode", settings.ftdi_usart.mode, TYPE_PORTMODE);
   SETTING("ftdi_uart", "baudrate", settings.ftdi_usart.baud_rate, TYPE_INT);
+  SETTING("uarta_uart", "mode", settings.uarta_usart.mode, TYPE_PORTMODE);
   SETTING("uarta_uart", "baudrate", settings.uarta_usart.baud_rate, TYPE_INT);
+  SETTING("uartb_uart", "mode", settings.uartb_usart.mode, TYPE_PORTMODE);
   SETTING("uartb_uart", "baudrate", settings.uartb_usart.baud_rate, TYPE_INT);
 }
 
@@ -160,10 +230,11 @@ void settings_register(struct setting *setting, enum setting_types type)
   if (buf[0] == 0) {
     setting->type->to_string(setting->type->priv, buf, sizeof(buf),
                              setting->addr, setting->len);
+    setting->notify(setting, buf);
   } else {
-    setting->dirty = true;
+    *strchr(buf, '\n') = '\0';
+    setting->dirty = setting->notify(setting, buf);
   }
-  setting->notify(setting, buf);
 }
 
 static struct setting *settings_lookup(const char *section, const char *setting)
@@ -240,6 +311,7 @@ static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context
   buflen += s->type->to_string(s->type->priv,
                                buf + buflen, sizeof(buf) - buflen,
                                s->addr, s->len);
+  buf[buflen++] = '\0';
   sbp_send_msg(MSG_SETTINGS, buflen, (void*)buf);
   return;
 

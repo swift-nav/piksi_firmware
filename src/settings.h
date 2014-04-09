@@ -52,9 +52,9 @@ enum setting_types {
 };
 
 struct setting_type {
-  int (*to_string)(void *priv, char *str, int slen, const void *blob, int blen);
-  bool (*from_string)(void *priv, void *blob, int len, const char *str);
-  void *priv;
+  int (*to_string)(const void *priv, char *str, int slen, const void *blob, int blen);
+  bool (*from_string)(const void *priv, void *blob, int len, const char *str);
+  const void *priv;
   struct setting_type *next;
 };
 
@@ -69,6 +69,12 @@ struct setting {
   bool dirty;
 };
 
+int func(struct setting_type *t);
+#define SETTING_TYPE_ENUM(x) do { \
+  static struct setting_type enumtype = \
+  {NULL, NULL, (x), NULL}; \
+} while(0), func()
+
 #define SETTING_NOTIFY(section, name, var, type, notify) do {         \
   static struct setting setting = \
     {(section), (name), &(var), sizeof(var), (notify), NULL, NULL, false}; \
@@ -79,6 +85,7 @@ struct setting {
   SETTING_NOTIFY(section, name, var, type, settings_default_notify)
 
 void settings_setup(void);
+int settings_type_register_enum(const char * const enumnames[], struct setting_type *type);
 void settings_register(struct setting *s, enum setting_types type);
 bool settings_default_notify(struct setting *setting, const char *val);
 
