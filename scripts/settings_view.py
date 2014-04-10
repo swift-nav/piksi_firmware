@@ -9,7 +9,7 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool, Str, Color, Constant, Font, Undefined
+from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool, Str, Color, Constant, Font, Undefined, Property
 from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor
 from traitsui.tabular_adapter import TabularAdapter
 
@@ -55,11 +55,16 @@ class SectionHeading(SettingBase):
 
 class SimpleAdapter(TabularAdapter):
   columns = [('Name', 'name'), ('Value',  'value')]
+  font = Font('12')
   SectionHeading_bg_color = Color(0xE0E0E0)
-  SectionHeading_font = Font('bold')
+  SectionHeading_font = Font('14 bold')
   SectionHeading_can_edit = Bool(False)
+  SectionHeading_name_text = Property
   #Setting_name_can_edit = Bool(False)
   #Setting_value_can_edit = Bool(True)
+
+  def _get_SectionHeading_name_text(self):
+    return self.item.name.replace('_', ' ')
 
 class SettingsView(HasTraits):
 
