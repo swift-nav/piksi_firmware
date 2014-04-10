@@ -38,9 +38,6 @@ BinarySemaphore base_obs_received;
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
 
-#define MAX_CHANNELS 14
-#define MAX_SATS 32
-
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
   /* Send GPS_TIME message first. */
@@ -297,8 +294,10 @@ static msg_t solution_thread(void *arg)
           new_obs_time.wn = position_solution.time.wn;
           new_obs_time.tow = expected_tow;
 
-          /* Output obervations. */
-          send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
+          if (!simulation_enabled()) {
+            /* Output obervations. */
+            send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
+          }
 
           /* TODO: use a buffer from the pool from the start instead of
            * allocating nav_meas_tdcp as well. Downside, if we don't end up
@@ -342,6 +341,32 @@ static msg_t solution_thread(void *arg)
         timer_set_period(TIM5, round(65472000 * dt));
       }
 
+    }
+
+    /* Here we do all the nice simulation-related stuff. */
+    if (simulation_enabled()) {
+
+      /* Set the timer period appropriately. */
+      timer_set_period(TIM5, round(65472000 * (1.0/SOLN_FREQ)));
+
+      simulation_step();
+
+      if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
+        /* Then we send fake messages. */
+        solution_send_sbp(simulation_current_gnss_solution(),
+                          simulation_current_dops_solution());
+      }
+
+      if (simulation_enabled_for(SIMULATION_MODE_RTK)) {
+        solution_send_baseline(&simulation_current_gnss_solution()->time,
+          simulation_current_num_sats(),
+          simulation_current_baseline_ecef(),
+          simulation_ref_ecef());
+
+        send_observations(simulation_current_num_sats(),
+          &simulation_current_gnss_solution()->time,
+          simulation_current_navigation_measurements());
+      }
     }
   }
   return 0;
@@ -409,31 +434,6 @@ static msg_t time_matched_obs_thread(void *arg)
          * keep moving through the mailbox. */
         chPoolFree(&obs_buff_pool, obss);
         chMtxUnlock();
-      }
-    }
-
-    //Here we do all the nice simulation-related stuff.
-    if (simulation_enabled()) {
-
-      //Set the timer period appropriately
-      timer_set_period(TIM5, round(65472000 * (1.0/SOLN_FREQ)));
-
-      simulation_step();
-
-      if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
-        //Then we send fake messages
-        solution_send_sbp(simulation_current_gnss_solution(), simulation_current_dops_solution());
-      }
-
-      if (simulation_enabled_for(SIMULATION_MODE_RTK)) {
-        solution_send_baseline(&simulation_current_gnss_solution()->time,
-          simulation_current_num_sats(),
-          simulation_current_baseline_ecef(),
-          simulation_ref_ecef());
-
-        send_observations(simulation_current_num_sats(),
-          &simulation_current_gnss_solution()->time,
-          simulation_current_navigation_measurements());
       }
     }
   }

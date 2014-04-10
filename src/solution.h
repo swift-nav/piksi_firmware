@@ -42,9 +42,6 @@ typedef struct {
 #define OBS_N_BUFF 5
 #define OBS_BUFF_SIZE (OBS_N_BUFF * sizeof(obss_t))
 
-#define MAX_SATS 14
-#define MAX_CHANNELS 14
-
 void solution_send_sbp(gnss_solution *soln, dops_t *dops);
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm);
