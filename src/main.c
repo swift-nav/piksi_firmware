@@ -26,6 +26,7 @@
 #include "position.h"
 #include "system_monitor.h"
 #include "simulator.h"
+#include "settings.h"
  
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
@@ -123,6 +124,7 @@ int main(void)
   printf("SwiftNAP configured with %d tracking channels\n\n",
          nap_track_n_channels);
 
+  settings_setup();
   timing_setup();
   position_setup();
 
