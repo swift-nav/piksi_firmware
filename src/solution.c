@@ -17,7 +17,6 @@
 #include <libswiftnav/sbp_utils.h>
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/ephemeris.h>
-#include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/single_diff.h>
 
@@ -32,6 +31,11 @@
 #include "sbp.h"
 #include "solution.h"
 #include "manage.h"
+
+Mutex base_obs_lock;
+BinarySemaphore base_obs_received;
+MemoryPool obs_buff_pool;
+Mailbox obs_mailbox;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -97,13 +101,8 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
 }
 
 extern ephemeris_t es[MAX_SATS];
-channel_measurement_t meas[MAX_CHANNELS];
-navigation_measurement_t nav_meas[MAX_CHANNELS];
-navigation_measurement_t nav_meas_old[MAX_CHANNELS];
 
-navigation_measurement_t nav_meas_base[MAX_CHANNELS];
-u8 n_base;
-double tow_base = -1;
+obss_t base_obss;
 
 void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -117,18 +116,36 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   /* Relay observations using sender_if = 0. */
   sbp_send_msg_(MSG_NEW_OBS, len, msg, 0);
 
-  tow_base = ((gps_time_t *)msg)->tow;
-  n_base = (len - sizeof(gps_time_t)) / sizeof(msg_obs_t);
+  gps_time_t *t = (gps_time_t *)msg;
+  double epoch_count = t->tow * SOLN_FREQ;
+
+  if (fabs(epoch_count - round(epoch_count)) > TIME_MATCH_THRESHOLD) {
+    printf("Unaligned observation from base station ignored.\n");
+    return;
+  }
+
+  /* Lock mutex before modifying base_obss. */
+  chMtxLock(&base_obs_lock);
+
+  base_obss.t = *t;
+  base_obss.n = (len - sizeof(gps_time_t)) / sizeof(msg_obs_t);
   msg_obs_t *obs = (msg_obs_t *)(msg + sizeof(gps_time_t));
-  for (u8 i=0; i<n_base; i++) {
-    nav_meas_base[i].prn = obs[i].prn;
-    nav_meas_base[i].raw_pseudorange = obs[i].P;
-    nav_meas_base[i].carrier_phase = obs[i].L;
-    nav_meas_base[i].snr = obs[i].snr;
+  for (u8 i=0; i<base_obss.n; i++) {
+    base_obss.nm[i].prn = obs[i].prn;
+    base_obss.nm[i].raw_pseudorange = obs[i].P;
+    base_obss.nm[i].carrier_phase = obs[i].L;
+    base_obss.nm[i].snr = obs[i].snr;
   }
 
   /* Ensure observations sorted by PRN. */
-  qsort(nav_meas_base, n_base, sizeof(navigation_measurement_t), nav_meas_cmp);
+  qsort(base_obss.nm, base_obss.n,
+        sizeof(navigation_measurement_t), nav_meas_cmp);
+
+  /* Unlock mutex. */
+  chMtxUnlock();
+
+  /* Signal that a base observation has been received. */
+  chBSemSignal(&base_obs_received);
 }
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
@@ -168,13 +185,13 @@ void tim5_isr()
   CH_IRQ_EPILOGUE();
 }
 
-#define SOLN_FREQ 5.0
-
 static WORKING_AREA_CCM(wa_solution_thread, 8000);
 static msg_t solution_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("solution");
+
+  static navigation_measurement_t nav_meas_old[MAX_CHANNELS];
 
   while (TRUE) {
     /* Waiting for the timer IRQ fire.*/
@@ -186,14 +203,13 @@ static msg_t solution_thread(void *arg)
     led_toggle(LED_RED);
 
     u8 n_ready = 0;
+    channel_measurement_t meas[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
       if (use_tracking_channel(i)) {
         __asm__("CPSID i;");
         tracking_update_measurement(i, &meas[n_ready]);
         __asm__("CPSIE i;");
-
-        if (meas[n_ready].snr > 2)
-          n_ready++;
+        n_ready++;
       }
     }
 
@@ -204,12 +220,18 @@ static msg_t solution_thread(void *arg)
        */
       static u8 n_ready_old = 0;
       u64 nav_tc = nap_timing_count();
+      static navigation_measurement_t nav_meas[MAX_CHANNELS];
       calc_navigation_measurement(n_ready, meas, nav_meas,
                                   (double)((u32)nav_tc)/SAMPLE_FREQ, es);
 
-      navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
+      static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
       u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
                                      nav_meas_old, nav_meas_tdcp);
+
+      /* Store current observations for next time for
+       * TDCP Doppler calculation. */
+      memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
+      n_ready_old = n_ready;
 
       dops_t dops;
       if (calc_PVT(n_ready_tdcp, nav_meas_tdcp, &position_solution, &dops) == 0) {
@@ -223,113 +245,72 @@ static msg_t solution_thread(void *arg)
 
         /* If we have a recent set of observations from the base station, do a
          * differential solution. */
-        gps_time_t t_base = {
-          /* TODO: Handle end of week rollover properly. */
-          .wn = position_solution.time.wn,
-          .tow = tow_base
-        };
         double pdt;
-        if (n_base > 0) {
-          if ((pdt = gpsdifftime(position_solution.time, t_base)) < 1.0) {
+        chMtxLock(&base_obs_lock);
+        if (base_obss.n > 0) {
+          if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
+                < MAX_AGE_OF_DIFFERENTIAL) {
 
-            static u8 init_done = 0;
-            static u8 filter_choice = 0;
-            static navigation_measurement_t nav_meas_prop[MAX_CHANNELS];
-            static sdiff_t sds[MAX_CHANNELS];
+            /* Propagate base station observations to the current time and
+             * process a low-latency differential solution. */
 
-            propagate(n_ready_tdcp, position_solution.pos_ecef,
-                      nav_meas_base, &t_base,
-                      nav_meas_tdcp, &position_solution.time,
-                      nav_meas_prop);
+            /* Hook in low-latency filter here. */
 
-            /* Calculate single difference observations for differential filters. */
-            u8 n_sds = single_diff(
-                n_ready_tdcp, nav_meas_tdcp,
-                n_base, nav_meas_prop,
-                sds
-            );
-
-            if (n_sds > 4) {
-
-              if (init_done == 0) {
-                printf("====== INIT =======\n");
-                static double b_init[3] = {0, 0, 0}; /* Zero baseline. */
-                dgnss_init(
-                    n_sds, sds,
-                    position_solution.pos_ecef, b_init,
-                    1.0 / SOLN_FREQ
-                );
-                init_done = 1;
-              }
-
-              double b[3];
-              dgnss_update(
-                  n_sds, sds,
-                  position_solution.pos_ecef,
-                  1.0 / SOLN_FREQ,
-                  filter_choice, b
-              );
-              solution_send_baseline(&position_solution.time, n_sds,
-                                     b, position_solution.pos_ecef);
-            }
-
-          } else {
-            printf("Max age of differential exceeded (%f)\n",
-                position_solution.time.tow - tow_base);
           }
         }
+        chMtxUnlock();
 
-        /*
-
-        static navigation_measurement_t nav_meas_0[MAX_CHANNELS];
-        static gps_time_t t0;
-        static navigation_measurement_t nav_meas_prop[MAX_CHANNELS];
-
-        DO_ONLY(1,
-            memcpy(nav_meas_0, nav_meas_tdcp, sizeof(nav_meas_tdcp));
-            t0 = position_solution.time;
-        );
-
-        DO_ONLY(20,
-            double pdt = gpsdifftime(position_solution.time, t0);
-            propagate(n_ready_tdcp, position_solution.pos_ecef,
-                      nav_meas_0, &t0,
-                      nav_meas_tdcp, &position_solution.time,
-                      nav_meas_prop);
-            sdiff_t sds[14];
-            sdiff_t dds[14];
-            u8 nsds = single_diff(n_ready_tdcp, nav_meas_tdcp, n_ready_tdcp, nav_meas_prop, sds);
-            printf("(%f, [", pdt);
-            double_diff(nsds, sds, dds, 0);
-            for (u8 i=1; i<nsds; i++) {
-              printf("%f,", dds[i].carrier_phase);
-            }
-            printf("]),\n");
-        );
-
-        */
-
-        /* Align observations to the desired epoch. */
+        /* Calculate the time of the nearest solution epoch, were we expected
+         * to be and calculate how far we were away from it. */
         double expected_tow = round(position_solution.time.tow*SOLN_FREQ)
                                 / SOLN_FREQ;
         double t_err = expected_tow - position_solution.time.tow;
 
-        for (u8 i=0; i<n_ready_tdcp; i++) {
-          nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
-            (GPS_C / GPS_L1_HZ);
-          nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
-        }
-
         /* Only send observations that are closely aligned with the desired
          * solution epochs to ensure they haven't been propagated too far. */
-        if (fabs(t_err) < 10e-3) {
-          /* Updated observation time. */
+        if (fabs(t_err) < OBS_PROPAGATION_LIMIT) {
+          /* Propagate observation to desired time. */
+          for (u8 i=0; i<n_ready_tdcp; i++) {
+            nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
+              (GPS_C / GPS_L1_HZ);
+            nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
+          }
+
+          /* Update observation time. */
           gps_time_t new_obs_time;
           new_obs_time.wn = position_solution.time.wn;
           new_obs_time.tow = expected_tow;
 
           /* Output obervations. */
           send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
+
+          /* TODO: use a buffer from the pool from the start instead of
+           * allocating nav_meas_tdcp as well. Downside, if we don't end up
+           * pushing the message into the mailbox then we just wasted an
+           * observation from the mailbox for no good reason. */
+
+          obss_t *obs = chPoolAlloc(&obs_buff_pool);
+          msg_t ret;
+          if (obs == NULL) {
+            /* Pool is empty, grab a buffer from the mailbox instead, i.e.
+             * overwrite the oldest item in the queue. */
+            ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
+            if (ret != RDY_OK) {
+              printf("ERROR: Pool full and mailbox empty!\n");
+            }
+          }
+          obs->t = new_obs_time;
+          obs->n = n_ready_tdcp;
+          memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
+          ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
+          if (ret != RDY_OK) {
+            /* We could grab another item from the mailbox, discard it and then
+             * post our obs again but if the size of the mailbox and the pool
+             * are equal then we should have already handled the case where the
+             * mailbox is full when we handled the case that the pool was full.
+             * */
+            printf("ERROR: Mailbox should have space!\n");
+          }
         }
 
         /* Calculate time till the next desired solution epoch. */
@@ -345,10 +326,74 @@ static msg_t solution_thread(void *arg)
         timer_set_period(TIM5, round(65472000 * dt));
       }
 
-      /* Store current observations for next time for
-       * TDCP Doppler calculation. */
-      memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
-      n_ready_old = n_ready;
+    }
+  }
+  return 0;
+}
+
+void process_matched_obs(u8 n_sds, sdiff_t *sds)
+{
+  (void)n_sds; (void)sds;
+
+  /* Hook Float KF and AR filters in here. */
+
+  /*printf("Matched observations\n");*/
+}
+
+static WORKING_AREA_CCM(wa_time_matched_obs_thread, 3000);
+static msg_t time_matched_obs_thread(void *arg)
+{
+  (void)arg;
+  while (1) {
+    /* Wait for a new observation to arrive from the base station. */
+    chBSemWait(&base_obs_received);
+
+    obss_t *obss;
+    /* Look through the mailbox (FIFO queue) of locally generated observations
+     * looking for one that matches in time. */
+    while (chMBFetch(&obs_mailbox, (msg_t *)&obss, TIME_IMMEDIATE)
+            == RDY_OK) {
+      chMtxLock(&base_obs_lock);
+
+      double dt = gpsdifftime(obss->t, base_obss.t);
+
+      if (fabs(dt) < TIME_MATCH_THRESHOLD) {
+        /* Times match! Process obs and base_obss */
+        static sdiff_t sds[MAX_CHANNELS];
+        u8 n_sds = single_diff(
+            obss->n, obss->nm,
+            base_obss.n, base_obss.nm,
+            sds
+        );
+        process_matched_obs(n_sds, sds);
+        chPoolFree(&obs_buff_pool, obss);
+        chMtxUnlock();
+        break;
+      } else if (dt > 0) {
+        /* Time of base obs before time of local obs, we must not have a local
+         * observation matching this base observation, break and wait for a new
+         * base observation. */
+
+        /* In practice this should basically never happen so lets make a note
+         * if it does. */
+        printf("Obs Matching: t_base < t_rover\n");
+
+        /* Return the buffer to the mailbox so we can try it again later. */
+        msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
+        if (ret != RDY_OK) {
+          /* Something went wrong with returning it to the buffer, better just
+           * free it and carry on. */
+          printf("Obs Matching: mailbox full, discarding observation!\n");
+          chPoolFree(&obs_buff_pool, obss);
+        }
+        chMtxUnlock();
+        break;
+      } else {
+        /* Time of base obs later than time of local obs,
+         * keep moving through the mailbox. */
+        chPoolFree(&obs_buff_pool, obss);
+        chMtxUnlock();
+      }
     }
   }
   return 0;
@@ -368,8 +413,19 @@ void solution_setup()
   timer_enable_counter(TIM5);
   timer_enable_irq(TIM5, TIM_DIER_UIE);
 
+  chMtxInit(&base_obs_lock);
+  chBSemInit(&base_obs_received, TRUE);
+  static msg_t obs_mailbox_buff[OBS_N_BUFF];
+  chMBInit(&obs_mailbox, obs_mailbox_buff, OBS_N_BUFF);
+  chPoolInit(&obs_buff_pool, sizeof(obss_t), NULL);
+  static obss_t obs_buff[OBS_N_BUFF];
+  chPoolLoadArray(&obs_buff_pool, obs_buff, OBS_N_BUFF);
+
   chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread),
                     HIGHPRIO-1, solution_thread, NULL);
+
+  chThdCreateStatic(wa_time_matched_obs_thread, sizeof(wa_time_matched_obs_thread),
+                    NORMALPRIO, time_matched_obs_thread, NULL);
 
   static sbp_msg_callbacks_node_t obs_node;
   sbp_register_cbk(
