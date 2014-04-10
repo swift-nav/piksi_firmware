@@ -21,7 +21,7 @@ LDSCRIPT = bootloader.ld
 
 SWIFTNAV_ROOT ?= ..
 PREFIX ?= arm-none-eabi
-GIT_VERSION := $(shell $(SWIFTNAV_ROOT)/scripts/git-check.sh)
+GIT_VERSION := $(shell git describe --dirty)
 # PREFIX ?= arm-elf
 CC = $(PREFIX)-gcc
 LD = $(PREFIX)-gcc

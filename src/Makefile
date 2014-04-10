@@ -196,7 +196,7 @@ CPPWARN = -Wall -Wextra
 #
 
 # List all default C defines here, like -D_DEBUG=1
-GIT_VERSION := $(shell $(SWIFTNAV_ROOT)/scripts/git-check.sh)
+GIT_VERSION := $(shell git describe --dirty)
 DDEFS = -DSTM32F4 -DGIT_VERSION="\"$(GIT_VERSION)\""
 
 # List all default ASM defines here, like -D_DEBUG=1

@@ -109,11 +109,11 @@ int main(void)
   /* Piksi hardware initialization. */
   init(1);
 
-  printf("\n\nFirmware info - git: " GIT_VERSION \
-         ", built: " __DATE__ " " __TIME__ "\n");
+  printf("\n\nFirmware Version: " GIT_VERSION "\n" \
+         "Built: " __DATE__ " " __TIME__ "\n");
   u8 nap_git_hash[20];
   nap_conf_rd_git_hash(nap_git_hash);
-  printf("SwiftNAP git: ");
+  printf("SwiftNAP Version: ");
   for (u8 i=0; i<20; i++)
     printf("%02x", nap_git_hash[i]);
   if (nap_conf_rd_git_unclean())
