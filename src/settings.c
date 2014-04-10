@@ -251,6 +251,12 @@ bool settings_default_notify(struct setting *s, const char *val)
   return s->type->from_string(s->type->priv, s->addr, s->len, val);
 }
 
+bool settings_read_only_notify(struct setting *s, const char *val)
+{
+  (void)s; (void)val;
+  return true;
+}
+
 static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void) context;

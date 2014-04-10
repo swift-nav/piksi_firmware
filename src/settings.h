@@ -84,10 +84,14 @@ int func(struct setting_type *t);
 #define SETTING(section, name, var, type) \
   SETTING_NOTIFY(section, name, var, type, settings_default_notify)
 
+#define READ_ONLY_PARAMETER(section, name, var, type) \
+  SETTING_NOTIFY(section, name, var, type, settings_read_only_notify)
+
 void settings_setup(void);
 int settings_type_register_enum(const char * const enumnames[], struct setting_type *type);
 void settings_register(struct setting *s, enum setting_types type);
 bool settings_default_notify(struct setting *setting, const char *val);
+bool settings_read_only_notify(struct setting *setting, const char *val);
 
 #endif  /* SWIFTNAV_SETTINGS_H */
 
