@@ -31,7 +31,12 @@ class Bootloader():
     self.version = None
 
   def _handshake_callback(self, data):
-    self.version = struct.unpack('B', data[0])[0]
+    if len(data)==1 and struct.unpack('B', data[0])==0:
+      # == v0.1 of the bootloader, returns hardcoded version number 0.
+      self.version = "v0.1"
+    else:
+      # > v0.1 of the bootloader, returns git commit string.
+      self.version = data[:]
     self.handshake_received = True
 
   def wait_for_handshake(self):
