@@ -273,6 +273,8 @@ static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context
     else
       s = settings_head;
   } else {
+    if (msg[len-1] != '\0')
+      goto error;
     /* Extract parameters from message:
      * 2 or 3 null terminated strings: section, setting and (optional) value
      * If value is present the message is an assignment.

@@ -45,7 +45,7 @@ class Setting(SettingBase):
         self.value = self.value.encode('ascii', 'replace')
       print (self.section, self.name, self.value)
       print repr('%s\0%s\0%s' % (self.section, self.name, self.value))
-      self.link.send_message(ids.SETTINGS, '%s\0%s\0%s' % (self.section, self.name, self.value))
+      self.link.send_message(ids.SETTINGS, '%s\0%s\0%s\0' % (self.section, self.name, self.value))
 
 class SectionHeading(SettingBase):
   value = Constant('')
