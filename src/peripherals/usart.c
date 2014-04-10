@@ -78,13 +78,13 @@ void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
    * 3     PC10  PC11  UARTB
    */
 
-  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO6 | GPIO7);
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO6 | GPIO7);
   gpio_set_af(GPIOC, GPIO_AF8, GPIO6 | GPIO7);
 
-  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9 | GPIO10);
+  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO9 | GPIO10);
   gpio_set_af(GPIOA, GPIO_AF7, GPIO9 | GPIO10);
 
-  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO10 | GPIO11);
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO10 | GPIO11);
   gpio_set_af(GPIOC, GPIO_AF7, GPIO10 | GPIO11);
 
   usart_set_parameters(USART6, ftdi_baud);

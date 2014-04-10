@@ -42,7 +42,7 @@ import os
   #font.set_name("Arial")
   #fontManager.defaultFont = fontManager.findfont(font)
 
-from traits.api import Str, Instance, Dict, HasTraits, Int
+from traits.api import Str, Instance, Dict, HasTraits, Int, Button
 from traitsui.api import Item, ShellEditor, View, VSplit, HSplit, Tabbed, InstanceEditor
 
 import struct
@@ -54,6 +54,7 @@ from solution_view import SolutionView
 from baseline_view import BaselineView
 from observation_view import ObservationView
 from system_monitor_view import SystemMonitorView
+from simulator_view import SimulatorView
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -68,6 +69,7 @@ class SwiftConsole(HasTraits):
   observation_view = Instance(ObservationView)
   observation_view_base = Instance(ObservationView)
   system_monitor_view = Instance(SystemMonitorView)
+  simulator_view = Instance(SimulatorView)
 
   view = View(
     VSplit(
@@ -82,6 +84,7 @@ class SwiftConsole(HasTraits):
           label='Observations',
         ),
         Item('system_monitor_view', style='custom', label='System Monitor'),
+        Item('simulator_view', style='custom', label='Simulator'),
         Item(
           'python_console_env', style='custom',
           label='Python Console', editor=ShellEditor()
@@ -98,7 +101,7 @@ class SwiftConsole(HasTraits):
     ),
     resizable = True,
     width = 1000,
-    height = 600,
+    height = 800,
     title = 'Piksi console'
   )
 
@@ -128,6 +131,7 @@ class SwiftConsole(HasTraits):
     self.observation_view = ObservationView(self.link, name='Rover', sender_id=0x2222)
     self.observation_view_base = ObservationView(self.link, name='Base', sender_id=0)
     self.system_monitor_view = SystemMonitorView(self.link)
+    self.simulator_view = SimulatorView(self.link)
 
     self.python_console_env = {
         'send_message': self.link.send_message,

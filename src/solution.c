@@ -31,6 +31,7 @@
 #include "sbp.h"
 #include "solution.h"
 #include "manage.h"
+#include "simulator.h"
 
 Mutex base_obs_lock;
 BinarySemaphore base_obs_received;
@@ -203,7 +204,11 @@ static msg_t solution_thread(void *arg)
     chSchGoSleepS(THD_STATE_SUSPENDED);
     chSysUnlock();
 
-    led_toggle(LED_RED);
+    if (simulation_enabled()) {
+      led_on(LED_RED);
+    } else {
+      led_toggle(LED_RED);
+    }
 
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
@@ -242,9 +247,12 @@ static msg_t solution_thread(void *arg)
         /* Update global position solution state. */
         position_updated();
 
-        /* Output solution. */
-        solution_send_sbp(&position_solution, &dops);
-        solution_send_nmea(&position_solution, &dops, n_ready_tdcp, nav_meas_tdcp);
+        if (!simulation_enabled()) {
+          /* Output solution. */
+          solution_send_sbp(&position_solution, &dops);
+          solution_send_nmea(&position_solution, &dops,
+                             n_ready_tdcp, nav_meas_tdcp);
+        }
 
         /* If we have a recent set of observations from the base station, do a
          * differential solution. */
@@ -397,6 +405,19 @@ static msg_t time_matched_obs_thread(void *arg)
         chPoolFree(&obs_buff_pool, obss);
         chMtxUnlock();
       }
+    }
+
+    //Here we do all the nice simulation-related stuff.
+    if (simulation_enabled_for(SIM_PVT)) {
+
+      //Set the timer period appropriately
+      timer_set_period(TIM5, round(65472000 * (1.0/SOLN_FREQ)));
+
+      simulation_step();
+
+      //Then we send fake messages
+      solution_send_sbp(simulation_current_gnss_solution(), simulation_current_dops_solution());
+
     }
   }
   return 0;
