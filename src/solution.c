@@ -76,7 +76,9 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
       .x = (s32)round(1e3 * b_ecef[0]),
       .y = (s32)round(1e3 * b_ecef[1]),
       .z = (s32)round(1e3 * b_ecef[2]),
+      .accuracy = 0,
       .n_sats = n_sats,
+      .flags = 0
     };
     sbp_send_msg(SBP_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
   }
@@ -90,14 +92,14 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
       .n = (s32)round(1e3 * b_ned[0]),
       .e = (s32)round(1e3 * b_ned[1]),
       .d = (s32)round(1e3 * b_ned[2]),
+      .h_accuracy = 0,
+      .v_accuracy = 0,
       .n_sats = n_sats,
+      .flags = 0
     };
     sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
   }
 }
-
-#define MAX_SATS 14
-#define MAX_CHANNELS 14
 
 extern ephemeris_t es[32];
 channel_measurement_t meas[MAX_SATS];
@@ -245,7 +247,7 @@ static msg_t solution_thread(void *arg)
       if (calc_PVT(n_ready_tdcp, nav_meas_tdcp, &position_solution, &dops) == 0) {
         position_updated();
 
-#define SOLN_FREQ 2.0
+#define SOLN_FREQ 5.0
 
         double expected_tow = round(position_solution.time.tow*SOLN_FREQ)
                                 / SOLN_FREQ;
@@ -293,16 +295,28 @@ static msg_t solution_thread(void *arg)
     }
 
     //Here we do all the nice simulation-related stuff.
-    if (simulation_enabled_for(SIM_PVT)) {
+    if (simulation_enabled()) {
 
       //Set the timer period appropriately
       timer_set_period(TIM5, round(65472000 * (1.0/SOLN_FREQ)));
 
       simulation_step();
 
-      //Then we send fake messages
-      solution_send_sbp(simulation_current_gnss_solution(), simulation_current_dops_solution());
+      if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
+        //Then we send fake messages
+        solution_send_sbp(simulation_current_gnss_solution(), simulation_current_dops_solution());        
+      }
+      
+      if (simulation_enabled_for(SIMULATION_MODE_RTK)) {
+        solution_send_baseline(&simulation_current_gnss_solution()->time,
+          simulation_current_num_sats(), 
+          simulation_current_baseline_ecef(),
+          simulation_ref_ecef());
 
+        send_observations(simulation_current_num_sats(),
+          &simulation_current_gnss_solution()->time, 
+          simulation_current_navigation_measurements());
+      }
     }
   }
   return 0;
