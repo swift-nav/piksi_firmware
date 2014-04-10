@@ -16,7 +16,7 @@ from traitsui.api import View, UItem, TextEditor, Handler
 from traits.etsconfig.api import ETSConfig
 
 
-DEFAULT_MAX_LEN = 80000
+DEFAULT_MAX_LEN = 8000
 
 
 class _OutputStreamViewHandler(Handler):
