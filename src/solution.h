@@ -19,6 +19,9 @@
 #include <libswiftnav/track.h>
 #include <libswiftnav/gpstime.h>
 
+#define MAX_CHANNELS 14
+#define MAX_SATS 32
+
 typedef struct {
   void *next; /* Used by memory pool implementation. */
   gps_time_t t;

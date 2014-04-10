@@ -37,6 +37,9 @@ BinarySemaphore base_obs_received;
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
 
+#define MAX_CHANNELS 14
+#define MAX_SATS 32
+
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
   /* Send GPS_TIME message first. */
