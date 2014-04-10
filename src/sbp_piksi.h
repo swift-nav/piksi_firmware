@@ -60,6 +60,7 @@
 
 #define MSG_SETTINGS                0xA0  /**< Host  <-> Piksi */
 #define MSG_SETTINGS_SAVE           0xA1  /**< Host   -> Piksi */
+#define MSG_SETTINGS_READ_BY_INDEX  0xA2  /**< Host   -> Piksi */
 
 #define MSG_BASELINE                0x23  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {

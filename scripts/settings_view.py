@@ -21,7 +21,8 @@ import datetime
 
 import sbp_piksi as ids
 
-
+def u16_to_str(i):
+  return chr(i & 0xff) + chr(i >> 8)
 
 class SettingBase(HasTraits):
   name = Str()
@@ -91,8 +92,8 @@ class SettingsView(HasTraits):
   def _settings_read_button_fired(self):
     print "Requesting settings from piksi"
     self.settings = {}
-    self.discover_state = True
-    self.link.send_message(ids.SETTINGS, "")
+    self.enumindex = 0
+    self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
 
   def _settings_save_button_fired(self):
     print "Saving settings to filesystem"
@@ -100,43 +101,43 @@ class SettingsView(HasTraits):
 
   ##Callbacks for receiving messages
 
+  def settings_read_by_index_callback(self, data):
+    if not data:
+      print self.settings
+      self.settings_list = []
+
+      sections = sorted(self.settings.keys())
+
+      for sec in sections:
+        self.settings_list.append(SectionHeading(sec))
+        for setting in sorted(self.settings[sec].keys()):
+          self.settings_list.append(self.settings[sec][setting])
+      return
+
+    section, setting, value, _ = data[2:].split('\0')[:4]
+
+    print "Found setting: %s.%s = %s" % (section, setting, value)
+    if not self.settings.has_key(section):
+      self.settings[section] = {}
+    self.settings[section][setting] = Setting(setting, section, value, link=self.link)
+    self.enumindex += 1
+    self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
+
   def settings_read_callback(self, data):
-    print repr(data)
-    section, setting, value, _ = data.split('\0')[:4]
-
-    if self.discover_state:
-      if self.settings.has_key(section) and self.settings[section].has_key(setting):
-        self.discover_state = False
-        print self.settings
-        self.settings_list = []
-
-        sections = sorted(self.settings.keys())
-
-        for sec in sections:
-          self.settings_list.append(SectionHeading(sec))
-          for setting in sorted(self.settings[sec].keys()):
-            self.settings_list.append(self.settings[sec][setting])
-
-      else:
-        print "Found setting: %s.%s = %s" % (section, setting, value)
-        if not self.settings.has_key(section):
-          self.settings[section] = {}
-        self.settings[section][setting] = Setting(setting, section, value, link=self.link)
-        self.link.send_message(ids.SETTINGS, "")
-
-    else:
-      print "Setting updated: %s.%s = %s" % (section, setting, value)
-      # Hack to prevent an infinite loop of setting settings
-      self.settings[section][setting].value = Undefined
-      self.settings[section][setting].value = value
+    section, setting, value, _ = data.split('\0')
+    print "Setting updated: %s.%s = %s" % (section, setting, value)
+    # Hack to prevent an infinite loop of setting settings
+    self.settings[section][setting].value = Undefined
+    self.settings[section][setting].value = value
 
   def __init__(self, link):
     super(SettingsView, self).__init__()
 
+    self.enumindex = 0
     self.settings = {}
     self.link = link
-    self.discover_state = False
     self.link.add_callback(ids.SETTINGS, self.settings_read_callback)
+    self.link.add_callback(ids.SETTINGS_READ_BY_INDEX, self.settings_read_by_index_callback)
 
     self._settings_read_button_fired()
 

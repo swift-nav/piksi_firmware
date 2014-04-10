@@ -164,6 +164,7 @@ static const struct setting_type type_int = {
 
 static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context);
 static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* context);
+static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void* context);
 
 int settings_type_register_enum(const char * const enumnames[], struct setting_type *type)
 {
@@ -192,6 +193,12 @@ void settings_setup(void)
     MSG_SETTINGS_SAVE,
     &settings_save_callback,
     &settings_save_node
+  );
+  static sbp_msg_callbacks_node_t settings_read_by_index_node;
+  sbp_register_cbk(
+    MSG_SETTINGS_READ_BY_INDEX,
+    &settings_read_by_index_callback,
+    &settings_read_by_index_node
   );
   static const char const * portmode_enum[] = {"SBP", "NMEA", "RTCM", NULL};
   static struct setting_type portmode;
@@ -325,6 +332,42 @@ static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context
 
 error:
   printf("Error in settings read message\n");
+}
+
+static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void) context;
+
+  struct setting *s = settings_head;
+  char buf[256];
+  u8 buflen = 0;
+
+  if (len != 2) {
+    printf("Invalid length for settings read by index!");
+    return;
+  }
+  u16 index = (msg[1] << 8) | msg[0];
+
+  for (int i = 0; (i < index) && s; i++, s = s->next)
+    ;
+
+  if (s == NULL) {
+    sbp_send_msg(MSG_SETTINGS_READ_BY_INDEX, 0, NULL);
+    return;
+  }
+
+  /* build and send reply */
+  buf[buflen++] = msg[0];
+  buf[buflen++] = msg[1];
+  strncpy(buf + buflen, s->section, sizeof(buf) - buflen);
+  buflen += strlen(s->section) + 1;
+  strncpy(buf + buflen, s->name, sizeof(buf) - buflen);
+  buflen += strlen(s->name) + 1;
+  buflen += s->type->to_string(s->type->priv,
+                               buf + buflen, sizeof(buf) - buflen,
+                               s->addr, s->len);
+  buf[buflen++] = '\0';
+  sbp_send_msg(MSG_SETTINGS_READ_BY_INDEX, buflen, (void*)buf);
 }
 
 static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* context)
