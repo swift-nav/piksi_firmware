@@ -60,10 +60,14 @@ class SimpleAdapter(TabularAdapter):
   SectionHeading_font = Font('14 bold')
   SectionHeading_can_edit = Bool(False)
   SectionHeading_name_text = Property
+  Setting_name_text = Property
   #Setting_name_can_edit = Bool(False)
   #Setting_value_can_edit = Bool(True)
 
   def _get_SectionHeading_name_text(self):
+    return self.item.name.replace('_', ' ')
+
+  def _get_Setting_name_text(self):
     return self.item.name.replace('_', ' ')
 
 class SettingsView(HasTraits):
@@ -97,7 +101,8 @@ class SettingsView(HasTraits):
   ##Callbacks for receiving messages
 
   def settings_read_callback(self, data):
-    section, setting, value, _ = data.split('\0')
+    print repr(data)
+    section, setting, value, _ = data.split('\0')[:4]
 
     if self.discover_state:
       if self.settings.has_key(section) and self.settings[section].has_key(setting):
