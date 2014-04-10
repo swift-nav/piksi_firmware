@@ -128,6 +128,8 @@ class SettingsView(HasTraits):
     self.discover_state = False
     self.link.add_callback(ids.SETTINGS, self.settings_read_callback)
 
+    self._settings_read_button_fired()
+
     self.python_console_cmds = {
       'settings': self
     }
