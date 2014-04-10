@@ -27,7 +27,7 @@
 #include "system_monitor.h"
 #include "simulator.h"
 #include "settings.h"
- 
+
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
 #endif
