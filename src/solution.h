@@ -17,6 +17,9 @@
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/track.h>
 
+#define MAX_SATS 14
+#define MAX_CHANNELS 14
+
 void solution_send_sbp(gnss_solution *soln, dops_t *dops);
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm);
