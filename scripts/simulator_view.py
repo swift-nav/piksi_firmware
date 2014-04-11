@@ -81,7 +81,7 @@ class SimulationSettings(HasTraits):
       self.enabled,
       self.mode_mask,
     )
-  
+
   def to_list(self):
     l = [];
     l.append(['Simulation Enabled', self.enabled])
@@ -167,7 +167,7 @@ class SimulatorView(HasTraits):
 
   def simulation_enabled_message_callback(self, data):
     self.link.send_message(ids.SIMULATION_SETTINGS, '');
-  
+
   def __init__(self, link):
     super(SimulatorView, self).__init__()
 

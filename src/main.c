@@ -26,7 +26,8 @@
 #include "position.h"
 #include "system_monitor.h"
 #include "simulator.h"
- 
+#include "settings.h"
+
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
 #endif
@@ -110,19 +111,22 @@ int main(void)
   /* Piksi hardware initialization. */
   init(1);
 
-  printf("\n\nFirmware Version: " GIT_VERSION "\n" \
+  printf("\n\nPiksi Starting...\n"
+         "Firmware Version: " GIT_VERSION "\n" \
          "Built: " __DATE__ " " __TIME__ "\n");
-  u8 nap_git_hash[20];
-  nap_conf_rd_git_hash(nap_git_hash);
-  printf("SwiftNAP Version: ");
-  for (u8 i=0; i<20; i++)
-    printf("%02x", nap_git_hash[i]);
-  if (nap_conf_rd_git_unclean())
-    printf(" (unclean)");
-  printf("\n");
-  printf("SwiftNAP configured with %d tracking channels\n\n",
-         nap_track_n_channels);
 
+  u8 nap_git_hash[20];
+  static char nap_version_string[64] = {0};
+
+  /* Read out NAP git hash and construct version string. */
+  /* TODO: Change NAP version in the M25 to just be a string. */
+  nap_conf_rd_git_hash(nap_git_hash);
+  for (u8 i=0; i<20; i++)
+    snprintf(&nap_version_string[2*i], 3, "%02x", nap_git_hash[i]);
+  if (nap_conf_rd_git_unclean())
+    strcpy(&nap_version_string[40], " (unclean)");
+
+  settings_setup();
   timing_setup();
   position_setup();
 
@@ -132,6 +136,11 @@ int main(void)
   solution_setup();
 
   simulator_setup();
+
+  READ_ONLY_PARAMETER("system_info", "firmware_version", GIT_VERSION, TYPE_STRING);
+  READ_ONLY_PARAMETER("system_info", "firmware_built", __DATE__ " " __TIME__, TYPE_STRING);
+  READ_ONLY_PARAMETER("system_info", "nap_version", nap_version_string, TYPE_STRING);
+  READ_ONLY_PARAMETER("system_info", "nap_channels", nap_track_n_channels, TYPE_INT);
 
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);
