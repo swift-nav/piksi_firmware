@@ -19,6 +19,7 @@
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/single_diff.h>
+#include <libswiftnav/dgnss_management.h>
 
 #include <libopencm3/stm32/f4/timer.h>
 #include <libopencm3/stm32/f4/rcc.h>
@@ -32,11 +33,14 @@
 #include "solution.h"
 #include "manage.h"
 #include "simulator.h"
+#include "settings.h"
 
 Mutex base_obs_lock;
 BinarySemaphore base_obs_received;
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
+
+dgnss_solution_mode_t dgnss_soln_mode = TIME_MATCHED;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -268,6 +272,9 @@ static msg_t solution_thread(void *arg)
              * process a low-latency differential solution. */
 
             /* Hook in low-latency filter here. */
+            if (dgnss_soln_mode == LOW_LATENCY) {
+              /*solution_send_baseline(t, n_sds, b, position_solution.pos_ecef);*/
+            }
 
           }
         }
@@ -372,11 +379,29 @@ static msg_t solution_thread(void *arg)
   return 0;
 }
 
-void process_matched_obs(u8 n_sds, sdiff_t *sds)
+void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
 {
   (void)n_sds; (void)sds;
 
   /* Hook Float KF and AR filters in here. */
+
+  static u8 init_done = 0;
+  if (n_sds > 4) {
+
+    if (init_done == 0) {
+      printf("====== INIT =======\n");
+      dgnss_init(n_sds, sds, position_solution.pos_ecef, NULL, 1.0 / SOLN_FREQ);
+      printf("lol0\n");
+      init_done = 1;
+    } else {
+
+      double b[3];
+      dgnss_update(n_sds, sds, position_solution.pos_ecef, 1.0 / SOLN_FREQ, 0, b);
+      if (dgnss_soln_mode == TIME_MATCHED) {
+        solution_send_baseline(t, n_sds, b, position_solution.pos_ecef);
+      }
+    }
+  }
 
   /*printf("Matched observations\n");*/
 }
@@ -385,6 +410,7 @@ static WORKING_AREA_CCM(wa_time_matched_obs_thread, 7000);
 static msg_t time_matched_obs_thread(void *arg)
 {
   (void)arg;
+  chRegSetThreadName("time matched obs");
   while (1) {
     /* Wait for a new observation to arrive from the base station. */
     chBSemWait(&base_obs_received);
@@ -406,7 +432,7 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
-        process_matched_obs(n_sds, sds);
+        process_matched_obs(n_sds, &obss->t, sds);
         chPoolFree(&obs_buff_pool, obss);
         chMtxUnlock();
         break;
@@ -453,6 +479,11 @@ void solution_setup()
   timer_set_period(TIM5, 65472000); /* 1 second. */
   timer_enable_counter(TIM5);
   timer_enable_irq(TIM5, TIM_DIER_UIE);
+
+  static const char const *dgnss_soln_mode_enum[] = {"Low Latency", "Time Matched", NULL};
+  static struct setting_type dgnss_soln_mode_setting;
+  int TYPE_GNSS_SOLN_MODE = settings_type_register_enum(dgnss_soln_mode_enum, &dgnss_soln_mode_setting);
+  SETTING("solution", "dgnss_solution_mode", dgnss_soln_mode, TYPE_GNSS_SOLN_MODE);
 
   chMtxInit(&base_obs_lock);
   chBSemInit(&base_obs_received, TRUE);

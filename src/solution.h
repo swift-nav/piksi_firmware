@@ -29,6 +29,11 @@ typedef struct {
   navigation_measurement_t nm[MAX_CHANNELS];
 } obss_t;
 
+typedef enum {
+  LOW_LATENCY,
+  TIME_MATCHED
+} dgnss_solution_mode_t;
+
 /** Maximum difference between observation times to consider them matched. */
 #define TIME_MATCH_THRESHOLD 1e-6
 /** Maximum time that an observation will be propagated for to align it with a
