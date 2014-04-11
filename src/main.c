@@ -127,6 +127,7 @@ int main(void)
     strcpy(&nap_version_string[40], " (unclean)");
 
   settings_setup();
+  max2769_setup();
   timing_setup();
   position_setup();
 
