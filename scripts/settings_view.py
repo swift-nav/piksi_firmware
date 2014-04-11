@@ -9,8 +9,8 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool, Str, Color, Constant, Font, Undefined, Property
-from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor
+from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool, Str, Color, Constant, Font, Undefined, Property, Any, Enum
+from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, TextEditor
 from traitsui.tabular_adapter import TabularAdapter
 
 import struct
@@ -26,14 +26,29 @@ def u16_to_str(i):
 
 class SettingBase(HasTraits):
   name = Str()
+  description = Str()
   value = Str(Undefined)
 
+  traits_view = View()
+
 class Setting(SettingBase):
+  full_name = Str()
   section = Str()
+
+  traits_view = View(
+    VGroup(
+      Item('full_name', label='Name', style='readonly'),
+      Item('value', editor=TextEditor(auto_set=False, enter_set=True)),
+      Item('description', style='readonly'),
+      show_border=True,
+      label='Setting',
+    ),
+  )
 
   def __init__(self, name, section, value, link):
     self.name = name
     self.section = section
+    self.full_name = "%s.%s" % (section, name)
     self.value = value
     self.link = link
 
@@ -46,7 +61,21 @@ class Setting(SettingBase):
         self.value = self.value.encode('ascii', 'replace')
       print (self.section, self.name, self.value)
       print repr('%s\0%s\0%s' % (self.section, self.name, self.value))
-      self.link.send_message(ids.SETTINGS, '%s\0%s\0%s\0' % (self.section, self.name, self.value))
+      self.link.send_message(ids.SETTINGS,
+          '%s\0%s\0%s\0' % (self.section, self.name, self.value))
+
+class EnumSetting(Setting):
+  value = Enum('SBP', 'NMEA', 'RTCM')
+
+  traits_view = View(
+    VGroup(
+      Item('full_name', label='Name', style='readonly'),
+      Item('value'),
+      Item('description', style='readonly'),
+      show_border=True,
+      label='Setting',
+    ),
+  )
 
 class SectionHeading(SettingBase):
   value = Constant('')
@@ -57,13 +86,11 @@ class SectionHeading(SettingBase):
 class SimpleAdapter(TabularAdapter):
   columns = [('Name', 'name'), ('Value',  'value')]
   font = Font('12')
+  can_edit = Bool(False)
   SectionHeading_bg_color = Color(0xE0E0E0)
   SectionHeading_font = Font('14 bold')
-  SectionHeading_can_edit = Bool(False)
   SectionHeading_name_text = Property
   Setting_name_text = Property
-  #Setting_name_can_edit = Bool(False)
-  #Setting_value_can_edit = Bool(True)
 
   def _get_SectionHeading_name_text(self):
     return self.item.name.replace('_', ' ')
@@ -77,13 +104,23 @@ class SettingsView(HasTraits):
   settings_save_button = Button(label='Save settings to config file')
 
   settings_list = List(SettingBase)
+  selected_setting = Instance(SettingBase)
 
   traits_view = View(
     HSplit(
-      Item('settings_list', editor = TabularEditor(adapter=SimpleAdapter(), editable_labels=False), show_label=False, width=0.6),
+      Item('settings_list',
+        editor = TabularEditor(
+          adapter=SimpleAdapter(),
+          editable_labels=False,
+          auto_update=True,
+          selected='selected_setting'
+        ),
+        show_label=False,
+      ),
       VGroup(
-        Item('settings_read_button', show_label=False),
-        Item('settings_save_button', show_label=False)
+        Item('settings_read_button', show_label=False, full_size=True, resizable=True),
+        Item('settings_save_button', show_label=False),
+        Item('selected_setting', style='custom', show_label=False),
       ),
     )
   )
@@ -114,17 +151,20 @@ class SettingsView(HasTraits):
           self.settings_list.append(self.settings[sec][setting])
       return
 
-    section, setting, value, _ = data[2:].split('\0')[:4]
+    section, setting, value = data[2:].split('\0')[:3]
 
     print "Found setting: %s.%s = %s" % (section, setting, value)
     if not self.settings.has_key(section):
       self.settings[section] = {}
-    self.settings[section][setting] = Setting(setting, section, value, link=self.link)
+    if value == 'SBP':
+      self.settings[section][setting] = EnumSetting(setting, section, value, link=self.link)
+    else:
+      self.settings[section][setting] = Setting(setting, section, value, link=self.link)
     self.enumindex += 1
     self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
 
   def settings_read_callback(self, data):
-    section, setting, value, _ = data.split('\0')
+    section, setting, value = data.split('\0')[:3]
     print "Setting updated: %s.%s = %s" % (section, setting, value)
     # Hack to prevent an infinite loop of setting settings
     self.settings[section][setting].value = Undefined
@@ -138,6 +178,8 @@ class SettingsView(HasTraits):
     self.link = link
     self.link.add_callback(ids.SETTINGS, self.settings_read_callback)
     self.link.add_callback(ids.SETTINGS_READ_BY_INDEX, self.settings_read_by_index_callback)
+
+    self.setting_detail = SettingBase()
 
     self._settings_read_button_fired()
 
