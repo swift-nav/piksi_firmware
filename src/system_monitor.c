@@ -26,6 +26,17 @@
 /* Global CPU time accumulator, used to measure thread CPU usage. */
 u64 g_ctime = 0;
 
+u32 check_stack_free(Thread *tp)
+{
+  u32 *stack = (u32 *)tp->p_stklimit;
+  u32 i;
+  for (i=0; i<65536/sizeof(u32); i++) {
+    if (stack[i] != 0x55555555)
+      break;
+  }
+  return 4 * (i - 1);
+}
+
 void send_thread_states()
 {
   Thread *tp = chRegFirstThread();
@@ -33,6 +44,7 @@ void send_thread_states()
     msg_thread_state_t tp_state;
     u16 cpu = 1000.0f * tp->p_ctime / (float)g_ctime;
     tp_state.cpu = cpu;
+    tp_state.stack_free = check_stack_free(tp);
     strncpy(tp_state.name, chRegGetThreadName(tp), sizeof(tp_state.name));
     sbp_send_msg(MSG_THREAD_STATE, sizeof(tp_state), (u8 *)&tp_state);
 

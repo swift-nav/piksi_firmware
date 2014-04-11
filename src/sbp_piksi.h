@@ -99,6 +99,7 @@ typedef struct __attribute__((packed)) {
 typedef struct __attribute__((packed)) {
   char name[20];
   u16 cpu;
+  u32 stack_free;
 } msg_thread_state_t;
 
 #define MSG_UART_STATE            0x18  /**< Piksi  -> Host  */
