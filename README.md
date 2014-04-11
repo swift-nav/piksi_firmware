@@ -11,8 +11,11 @@ For toolchain installation, see
 Checking Out Submodules
 =========================
 
-libopencm3 and libswiftnav are submodules of this git repository.
+ChibiOS, libopencm3 and libswiftnav are submodules of this git repository.
 Check them out using:
 
 	git submodule init
 	git submodule update
+
+Remember to run `git submodule update` after pulling in the latest changes to
+ensure all the submodules are in sync.
