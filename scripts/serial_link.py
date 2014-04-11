@@ -89,11 +89,12 @@ class ListenerThread (threading.Thread):
           if cbs is None or len(cbs) == 0:
             if self.print_unhandled:
               print "Host Side Unhandled message %02X" % mt
-          for cb in cbs:
-            try:
-              cb(md, sender=ms)
-            except TypeError:
-              cb(md)
+          else:
+            for cb in cbs:
+              try:
+                cb(md, sender=ms)
+              except TypeError:
+                cb(md)
       except Exception, err:
         import traceback
         print traceback.format_exc()
@@ -131,7 +132,7 @@ class SerialLink:
   def get_message(self):
     while True:
       if self.lt.wants_to_stop:
-        return (None, None)
+        return (None, None, None)
 
       # Sync with magic start bytes
       magic = self.ser.read(1)
@@ -164,7 +165,7 @@ class SerialLink:
 
     if crc != crc_received:
       print "Host Side CRC mismatch: 0x%04X 0x%04X" % (crc, crc_received)
-      return (None, None)
+      return (None, None, None)
 
     return (msg_type, sender_id, data)
 
