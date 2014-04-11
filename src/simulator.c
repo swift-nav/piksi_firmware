@@ -209,8 +209,6 @@ void simulation_step_tracking_and_observations(double elapsed_seconds)
 {
   (void)elapsed_seconds;
 
-  double GPS_L1_LAMBDA = (GPS_C / GPS_L1_HZ);
-
   u8 week = -1; //TODO: calc week from day
   double t = simulation_state.noisy_solution.time.tow; //TODO: correct?
 
