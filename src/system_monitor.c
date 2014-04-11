@@ -15,6 +15,8 @@
 
 #include <ch.h>
 
+#include <libswiftnav/sbp_messages.h>
+
 #include "board/nap/nap_common.h"
 #include "main.h"
 #include "sbp.h"
@@ -52,7 +54,8 @@ static msg_t nap_error_thread(void *arg)
   while (TRUE) {
     chThdSleepMilliseconds(500);
     DO_EVERY(2,
-        sbp_send_msg(MSG_HEARTBEAT, 0, 0);
+        u32 status_flags = 0;
+        sbp_send_msg(SBP_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
         send_thread_states();
     );
     u32 err = nap_error_rd_blocking();

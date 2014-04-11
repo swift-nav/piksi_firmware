@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <libswiftnav/sbp_messages.h>
+
 #include <ch.h>
 
 #include "board/leds.h"
@@ -145,6 +147,10 @@ int main(void)
 
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);
+
+  /* Send message to inform host we are up and running. */
+  u32 startup_flags = 0;
+  sbp_send_msg(SBP_STARTUP, sizeof(startup_flags), (u8 *)&startup_flags);
 
   while (1) {
     chThdSleepSeconds(60);

@@ -95,8 +95,6 @@ typedef struct __attribute__((packed)) {
 
 #define MSG_TRACKING_STATE        0x16  /**< Piksi  -> Host  */
 
-#define MSG_HEARTBEAT             0x01  /**< Piksi  -> Host  */
-
 #define MSG_THREAD_STATE          0x17  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
   char name[20];
