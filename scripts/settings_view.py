@@ -10,7 +10,7 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool, Str, Color, Constant, Font, Undefined, Property, Any, Enum
-from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, TextEditor
+from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, TextEditor, EnumEditor
 from traitsui.tabular_adapter import TabularAdapter
 
 import struct
@@ -65,17 +65,20 @@ class Setting(SettingBase):
           '%s\0%s\0%s\0' % (self.section, self.name, self.value))
 
 class EnumSetting(Setting):
-  value = Enum('SBP', 'NMEA', 'RTCM')
-
+  values = List()
   traits_view = View(
     VGroup(
       Item('full_name', label='Name', style='readonly'),
-      Item('value'),
+      Item('value', editor=EnumEditor(name='values')),
       Item('description', style='readonly'),
       show_border=True,
       label='Setting',
     ),
   )
+
+  def __init__(self, name, section, value, link, values):
+    self.values = values
+    Setting.__init__(self, name, section, value, link)
 
 class SectionHeading(SettingBase):
   value = Constant('')
@@ -151,19 +154,35 @@ class SettingsView(HasTraits):
           self.settings_list.append(self.settings[sec][setting])
       return
 
-    section, setting, value = data[2:].split('\0')[:3]
+    print repr(data)
+    section, setting, value, format_type = data[2:].split('\0')[:4]
+
+    if format_type == '':
+      format_type = None
+    else:
+      setting_type, setting_format = format_type.split(':')
 
     print "Found setting: %s.%s = %s" % (section, setting, value)
     if not self.settings.has_key(section):
       self.settings[section] = {}
-    if value == 'SBP':
-      self.settings[section][setting] = EnumSetting(setting, section, value, link=self.link)
-    else:
+
+    if format_type is None:
+      # Plain old setting, no format information
       self.settings[section][setting] = Setting(setting, section, value, link=self.link)
+    else:
+      if setting_type == 'enum':
+        enum_values = setting_format.split(',')
+        self.settings[section][setting] = EnumSetting(setting, section, value,
+                                                      link=self.link, values=enum_values)
+      else:
+        # Unknown type, just treat is as a string
+        self.settings[section][setting] = Setting(setting, section, value, link=self.link)
+
     self.enumindex += 1
     self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
 
   def settings_read_callback(self, data):
+    print repr(data)
     section, setting, value = data.split('\0')[:3]
     print "Setting updated: %s.%s = %s" % (section, setting, value)
     # Hack to prevent an infinite loop of setting settings
