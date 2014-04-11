@@ -54,6 +54,7 @@ enum setting_types {
 struct setting_type {
   int (*to_string)(const void *priv, char *str, int slen, const void *blob, int blen);
   bool (*from_string)(const void *priv, void *blob, int len, const char *str);
+  int (*format_type)(const void *priv, char *str, int len);
   const void *priv;
   struct setting_type *next;
 };
@@ -68,12 +69,6 @@ struct setting {
   const struct setting_type *type;
   bool dirty;
 };
-
-int func(struct setting_type *t);
-#define SETTING_TYPE_ENUM(x) do { \
-  static struct setting_type enumtype = \
-  {NULL, NULL, (x), NULL}; \
-} while(0), func()
 
 #define SETTING_NOTIFY(section, name, var, type, notify) do {         \
   static struct setting setting = \
