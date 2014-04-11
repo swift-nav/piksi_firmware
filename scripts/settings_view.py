@@ -57,11 +57,8 @@ class Setting(SettingBase):
     if (old != new and
         old is not Undefined and
         new is not Undefined):
-      print old, new
       if type(self.value) == unicode:
         self.value = self.value.encode('ascii', 'replace')
-      print (self.section, self.name, self.value)
-      print repr('%s\0%s\0%s' % (self.section, self.name, self.value))
       self.link.send_message(ids.SETTINGS,
           '%s\0%s\0%s\0' % (self.section, self.name, self.value))
 
@@ -144,20 +141,17 @@ class SettingsView(HasTraits):
 
   ##Simulator buttons
   def _settings_read_button_fired(self):
-    print "Requesting settings from piksi"
     self.settings = {}
     self.enumindex = 0
     self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
 
   def _settings_save_button_fired(self):
-    print "Saving settings to filesystem"
     self.link.send_message(ids.SETTINGS_SAVE, "")
 
   ##Callbacks for receiving messages
 
   def settings_read_by_index_callback(self, data):
     if not data:
-      print self.settings
       self.settings_list = []
 
       sections = sorted(self.settings.keys())
@@ -168,7 +162,6 @@ class SettingsView(HasTraits):
           self.settings_list.append(self.settings[sec][setting])
       return
 
-    print repr(data)
     section, setting, value, format_type = data[2:].split('\0')[:4]
 
     if format_type == '':
@@ -176,7 +169,6 @@ class SettingsView(HasTraits):
     else:
       setting_type, setting_format = format_type.split(':')
 
-    print "Found setting: %s.%s = %s" % (section, setting, value)
     if not self.settings.has_key(section):
       self.settings[section] = {}
 
@@ -196,9 +188,7 @@ class SettingsView(HasTraits):
     self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
 
   def settings_read_callback(self, data):
-    print repr(data)
     section, setting, value = data.split('\0')[:3]
-    print "Setting updated: %s.%s = %s" % (section, setting, value)
     # Hack to prevent an infinite loop of setting settings
     self.settings[section][setting].value = Undefined
     self.settings[section][setting].value = value
