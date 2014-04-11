@@ -12,6 +12,11 @@
 import serial_link
 import sbp_piksi as ids
 
+import os, sys
+lib_path = os.path.abspath('../libswiftnav/sbp_generate')
+sys.path.append(lib_path)
+import sbp_messages
+
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
 parser.add_argument('-p', '--port', nargs=1, default=[serial_link.DEFAULT_PORT],
@@ -85,9 +90,9 @@ class SwiftConsole(HasTraits):
           Item('observation_view_base', style='custom', show_label=False),
           label='Observations',
         ),
-        Item('system_monitor_view', style='custom', label='System Monitor'),
         Item('simulator_view', style='custom', label='Simulator'),
         Item('settings_view', style='custom', label='Settings'),
+        Item('system_monitor_view', style='custom', label='System Monitor'),
         Item(
           'python_console_env', style='custom',
           label='Python Console', editor=ShellEditor()
