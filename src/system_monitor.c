@@ -57,8 +57,8 @@ void send_thread_states()
   g_ctime = 0;
 }
 
-static WORKING_AREA_CCM(wa_nap_error_thread, 4096);
-static msg_t nap_error_thread(void *arg)
+static WORKING_AREA_CCM(wa_system_monitor_thread, 256);
+static msg_t system_monitor_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("system monitor");
@@ -86,10 +86,10 @@ void system_monitor_setup()
   DWT_CTRL |= 1 ; /* Enable the counter. */
 
   chThdCreateStatic(
-      wa_nap_error_thread,
-      sizeof(wa_nap_error_thread),
+      wa_system_monitor_thread,
+      sizeof(wa_system_monitor_thread),
       LOWPRIO+10,
-      nap_error_thread, NULL
+      system_monitor_thread, NULL
   );
 }
 
