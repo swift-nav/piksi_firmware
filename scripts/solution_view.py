@@ -55,23 +55,23 @@ class SolutionView(HasTraits):
 
   clear_button = SVGButton(
     label='', tooltip='Clear',
-    filename=os.path.join(os.path.dirname(__file__), 'images', 'x.svg'),
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'x.svg'),
     width=16, height=16
   )
   zoomall_button = SVGButton(
     label='', tooltip='Zoom All',
-    filename=os.path.join(os.path.dirname(__file__), 'images', 'fullscreen.svg'),
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'fullscreen.svg'),
     width=16, height=16
   )
   center_button = SVGButton(
     label='', tooltip='Center on Solution', toggle=True,
-    filename=os.path.join(os.path.dirname(__file__), 'images', 'target.svg'),
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'target.svg'),
     width=16, height=16
   )
   paused_button = SVGButton(
     label='', tooltip='Pause', toggle_tooltip='Run', toggle=True,
-    filename=os.path.join(os.path.dirname(__file__), 'images', 'pause.svg'),
-    toggle_filename=os.path.join(os.path.dirname(__file__), 'images', 'play.svg'),
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'pause.svg'),
+    toggle_filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'play.svg'),
     width=16, height=16
   )
 

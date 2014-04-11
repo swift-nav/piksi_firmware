@@ -12,6 +12,7 @@
 from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool, Str, Color, Constant, Font, Undefined, Property, Any, Enum
 from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, TextEditor, EnumEditor
 from traitsui.tabular_adapter import TabularAdapter
+from enable.savage.trait_defs.ui.svg_button import SVGButton
 
 import struct
 import math
@@ -94,6 +95,8 @@ class SimpleAdapter(TabularAdapter):
   SectionHeading_font = Font('14 bold')
   SectionHeading_name_text = Property
   Setting_name_text = Property
+  name_width = Float(0.5)
+  value_width = Float(0.9)
 
   def _get_SectionHeading_name_text(self):
     return self.item.name.replace('_', ' ')
@@ -103,8 +106,17 @@ class SimpleAdapter(TabularAdapter):
 
 class SettingsView(HasTraits):
 
-  settings_read_button = Button(label='Read settings')
-  settings_save_button = Button(label='Save settings to config file')
+  settings_read_button = SVGButton(
+    label='Reload', tooltip='Reload settings from Piksi',
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'fontawesome', 'refresh.svg'),
+    width=16, height=16
+  )
+
+  settings_save_button = SVGButton(
+    label='Save to Flash', tooltip='Save settings to Flash',
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'fontawesome', 'download.svg'),
+    width=16, height=16
+  )
 
   settings_list = List(SettingBase)
   selected_setting = Instance(SettingBase)
@@ -121,8 +133,10 @@ class SettingsView(HasTraits):
         show_label=False,
       ),
       VGroup(
-        Item('settings_read_button', show_label=False, full_size=True, resizable=True),
-        Item('settings_save_button', show_label=False),
+        HGroup(
+          Item('settings_read_button', show_label=False),
+          Item('settings_save_button', show_label=False),
+        ),
         Item('selected_setting', style='custom', show_label=False),
       ),
     )

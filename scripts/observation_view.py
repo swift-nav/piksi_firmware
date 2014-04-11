@@ -57,8 +57,8 @@ class ObservationView(HasTraits):
 
   record_button = SVGButton(
     label='', tooltip='Pause', toggle_tooltip='Run', toggle=True,
-    filename=os.path.join(os.path.dirname(__file__), 'images', 'pause.svg'),
-    toggle_filename=os.path.join(os.path.dirname(__file__), 'images', 'play.svg'),
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'pause.svg'),
+    toggle_filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'play.svg'),
     width=16, height=16
   )
 
