@@ -111,7 +111,7 @@ static int str_to_string(const void *priv, char *str, int slen, const void *blob
   if (blen < slen)
     slen = blen;
   strncpy(str, blob, slen);
-  return slen;
+  return strnlen(str, slen);
 }
 
 static bool str_from_string(const void *priv, void *blob, int blen, const char *str)
@@ -150,16 +150,26 @@ static bool enum_from_string(const void *priv, void *blob, int blen, const char 
   return true;
 }
 
+int enum_format_type(const void *priv, char *str, int len)
+{
+  int i = 5;
+  strncpy(str, "enum:", len);
+  for (const char * const *enumnames = priv; *enumnames; enumnames++)
+    i = snprintf(str, len-i, "%s%s,", str, *enumnames);
+  str[i-1] = '\0';
+  return i;
+}
+
 static struct setting_type type_string = {
-  str_to_string, str_from_string, NULL, NULL,
+  str_to_string, str_from_string, NULL, NULL, NULL,
 };
 
 static struct setting_type type_float = {
-  float_to_string, float_from_string, NULL, &type_string,
+  float_to_string, float_from_string, NULL, NULL, &type_string,
 };
 
 static const struct setting_type type_int = {
-  int_to_string, int_from_string, NULL, &type_float,
+  int_to_string, int_from_string, NULL, NULL, &type_float,
 };
 
 static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context);
@@ -172,6 +182,7 @@ int settings_type_register_enum(const char * const enumnames[], struct setting_t
   struct setting_type *t;
   type->to_string = enum_to_string;
   type->from_string = enum_from_string;
+  type->format_type = enum_format_type;
   type->priv = enumnames;
   for (i = 0, t = (struct setting_type*)&type_int; t->next; t = t->next, i++)
     ;
@@ -264,6 +275,25 @@ bool settings_read_only_notify(struct setting *s, const char *val)
   return true;
 }
 
+static int settings_format_setting(struct setting *s, char *buf, int len)
+{
+  int buflen;
+
+  /* build and send reply */
+  strncpy(buf, s->section, len);
+  buflen = strlen(s->section) + 1;
+  strncpy(buf + buflen, s->name, len - buflen);
+  buflen += strlen(s->name) + 1;
+  buflen += s->type->to_string(s->type->priv,
+                               buf + buflen, len - buflen,
+                               s->addr, s->len);
+  buf[buflen++] = '\0';
+  if (s->type->format_type != NULL)
+    buflen += s->type->format_type(s->type->priv, buf + buflen, len - buflen);
+
+  return buflen;
+}
+
 static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void) context;
@@ -318,15 +348,7 @@ static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context
     s->dirty = true;
   }
 
-  /* build and send reply */
-  strncpy(buf, s->section, sizeof(buf));
-  buflen = strlen(s->section) + 1;
-  strncpy(buf + buflen, s->name, sizeof(buf) - buflen);
-  buflen += strlen(s->name) + 1;
-  buflen += s->type->to_string(s->type->priv,
-                               buf + buflen, sizeof(buf) - buflen,
-                               s->addr, s->len);
-  buf[buflen++] = '\0';
+  buflen = settings_format_setting(s, buf, sizeof(buf));
   sbp_send_msg(MSG_SETTINGS, buflen, (void*)buf);
   return;
 
@@ -359,14 +381,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   /* build and send reply */
   buf[buflen++] = msg[0];
   buf[buflen++] = msg[1];
-  strncpy(buf + buflen, s->section, sizeof(buf) - buflen);
-  buflen += strlen(s->section) + 1;
-  strncpy(buf + buflen, s->name, sizeof(buf) - buflen);
-  buflen += strlen(s->name) + 1;
-  buflen += s->type->to_string(s->type->priv,
-                               buf + buflen, sizeof(buf) - buflen,
-                               s->addr, s->len);
-  buf[buflen++] = '\0';
+  buflen += settings_format_setting(s, buf + buflen, sizeof(buf) - buflen);
   sbp_send_msg(MSG_SETTINGS_READ_BY_INDEX, buflen, (void*)buf);
 }
 
