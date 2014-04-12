@@ -237,7 +237,8 @@ void settings_register(struct setting *setting, enum setting_types type)
     settings_head = setting;
   } else {
     for (s = settings_head; s->next; s = s->next) {
-      if (strcmp(s->section, setting->section) == 0)
+      if ((strcmp(s->section, setting->section) == 0) &&
+          (strcmp(s->next->section, setting->section) != 0))
         break;
     }
     setting->next = s->next;
