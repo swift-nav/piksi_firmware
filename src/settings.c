@@ -95,8 +95,15 @@ static bool int_from_string(const void *priv, void *blob, int blen, const char *
   (void)priv;
 
   switch (blen) {
-  case 1:
-    return sscanf(str, "%hhd", (s8*)blob) == 1;
+  case 1: {
+    s16 tmp;
+    /* Newlib's crappy sscanf doesn't understand %hhd */
+    if (sscanf(str, "%hd", &tmp) == 1) {
+      *(s8*)blob = tmp;
+      return true;
+    }
+    return false;
+  }
   case 2:
     return sscanf(str, "%hd", (s16*)blob) == 1;
   case 4:
