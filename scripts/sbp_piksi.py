@@ -12,6 +12,11 @@
 import re
 import os
 
+import os, sys
+lib_path = os.path.abspath(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'libswiftnav', 'sbp_generate'))
+sys.path.append(lib_path)
+from sbp_messages import *
+
 header_file = os.path.join(
   os.path.dirname(__file__),
   '..', 'src', 'sbp_piksi.h'
