@@ -34,46 +34,74 @@
 /** \simulator
  * \{ */
 
-simulation_settings_t simulation_settings = {
-  .base_ecef = {-2700303.10144031,-4292474.39651309,3855434.34087421},
+simulation_settings_t sim_settings = {
+  .base_ecef = {
+    -2700303.10144031,
+    -4292474.39651309,
+    3855434.34087421
+  },
   .speed = 4.0,
   .radius = 100.0,
-  .pos_variance = 2.0,
-  .speed_variance = 0.02,
-  .tracking_cn0_variance = 0.1,
-  .pseudorange_variance = 16,
-  .carrier_phase_variance = 9e-4,
+  .pos_sigma = 2.0,
+  .speed_sigma = 0.02,
+  .cn0_sigma = 0.1,
+  .pseudorange_sigma = 16,
+  .phase_sigma = 9e-4,
   .num_sats = 9,
   .enabled = 0,
-  .mode_mask = SIMULATION_MODE_PVT | SIMULATION_MODE_TRACKING | SIMULATION_MODE_RTK,
+  .mode_mask =
+    SIMULATION_MODE_PVT |
+    SIMULATION_MODE_TRACKING |
+    SIMULATION_MODE_RTK,
 };
 
-simulation_state_t simulation_state = {
-    .last_update_ticks = 0,
-    .current_angle_rad = 0.0,
-    .true_pos_ecef = {0.0, 0.0, 0.0},
-    .true_baseline_ecef = {0.0,0.0,0.0},
+/* Internal Simulation State Definition */
+struct {
 
-    .num_sats_selected = 0,
+  u32            last_update_ticks;       /**< The last simulation update happened at this CPU tick count. */
+  float          angle;                   /**< Current simulation angle in radians */
+  double         pos[3];                  /**< Current simulated position with no noise, in ECEF coordinates. */
+  double         baseline[3];             /**< Current simulated baseline with no noise, in ECEF coordinates.*/
 
-    .dops = {
-      .pdop = 1.9,
-      .gdop = 1.8,
-      .tdop = 1.7,
-      .hdop = 1.6,
-      .vdop = 1.5,
-    },
+  u8             num_sats_selected;
+
+  tracking_state_msg_t      tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
+  navigation_measurement_t  nav_meas[NAP_MAX_N_TRACK_CHANNELS];
+  navigation_measurement_t  base_nav_meas[NAP_MAX_N_TRACK_CHANNELS];
+  dops_t                    dops;
+  gnss_solution             noisy_solution;
+
+} sim_state = {
+
+  .last_update_ticks = 0,
+  .angle = 0.0,
+  .pos = {
+    0.0,
+    0.0,
+    0.0
+  },
+  .baseline = {
+    0.0,
+    0.0,
+    0.0
+  },
+
+  .num_sats_selected = 0,
+
+  /* .tracking_channel left uninitialized */
+  /* .nav_meas left uninitialized */
+  /* .base_nav_meas left uninitialized */
+  .dops = {
+    .pdop = 1.9,
+    .gdop = 1.8,
+    .tdop = 1.7,
+    .hdop = 1.6,
+    .vdop = 1.5,
+  },
+  /* .noisy_solution left uninitialized */
 
 };
 
-#define DEBUGGING 1
-#if DEBUGGING
-  #define Debug(fmt, args ...)  do {printf("%s:%d: " fmt "\n", __FUNCTION__, __LINE__, ## args); } while(0)
-#else
-  #define Debug(fmt, args ...)
-#endif
-
-#define Notify(fmt, args ...)  do {printf("Piksi: " fmt "\n", ## args); } while(0)
 
 /** Generates a sample from the normal distribution
 * with given variance.
@@ -82,6 +110,8 @@ simulation_state_t simulation_state = {
 * to the long tail of gaussians.
 *
 * Performs a square-root, a sin, a log, and a rand call.
+*
+* \param variance The variance of a zero-mean gaussian to draw a sample from.
 */
 double rand_gaussian(const double variance)
 {
@@ -109,6 +139,13 @@ double rand_gaussian(const double variance)
 * points X and Y.
 *
 * Assumes V > U, and Y > X
+*
+*
+* \param t The parametric variable ranging from [0,1] along [u,v]
+* \param u The start of the input range.
+* \param v The end of the input range.
+* \param x The start of the output range.
+* \param y The end of the output range.
 */
 double lerp(double t, double u, double v, double x, double y) {
   return (t - u) / (v - u) * (y - x) + x;
@@ -116,20 +153,21 @@ double lerp(double t, double u, double v, double x, double y) {
 
 
 /** Performs a timestep of the simulation that flies in a circle around a point.
-* Updates the simulation_state and simulation_state.noisy_solution structs.
+* Updates the sim_state and sim_state.noisy_solution structs.
 *
 * This simulator models a system moving in a perfect circle. We use this fact to
 * write a simple but smart numerically stable simulator.
 *
-* At every step, this simulator runs a simple forward euler integrator on the position of
-* the simulated point. This new position will not be on the circular path we want to follow
-* (an example numerical instability). To avoid numerical instability,
-* this simulator makes a small angle approximation using this new position and the circle's desired
+* At every step, this simulator runs a simple forward euler integrator
+* on the position of the simulated point. This new position will not be
+* on the circular path we want to follow (an example numerical instability).
+* To avoid numerical instability, this simulator makes a small angle
+* approximation using this new position and the circle's desired
 * radius to calculate the new angle around the circle the point actually is.
-* This is stored in a single system variable "current_angle_rad".
-* "current_angle_rad" wraps around 2*PI, and is used to calculate the new position.
+* This is stored in a single system variable "angle".
+* "angle" wraps around 2*PI, and is used to calculate the new position.
 *
-* We use the current_angle_rad variable to calculate a new position
+* We use the angle variable to calculate a new position
 *
 * Adds IID gaussian noise to the true position calculated at every timestep.
 *
@@ -140,55 +178,69 @@ double lerp(double t, double u, double v, double x, double y) {
 void simulation_step(void)
 {
 
-  //First we propagate the current fake PVT solution
+  /* First we propagate the current fake PVT solution */
   u32 now_ticks = chTimeNow();
 
-  double elapsed_seconds = (now_ticks - simulation_state.last_update_ticks)/(double)CH_FREQUENCY;
-  simulation_state.last_update_ticks = now_ticks;
+  double elapsed = (now_ticks - sim_state.last_update_ticks)/(double)CH_FREQUENCY;
+  sim_state.last_update_ticks = now_ticks;
 
-  //Update the time
-  simulation_state.noisy_solution.time.tow += elapsed_seconds;
+  /* Update the time */
+  sim_state.noisy_solution.time.tow += elapsed;
 
-  simulation_step_position_in_circle(elapsed_seconds);
-  simulation_step_tracking_and_observations(elapsed_seconds);
+  simulation_step_position_in_circle(elapsed);
+  simulation_step_tracking_and_observations(elapsed);
 
 }
 
-void simulation_step_position_in_circle(double elapsed_seconds)
+/**
+* Performs a simulation step for the given duration, by moving
+* our simulated position in a circle at a given radius and speed
+* around the simulation's center point.
+*/
+void simulation_step_position_in_circle(double elapsed)
 {
-  //Update the angle, making a small angle approximation.
-  simulation_state.current_angle_rad += (simulation_settings.speed * elapsed_seconds) / simulation_settings.radius;
-  if (simulation_state.current_angle_rad > 2*M_PI) {
-    simulation_state.current_angle_rad = 0;
+
+  /* Update the angle, making a small angle approximation. */
+  sim_state.angle += (sim_settings.speed * elapsed) / sim_settings.radius;
+  if (sim_state.angle > 2*M_PI) {
+    sim_state.angle = 0;
   }
 
   double pos_ned[3] = {
-    simulation_settings.radius * sin(simulation_state.current_angle_rad),
-    simulation_settings.radius * cos(simulation_state.current_angle_rad),
+    sim_settings.radius * sin(sim_state.angle),
+    sim_settings.radius * cos(sim_state.angle),
     0
   };
 
-  //Fill out position simulation's gnss_solution pos_ECEF, pos_LLH structures
-  wgsned2ecef_d(pos_ned, simulation_settings.base_ecef, simulation_state.true_pos_ecef);
+  /* Fill out position simulation's gnss_solution pos_ECEF, pos_LLH structures */
+  wgsned2ecef_d(pos_ned,
+    sim_settings.base_ecef,
+    sim_state.pos);
 
-  //Calculate an accurate baseline for simulating RTK
-  vector_subtract(3, simulation_state.true_pos_ecef, simulation_settings.base_ecef, simulation_state.true_baseline_ecef);
+  /* Calculate an accurate baseline for simulating RTK */
+  vector_subtract(3,
+    sim_state.pos,
+    sim_settings.base_ecef,
+    sim_state.baseline);
 
-  // //Add gaussian noise to PVT position
-  simulation_state.noisy_solution.pos_ecef[0] = simulation_state.true_pos_ecef[0] + rand_gaussian(simulation_settings.pos_variance);
-  simulation_state.noisy_solution.pos_ecef[1] = simulation_state.true_pos_ecef[1] + rand_gaussian(simulation_settings.pos_variance);
-  simulation_state.noisy_solution.pos_ecef[2] = simulation_state.true_pos_ecef[2] + rand_gaussian(simulation_settings.pos_variance);
+  /* Add gaussian noise to PVT position */
+  double* pos_ecef = sim_state.noisy_solution.pos_ecef;
+  pos_ecef[0] = sim_state.pos[0] + rand_gaussian(sim_settings.pos_sigma);
+  pos_ecef[1] = sim_state.pos[1] + rand_gaussian(sim_settings.pos_sigma);
+  pos_ecef[2] = sim_state.pos[2] + rand_gaussian(sim_settings.pos_sigma);
 
-  wgsecef2llh(simulation_state.noisy_solution.pos_ecef, simulation_state.noisy_solution.pos_llh);
+  wgsecef2llh(sim_state.noisy_solution.pos_ecef, sim_state.noisy_solution.pos_llh);
 
-  //Calculate Velocity vector tangent to the sphere
-  double noisy_speed = simulation_settings.speed + rand_gaussian(simulation_settings.speed_variance);
+  /* Calculate Velocity vector tangent to the sphere */
+  double noisy_speed = sim_settings.speed + rand_gaussian(sim_settings.speed_sigma);
 
-  simulation_state.noisy_solution.vel_ned[0] = noisy_speed * cos(simulation_state.current_angle_rad);
-  simulation_state.noisy_solution.vel_ned[1] = noisy_speed * -1.0 * sin(simulation_state.current_angle_rad);
-  simulation_state.noisy_solution.vel_ned[2] = 0.0;
+  sim_state.noisy_solution.vel_ned[0] = noisy_speed * cos(sim_state.angle);
+  sim_state.noisy_solution.vel_ned[1] = noisy_speed * -1.0 * sin(sim_state.angle);
+  sim_state.noisy_solution.vel_ned[2] = 0.0;
 
-  wgsned2ecef(simulation_state.noisy_solution.vel_ned, simulation_state.noisy_solution.pos_ecef, simulation_state.noisy_solution.vel_ecef);
+  wgsned2ecef(sim_state.noisy_solution.vel_ned,
+    sim_state.noisy_solution.pos_ecef,
+    sim_state.noisy_solution.vel_ecef);
 }
 
 /** Simulates real observations for the current position and the satellite almanac and week
@@ -204,97 +256,117 @@ void simulation_step_position_in_circle(double elapsed_seconds)
 * USES:
 * - Pipe observations into internals for testing
 * - For integration testing with other devices that has to carry the radio signal.
+*
+* \param elapsed Number of seconds elapsed since last simulation step.
 */
-void simulation_step_tracking_and_observations(double elapsed_seconds)
+void simulation_step_tracking_and_observations(double elapsed)
 {
-  (void)elapsed_seconds;
+  (void)elapsed;
 
-  double GPS_L1_LAMBDA = (GPS_C / GPS_L1_HZ);
+  u8 week = -1;
+  double t = sim_state.noisy_solution.time.tow;
 
-  u8 week = -1; //TODO: calc week from day
-  double t = simulation_state.noisy_solution.time.tow; //TODO: correct?
-
-  //First we calculate all the current sat positions, velocities
+  /* First we calculate all the current sat positions, velocities */
   for (u8 i=0; i<simulation_num_almanacs; i++) {
     calc_sat_state_almanac(&simulation_almanacs[i], t, week,
       simulation_sats_pos[i], simulation_sats_vel[i]);
   }
 
 
-  //Calculate which sats are visible and select simulation_settings.num_sats of them
-  //fill in selected_sats array
+  /* Calculate the first sim_settings.num_sats amount of visible sats */
   u8 num_sats_selected = 0;
   double az, el;
   for (u8 i=0; i<simulation_num_almanacs; i++) {
     calc_sat_az_el_almanac(&simulation_almanacs[i], t, week,
-                            simulation_state.true_pos_ecef, &az, &el);
+                            sim_state.pos, &az, &el);
 
     if (el > 0 &&
-        num_sats_selected < simulation_settings.num_sats &&
+        num_sats_selected < sim_settings.num_sats &&
         num_sats_selected < NAP_MAX_N_TRACK_CHANNELS) {
-      simulation_state.selected_sat_indices[num_sats_selected] = i;
 
-      //Generate a code measurement which is just the pseudorange:
+      /* Generate a code measurement which is just the pseudorange: */
       double points_to_sat[3];
       double base_points_to_sat[3];
 
-      vector_subtract(3, simulation_sats_pos[i], simulation_state.true_pos_ecef, points_to_sat);
-      vector_subtract(3, simulation_sats_pos[i], simulation_settings.base_ecef, base_points_to_sat);
+      vector_subtract(3, simulation_sats_pos[i], sim_state.pos, points_to_sat);
+      vector_subtract(3, simulation_sats_pos[i], sim_settings.base_ecef, base_points_to_sat);
 
       double distance_to_sat = vector_norm(3, points_to_sat);
       double base_distance_to_sat = vector_norm(3, base_points_to_sat);
 
-      //Fill out the observation details into the NAV_MEAS structure for this satellite,
-      //We simulate the pseudorange as a noisy range measurement, and
-      //the carrier phase as a noisy range in wavelengths + an integer offset.
-      navigation_measurement_t *nm = &simulation_state.nav_meas[num_sats_selected];
-      nm->prn             = simulation_almanacs[i].prn + SIM_PRN_OFFSET;
-      nm->raw_pseudorange = distance_to_sat + rand_gaussian(simulation_settings.pseudorange_variance);
-      nm->carrier_phase   = distance_to_sat / GPS_L1_LAMBDA + simulation_fake_carrier_bias[i] + rand_gaussian(simulation_settings.carrier_phase_variance);
-      nm->snr             = lerp(el, 0, M_PI/2, 4, 12) + rand_gaussian(simulation_settings.tracking_cn0_variance);
+      /* Fill out the observation details into the NAV_MEAS structure for this satellite, */
+      /* We simulate the pseudorange as a noisy range measurement, and */
+      /* the carrier phase as a noisy range in wavelengths + an integer offset. */
 
-      navigation_measurement_t *base_nm = &simulation_state.base_nav_meas[num_sats_selected];
-      base_nm->prn             = simulation_almanacs[i].prn;
-      base_nm->raw_pseudorange = base_distance_to_sat + rand_gaussian(simulation_settings.pseudorange_variance);
-      base_nm->carrier_phase   = base_distance_to_sat / GPS_L1_LAMBDA + simulation_fake_carrier_bias[i] + rand_gaussian(simulation_settings.carrier_phase_variance);
-      base_nm->snr             = lerp(el, 0, M_PI/2, 4, 12) + rand_gaussian(simulation_settings.tracking_cn0_variance);
+      populate_nav_meas(&sim_state.nav_meas[num_sats_selected],
+        distance_to_sat, el, i);
 
-      //As for tracking, we just set each sat consecutively in each channel.
-      //This will cause weird jumps when a satellite rises or sets.
-      simulation_state.tracking_channel[num_sats_selected].state = TRACKING_RUNNING;
-      simulation_state.tracking_channel[num_sats_selected].prn = simulation_almanacs[i].prn;
-      simulation_state.tracking_channel[num_sats_selected].cn0 = nm->snr;
+      populate_nav_meas(&sim_state.base_nav_meas[num_sats_selected],
+        base_distance_to_sat, el, i);
+
+      /* As for tracking, we just set each sat consecutively in each channel. */
+      /* This will cause weird jumps when a satellite rises or sets. */
+      sim_state.tracking_channel[num_sats_selected].state = TRACKING_RUNNING;
+      sim_state.tracking_channel[num_sats_selected].prn = simulation_almanacs[i].prn  + SIM_PRN_OFFSET;
+      sim_state.tracking_channel[num_sats_selected].cn0 = sim_state.nav_meas[num_sats_selected].snr;
 
       num_sats_selected++;
     }
   }
 
-  simulation_state.noisy_solution.n_used = num_sats_selected;
+  sim_state.noisy_solution.n_used = num_sats_selected;
 
 }
 
-
-/** Returns true if the simulation is at all enabled
+/** Populate a navigation_measurement_t structure with simulated data for
+* the almanac_i satellite, currently dist away from simulated point at given elevation.
 *
 */
+void populate_nav_meas(navigation_measurement_t *nav_meas, double dist, double elevation, int almanac_i)
+{
+  nav_meas->prn             =  simulation_almanacs[almanac_i].prn + SIM_PRN_OFFSET;
 
+  nav_meas->raw_pseudorange =  dist;
+  nav_meas->raw_pseudorange += rand_gaussian(sim_settings.pseudorange_sigma);
+
+  nav_meas->carrier_phase =    dist / (GPS_C / GPS_L1_HZ);
+  nav_meas->carrier_phase +=   simulation_fake_carrier_bias[almanac_i];
+  nav_meas->carrier_phase +=   rand_gaussian(sim_settings.phase_sigma);
+
+  nav_meas->snr             =  lerp(elevation, 0, M_PI/2, 4, 12) + rand_gaussian(sim_settings.cn0_sigma);
+}
+
+/** Returns true if the simulation is at all enabled
+*/
 bool simulation_enabled(void)
 {
-  return (simulation_settings.enabled > 0);
+  return (sim_settings.enabled > 0);
 }
 
-bool simulation_enabled_for(u8 mode_mask) {
-  return (simulation_settings.enabled > 0) && ((simulation_settings.mode_mask & mode_mask) > 0);
+/** Returns true fi the simulation is enabled for the given mode_mask
+*
+* \param mode_mask The mode for which the simulation might be enabled.
+*/
+bool simulation_enabled_for(simulation_modes_t mode_mask) {
+  return (sim_settings.enabled > 0) &&
+    ((sim_settings.mode_mask & mode_mask) > 0);
 }
 
+/** Sends an MSG_SIMULATION_ENABLED message with
+*payload 1 if the simulation is enabled, payload 0 otherwise.
+*/
 void sbp_send_simulation_enabled(void)
 {
-  sbp_send_msg(MSG_SIMULATION_ENABLED, sizeof(uint8_t), &simulation_settings.enabled);
+  sbp_send_msg(MSG_SIMULATION_ENABLED,
+    sizeof(uint8_t),
+    &sim_settings.enabled);
 }
 
-void sbp_send_simulation_settings(void)
+void sbp_send_sim_settings(void)
 {
-  sbp_send_msg(MSG_SIMULATION_SETTINGS, sizeof(simulation_settings), (u8 *) &simulation_settings);
+  sbp_send_msg(MSG_SIMULATION_SETTINGS,
+    sizeof(sim_settings),
+    (u8 *) &sim_settings);
 }
 
 /** Get current simulated PVT solution
@@ -302,7 +374,7 @@ void sbp_send_simulation_settings(void)
 */
 inline gnss_solution* simulation_current_gnss_solution(void)
 {
-  return &simulation_state.noisy_solution;
+  return &sim_state.noisy_solution;
 }
 
 /** Get current simulated DOPS.
@@ -310,41 +382,50 @@ inline gnss_solution* simulation_current_gnss_solution(void)
 */
 inline dops_t* simulation_current_dops_solution(void)
 {
-  return &simulation_state.dops;
+  return &sim_state.dops;
 }
 
-/** Get current simulated baseline reference point.
+/** Get current simulated baseline reference point in ECEF coordinates.
 * The structure returned by this changes when settings are updated.
 */
 inline double* simulation_ref_ecef(void)
 {
-  return simulation_settings.base_ecef;
+  return sim_settings.base_ecef;
 }
 
-/** Get current simulated baseline vector
+/** Get current simulated baseline vector in ECEF coordinates.
 * The structure returned by this changes every time simulation_step is called.
 */
 inline double* simulation_current_baseline_ecef(void)
 {
-  return simulation_state.true_baseline_ecef;
+  return sim_state.baseline;
 }
 
+/** Returns the number of satellites being simulated.
+*/
 u8 simulation_current_num_sats(void)
 {
-  return simulation_state.noisy_solution.n_used;
+  return sim_state.noisy_solution.n_used;
 }
 
+/** Returns the current simulated tracking loops state simulated.
+* This contains only noise, no interesting simulation information.
+*
+* \param channel The simulated tracking channel.
+*/
 tracking_state_msg_t simulation_current_tracking_state(u8 channel)
 {
   if (channel >= simulation_current_num_sats()) {
     channel = simulation_current_num_sats() - 1;
   }
-  return simulation_state.tracking_channel[channel];
+  return sim_state.tracking_channel[channel];
 }
 
+/** Returns the simulated navigation measurement of our moving position.
+*/
 navigation_measurement_t* simulation_current_navigation_measurements(void)
 {
-  return simulation_state.nav_meas;
+  return sim_state.nav_meas;
 }
 
 /** Returns the simulated navigation measurement at the base position
@@ -353,69 +434,67 @@ navigation_measurement_t* simulation_current_navigation_measurements(void)
 */
 navigation_measurement_t* simulation_current_base_navigation_measurements(void)
 {
-  return simulation_state.base_nav_meas;
+  return sim_state.base_nav_meas;
 }
 
 
-/** Changes simulation mode when an SBP callback triggers this function
+/** Enables or disables the simulator when an SBP callback triggers this function
 *
 */
 void set_simulation_enabled_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void) context;
   if (len == 1) {
-    if (simulation_state.last_update_ticks == 0) {
-      simulation_state.last_update_ticks = chTimeNow();
+    if (sim_state.last_update_ticks == 0) {
+      sim_state.last_update_ticks = chTimeNow();
     }
-    simulation_settings.enabled = (msg[0] != 0);
+    sim_settings.enabled = (msg[0] != 0);
   }
 
-  if (simulation_settings.enabled) {
+  if (sim_settings.enabled) {
     led_on(LED_RED);
   } else {
     led_off(LED_RED);
   }
 
   sbp_send_simulation_enabled();
-  Notify("Simulation enabled: %d", simulation_settings.enabled);
 
 }
 
-/** Changes simulation mode when an SBP callback triggers this function
-*
+/** Changes simulation settings when an SBP callback triggers this function
 */
-void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+void set_sim_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void) context;
   if (len == 0) {
 
-    Notify("Sending current simulation settings.");
-    sbp_send_simulation_settings();
+    sbp_send_sim_settings();
 
-  } else if (len == sizeof(simulation_settings)) {
+  } else if (len == sizeof(sim_settings)) {
 
-    memcpy((uint8_t*)&simulation_settings, msg, len);
-    Notify("Received new simulation settings.");
+    memcpy((uint8_t*)&sim_settings, msg, len);
 
   } else {
 
-    Notify("Received malformed simulation settings: Incorrect size.");
+    printf("Received malformed simulation settings: Incorrect size.\n");
 
   }
 
 }
 
+/**
+* Do any setup we need for the satellite almanacs.
+*/
 void simulator_setup_almanacs(void)
 {
 
-  //Do any setup we need for the satellite almanacs
   for (u8 i = 0; i < simulation_num_almanacs; i++) {
     simulation_fake_carrier_bias[i] = (rand() % 1000) * 10;
   }
 
 }
+
 /** Must be called from main() or equivalent function before simulator runs
-*
 */
 void simulator_setup(void)
 {
@@ -427,19 +506,19 @@ void simulator_setup(void)
     &set_simulation_enabled_node
   );
 
-  static sbp_msg_callbacks_node_t set_simulation_settings_node;
+  static sbp_msg_callbacks_node_t set_sim_settings_node;
   sbp_register_cbk(
     MSG_SIMULATION_SETTINGS,
-    &set_simulation_settings_callback,
-    &set_simulation_settings_node
+    &set_sim_settings_callback,
+    &set_sim_settings_node
   );
 
-  simulation_state.noisy_solution.time.wn = simulation_week_number;
-  simulation_state.noisy_solution.time.tow = 0;
+  sim_state.noisy_solution.time.wn = simulation_week_number;
+  sim_state.noisy_solution.time.tow = 0;
 
   simulator_setup_almanacs();
 
-  sbp_send_simulation_settings();
+  sbp_send_sim_settings();
 
 }
 

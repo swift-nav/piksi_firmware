@@ -48,35 +48,15 @@ typedef struct __attribute__((packed)) {
   double            base_ecef[3];        /**< centerpoint that defines simulation absolute location */
   float             speed;                 /**< speed (variance of velocity) in meters per second */
   float             radius;                /**< radius of circle in meters */
-  float             pos_variance;          /**< in meters squared */
-  float             speed_variance;        /**< variance in speed (magnitude of velocity) in meters squared */
-  float             tracking_cn0_variance; /**< variance in signal-to-noise ratio of tracking channels */
-  float             pseudorange_variance;  /**< variance in each sat's simulated pseudorange */
-  float             carrier_phase_variance;/**< variance in each sat's simulated carrier phase */
+  float             pos_sigma;          /**< in meters squared */
+  float             speed_sigma;        /**< variance in speed (magnitude of velocity) in meters squared */
+  float             cn0_sigma; /**< variance in signal-to-noise ratio of tracking channels */
+  float             pseudorange_sigma;  /**< variance in each sat's simulated pseudorange */
+  float             phase_sigma;/**< variance in each sat's simulated carrier phase */
   u8                num_sats;              /**< number of simulated satellites to report */
   u8                enabled;               /**< Is the simulator enabled? */
   u8                mode_mask;             /** < Current mode of the simulator */
 } simulation_settings_t;
-
-/* Internal Simulation State */
-typedef struct {
-  u32            last_update_ticks;
-  float          current_angle_rad;
-  double         true_pos_ecef[3];
-  double         true_baseline_ecef[3];
-
-  //Accessing the simulator_data.c almanacs:
-  u8             num_sats_selected;
-  u8             selected_sat_indices[NAP_MAX_N_TRACK_CHANNELS];
-
-  //Simulated solutions
-  tracking_state_msg_t      tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
-  navigation_measurement_t  nav_meas[NAP_MAX_N_TRACK_CHANNELS];
-  navigation_measurement_t  base_nav_meas[NAP_MAX_N_TRACK_CHANNELS];
-  dops_t                    dops;
-  gnss_solution             noisy_solution;
-
-} simulation_state_t;
 
 /** \} */
 
@@ -87,11 +67,12 @@ double lerp(double t, double u, double v, double x, double y);
 //Running the Simulation:
 void simulation_step(void);
 bool simulation_enabled();
-bool simulation_enabled_for(u8 mode_mask);
+bool simulation_enabled_for(simulation_modes_t mode_mask);
 
 //Internals of the simulator
 void simulation_step_position_in_circle(double);
 void simulation_step_tracking_and_observations(double);
+void populate_nav_meas(navigation_measurement_t *, double, double, int);
 
 //Sending simulation settings to the outside world
 void sbp_send_simulation_enabled(void);
