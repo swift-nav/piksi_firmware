@@ -23,6 +23,8 @@
 #include <ch.h>
 #include <track.h>
 
+#include "settings.h"
+
 #include "simulator.h"
 #include "solution.h"
 #include "sbp_piksi.h"
@@ -33,6 +35,8 @@
 
 /** \simulator
  * \{ */
+
+u8 sim_enabled;
 
 simulation_settings_t sim_settings = {
   .base_ecef = {
@@ -48,7 +52,6 @@ simulation_settings_t sim_settings = {
   .pseudorange_sigma = 16,
   .phase_sigma = 9e-4,
   .num_sats = 9,
-  .enabled = 0,
   .mode_mask =
     SIMULATION_MODE_PVT |
     SIMULATION_MODE_TRACKING |
@@ -338,17 +341,17 @@ void populate_nav_meas(navigation_measurement_t *nav_meas, double dist, double e
 
 /** Returns true if the simulation is at all enabled
 */
-bool simulation_enabled(void)
+inline bool simulation_enabled(void)
 {
-  return (sim_settings.enabled > 0);
+  return (sim_enabled > 0);
 }
 
 /** Returns true fi the simulation is enabled for the given mode_mask
 *
 * \param mode_mask The mode for which the simulation might be enabled.
 */
-bool simulation_enabled_for(simulation_modes_t mode_mask) {
-  return (sim_settings.enabled > 0) &&
+inline bool simulation_enabled_for(simulation_modes_t mode_mask) {
+  return (sim_enabled > 0) &&
     ((sim_settings.mode_mask & mode_mask) > 0);
 }
 
@@ -358,8 +361,8 @@ bool simulation_enabled_for(simulation_modes_t mode_mask) {
 void sbp_send_simulation_enabled(void)
 {
   sbp_send_msg(MSG_SIMULATION_ENABLED,
-    sizeof(uint8_t),
-    &sim_settings.enabled);
+    sizeof(u8),
+    &sim_enabled);
 }
 
 void sbp_send_sim_settings(void)
@@ -448,36 +451,15 @@ void set_simulation_enabled_callback(u16 sender_id, u8 len, u8 msg[], void* cont
     if (sim_state.last_update_ticks == 0) {
       sim_state.last_update_ticks = chTimeNow();
     }
-    sim_settings.enabled = (msg[0] != 0);
+    sim_enabled = msg[0];
   }
 
-  if (sim_settings.enabled) {
+  if (simulation_enabled()) {
+    printf("Enabled Simulation\n");
     led_on(LED_RED);
   } else {
+    printf("Disabled Simulation\n");
     led_off(LED_RED);
-  }
-
-  sbp_send_simulation_enabled();
-
-}
-
-/** Changes simulation settings when an SBP callback triggers this function
-*/
-void set_sim_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context)
-{
-  (void)sender_id; (void) context;
-  if (len == 0) {
-
-    sbp_send_sim_settings();
-
-  } else if (len == sizeof(sim_settings)) {
-
-    memcpy((uint8_t*)&sim_settings, msg, len);
-
-  } else {
-
-    printf("Received malformed simulation settings: Incorrect size.\n");
-
   }
 
 }
@@ -506,19 +488,24 @@ void simulator_setup(void)
     &set_simulation_enabled_node
   );
 
-  static sbp_msg_callbacks_node_t set_sim_settings_node;
-  sbp_register_cbk(
-    MSG_SIMULATION_SETTINGS,
-    &set_sim_settings_callback,
-    &set_sim_settings_node
-  );
-
   sim_state.noisy_solution.time.wn = simulation_week_number;
   sim_state.noisy_solution.time.tow = 0;
 
   simulator_setup_almanacs();
 
-  sbp_send_sim_settings();
+  SETTING("simulator", "base_ecef_x",       sim_settings.base_ecef[0],      TYPE_FLOAT);
+  SETTING("simulator", "base_ecef_y",       sim_settings.base_ecef[1],      TYPE_FLOAT);
+  SETTING("simulator", "base_ecef_z",       sim_settings.base_ecef[2],      TYPE_FLOAT);
+  SETTING("simulator", "speed",             sim_settings.speed,             TYPE_FLOAT);
+  SETTING("simulator", "radius",            sim_settings.radius,            TYPE_FLOAT);
+  SETTING("simulator", "pos_sigma",         sim_settings.pos_sigma,         TYPE_FLOAT);
+  SETTING("simulator", "speed_sigma",       sim_settings.speed_sigma,       TYPE_FLOAT);
+  SETTING("simulator", "cn0_sigma",         sim_settings.cn0_sigma,         TYPE_FLOAT);
+  SETTING("simulator", "pseudorange_sigma", sim_settings.pseudorange_sigma, TYPE_FLOAT);
+  SETTING("simulator", "phase_sigma",       sim_settings.phase_sigma,       TYPE_FLOAT);
+  // SETTING("simulator", "num_sats",          sim_settings.num_sats,          TYPE_INT);
+  // SETTING("simulator", "mode_mask",         sim_settings.mode_mask,         TYPE_INT);
+
 
 }
 

@@ -38,7 +38,7 @@ typedef uint8_t simulation_mode_t; /* Force uint8_t size for simulation_mode */
 typedef enum {
   SIMULATION_MODE_PVT      = (1<<0),
   SIMULATION_MODE_TRACKING = (1<<1),
-  SIMULATION_MODE_RTK      =(1<<2),
+  SIMULATION_MODE_RTK      = (1<<2),
 } simulation_modes_t;
 
 /* User-configurable GPS Simulator Settings
@@ -54,7 +54,6 @@ typedef struct __attribute__((packed)) {
   float             pseudorange_sigma;  /**< variance in each sat's simulated pseudorange */
   float             phase_sigma;/**< variance in each sat's simulated carrier phase */
   u8                num_sats;              /**< number of simulated satellites to report */
-  u8                enabled;               /**< Is the simulator enabled? */
   u8                mode_mask;             /** < Current mode of the simulator */
 } simulation_settings_t;
 
