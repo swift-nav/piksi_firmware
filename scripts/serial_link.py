@@ -135,7 +135,11 @@ class SerialLink:
         return (None, None, None)
 
       # Sync with magic start bytes
-      magic = self.ser.read(1)
+      try:
+        magic = self.ser.read(1)
+      except OSError:
+        print "Error: Piksi not connected"
+        sys.exit(1)
       if magic:
         if ord(magic) == SBP_PREAMBLE:
           break
