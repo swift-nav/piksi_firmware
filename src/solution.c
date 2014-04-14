@@ -475,7 +475,7 @@ static msg_t time_matched_obs_thread(void *arg)
 
         /* In practice this should basically never happen so lets make a note
          * if it does. */
-        printf("Obs Matching: t_base < t_rover\n");
+        printf("Obs Matching: t_base < t_rover (%f)\n", dt);
 
         /* Return the buffer to the mailbox so we can try it again later. */
         msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
@@ -495,7 +495,12 @@ static msg_t time_matched_obs_thread(void *arg)
       }
     }
 
-    chThdSleepUntil(t_blink);
+    chSysLock();
+    if (t_blink > chTimeNow()) {
+      chThdSleepS(t_blink - chTimeNow());
+    }
+    chSysUnlock();
+
     led_off(LED_RED);
   }
   return 0;
