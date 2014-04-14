@@ -57,7 +57,7 @@ void send_thread_states()
   g_ctime = 0;
 }
 
-static WORKING_AREA_CCM(wa_system_monitor_thread, 256);
+static WORKING_AREA_CCM(wa_system_monitor_thread, 3000);
 static msg_t system_monitor_thread(void *arg)
 {
   (void)arg;
