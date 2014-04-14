@@ -577,7 +577,7 @@ void solution_setup()
                     HIGHPRIO-1, solution_thread, NULL);
 
   chThdCreateStatic(wa_time_matched_obs_thread, sizeof(wa_time_matched_obs_thread),
-                    NORMALPRIO, time_matched_obs_thread, NULL);
+                    LOWPRIO, time_matched_obs_thread, NULL);
 
   static sbp_msg_callbacks_node_t obs_node;
   sbp_register_cbk(
