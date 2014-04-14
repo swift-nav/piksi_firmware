@@ -36,8 +36,8 @@
 #endif
 
 /* TODO: Think about thread safety when updating ephemerides. */
-ephemeris_t es[32];
-ephemeris_t es_old[32];
+ephemeris_t es[32] _CCM;
+ephemeris_t es_old[32] _CCM;
 
 /* Required by exit() which is called from BLAS/LAPACK. */
 void _fini(void)

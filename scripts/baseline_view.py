@@ -80,7 +80,8 @@ class BaselineView(HasTraits):
     width=16, height=16
   )
 
-  init_button = Button(label='Init Ambs.')
+  reset_button = Button(label='Reset Filters')
+  init_base_button = Button(label='Init. at known baseline')
 
   traits_view = View(
     HSplit(
@@ -91,7 +92,8 @@ class BaselineView(HasTraits):
           Item('clear_button', show_label=False),
           Item('zoomall_button', show_label=False),
           Item('center_button', show_label=False),
-          Item('init_button', show_label=False),
+          Item('reset_button', show_label=False),
+          Item('init_base_button', show_label=False),
         ),
         Item(
           'plot',
@@ -114,8 +116,11 @@ class BaselineView(HasTraits):
   def _paused_button_fired(self):
     self.running = not self.running
 
-  def _init_button_fired(self):
-    self.link.send_message(0x99, '\0')
+  def _reset_button_fired(self):
+    self.link.send_message(ids.RESULT_FILTERS, '')
+
+  def _init_base_button_fired(self):
+    self.link.send_message(ids.INIT_BASE, '')
 
   def _clear_button_fired(self):
     self.ns = []

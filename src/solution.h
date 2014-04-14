@@ -19,9 +19,6 @@
 #include <libswiftnav/track.h>
 #include <libswiftnav/gpstime.h>
 
-#define MAX_CHANNELS 14
-#define MAX_SATS 32
-
 typedef struct {
   void *next; /* Used by memory pool implementation. */
   gps_time_t t;
@@ -30,9 +27,19 @@ typedef struct {
 } obss_t;
 
 typedef enum {
-  LOW_LATENCY,
-  TIME_MATCHED
+  SOLN_MODE_LOW_LATENCY,
+  SOLN_MODE_TIME_MATCHED
 } dgnss_solution_mode_t;
+
+typedef enum {
+  FILTER_FLOAT,
+  FILTER_FIXED,
+} dgnss_filter_t;
+
+typedef enum {
+  RES_MODE_IAR,
+  RES_MODE_KNOWN_BASE,
+} dgnss_resolution_mode_t;
 
 /** Maximum difference between observation times to consider them matched. */
 #define TIME_MATCH_THRESHOLD 1e-6

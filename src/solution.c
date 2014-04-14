@@ -20,6 +20,8 @@
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/single_diff.h>
 #include <libswiftnav/dgnss_management.h>
+#include <libswiftnav/ambiguity_test.h>
+#include <libswiftnav/stupid_filter.h>
 
 #include <libopencm3/stm32/f4/timer.h>
 #include <libopencm3/stm32/f4/rcc.h>
@@ -40,7 +42,9 @@ BinarySemaphore base_obs_received;
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
 
-dgnss_solution_mode_t dgnss_soln_mode = TIME_MATCHED;
+dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_TIME_MATCHED;
+dgnss_filter_t dgnss_filter = FILTER_FIXED;
+dgnss_resolution_mode_t dgnss_resolution_mode = RES_MODE_IAR;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -272,7 +276,7 @@ static msg_t solution_thread(void *arg)
              * process a low-latency differential solution. */
 
             /* Hook in low-latency filter here. */
-            if (dgnss_soln_mode == LOW_LATENCY) {
+            if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY) {
               /*solution_send_baseline(t, n_sds, b, position_solution.pos_ecef);*/
             }
 
@@ -379,34 +383,64 @@ static msg_t solution_thread(void *arg)
   return 0;
 }
 
-void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
+static bool init_done = false;
+static bool init_known_base = false;
+static bool known_base_initialized = false;
+static s32 N_known_base[MAX_CHANNELS];
+
+void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
 {
   (void)n_sds; (void)sds;
 
   /* Hook Float KF and AR filters in here. */
-
-  static u8 init_done = 0;
   if (n_sds > 4) {
-
-    if (init_done == 0) {
-      printf("====== INIT =======\n");
-      dgnss_init(n_sds, sds, position_solution.pos_ecef, NULL, 1.0 / SOLN_FREQ);
-      printf("lol0\n");
+    if (init_known_base) {
+      /* Calculate ambiguities from known baseline. */
+      double DE[(n_sds-1)*3];
+      double b_init[3] = {0, 0, 0};
+      double dds[n_sds];
+      make_measurements(n_sds-1, sds, dds);
+      assign_de_mtx(n_sds, sds, position_solution.pos_ecef, DE);
+      amb_from_baseline(n_sds, DE, dds, b_init, N_known_base);
+      printf("Known Base: [");
+      for (u8 i=0; i<n_sds-1; i++)
+        printf("%d, ", N_known_base[i]);
+      printf("]\n");
+      known_base_initialized = true;
+      init_known_base = false;
+    }
+    if (!init_done) {
+      /* Initialize filters. */
+      printf("Initializing DGNSS filters\n");
+      dgnss_init(n_sds, sds, position_solution.pos_ecef, dt);
       init_done = 1;
     } else {
-
-      double b[3];
-      dgnss_update(n_sds, sds, position_solution.pos_ecef, 1.0 / SOLN_FREQ, 0, b);
-      if (dgnss_soln_mode == TIME_MATCHED) {
-        solution_send_baseline(t, n_sds, b, position_solution.pos_ecef);
+      /* Update filters. */
+      dgnss_update(n_sds, sds, position_solution.pos_ecef, dt);
+      /* If we are in time matched mode then calculate and output the baseline
+       * for this observation. */
+      if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED) {
+        double b[3];
+        u8 num_used;
+        if (dgnss_filter == FILTER_FIXED &&
+            dgnss_resolution_mode == RES_MODE_IAR &&
+            dgnss_iar_resolved()) {
+          /* Calculate least squares solution using ambiguities from IAR. */
+        } else if (dgnss_filter == FILTER_FIXED &&
+                   dgnss_resolution_mode == RES_MODE_KNOWN_BASE &&
+                   known_base_initialized) {
+          /* Calculate least squares solution using ambiguities from known
+           * baseline initialization. */
+        } else {
+          dgnss_float_baseline(&num_used, b);
+        }
+        solution_send_baseline(t, num_used, b, position_solution.pos_ecef);
       }
     }
   }
-
-  /*printf("Matched observations\n");*/
 }
 
-static WORKING_AREA_CCM(wa_time_matched_obs_thread, 7000);
+static WORKING_AREA_CCM(wa_time_matched_obs_thread, 20000);
 static msg_t time_matched_obs_thread(void *arg)
 {
   (void)arg;
@@ -432,7 +466,7 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
-        process_matched_obs(n_sds, &obss->t, sds);
+        process_matched_obs(n_sds, &obss->t, sds, 1.0 / SOLN_FREQ);
         chPoolFree(&obs_buff_pool, obss);
         chMtxUnlock();
         break;
@@ -466,6 +500,18 @@ static msg_t time_matched_obs_thread(void *arg)
   return 0;
 }
 
+void reset_filters_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void)msg; (void)context;
+  init_done = true;
+}
+
+void init_base_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void)msg; (void)context;
+  init_known_base = true;
+}
+
 void solution_setup()
 {
   /* Enable TIM5 clock. */
@@ -480,17 +526,45 @@ void solution_setup()
   timer_enable_counter(TIM5);
   timer_enable_irq(TIM5, TIM_DIER_UIE);
 
-  static const char const *dgnss_soln_mode_enum[] = {"Low Latency", "Time Matched", NULL};
+  static const char const *dgnss_soln_mode_enum[] = {
+    "Low Latency",
+    "Time Matched",
+    NULL
+  };
   static struct setting_type dgnss_soln_mode_setting;
-  int TYPE_GNSS_SOLN_MODE = settings_type_register_enum(dgnss_soln_mode_enum, &dgnss_soln_mode_setting);
-  SETTING("solution", "dgnss_solution_mode", dgnss_soln_mode, TYPE_GNSS_SOLN_MODE);
+  int TYPE_GNSS_SOLN_MODE = settings_type_register_enum(dgnss_soln_mode_enum,
+                                                        &dgnss_soln_mode_setting);
+  SETTING("solution", "dgnss_solution_mode",
+          dgnss_soln_mode, TYPE_GNSS_SOLN_MODE);
+
+  static const char const *dgnss_filter_enum[] = {
+    "Float",
+    "Fixed",
+    NULL
+  };
+  static struct setting_type dgnss_filter_setting;
+  int TYPE_GNSS_FILTER = settings_type_register_enum(dgnss_filter_enum,
+                                                     &dgnss_filter_setting);
+  SETTING("solution", "dgnss_filter",
+          dgnss_filter, TYPE_GNSS_FILTER);
+
+  static const char const *dgnss_resolution_mode_enum[] = {
+    "IAR",
+    "Known Baseline",
+    NULL
+  };
+  static struct setting_type dgnss_resolution_mode_setting;
+  int TYPE_GNSS_RES_MODE = settings_type_register_enum(dgnss_resolution_mode_enum,
+                                                     &dgnss_resolution_mode_setting);
+  SETTING("solution", "dgnss_resolution_mode",
+          dgnss_resolution_mode, TYPE_GNSS_RES_MODE);
 
   chMtxInit(&base_obs_lock);
   chBSemInit(&base_obs_received, TRUE);
   static msg_t obs_mailbox_buff[OBS_N_BUFF];
   chMBInit(&obs_mailbox, obs_mailbox_buff, OBS_N_BUFF);
   chPoolInit(&obs_buff_pool, sizeof(obss_t), NULL);
-  static obss_t obs_buff[OBS_N_BUFF];
+  static obss_t obs_buff[OBS_N_BUFF] _CCM;
   chPoolLoadArray(&obs_buff_pool, obs_buff, OBS_N_BUFF);
 
   chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread),
@@ -504,6 +578,20 @@ void solution_setup()
     MSG_NEW_OBS,
     &obs_callback,
     &obs_node
+  );
+
+  static sbp_msg_callbacks_node_t reset_filters_node;
+  sbp_register_cbk(
+    MSG_RESET_FILTERS,
+    &reset_filters_callback,
+    &reset_filters_node
+  );
+
+  static sbp_msg_callbacks_node_t init_base_node;
+  sbp_register_cbk(
+    MSG_INIT_BASE,
+    &init_base_callback,
+    &init_base_node
   );
 }
 
