@@ -30,6 +30,12 @@ class Bootloader():
     self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
     self.version = None
 
+  def __del__(self):
+    self.stop()
+
+  def stop(self):
+    self.link.rm_callback(ids.BOOTLOADER_HANDSHAKE)
+
   def _handshake_callback(self, data):
     if len(data)==1 and struct.unpack('B', data[0])==0:
       # == v0.1 of the bootloader, returns hardcoded version number 0.
