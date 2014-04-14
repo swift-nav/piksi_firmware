@@ -427,4 +427,15 @@ s8 use_tracking_channel(u8 i)
       && (tracking_channel[i].TOW_ms > 0);
 }
 
+u8 tracking_channels_ready()
+{
+  u8 n_ready = 0;
+  for (u8 i=0; i<nap_track_n_channels; i++) {
+    if (use_tracking_channel(i)) {
+      n_ready++;
+    }
+  }
+  return n_ready;
+}
+
 /** \} */

@@ -82,5 +82,6 @@ void manage_track_setup(void);
 u8 manage_track_new_acq(float snr);
 void manage_track(void);
 s8 use_tracking_channel(u8 i);
+u8 tracking_channels_ready(void);
 
 #endif
