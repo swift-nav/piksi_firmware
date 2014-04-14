@@ -53,11 +53,12 @@ def stm_addr_sector_map(addr):
   elif addr >= 0x080E0000 and addr < 0x08100000:
     return 11
   else:
+    raise IndexError("Attempted to access flash memory at (%s) outside of range." % hex(addr))
     return None
 
 def m25_addr_sector_map(addr):
   if addr < 0 or addr > 0xFFFFF:
-    raise ValueError
+    raise IndexError("Attempted to access flash memory at (%s) outside of range." % hex(addr))
   return addr >> 16
 
 def ihx_ranges(ihx):

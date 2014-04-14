@@ -19,6 +19,7 @@
 
 #include "board/leds.h"
 #include "board/nap/nap_conf.h"
+#include "board/max2769.h"
 #include "sbp.h"
 #include "init.h"
 #include "manage.h"
