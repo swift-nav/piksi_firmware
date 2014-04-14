@@ -18,9 +18,12 @@
 #include <libswiftnav/sbp_messages.h>
 
 #include "board/nap/nap_common.h"
+#include "board/leds.h"
 #include "main.h"
 #include "sbp.h"
 #include "sbp_piksi.h"
+#include "manage.h"
+#include "simulator.h"
 #include "system_monitor.h"
 
 /* Global CPU time accumulator, used to measure thread CPU usage. */
@@ -57,6 +60,36 @@ void send_thread_states()
   g_ctime = 0;
 }
 
+static WORKING_AREA_CCM(wa_track_status_thread, 128);
+static msg_t track_status_thread(void *arg)
+{
+  (void)arg;
+  chRegSetThreadName("track status");
+  while (TRUE) {
+    if (simulation_enabled()) {
+      led_on(LED_GREEN);
+      chThdSleepMilliseconds(500);
+    } else {
+      chThdSleepMilliseconds(1000);
+      u8 n_ready = tracking_channels_ready();
+      if (n_ready == 0) {
+        led_on(LED_GREEN);
+        chThdSleepMilliseconds(1000);
+        led_off(LED_GREEN);
+      } else {
+        for (u8 i=0; i<n_ready; i++) {
+          led_on(LED_GREEN);
+          chThdSleepMilliseconds(250);
+          led_off(LED_GREEN);
+          chThdSleepMilliseconds(250);
+        }
+        chThdSleepMilliseconds(1000);
+      }
+    }
+  }
+  return 0;
+}
+
 static WORKING_AREA_CCM(wa_system_monitor_thread, 3000);
 static msg_t system_monitor_thread(void *arg)
 {
@@ -64,12 +97,14 @@ static msg_t system_monitor_thread(void *arg)
   chRegSetThreadName("system monitor");
 
   while (TRUE) {
-    chThdSleepMilliseconds(500);
+    chThdSleepMilliseconds(1000);
+
     DO_EVERY(2,
         u32 status_flags = 0;
         sbp_send_msg(SBP_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
         send_thread_states();
     );
+
     u32 err = nap_error_rd_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);
@@ -90,6 +125,12 @@ void system_monitor_setup()
       sizeof(wa_system_monitor_thread),
       LOWPRIO+10,
       system_monitor_thread, NULL
+  );
+  chThdCreateStatic(
+      wa_track_status_thread,
+      sizeof(wa_track_status_thread),
+      LOWPRIO+9,
+      track_status_thread, NULL
   );
 }
 

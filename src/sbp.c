@@ -56,7 +56,6 @@ static msg_t sbp_thread(void *arg)
   (void)arg;
   chRegSetThreadName("SBP");
   while (TRUE) {
-    led_toggle(LED_GREEN);
     chThdSleepMilliseconds(50);
     sbp_process_messages();
 
