@@ -12,6 +12,11 @@
 import serial_link
 import sbp_piksi as ids
 
+import os, sys
+lib_path = os.path.abspath('../libswiftnav/sbp_generate')
+sys.path.append(lib_path)
+import sbp_messages
+
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
 parser.add_argument('-p', '--port', nargs=1, default=[serial_link.DEFAULT_PORT],
@@ -55,6 +60,7 @@ from baseline_view import BaselineView
 from observation_view import ObservationView
 from system_monitor_view import SystemMonitorView
 from simulator_view import SimulatorView
+from settings_view import SettingsView
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -67,8 +73,10 @@ class SwiftConsole(HasTraits):
   solution_view = Instance(SolutionView)
   baseline_view = Instance(BaselineView)
   observation_view = Instance(ObservationView)
+  observation_view_base = Instance(ObservationView)
   system_monitor_view = Instance(SystemMonitorView)
   simulator_view = Instance(SimulatorView)
+  settings_view = Instance(SettingsView)
 
   view = View(
     VSplit(
@@ -77,9 +85,14 @@ class SwiftConsole(HasTraits):
         Item('almanac_view', style='custom', label='Almanac'),
         Item('solution_view', style='custom', label='Solution'),
         Item('baseline_view', style='custom', label='Baseline'),
-        Item('observation_view', style='custom', label='Observations'),
-        Item('system_monitor_view', style='custom', label='System Monitor'),
+        VSplit(
+          Item('observation_view', style='custom', show_label=False),
+          Item('observation_view_base', style='custom', show_label=False),
+          label='Observations',
+        ),
         Item('simulator_view', style='custom', label='Simulator'),
+        Item('settings_view', style='custom', label='Settings'),
+        Item('system_monitor_view', style='custom', label='System Monitor'),
         Item(
           'python_console_env', style='custom',
           label='Python Console', editor=ShellEditor()
@@ -123,9 +136,11 @@ class SwiftConsole(HasTraits):
     self.almanac_view = AlmanacView(self.link)
     self.solution_view = SolutionView(self.link)
     self.baseline_view = BaselineView(self.link)
-    self.observation_view = ObservationView(self.link)
+    self.observation_view = ObservationView(self.link, name='Rover', sender_id=0x2222)
+    self.observation_view_base = ObservationView(self.link, name='Base', sender_id=0)
     self.system_monitor_view = SystemMonitorView(self.link)
     self.simulator_view = SimulatorView(self.link)
+    self.settings_view = SettingsView(self.link)
 
     self.python_console_env = {
         'send_message': self.link.send_message,

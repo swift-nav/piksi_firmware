@@ -14,11 +14,33 @@
 #define SWIFTNAV_SOLUTION_H
 
 #include <libswiftnav/common.h>
+#include <libswiftnav/constants.h>
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/track.h>
+#include <libswiftnav/gpstime.h>
 
-#define MAX_SATS 14
 #define MAX_CHANNELS 14
+#define MAX_SATS 32
+
+typedef struct {
+  void *next; /* Used by memory pool implementation. */
+  gps_time_t t;
+  u8 n;
+  navigation_measurement_t nm[MAX_CHANNELS];
+} obss_t;
+
+/** Maximum difference between observation times to consider them matched. */
+#define TIME_MATCH_THRESHOLD 1e-6
+/** Maximum time that an observation will be propagated for to align it with a
+ * solution epoch before it is discarded.  */
+#define OBS_PROPAGATION_LIMIT 10e-3
+
+#define MAX_AGE_OF_DIFFERENTIAL 1.0
+
+#define SOLN_FREQ 3.0
+
+#define OBS_N_BUFF 5
+#define OBS_BUFF_SIZE (OBS_N_BUFF * sizeof(obss_t))
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops);
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,

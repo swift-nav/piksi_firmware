@@ -79,18 +79,22 @@ class ListenerThread (threading.Thread):
   def run(self):
     while not self.wants_to_stop:
       try:
-        mt, md = self.link.get_message()
+        mt, ms, md = self.link.get_message()
         if self.wants_to_stop: #will throw away last message here even if it is valid
           if self.link.ser:
             self.link.ser.close()
           break
         if mt is not None:
-          cb = self.link.get_callback(mt)
-          if cb:
-            cb(md)
-          else:
+          cbs = self.link.get_callback(mt)
+          if cbs is None or len(cbs) == 0:
             if self.print_unhandled:
               print "Host Side Unhandled message %02X" % mt
+          else:
+            for cb in cbs:
+              try:
+                cb(md, sender=ms)
+              except TypeError:
+                cb(md)
       except Exception, err:
         import traceback
         print traceback.format_exc()
@@ -128,7 +132,7 @@ class SerialLink:
   def get_message(self):
     while True:
       if self.lt.wants_to_stop:
-        return (None, None)
+        return (None, None, None)
 
       # Sync with magic start bytes
       magic = self.ser.read(1)
@@ -161,9 +165,9 @@ class SerialLink:
 
     if crc != crc_received:
       print "Host Side CRC mismatch: 0x%04X 0x%04X" % (crc, crc_received)
-      return (None, None)
+      return (None, None, None)
 
-    return (msg_type, data)
+    return (msg_type, sender_id, data)
 
   def send_message(self, msg_type, msg, sender_id=0x42):
     framed_msg = struct.pack('<BHHB', SBP_PREAMBLE, msg_type, sender_id, len(msg))
@@ -178,10 +182,9 @@ class SerialLink:
 
   def add_callback(self, msg_type, callback):
     try:
-      self.callbacks[msg_type]
-      raise Exception("callback for msg_type 0x%02x already exists" % msg_type)
+      self.callbacks[msg_type].append(callback)
     except KeyError:
-      self.callbacks[msg_type] = callback
+      self.callbacks[msg_type] = [callback]
 
   def rm_callback(self, msg_type):
     self.callbacks.pop(msg_type)

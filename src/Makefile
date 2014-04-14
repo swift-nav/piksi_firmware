@@ -103,6 +103,8 @@ CSRC = $(PORTSRC) \
        $(SWIFTNAV_ROOT)/src/peripherals/usart_rx.o \
        $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee.o \
        $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee-arch.o \
+       $(SWIFTNAV_ROOT)/src/minIni/minIni.o \
+       $(SWIFTNAV_ROOT)/src/minIni/minGlue.o \
        $(SWIFTNAV_ROOT)/src/init.o \
        $(SWIFTNAV_ROOT)/src/sbp.o \
        $(SWIFTNAV_ROOT)/src/error.o \
@@ -198,7 +200,7 @@ CPPWARN = -Wall -Wextra
 #
 
 # List all default C defines here, like -D_DEBUG=1
-GIT_VERSION := $(shell $(SWIFTNAV_ROOT)/scripts/git-check.sh)
+GIT_VERSION := $(shell git describe --dirty)
 DDEFS = -DSTM32F4 -DGIT_VERSION="\"$(GIT_VERSION)\""
 
 # List all default ASM defines here, like -D_DEBUG=1
@@ -209,10 +211,17 @@ DINCDIR =
 
 # List the default directory to look for the libraries here
 DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
+          $(SWIFTNAV_ROOT)/libswiftnav/build/lapacke \
+          $(SWIFTNAV_ROOT)/libswiftnav/build/CBLAS/src \
+          $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/BLAS/SRC \
+          $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/SRC \
+          $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/F2CLIBS/libf2c \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src
 
 # List all default libraries here
-DLIBS = -lopencm3_stm32f4 -lswiftnav-static -lc -lm -lnosys
+DLIBS = -lopencm3_stm32f4 -lswiftnav-static \
+        -llapacke -llapack -lcblas -lblas \
+        -lf2c -lm -lc -lnosys
 
 #
 # End of default section

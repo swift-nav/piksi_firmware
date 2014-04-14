@@ -21,6 +21,11 @@ import datetime
 
 import sbp_piksi as ids
 
+import os, sys
+lib_path = os.path.abspath('../libswiftnav/sbp_generate')
+sys.path.append(lib_path)
+import sbp_messages
+
 class SimpleAdapter(TabularAdapter):
     columns = [('Thread Name', 0), ('CPU %',  1)]
 
@@ -56,25 +61,31 @@ class SystemMonitorView(HasTraits):
       Item(
         '_threads_table_list', style = 'readonly',
         editor = TabularEditor(adapter=SimpleAdapter()),
-        show_label=False, width=0.8,
+        show_label=False, width=0.85,
       ),
       VGroup(
         VGroup(
-          Item('uart_a_crc_error_count', label='CRC Errors'),
-          Item('uart_a_tx', label='TX Buffer %', format_str='%.1f'),
-          Item('uart_a_rx', label='RX Buffer %', format_str='%.1f'),
+          Item('uart_a_crc_error_count', label='CRC Errors', style='readonly'),
+          Item('uart_a_tx', label='TX Buffer %',
+               style='readonly', format_str='%.1f'),
+          Item('uart_a_rx', label='RX Buffer %',
+               style='readonly', format_str='%.1f'),
           label='UART A', show_border=True,
         ),
         VGroup(
-          Item('uart_b_crc_error_count', label='CRC Errors'),
-          Item('uart_b_tx', label='TX Buffer %', format_str='%.1f'),
-          Item('uart_b_rx', label='RX Buffer %', format_str='%.1f'),
+          Item('uart_b_crc_error_count', label='CRC Errors', style='readonly'),
+          Item('uart_b_tx', label='TX Buffer %',
+               style='readonly', format_str='%.1f'),
+          Item('uart_b_rx', label='RX Buffer %',
+               style='readonly', format_str='%.1f'),
           label='UART B', show_border=True,
         ),
         VGroup(
-          Item('ftdi_crc_error_count', label='CRC Errors'),
-          Item('ftdi_tx', label='TX Buffer %', format_str='%.1f'),
-          Item('ftdi_rx', label='RX Buffer %', format_str='%.1f'),
+          Item('ftdi_crc_error_count', label='CRC Errors', style='readonly'),
+          Item('ftdi_tx', label='TX Buffer %',
+               style='readonly', format_str='%.1f'),
+          Item('ftdi_rx', label='RX Buffer %',
+               style='readonly', format_str='%.1f'),
           label='USB UART', show_border=True,
         ),
       ),
@@ -106,7 +117,7 @@ class SystemMonitorView(HasTraits):
     super(SystemMonitorView, self).__init__()
 
     self.link = link
-    self.link.add_callback(ids.HEARTBEAT, self.heartbeat_callback)
+    self.link.add_callback(sbp_messages.SBP_HEARTBEAT, self.heartbeat_callback)
     self.link.add_callback(ids.THREAD_STATE, self.thread_state_callback)
     self.link.add_callback(ids.UART_STATE, self.uart_state_callback)
 

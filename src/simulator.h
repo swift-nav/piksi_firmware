@@ -28,8 +28,10 @@
 * First call `simulation_setup()`,
 * To update the simulation, call `simulation_step()`
 * and to get the current simulated data, call any of the `simulation_current_xxx` functions
-* 
+*
  * \{ */
+
+#define SIM_PRN_OFFSET 200
 
 typedef uint8_t simulation_mode_t; /* Force uint8_t size for simulation_mode */
 
@@ -39,10 +41,10 @@ typedef enum {
   SIMULATION_MODE_RTK      =(1<<2),
 } simulation_modes_t;
 
-/* User-configurable GPS Simulator Settings 
+/* User-configurable GPS Simulator Settings
  * WARNING: THIS STRUCT IS PACKED! CAREFUL MEMORY ALIGNMENT!
 */
-typedef struct __attribute__((packed)) { 
+typedef struct __attribute__((packed)) {
   double            base_ecef[3];        /**< centerpoint that defines simulation absolute location */
   float             speed;                 /**< speed (variance of velocity) in meters per second */
   float             radius;                /**< radius of circle in meters */

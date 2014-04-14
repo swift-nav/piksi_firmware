@@ -70,7 +70,7 @@ void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 }
 
-static WORKING_AREA(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
+static WORKING_AREA_CCM(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
 static msg_t manage_acq_thread(void *arg)
 {
   /* TODO: This should be trigged by a semaphore from the acq ISR code, not
@@ -362,7 +362,7 @@ u8 manage_track_new_acq(float snr)
   return MANAGE_NO_CHANNELS_FREE;
 }
 
-static WORKING_AREA(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
+static WORKING_AREA_CCM(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
 static msg_t manage_track_thread(void *arg)
 {
   (void)arg;

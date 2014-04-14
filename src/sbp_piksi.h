@@ -58,6 +58,10 @@
 #define MSG_SIMULATION_ENABLED      0x94  /**< Host  <-> Piksi */
 #define MSG_SIMULATION_SETTINGS     0x93  /**< Host  <-> Piksi */
 
+#define MSG_SETTINGS                0xA0  /**< Host  <-> Piksi */
+#define MSG_SETTINGS_SAVE           0xA1  /**< Host   -> Piksi */
+#define MSG_SETTINGS_READ_BY_INDEX  0xA2  /**< Host   -> Piksi */
+
 #define MSG_BASELINE                0x23  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
   double ned[3]; /**< Baseline in local North, East, Down frame (m). */
@@ -90,8 +94,6 @@ typedef struct __attribute__((packed)) {
 } msg_obs_t;
 
 #define MSG_TRACKING_STATE        0x16  /**< Piksi  -> Host  */
-
-#define MSG_HEARTBEAT             0x01  /**< Piksi  -> Host  */
 
 #define MSG_THREAD_STATE          0x17  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
