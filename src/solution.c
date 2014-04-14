@@ -214,12 +214,6 @@ static msg_t solution_thread(void *arg)
     chSchGoSleepS(THD_STATE_SUSPENDED);
     chSysUnlock();
 
-    if (simulation_enabled()) {
-      led_on(LED_RED);
-    } else {
-      led_toggle(LED_RED);
-    }
-
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
@@ -449,6 +443,10 @@ static msg_t time_matched_obs_thread(void *arg)
     /* Wait for a new observation to arrive from the base station. */
     chBSemWait(&base_obs_received);
 
+    /* Blink red LED for 20ms. */
+    systime_t t_blink = chTimeNow() + MS2ST(50);
+    led_on(LED_RED);
+
     obss_t *obss;
     /* Look through the mailbox (FIFO queue) of locally generated observations
      * looking for one that matches in time. */
@@ -496,6 +494,9 @@ static msg_t time_matched_obs_thread(void *arg)
         chMtxUnlock();
       }
     }
+
+    chThdSleepUntil(t_blink);
+    led_off(LED_RED);
   }
   return 0;
 }
