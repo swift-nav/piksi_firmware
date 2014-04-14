@@ -19,12 +19,7 @@ import os
 import numpy as np
 import datetime
 
-import sbp_piksi as ids
-
-import os, sys
-lib_path = os.path.abspath('../libswiftnav/sbp_generate')
-sys.path.append(lib_path)
-import sbp_messages
+import sbp_piksi as sbp_messages
 
 class SimpleAdapter(TabularAdapter):
     columns = [('Thread Name', 0), ('CPU %',  1)]
@@ -118,8 +113,8 @@ class SystemMonitorView(HasTraits):
 
     self.link = link
     self.link.add_callback(sbp_messages.SBP_HEARTBEAT, self.heartbeat_callback)
-    self.link.add_callback(ids.THREAD_STATE, self.thread_state_callback)
-    self.link.add_callback(ids.UART_STATE, self.uart_state_callback)
+    self.link.add_callback(sbp_messages.THREAD_STATE, self.thread_state_callback)
+    self.link.add_callback(sbp_messages.UART_STATE, self.uart_state_callback)
 
     self.python_console_cmds = {
       'mon': self

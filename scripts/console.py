@@ -12,11 +12,6 @@
 import serial_link
 import sbp_piksi as ids
 
-import os, sys
-lib_path = os.path.abspath('../libswiftnav/sbp_generate')
-sys.path.append(lib_path)
-import sbp_messages
-
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
 parser.add_argument('-p', '--port', nargs=1, default=[serial_link.DEFAULT_PORT],
