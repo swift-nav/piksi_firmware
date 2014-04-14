@@ -31,8 +31,6 @@
 #include "settings.h"
 #include "main.h"
 
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
 /** \defgroup io Input/Output
  * Communications to and from host.
  * \{ */
