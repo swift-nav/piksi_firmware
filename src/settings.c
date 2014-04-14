@@ -55,9 +55,9 @@ static int float_to_string(const void *priv, char *str, int slen, const void *bl
 
   switch (blen) {
   case 4:
-    return snprintf(str, slen, "%e", (double)*(float*)blob);
+    return snprintf(str, slen, "%g", (double)*(float*)blob);
   case 8:
-    return snprintf(str, slen, "%e", *(double*)blob);
+    return snprintf(str, slen, "%g", *(double*)blob);
   }
   return -1;
 }
