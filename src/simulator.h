@@ -75,7 +75,6 @@ void populate_nav_meas(navigation_measurement_t *, double, double, int);
 
 //Sending simulation settings to the outside world
 void sbp_send_simulation_enabled(void);
-void sbp_send_simulation_settings(void);
 
 //Getting data from the simulation
 gnss_solution*             simulation_current_gnss_solution(void);
@@ -87,7 +86,6 @@ tracking_state_msg_t       simulation_current_tracking_state(u8 channel);
 navigation_measurement_t*  simulation_current_navigation_measurements(void);
 
 //Initialization:
-void set_simulation_settings_callback(u16 sender_id, u8 len, u8 msg[], void* context);
 void simulator_setup_almanacs(void);
 void simulator_setup(void);
 

@@ -365,13 +365,6 @@ void sbp_send_simulation_enabled(void)
     &sim_enabled);
 }
 
-void sbp_send_sim_settings(void)
-{
-  sbp_send_msg(MSG_SIMULATION_SETTINGS,
-    sizeof(sim_settings),
-    (u8 *) &sim_settings);
-}
-
 /** Get current simulated PVT solution
 * The structure returned by this changes every time simulation_step is called.
 */
@@ -503,9 +496,8 @@ void simulator_setup(void)
   SETTING("simulator", "cn0_sigma",         sim_settings.cn0_sigma,         TYPE_FLOAT);
   SETTING("simulator", "pseudorange_sigma", sim_settings.pseudorange_sigma, TYPE_FLOAT);
   SETTING("simulator", "phase_sigma",       sim_settings.phase_sigma,       TYPE_FLOAT);
-  // SETTING("simulator", "num_sats",          sim_settings.num_sats,          TYPE_INT);
-  // SETTING("simulator", "mode_mask",         sim_settings.mode_mask,         TYPE_INT);
-
+  SETTING("simulator", "num_sats",          sim_settings.num_sats,          TYPE_INT);
+  SETTING("simulator", "mode_mask",         sim_settings.mode_mask,         TYPE_INT);
 
 }
 
