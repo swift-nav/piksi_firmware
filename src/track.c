@@ -21,7 +21,7 @@
 #include "sbp.h"
 #include "track.h"
 #include "simulator.h"
- 
+
 #include <libswiftnav/constants.h>
 
 /** \defgroup tracking Tracking
@@ -303,7 +303,7 @@ void tracking_send_state()
   tracking_state_msg_t states[nap_track_n_channels];
 
   if (simulation_enabled_for(SIMULATION_MODE_TRACKING)) {
-  
+
     u8 num_sats = simulation_current_num_sats();
     for (u8 i=0; i < num_sats; i++) {
       states[i] = simulation_current_tracking_state(i);
@@ -312,12 +312,12 @@ void tracking_send_state()
       for (u8 i = num_sats; i < nap_track_n_channels; i++) {
         states[i].state = TRACKING_DISABLED;
         states[i].prn   = 0;
-        states[i].cn0   = -1;        
+        states[i].cn0   = -1;
       }
     }
-    
+
   } else {
-    
+
     for (u8 i=0; i<nap_track_n_channels; i++) {
       states[i].state = tracking_channel[i].state;
       states[i].prn = tracking_channel[i].prn;
