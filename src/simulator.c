@@ -141,7 +141,7 @@ void simulation_step(void)
 {
 
   //First we propagate the current fake PVT solution
-  u32 now_ticks = chTimeNow();
+  systime_t now_ticks = chTimeNow();
 
   double elapsed_seconds = (now_ticks - simulation_state.last_update_ticks)/(double)CH_FREQUENCY;
   simulation_state.last_update_ticks = now_ticks;
