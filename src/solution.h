@@ -36,11 +36,6 @@ typedef enum {
   FILTER_FIXED,
 } dgnss_filter_t;
 
-typedef enum {
-  RES_MODE_IAR,
-  RES_MODE_KNOWN_BASE,
-} dgnss_resolution_mode_t;
-
 /** Maximum difference between observation times to consider them matched. */
 #define TIME_MATCH_THRESHOLD 1e-6
 /** Maximum time that an observation will be propagated for to align it with a

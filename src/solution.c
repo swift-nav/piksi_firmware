@@ -44,7 +44,8 @@ Mailbox obs_mailbox;
 
 dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_TIME_MATCHED;
 dgnss_filter_t dgnss_filter = FILTER_FIXED;
-dgnss_resolution_mode_t dgnss_resolution_mode = RES_MODE_IAR;
+
+double known_baseline[3] = {0, 0, 0};
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -391,11 +392,10 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
     if (init_known_base) {
       /* Calculate ambiguities from known baseline. */
       double DE[(n_sds-1)*3];
-      double b_init[3] = {0, 0, 0};
       double dds[n_sds];
       make_measurements(n_sds-1, sds, dds);
       assign_de_mtx(n_sds, sds, position_solution.pos_ecef, DE);
-      amb_from_baseline(n_sds, DE, dds, b_init, N_known_base);
+      amb_from_baseline(n_sds, DE, dds, known_baseline, N_known_base);
       printf("Known Base: [");
       for (u8 i=0; i<n_sds-1; i++)
         printf("%d, ", N_known_base[i]);
@@ -416,15 +416,9 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
       if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED) {
         double b[3];
         u8 num_used;
-        if (dgnss_filter == FILTER_FIXED &&
-            dgnss_resolution_mode == RES_MODE_IAR &&
-            dgnss_iar_resolved()) {
+        if (dgnss_filter == FILTER_FIXED) {
           /* Calculate least squares solution using ambiguities from IAR. */
-        } else if (dgnss_filter == FILTER_FIXED &&
-                   dgnss_resolution_mode == RES_MODE_KNOWN_BASE &&
-                   known_base_initialized) {
-          /* Calculate least squares solution using ambiguities from known
-           * baseline initialization. */
+          dgnss_fixed_baseline(n_sds, sds, position_solution.pos_ecef, &num_used, b);
         } else {
           dgnss_float_baseline(&num_used, b);
         }
@@ -434,7 +428,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
   }
 }
 
-static WORKING_AREA_CCM(wa_time_matched_obs_thread, 20000);
+static WORKING_AREA_CCM(wa_time_matched_obs_thread, 10000);
 static msg_t time_matched_obs_thread(void *arg)
 {
   (void)arg;
@@ -554,16 +548,9 @@ void solution_setup()
   SETTING("solution", "dgnss_filter",
           dgnss_filter, TYPE_GNSS_FILTER);
 
-  static const char const *dgnss_resolution_mode_enum[] = {
-    "IAR",
-    "Known Baseline",
-    NULL
-  };
-  static struct setting_type dgnss_resolution_mode_setting;
-  int TYPE_GNSS_RES_MODE = settings_type_register_enum(dgnss_resolution_mode_enum,
-                                                     &dgnss_resolution_mode_setting);
-  SETTING("solution", "dgnss_resolution_mode",
-          dgnss_resolution_mode, TYPE_GNSS_RES_MODE);
+  SETTING("solution", "known_baseline_x", known_baseline[0], TYPE_FLOAT);
+  SETTING("solution", "known_baseline_y", known_baseline[1], TYPE_FLOAT);
+  SETTING("solution", "known_baseline_z", known_baseline[2], TYPE_FLOAT);
 
   chMtxInit(&base_obs_lock);
   chBSemInit(&base_obs_received, TRUE);
