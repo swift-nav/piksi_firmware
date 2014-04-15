@@ -112,10 +112,10 @@ class BaselineView(HasTraits):
     self.running = not self.running
 
   def _reset_button_fired(self):
-    self.link.send_message(ids.RESULT_FILTERS, '')
+    self.link.send_message(sbp_messages.RESET_FILTERS, '')
 
   def _init_base_button_fired(self):
-    self.link.send_message(ids.INIT_BASE, '')
+    self.link.send_message(sbp_messages.INIT_BASE, '')
 
   def _clear_button_fired(self):
     self.ns = []
