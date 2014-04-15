@@ -141,7 +141,9 @@ class SettingsView(HasTraits):
 
   ##Simulator buttons
   def _settings_read_button_fired(self):
-    self.settings = {}
+    # Use clear rather than = {} so as not to delete reference
+    # to external dict if __init__ was passed one.
+    self.settings.clear()
     self.enumindex = 0
     self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
 
@@ -162,7 +164,9 @@ class SettingsView(HasTraits):
           self.settings_list.append(self.settings[sec][setting])
 
       # Execute list of functions now that we have all of Piksi's settings.
+      print "Finished getting settings, before calling functions passed to settings_view"
       for cb in self.read_finished_functions:
+        print "Finished getting settings, calling functions passed to settings_view"
         cb()
       return
 
@@ -197,11 +201,12 @@ class SettingsView(HasTraits):
     self.settings[section][setting].value = Undefined
     self.settings[section][setting].value = value
 
-  def __init__(self, link, read_finished_functions):
+  def __init__(self, link, settings={}, read_finished_functions=[]):
     super(SettingsView, self).__init__()
 
     self.enumindex = 0
-    self.settings = {}
+    # Optional dict argument so other objects can access settings by reference.
+    self.settings = settings
     self.link = link
     self.link.add_callback(ids.SETTINGS, self.settings_read_callback)
     self.link.add_callback(ids.SETTINGS_READ_BY_INDEX, self.settings_read_by_index_callback)
