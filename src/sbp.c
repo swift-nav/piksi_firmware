@@ -80,8 +80,6 @@ void sbp_setup(u16 sender_id)
 {
   my_sender_id = sender_id;
 
-  usarts_setup();
-
   sbp_state_init(&uarta_sbp_state);
   sbp_state_init(&uartb_sbp_state);
   sbp_state_init(&ftdi_sbp_state);

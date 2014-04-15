@@ -52,7 +52,6 @@ usart_settings_t uartb_usart = {
   .enabled            = false
 };
 
-
 /** \} */
 
 /** \addtogroup peripherals
@@ -118,9 +117,9 @@ void usarts_setup()
 bool baudrate_change_notify(struct setting *s, const char *val)
 {
   if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
-      usarts_disable();
-      usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate, false);
-      return true;
+    usarts_disable();
+    usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate, false);
+    return true;
   }
   return false;
 }

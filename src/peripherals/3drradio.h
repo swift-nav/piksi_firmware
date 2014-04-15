@@ -16,6 +16,7 @@
 #include <libswiftnav/common.h>
 #include "usart.h"
 
-void radio_preconfigure_hook(u32 usart);
+bool busy_wait_for_ok(u32 usart, u32 ms);
+u32 radio_preconfigure_hook(u32 usart);
 
 #endif  /* _SWIFTNAV_3DRRADIO_H_ */

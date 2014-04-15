@@ -113,10 +113,13 @@ int main(void)
 
   /* Piksi hardware initialization. */
   init(1);
+  settings_setup();
+  usarts_setup();
 
   printf("\n\nPiksi Starting...\n"
          "Firmware Version: " GIT_VERSION "\n" \
          "Built: " __DATE__ " " __TIME__ "\n");
+
 
   u8 nap_git_hash[20];
   static char nap_version_string[64] = {0};
@@ -129,7 +132,6 @@ int main(void)
   if (nap_conf_rd_git_unclean())
     strcpy(&nap_version_string[40], " (unclean)");
 
-  settings_setup();
   max2769_setup();
   timing_setup();
   position_setup();
