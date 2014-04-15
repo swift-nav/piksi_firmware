@@ -51,8 +51,6 @@ libswiftnav/build/src/libswiftnav-static.a: .FORCE
 clean:
 	@printf "CLEAN   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS) clean
-	@printf "CLEAN   bootloader\n"; \
-	$(MAKE) -C bootloader $(MAKEFLAGS) clean
 	@printf "CLEAN   libopencm3\n"; \
 	$(MAKE) -C libopencm3 $(MAKEFLAGS) clean
 	@printf "CLEAN   libswiftnav\n"; \
