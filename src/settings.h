@@ -15,35 +15,6 @@
 
 #include <libswiftnav/common.h>
 
-/** \addtogroup io
- * \{ */
-
-/** Message and baud rate settings for a USART. */
-typedef struct {
-  enum {
-    SBP,
-    NMEA,
-    RTCM
-  } mode; /** Communication mode : Swift Binary Protocol or NMEA */
-  u32 baud_rate;
-  u16 message_mask;
-} usart_settings_t;
-
-/** Message and baud rate settings for all USARTs. */
-typedef struct {
-  enum {
-    VALID = 0,
-    /** Settings area is erased, i.e. all 0xFF. */
-    INVALID = 0xFF
-  } settings_valid;
-  usart_settings_t ftdi_usart;
-  usart_settings_t uarta_usart;
-  usart_settings_t uartb_usart;
-} settings_t;
-
-/** \} */
-
-extern settings_t settings;
 
 enum setting_types {
   TYPE_INT,
@@ -86,6 +57,7 @@ void settings_setup(void);
 int settings_type_register_enum(const char * const enumnames[], struct setting_type *type);
 void settings_register(struct setting *s, enum setting_types type);
 bool settings_default_notify(struct setting *setting, const char *val);
+bool uarta_baudrate_notify(struct setting *setting, const char *val);
 bool settings_read_only_notify(struct setting *setting, const char *val);
 
 #endif  /* SWIFTNAV_SETTINGS_H */

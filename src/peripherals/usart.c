@@ -20,6 +20,34 @@
 #include "../settings.h"
 #include "usart.h"
 
+/** \addtogroup io
+ * \{ */
+
+
+static const char const * portmode_enum[] = {"SBP", "NMEA", "RTCM", NULL};
+static struct setting_type portmode;
+
+usart_settings_t ftdi_usart = {
+  .mode             = SBP,
+  .baud_rate        = USART_DEFAULT_BAUD_FTDI,
+  .sbp_message_mask = 0xFFFF,
+};
+
+usart_settings_t uarta_usart = {
+  .mode             = SBP,
+  .baud_rate        = USART_DEFAULT_BAUD_TTL,
+  .sbp_message_mask = 0x40,
+};
+
+usart_settings_t uartb_usart = {
+  .mode             = SBP,
+  .baud_rate        = USART_DEFAULT_BAUD_TTL,
+  .sbp_message_mask = 0xFF00
+};
+
+
+/** \} */
+
 /** \addtogroup peripherals
  * \{ */
 
@@ -54,11 +82,46 @@ void usart_set_parameters(u32 usart, u32 baud)
   usart_enable(usart);
 }
 
-/** Set up the USART peripherals.
+/** Set up the USART peripherals, hook them into the settings subsystem
+*
+*/
+void usarts_setup()
+{
+
+  usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate);
+
+  int TYPE_PORTMODE = settings_type_register_enum(portmode_enum, &portmode);
+
+  SETTING("ftdi_uart", "mode", ftdi_usart.mode, TYPE_PORTMODE);
+  SETTING_NOTIFY("ftdi_uart", "baudrate", ftdi_usart.baud_rate, TYPE_INT, baudrate_change_notify);
+
+  SETTING("uarta_uart", "mode", uarta_usart.mode, TYPE_PORTMODE);
+  SETTING_NOTIFY("uarta_uart", "baudrate", uarta_usart.baud_rate, TYPE_INT, baudrate_change_notify);
+
+  SETTING("uartb_uart", "mode", uartb_usart.mode, TYPE_PORTMODE);
+  SETTING_NOTIFY("uartb_uart", "baudrate", uartb_usart.baud_rate, TYPE_INT, baudrate_change_notify);
+
+}
+
+/** Callback for settings subsystem changing the baudrate of a UART.
+*
+*/
+bool baudrate_change_notify(struct setting *s, const char *val)
+{
+  if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
+      usarts_disable();
+      usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate);
+      return true;
+  }
+  return false;
+}
+
+
+/** Enable the USART peripherals.
  * USART 6, 1 and 3 peripherals are configured
  * (connected to the FTDI, UARTA and UARTB ports on the Piksi respectively).
  */
-void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
+void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
 {
   /* First give everything a clock. */
 
@@ -90,6 +153,8 @@ void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
   usart_set_parameters(USART6, ftdi_baud);
   usart_set_parameters(USART1, uarta_baud);
   usart_set_parameters(USART3, uartb_baud);
+
+  //HERE WE CONFIGURE DEVICES CONNECTED TO UART
 
   /* FTDI (USART6) TX - DMA2, stream 6, channel 5. */
   usart_tx_dma_setup(&ftdi_tx_state, USART6, DMA2, 6, 5);

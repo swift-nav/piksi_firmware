@@ -78,7 +78,7 @@ void init(u8 check_fpga_auth)
 
   nap_setup();
 
-  sbp_setup(1, 0x2222);
+  sbp_setup(0x2222);
 
   /* Check NAP verification status. */
   if (check_fpga_auth) {
