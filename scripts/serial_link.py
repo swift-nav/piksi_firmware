@@ -16,6 +16,7 @@ import time
 import sys
 
 from Queue import Queue
+from threading import Lock
 
 import sbp_piksi as ids
 
@@ -116,6 +117,7 @@ class SerialLink:
       self.ser = serial.Serial(port, baud, timeout=1)
 
     self.queue = Queue()
+    self.queue_lock = Lock()
 
     # Delay then flush the buffer to make sure the receive buffer starts empty.
     time.sleep(0.5)
@@ -183,9 +185,14 @@ class SerialLink:
     # threads to write messages to the same SerialLink instance.
     self.queue.put(framed_msg)
 
+    # If another thread is already sending the messages in the queue, just return.
+    if self.queue_lock.locked():
+      return
+    self.queue_lock.acquire()
     while not self.queue.empty():
       queued_msg = self.queue.get()
       self.ser.write(queued_msg)
+    self.queue_lock.release()
 
   def send_char(self, char):
     self.ser.write(char)
