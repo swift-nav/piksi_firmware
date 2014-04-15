@@ -186,8 +186,15 @@ class SerialLink:
     except KeyError:
       self.callbacks[msg_type] = [callback]
 
-  def rm_callback(self, msg_type):
-    self.callbacks.pop(msg_type)
+  def rm_callback(self, msg_type, callback):
+    try:
+      self.callbacks[msg_type].remove(callback)
+    except KeyError:
+      print "Can't remove callback for msg 0x%04x: message not registered" \
+            % msg_type
+    except ValueError:
+      print "Can't remove callback for msg 0x%04x: callback not registered" \
+            % msg_type
 
   def get_callback(self, msg_type):
     if msg_type in self.callbacks:
