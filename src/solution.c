@@ -380,9 +380,7 @@ static msg_t solution_thread(void *arg)
 
 static bool init_done = false;
 static bool init_known_base = false;
-static bool known_base_initialized = false;
 static bool reset_iar = false;
-static s32 N_known_base[MAX_CHANNELS];
 
 void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
 {
@@ -392,16 +390,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
   if (n_sds > 4) {
     if (init_known_base) {
       /* Calculate ambiguities from known baseline. */
-      double DE[(n_sds-1)*3];
-      double dds[n_sds];
-      make_measurements(n_sds-1, sds, dds);
-      assign_de_mtx(n_sds, sds, position_solution.pos_ecef, DE);
-      amb_from_baseline(n_sds, DE, dds, known_baseline, N_known_base);
-      printf("Known Base: [");
-      for (u8 i=0; i<n_sds-1; i++)
-        printf("%d, ", N_known_base[i]);
-      printf("]\n");
-      known_base_initialized = true;
+      dgnss_init_known_baseline(n_sds, sds, position_solution.pos_ecef, known_baseline);
       init_known_base = false;
     }
     if (!init_done) {
