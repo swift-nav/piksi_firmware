@@ -4,29 +4,57 @@ import time
 from intelhex import IntelHex
 import sys
 
+from traits.api import HasTraits, Bool
+from traitsui.api import View, Handler
+
 import bootload
 import sbp_piksi as ids
 import flash
 
 TIMEOUT = 30
 
+class OneClickUpdateHandler(Handler):
+
+  def close(self, info, is_ok):
+    if is_ok:
+      info.object.update_desired = True
+    if not is_ok:
+      info.object.update_desired = False
+    return True
+
+class OneClickUpdatePopup(HasTraits):
+
+  update_desired = Bool(False)
+#  text = 'New firmware is available. Press Okay to update.'
+  handler = OneClickUpdateHandler()
+
+  def __init__(self, text):
+    self.text = text
+
+  view = View('text',
+               title="New Firmware Available",
+               handler=OneClickUpdateHandler(),
+               buttons = ['OK', 'Cancel'],
+               height = 200,
+               width = 300)
+
 # TODO: Better error handling
 # TODO: Have console output prints
+# TODO: Check if network connection is available?
+#       Will urlopen just throw URLError?
 
 def main(console, settings):
 
-  print "Version =", console.version
-
   # Get index of files from Swift Nav's website.
   try:
-    f = urlopen('http://download.swift-nav.com/index.json', timeout=TIMEOUT)
+    f = urlopen('http://download.swift-nav.com/index.json')
     index = jsonload(f)
     f.close()
   except URLError:
-    print "Error: Unable to retrieve firmware index from Swift Navigation's website"
+    print "Error: Unable to retrieve file index from Swift Navigation's website"
     return
 
-  # Wait until we have received firmware version from Piksi
+  # Wait until we have received firmware version from Piksi.
   # TODO: send message to retrieve settings after a period of time
   while True:
     try:
@@ -42,23 +70,28 @@ def main(console, settings):
   nap_fw_outdated = index['piksi_v2.3.1']['nap_fw']['version'] \
                       !=  piksi_nap_version
 
+#  if stm_fw_outdated or nap_fw_outdated:
+  update_prompt_user = OneClickUpdatePopup('New firmware is available. Press Okay to update.')
+  update_prompt_user.configure_traits()
+  print "Update Desired =", update_prompt_user.update_desired
+
   # Get firmware files from Swift Nav's website.
   nap_ihx = None
   stm_fw = None
   if nap_fw_outdated:
     try:
-      f = urlopen(index['piksi_v2.3.1']['nap_fw']['url'], timeout=TIMEOUT)
+      f = urlopen(index['piksi_v2.3.1']['nap_fw']['url'])
       nap_ihx = IntelHex(f)
       f.close()
     except URLError:
-      print "Error: Failed to download new NAP firmware from Swift Nav website"
+      print "Error: Failed to download NAP firmware from Swift Nav website"
   if stm_fw_outdated:
     try:
-      f = urlopen(index['piksi_v2.3.1']['stm_fw']['url'], timeout=TIMEOUT)
+      f = urlopen(index['piksi_v2.3.1']['stm_fw']['url'])
       stm_ihx = IntelHex(f)
       f.close()
     except URLError:
-      print "Error: Failed to download new STM firmware from Swift Nav website"
+      print "Error: Failed to download STM firmware from Swift Nav website"
 
   # Flash NAP if outdated _AND_ we have STM firmware if it needs to be updated
   if nap_fw_outdated and nap_ihx and not(stm_fw_outdated and not stm_ihx):
@@ -68,7 +101,7 @@ def main(console, settings):
     update_firmware(nap_ihx, console.link, "M25")
 
   #TODO : Change to STM case
-  # Flash STM if outdated _AND_ we flashed NAP if firmware needed to be updated
+  # Flash STM if outdated _AND_ we flashed NAP if it needed to be updated.
   if stm_fw_outdated and stm_ihx and not(nap_fw_outdated and not nap_ihx):
     print "STM firmware out of date"
     print "Local Version  : " + piksi_stm_version
@@ -105,12 +138,6 @@ def update_firmware(ihx, link, flash_type):
 
   piksi_flash = flash.Flash(link, flash_type)
   piksi_flash.write_ihx(ihx)
-  # Deleting Flash/Bootloader removes SerialLink callbacks
-  # for these objects. It's a good idea to do this before creating new
-  # Flash/Bootloader objects that will use the same SerialLink and register
-  # new callback methods with the same message IDs.
-#  del piksi_flash
-#  del piksi_bootloader
 
 if __name__ == "__main__":
   main()
