@@ -35,6 +35,8 @@ typedef struct {
   } mode; /** Communication mode : Swift Binary Protocol or NMEA */
   u32 baud_rate;
   u16 sbp_message_mask;
+  u8  send_3drradio_init;
+  bool enabled;
 } usart_settings_t;
 
 /** Message and baud rate settings for all USARTs. */
@@ -104,7 +106,7 @@ extern usart_rx_dma_state uartb_rx_state;
 void usarts_setup();
 bool baudrate_change_notify(struct setting *s, const char *val);
 
-void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud);
+void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_preconfigure_hooks);
 void usarts_disable(void);
 
 void usart_set_parameters(u32 usart, u32 baud);

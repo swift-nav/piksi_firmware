@@ -19,6 +19,7 @@
 
 #include "../settings.h"
 #include "usart.h"
+#include "3drradio.h"
 
 /** \addtogroup io
  * \{ */
@@ -28,21 +29,27 @@ static const char const * portmode_enum[] = {"SBP", "NMEA", "RTCM", NULL};
 static struct setting_type portmode;
 
 usart_settings_t ftdi_usart = {
-  .mode             = SBP,
-  .baud_rate        = USART_DEFAULT_BAUD_FTDI,
-  .sbp_message_mask = 0xFFFF,
+  .mode               = SBP,
+  .baud_rate          = USART_DEFAULT_BAUD_FTDI,
+  .sbp_message_mask   = 0xFFFF,
+  .send_3drradio_init = 0,
+  .enabled            = false
 };
 
 usart_settings_t uarta_usart = {
-  .mode             = SBP,
-  .baud_rate        = USART_DEFAULT_BAUD_TTL,
-  .sbp_message_mask = 0x40,
+  .mode               = SBP,
+  .baud_rate          = USART_DEFAULT_BAUD_TTL,
+  .sbp_message_mask   = 0x40,
+  .send_3drradio_init = 1,
+  .enabled            = false
 };
 
 usart_settings_t uartb_usart = {
   .mode             = SBP,
   .baud_rate        = USART_DEFAULT_BAUD_TTL,
-  .sbp_message_mask = 0xFF00
+  .sbp_message_mask = 0xFF00,
+  .send_3drradio_init = 1,
+  .enabled            = false
 };
 
 
@@ -88,18 +95,20 @@ void usart_set_parameters(u32 usart, u32 baud)
 void usarts_setup()
 {
 
-  usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate);
-
   int TYPE_PORTMODE = settings_type_register_enum(portmode_enum, &portmode);
 
   SETTING("ftdi_uart", "mode", ftdi_usart.mode, TYPE_PORTMODE);
   SETTING_NOTIFY("ftdi_uart", "baudrate", ftdi_usart.baud_rate, TYPE_INT, baudrate_change_notify);
 
   SETTING("uarta_uart", "mode", uarta_usart.mode, TYPE_PORTMODE);
+  SETTING("uarta_uart", "send_3drradio_init", uarta_usart.send_3drradio_init, TYPE_INT);
   SETTING_NOTIFY("uarta_uart", "baudrate", uarta_usart.baud_rate, TYPE_INT, baudrate_change_notify);
 
   SETTING("uartb_uart", "mode", uartb_usart.mode, TYPE_PORTMODE);
+  SETTING("uartb_uart", "send_3drradio_init", uartb_usart.send_3drradio_init, TYPE_INT);
   SETTING_NOTIFY("uartb_uart", "baudrate", uartb_usart.baud_rate, TYPE_INT, baudrate_change_notify);
+
+  usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate, true);
 
 }
 
@@ -110,7 +119,7 @@ bool baudrate_change_notify(struct setting *s, const char *val)
 {
   if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
       usarts_disable();
-      usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate);
+      usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate, false);
       return true;
   }
   return false;
@@ -121,7 +130,7 @@ bool baudrate_change_notify(struct setting *s, const char *val)
  * USART 6, 1 and 3 peripherals are configured
  * (connected to the FTDI, UARTA and UARTB ports on the Piksi respectively).
  */
-void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
+void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_preconfigure_hooks)
 {
   /* First give everything a clock. */
 
@@ -154,39 +163,59 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
   usart_set_parameters(USART1, uarta_baud);
   usart_set_parameters(USART3, uartb_baud);
 
-  //HERE WE CONFIGURE DEVICES CONNECTED TO UART
-
   /* FTDI (USART6) TX - DMA2, stream 6, channel 5. */
   usart_tx_dma_setup(&ftdi_tx_state, USART6, DMA2, 6, 5);
   /* FTDI (USART6) RX - DMA2, stream 1, channel 5. */
   usart_rx_dma_setup(&ftdi_rx_state, USART6, DMA2, 1, 5);
+  ftdi_usart.enabled = true;
+
+  if (do_preconfigure_hooks) {
+    if (uarta_usart.send_3drradio_init) {
+      radio_preconfigure_hook(USART1);
+    }
+    if (uartb_usart.send_3drradio_init) {
+      radio_preconfigure_hook(USART3);
+    }
+  }
 
   /* UARTA (USART1) TX - DMA2, stream 7, channel 4. */
   usart_tx_dma_setup(&uarta_tx_state, USART1, DMA2, 7, 4);
   /* UARTA (USART1) RX - DMA2, stream 2, channel 4. */
   usart_rx_dma_setup(&uarta_rx_state, USART1, DMA2, 2, 4);
+  uarta_usart.enabled = true;
 
   /* UARTB (USART3) TX - DMA1, stream 3, channel 4. */
   usart_tx_dma_setup(&uartb_tx_state, USART3, DMA1, 3, 4);
   /* UARTB (USART3) RX - DMA1, stream 1, channel 4. */
   usart_rx_dma_setup(&uartb_rx_state, USART3, DMA1, 1, 4);
+  uartb_usart.enabled = true;
+
 }
 
 /** Disable all USARTs. */
 void usarts_disable()
 {
   /* Disable DMA channels. */
-  usart_tx_dma_disable(&ftdi_tx_state);
-  usart_rx_dma_disable(&ftdi_rx_state);
-  usart_tx_dma_disable(&uarta_tx_state);
-  usart_rx_dma_disable(&uarta_rx_state);
-  usart_tx_dma_disable(&uartb_tx_state);
-  usart_rx_dma_disable(&uartb_rx_state);
-
   /* Disable all USARTs. */
-  usart_disable(USART6);
-  usart_disable(USART1);
-  usart_disable(USART3);
+
+  if (ftdi_usart.enabled) {
+    usart_tx_dma_disable(&ftdi_tx_state);
+    usart_rx_dma_disable(&ftdi_rx_state);
+    usart_disable(USART6);
+    ftdi_usart.enabled = false;
+  }
+  if (uarta_usart.enabled) {
+    usart_tx_dma_disable(&uarta_tx_state);
+    usart_rx_dma_disable(&uarta_rx_state);
+    usart_disable(USART1);
+    uarta_usart.enabled = false;
+  }
+  if (uartb_usart.enabled) {
+    usart_tx_dma_disable(&uartb_tx_state);
+    usart_rx_dma_disable(&uartb_rx_state);
+    usart_disable(USART3);
+    uartb_usart.enabled = false;
+  }
 }
 
 /** DMA 2 Stream 6 Interrupt Service Routine. */
