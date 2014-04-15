@@ -151,7 +151,7 @@ class SettingsView(HasTraits):
   ##Callbacks for receiving messages
 
   def settings_read_by_index_callback(self, data):
-    if not data:
+    if not data: # All settings have been reported to console.
       self.settings_list = []
 
       sections = sorted(self.settings.keys())
@@ -160,6 +160,10 @@ class SettingsView(HasTraits):
         self.settings_list.append(SectionHeading(sec))
         for setting in sorted(self.settings[sec].keys()):
           self.settings_list.append(self.settings[sec][setting])
+
+      # Execute list of functions now that we have all of Piksi's settings.
+      for cb in self.read_finished_functions:
+        cb()
       return
 
     section, setting, value, format_type = data[2:].split('\0')[:4]
@@ -193,7 +197,7 @@ class SettingsView(HasTraits):
     self.settings[section][setting].value = Undefined
     self.settings[section][setting].value = value
 
-  def __init__(self, link):
+  def __init__(self, link, read_finished_functions):
     super(SettingsView, self).__init__()
 
     self.enumindex = 0
@@ -202,8 +206,13 @@ class SettingsView(HasTraits):
     self.link.add_callback(ids.SETTINGS, self.settings_read_callback)
     self.link.add_callback(ids.SETTINGS_READ_BY_INDEX, self.settings_read_by_index_callback)
 
+    # List of functions to be executed after all settings are read.
+    # No support for arguments currently.
+    self.read_finished_functions = read_finished_functions
+
     self.setting_detail = SettingBase()
 
+    # TODO: read system settings out of Piksi after receiving startup message
     self._settings_read_button_fired()
 
     self.python_console_cmds = {
