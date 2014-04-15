@@ -76,7 +76,8 @@ class BaselineView(HasTraits):
   )
 
   reset_button = Button(label='Reset Filters')
-  init_base_button = Button(label='Init. at known baseline')
+  reset_iar_button = Button(label='Reset IAR')
+  init_base_button = Button(label='Init. with known baseline')
 
   traits_view = View(
     HSplit(
@@ -88,6 +89,7 @@ class BaselineView(HasTraits):
           Item('zoomall_button', show_label=False),
           Item('center_button', show_label=False),
           Item('reset_button', show_label=False),
+          Item('reset_iar_button', show_label=False),
           Item('init_base_button', show_label=False),
         ),
         Item(
@@ -112,7 +114,10 @@ class BaselineView(HasTraits):
     self.running = not self.running
 
   def _reset_button_fired(self):
-    self.link.send_message(sbp_messages.RESET_FILTERS, '')
+    self.link.send_message(sbp_messages.RESET_FILTERS, '\x00')
+
+  def _reset_iar_button_fired(self):
+    self.link.send_message(sbp_messages.RESET_FILTERS, '\x01')
 
   def _init_base_button_fired(self):
     self.link.send_message(sbp_messages.INIT_BASE, '')

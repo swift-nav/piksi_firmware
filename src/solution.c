@@ -381,6 +381,7 @@ static msg_t solution_thread(void *arg)
 static bool init_done = false;
 static bool init_known_base = false;
 static bool known_base_initialized = false;
+static bool reset_iar = false;
 static s32 N_known_base[MAX_CHANNELS];
 
 void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
@@ -409,6 +410,10 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
       dgnss_init(n_sds, sds, position_solution.pos_ecef, dt);
       init_done = 1;
     } else {
+      if (reset_iar) {
+        dgnss_reset_iar();
+        reset_iar = false;
+      }
       /* Update filters. */
       dgnss_update(n_sds, sds, position_solution.pos_ecef, dt);
       /* If we are in time matched mode then calculate and output the baseline
@@ -502,8 +507,19 @@ static msg_t time_matched_obs_thread(void *arg)
 
 void reset_filters_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len; (void)msg; (void)context;
-  init_done = true;
+  (void)sender_id; (void)len; (void)context;
+  switch (msg[0]) {
+  case 0:
+    printf("Filter reset requested\n");
+    init_done = false;
+    break;
+  case 1:
+    printf("IAR reset requested\n");
+    reset_iar = true;
+    break;
+  default:
+    break;
+  }
 }
 
 void init_base_callback(u16 sender_id, u8 len, u8 msg[], void* context)
