@@ -175,9 +175,9 @@ class BaselineView(HasTraits):
     self.plot_data.set_data('n', self.ns)
     self.plot_data.set_data('e', self.es)
     self.plot_data.set_data('d', self.ds)
-    self.plot_data.set_data('ref_n', [0.0, -0.8977, soln.n])
-    self.plot_data.set_data('ref_e', [0.0, -0.9489, soln.e])
-    self.plot_data.set_data('ref_d', [0.0, 0.1623, soln.d])
+    self.plot_data.set_data('ref_n', [0.0, soln.n])
+    self.plot_data.set_data('ref_e', [0.0, soln.e])
+    self.plot_data.set_data('ref_d', [0.0, soln.d])
     t = range(len(self.ns))
     self.plot_data.set_data('t', t)
 
