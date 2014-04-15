@@ -227,7 +227,9 @@ void tracking_channel_update(u8 channel)
       s32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
 
       if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
-        printf("PRN %d TOW mismatch: %u, %u\n",(int)chan->prn + 1, (unsigned int)chan->TOW_ms, (unsigned int)TOW_ms);
+        if (chan->TOW_ms > 0) {
+          printf("PRN %d TOW mismatch: %ld, %u\n",(int)chan->prn + 1, chan->TOW_ms, (unsigned int)TOW_ms);
+        }
         chan->TOW_ms = TOW_ms;
       }
 
