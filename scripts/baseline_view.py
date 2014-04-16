@@ -164,6 +164,10 @@ class BaselineView(HasTraits):
     table.append(('Dist.', dist))
     table.append(('Num. Sats.', soln.n_sats))
     table.append(('Flags', hex(soln.flags)))
+    if soln.flags & 1:
+      table.append(('Mode', 'Fixed RTK'))
+    else:
+      table.append(('Mode', 'Float'))
     table.append(('IAR Num. Hyps.', self.num_hyps))
 
     self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow * 1e3, soln.n, soln.e, soln.d, soln.n_sats))

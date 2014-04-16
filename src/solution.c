@@ -422,16 +422,19 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
                                &num_used, b);
           msg_iar_state_t iar_state = { .num_hyps = dgnss_iar_num_hyps() };
           sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
+          u8 flags = (dgnss_iar_resolved()) ? 1 : 0;
+          solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
           break;
         case FILTER_FLOAT:
           dgnss_new_float_baseline(n_sds, sds,
                                    position_solution.pos_ecef, &num_used, b);
+          solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
           break;
         case FILTER_OLD_FLOAT:
           dgnss_float_baseline(&num_used, b);
+          solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
           break;
         }
-        solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
       }
     }
   }
