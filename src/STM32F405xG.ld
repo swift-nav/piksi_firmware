@@ -121,7 +121,7 @@ SECTIONS
         __main_stack_base__ = __main_stack_end__ - __main_stack_size__;
     } > ccmram
 
-    .ccmram : {
+    .ccmram (NOLOAD) : {
       _settings_area = .;
       *(.ccmram*)
       _esettings_area = .;
