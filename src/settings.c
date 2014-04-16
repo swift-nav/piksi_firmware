@@ -55,9 +55,9 @@ static int float_to_string(const void *priv, char *str, int slen, const void *bl
 
   switch (blen) {
   case 4:
-    return snprintf(str, slen, "%e", (double)*(float*)blob);
+    return snprintf(str, slen, "%g", (double)*(float*)blob);
   case 8:
-    return snprintf(str, slen, "%e", *(double*)blob);
+    return snprintf(str, slen, "%g", *(double*)blob);
   }
   return -1;
 }
@@ -95,8 +95,15 @@ static bool int_from_string(const void *priv, void *blob, int blen, const char *
   (void)priv;
 
   switch (blen) {
-  case 1:
-    return sscanf(str, "%hhd", (s8*)blob) == 1;
+  case 1: {
+    s16 tmp;
+    /* Newlib's crappy sscanf doesn't understand %hhd */
+    if (sscanf(str, "%hd", &tmp) == 1) {
+      *(s8*)blob = tmp;
+      return true;
+    }
+    return false;
+  }
   case 2:
     return sscanf(str, "%hd", (s16*)blob) == 1;
   case 4:
@@ -237,7 +244,8 @@ void settings_register(struct setting *setting, enum setting_types type)
     settings_head = setting;
   } else {
     for (s = settings_head; s->next; s = s->next) {
-      if (strcmp(s->section, setting->section) == 0)
+      if ((strcmp(s->section, setting->section) == 0) &&
+          (strcmp(s->next->section, setting->section) != 0))
         break;
     }
     setting->next = s->next;

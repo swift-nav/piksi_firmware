@@ -123,6 +123,9 @@ class SolutionView(HasTraits):
     soln = sbp_messages.PosLLH(data)
     self.pos_table = []
 
+    self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow * 1e3, soln.lat, soln.lon, soln.height, soln.n_sats))
+    self.log_file.flush()
+
     if self.week is not None:
       t = datetime.datetime(1980, 1, 6) + \
           datetime.timedelta(weeks=self.week) + \
@@ -172,6 +175,10 @@ class SolutionView(HasTraits):
 
   def vel_ned_callback(self, data):
     vel_ned = sbp_messages.VelNED(data)
+    
+    self.vel_log_file.write('%.2f,%.4f,%.4f,%.4f,%.4f,%d\n' % (vel_ned.tow * 1e3, vel_ned.n, vel_ned.e, vel_ned.d, math.sqrt(vel_ned.n*vel_ned.n + vel_ned.e*vel_ned.e),vel_ned.n_sats))
+    self.vel_log_file.flush()
+
     self.vel_table = [
       ('Vel. N', '% 8.4f' % (vel_ned.n * 1e-3)),
       ('Vel. E', '% 8.4f' % (vel_ned.e * 1e-3)),
@@ -185,6 +192,9 @@ class SolutionView(HasTraits):
 
   def __init__(self, link):
     super(SolutionView, self).__init__()
+
+    self.log_file = open("position_log.csv", 'a')
+    self.vel_log_file = open("velocity_log.csv", 'a')
 
     self.plot_data = ArrayPlotData(lat=[0.0], lng=[0.0], alt=[0.0], t=[0.0], ref_lat=[0.0], ref_lng=[0.0], region_lat=[0.0], region_lng=[0.0])
     self.plot = Plot(self.plot_data)
