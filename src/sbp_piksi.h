@@ -86,6 +86,10 @@ typedef struct __attribute__((packed)) {
 } msg_obs_t;
 
 #define MSG_TRACKING_STATE        0x16  /**< Piksi  -> Host  */
+#define MSG_IAR_STATE             0x19  /**< Piksi  -> Host  */
+typedef struct __attribute__((packed)) {
+  u32 num_hyps;
+} msg_iar_state_t;
 
 #define MSG_THREAD_STATE          0x17  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {

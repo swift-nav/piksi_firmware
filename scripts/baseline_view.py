@@ -135,6 +135,9 @@ class BaselineView(HasTraits):
     #Don't do anything for ECEF currently
     return
 
+  def iar_state_callback(self, data):
+    self.num_hyps = struct.unpack('<I', data)
+
   def _baseline_callback_ned(self, data):
     # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
     # actually perform the update in the UI thread.
@@ -146,6 +149,7 @@ class BaselineView(HasTraits):
 
   def baseline_callback(self, data):
     soln = sbp_messages.BaselineNED(data)
+
     soln.n = soln.n * 1e-3
     soln.e = soln.e * 1e-3
     soln.d = soln.d * 1e-3
@@ -160,6 +164,7 @@ class BaselineView(HasTraits):
     table.append(('Dist.', dist))
     table.append(('Num. Sats.', soln.n_sats))
     table.append(('Flags', hex(soln.flags)))
+    table.append(('IAR Num Hyps.', self.num_hyps))
 
     self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow * 1e3, soln.n, soln.e, soln.d, soln.n_sats))
     self.log_file.flush()
@@ -194,6 +199,8 @@ class BaselineView(HasTraits):
 
     self.log_file = open("baseline_log.csv", 'a')
 
+    self.num_hyps = 0
+
     self.plot_data = ArrayPlotData(n=[0.0], e=[0.0], d=[0.0], t=[0.0], ref_n=[0.0], ref_e=[0.0], ref_d=[0.0])
     self.plot = Plot(self.plot_data)
 
@@ -222,6 +229,7 @@ class BaselineView(HasTraits):
     self.link = link
     self.link.add_callback(sbp_messages.SBP_BASELINE_NED, self._baseline_callback_ned)
     self.link.add_callback(sbp_messages.SBP_BASELINE_ECEF, self._baseline_callback_ecef)
+    self.link.add_callback(sbp_messages.IAR_STATE, self.iar_state_callback)
 
     self.python_console_cmds = {
       'baseline': self
