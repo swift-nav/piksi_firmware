@@ -390,7 +390,12 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
   if (n_sds > 4) {
     if (init_known_base) {
       /* Calculate ambiguities from known baseline. */
-      dgnss_init_known_baseline(n_sds, sds, position_solution.pos_ecef, known_baseline);
+      printf("Initializing using known baseline\n");
+      double known_baseline_ecef[3];
+      wgsned2ecef(known_baseline, position_solution.pos_ecef,
+                  known_baseline_ecef);
+      dgnss_init_known_baseline(n_sds, sds, position_solution.pos_ecef,
+                                known_baseline_ecef);
       init_known_base = false;
     }
     if (!init_done) {
@@ -553,9 +558,9 @@ void solution_setup()
   SETTING("solution", "dgnss_filter",
           dgnss_filter, TYPE_GNSS_FILTER);
 
-  SETTING("solution", "known_baseline_x", known_baseline[0], TYPE_FLOAT);
-  SETTING("solution", "known_baseline_y", known_baseline[1], TYPE_FLOAT);
-  SETTING("solution", "known_baseline_z", known_baseline[2], TYPE_FLOAT);
+  SETTING("solution", "known_baseline_n", known_baseline[0], TYPE_FLOAT);
+  SETTING("solution", "known_baseline_e", known_baseline[1], TYPE_FLOAT);
+  SETTING("solution", "known_baseline_d", known_baseline[2], TYPE_FLOAT);
 
   chMtxInit(&base_obs_lock);
   chBSemInit(&base_obs_received, TRUE);
