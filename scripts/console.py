@@ -11,6 +11,7 @@
 
 import serial_link
 import sbp_piksi as ids
+from one_click_update import OneClickUpdate
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
@@ -135,7 +136,11 @@ class SwiftConsole(HasTraits):
     self.observation_view_base = ObservationView(self.link, name='Base', sender_id=0)
     self.system_monitor_view = SystemMonitorView(self.link)
     self.simulator_view = SimulatorView(self.link)
-    self.settings_view = SettingsView(self.link)
+    # Reference to settings_view.settings that OneClickUpdate can
+    # see while settings_view can simultaneously update.
+    settings = {}
+    self.ocu = OneClickUpdate(self.link, settings)
+    self.settings_view = SettingsView(self.link, settings, [self.ocu.start])
 
     self.python_console_env = {
         'send_message': self.link.send_message,
