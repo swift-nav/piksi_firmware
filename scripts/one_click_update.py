@@ -7,13 +7,16 @@ from subprocess import check_output
 
 from threading import Thread
 
-from traits.api import HasTraits, String
-from traitsui.api import View, Handler
+from traits.api import HasTraits, String, Button, Int, Str
+from traitsui.api import View, Handler, Action, VGroup, HGroup, HSplit, VSplit, Item, InstanceEditor, UItem, TextEditor
 from pyface.api import GUI
 
 import bootload
 import sbp_piksi as ids
 import flash
+
+#impot traits.api
+#impot traitsui.api
 
 # Not using --dirty so local changes (which could be to non-console files)
 # don't make one_click_update think console is out of date.
@@ -24,39 +27,60 @@ TIMEOUT = 30
 
 class OneClickUpdateHandler(Handler):
 
-  def close(self, info, is_ok):
-    info.object.update_desired = is_ok
+  def close(self, info, is_ok): # X button was pressed.
+    info.object.update_desired = False
     info.object.handler_executed = True
     return True
+
+  def set_update_desired_true(self, info):
+    info.object.update_desired = True
+    info.object.handler_executed = True
+    info.ui.dispose()
+
+  def set_update_desired_false(self, info):
+    info.object.update_desired = False
+    info.object.handler_executed = True
+    info.ui.dispose()
 
 class OneClickUpdateWindow(HasTraits):
 
   handler = OneClickUpdateHandler()
   update_desired = False
-  text = String(None)
+  text = Str(None)
+#  text = Instance(OutputStream)
   handler_executed = False
+  yes_button = Action(name = "Yes", action = "set_update_desired_true")
+  no_button = Action(name = "No", action = "set_update_desired_false")
 
-  view = View('text',
+#  view = View('text',
+  view = View(
+#              UItem('text', show_label=False, resizable=True),
+#              View(Item('text',)),# editor=TextEditor(multi_line=True))),
+#                         resizable=True,
+#                        ),
+#                         show_label=False,
+#                   handler=_OutputStreamViewHandler()
+#              ),
+              Item('text', show_label=False, resizable=True),
+              buttons=[yes_button, no_button],
               title="New Firmware Available",
               handler=OneClickUpdateHandler(),
-              buttons=['OK', 'Cancel'],
               height=200,
-              width=300)
+              width=300,
+              resizable=True
+             )
 
-#  def __init__(self):
-#    self.handler_executed = False
-#    self.update_desired = False
-#
   def update_text(self, local_stm, local_nap, remote_stm, remote_nap):
+#    text_string = "Local STM Firmware Version  : %s\n" % local_stm + \
     self.text = "Local STM Firmware Version  : %s\n" % local_stm + \
                 "Remote STM Firmware Version : %s\n\n" % remote_stm + \
                 "Local NAP Firmware Version  : %s\n" % local_nap + \
                 "Remote NAP Firmware Version : %s\n\n\n" % remote_nap + \
                 "Upgrade Now?"
-
-  # Calling GUI.invoke_later(self.edit_traits()) was throwing TypeError
-  def display(self):
-    self.window = self.edit_traits()
+#    self.text = self.text.repr()
+#    text_string.encode('ascii', 'ignore')
+#    self.text = text_string
+#    self.text.write(text_string)
 
 # TODO: Better error handling
 # TODO: Have console output prints
