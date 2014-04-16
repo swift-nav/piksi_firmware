@@ -576,19 +576,19 @@ void solution_setup()
   SETTING("solution", "known_baseline_e", known_baseline[1], TYPE_FLOAT);
   SETTING("solution", "known_baseline_d", known_baseline[2], TYPE_FLOAT);
 
-  SETTING("solution", "iar_phase_var", dgnss_settings.phase_var_test, TYPE_FLOAT);
-  SETTING("solution", "iar_code_var", dgnss_settings.code_var_test, TYPE_FLOAT);
-  SETTING("solution", "kf_phase_var", dgnss_settings.phase_var_kf, TYPE_FLOAT);
-  SETTING("solution", "kf_code_var", dgnss_settings.code_var_kf, TYPE_FLOAT);
-  SETTING("solution", "kf_pos_trans_var", dgnss_settings.pos_trans_var, TYPE_FLOAT);
-  SETTING("solution", "kf_vel_trans_var", dgnss_settings.vel_trans_var, TYPE_FLOAT);
-  SETTING("solution", "kf_int_trans_var", dgnss_settings.int_trans_var, TYPE_FLOAT);
-  SETTING("solution", "kf_pos_init_var", dgnss_settings.pos_init_var, TYPE_FLOAT);
-/*
-  SETTING("solution", "kf_vel_init_var", dgnss_settings.vel_init_var, TYPE_FLOAT);
-  SETTING("solution", "kf_int_init_var", dgnss_settings.int_init_var, TYPE_FLOAT);
-  SETTING("solution", "kf_new_int_var", dgnss_settings.new_int_var, TYPE_FLOAT);
-*/
+  SETTING("iar", "phase_var", dgnss_settings.phase_var_test, TYPE_FLOAT);
+  SETTING("iar", "code_var", dgnss_settings.code_var_test, TYPE_FLOAT);
+  SETTING("float_kf", "phase_var", dgnss_settings.phase_var_kf, TYPE_FLOAT);
+  SETTING("float_kf", "code_var", dgnss_settings.code_var_kf, TYPE_FLOAT);
+  /*
+  SETTING("float_kf", "pos_trans_var", dgnss_settings.pos_trans_var, TYPE_FLOAT);
+  SETTING("float_kf", "vel_trans_var", dgnss_settings.vel_trans_var, TYPE_FLOAT);
+  SETTING("float_kf", "int_trans_var", dgnss_settings.int_trans_var, TYPE_FLOAT);
+  SETTING("float_kf", "pos_init_var", dgnss_settings.pos_init_var, TYPE_FLOAT);
+  SETTING("float_kf", "vel_init_var", dgnss_settings.vel_init_var, TYPE_FLOAT);
+  */
+  SETTING("float_kf", "amb_init_var", dgnss_settings.amb_init_var, TYPE_FLOAT);
+  SETTING("float_kf", "new_amb_var", dgnss_settings.new_int_var, TYPE_FLOAT);
 
   chMtxInit(&base_obs_lock);
   chBSemInit(&base_obs_received, TRUE);
