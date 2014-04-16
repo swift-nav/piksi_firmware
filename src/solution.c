@@ -415,11 +415,21 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
       if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED) {
         double b[3];
         u8 num_used;
-        if (dgnss_filter == FILTER_FIXED) {
+        switch (dgnss_filter) {
+        case FILTER_FIXED:
           /* Calculate least squares solution using ambiguities from IAR. */
-          dgnss_fixed_baseline(n_sds, sds, position_solution.pos_ecef, &num_used, b);
-        } else {
+          dgnss_fixed_baseline(n_sds, sds, position_solution.pos_ecef,
+                               &num_used, b);
+          msg_iar_state_t iar_state = { .num_hyps = dgnss_iar_num_hyps() };
+          sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
+          break;
+        case FILTER_FLOAT:
+          dgnss_new_float_baseline(n_sds, sds,
+                                   position_solution.pos_ecef, &num_used, b);
+          break;
+        case FILTER_OLD_FLOAT:
           dgnss_float_baseline(&num_used, b);
+          break;
         }
         solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
       }
@@ -549,6 +559,7 @@ void solution_setup()
 
   static const char const *dgnss_filter_enum[] = {
     "Float",
+    "Old Float",
     "Fixed",
     NULL
   };
@@ -561,6 +572,20 @@ void solution_setup()
   SETTING("solution", "known_baseline_n", known_baseline[0], TYPE_FLOAT);
   SETTING("solution", "known_baseline_e", known_baseline[1], TYPE_FLOAT);
   SETTING("solution", "known_baseline_d", known_baseline[2], TYPE_FLOAT);
+
+  SETTING("solution", "iar_phase_var", dgnss_settings.phase_var_test, TYPE_FLOAT);
+  SETTING("solution", "iar_code_var", dgnss_settings.code_var_test, TYPE_FLOAT);
+  SETTING("solution", "kf_phase_var", dgnss_settings.phase_var_kf, TYPE_FLOAT);
+  SETTING("solution", "kf_code_var", dgnss_settings.code_var_kf, TYPE_FLOAT);
+  SETTING("solution", "kf_pos_trans_var", dgnss_settings.pos_trans_var, TYPE_FLOAT);
+  SETTING("solution", "kf_vel_trans_var", dgnss_settings.vel_trans_var, TYPE_FLOAT);
+  SETTING("solution", "kf_int_trans_var", dgnss_settings.int_trans_var, TYPE_FLOAT);
+  SETTING("solution", "kf_pos_init_var", dgnss_settings.pos_init_var, TYPE_FLOAT);
+/*
+  SETTING("solution", "kf_vel_init_var", dgnss_settings.vel_init_var, TYPE_FLOAT);
+  SETTING("solution", "kf_int_init_var", dgnss_settings.int_init_var, TYPE_FLOAT);
+  SETTING("solution", "kf_new_int_var", dgnss_settings.new_int_var, TYPE_FLOAT);
+*/
 
   chMtxInit(&base_obs_lock);
   chBSemInit(&base_obs_received, TRUE);

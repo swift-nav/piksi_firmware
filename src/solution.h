@@ -33,6 +33,7 @@ typedef enum {
 
 typedef enum {
   FILTER_FLOAT,
+  FILTER_OLD_FLOAT,
   FILTER_FIXED,
 } dgnss_filter_t;
 

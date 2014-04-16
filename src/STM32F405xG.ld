@@ -122,9 +122,8 @@ SECTIONS
     } > ccmram
 
     .ccmram : {
-      _settings_area = .;
       *(.ccmram*)
-      _esettings_area = .;
+      *(.bss.nkf)
     } > ccmram
 
     .data :
