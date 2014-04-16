@@ -82,7 +82,7 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
 }
 
 void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
-                            double ref_ecef[3])
+                            double ref_ecef[3], u8 flags)
 {
   if (1) {
     sbp_baseline_ecef_t sbp_ecef = {
@@ -92,7 +92,7 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
       .z = (s32)round(1e3 * b_ecef[2]),
       .accuracy = 0,
       .n_sats = n_sats,
-      .flags = 0
+      .flags = flags
     };
     sbp_send_msg(SBP_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
   }
@@ -109,7 +109,7 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
       .h_accuracy = 0,
       .v_accuracy = 0,
       .n_sats = n_sats,
-      .flags = 0
+      .flags = flags
     };
     sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
   }
@@ -367,7 +367,7 @@ static msg_t solution_thread(void *arg)
         solution_send_baseline(&simulation_current_gnss_solution()->time,
           simulation_current_num_sats(),
           simulation_current_baseline_ecef(),
-          simulation_ref_ecef());
+          simulation_ref_ecef(), 0);
 
         send_observations(simulation_current_num_sats(),
           &simulation_current_gnss_solution()->time,
@@ -421,7 +421,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
         } else {
           dgnss_float_baseline(&num_used, b);
         }
-        solution_send_baseline(t, num_used, b, position_solution.pos_ecef);
+        solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
       }
     }
   }
