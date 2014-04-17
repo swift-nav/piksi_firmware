@@ -11,5 +11,6 @@ docs/html
 *.bin
 *.map
 *.pyc
+*.csv
 build/
 testing_crap/
