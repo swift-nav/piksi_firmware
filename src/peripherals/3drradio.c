@@ -59,7 +59,8 @@ bool usart_wait_recv_ready_with_timeout(uint32_t usart, u32 ms)
 * THIS FUNCTION BLOCKS!
 *
 * \param usart   The libopencm3-defined UART base address to wait for
-* \param str     The null-terminated string to look for. (Does not expect a null terminal from UART)
+* \param str     The null-terminated string to look for.
+*                (Does not expect a null terminal from UART)
 * \param ms      The maximum time to wait for the ENTIRE string to be received
 * \return        True if an OK was found, false otherwise.
 */
@@ -136,7 +137,8 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
 
   /* If we found a radio, we send it a configuration string. */
   if (found_radio) {
-    printf("Telemetry radio found on %s at baudrate %lu, sending configuration string.\n", uart_name, baud_rate);
+    printf("Telemetry radio found on %s at baudrate %lu, "
+           "sending configuration string.\n", uart_name, baud_rate);
 
     char* command = commandstr;
     while (*command != 0) {
@@ -156,7 +158,8 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
     busy_wait_for_str(usart, "\x00", WAIT_BETWEEN_COMMANDS);
 
   } else {
-    printf("No telemetry radio found on %s, skipping configuration.\n", uart_name);
+    printf("No telemetry radio found on %s, skipping configuration.\n",
+           uart_name);
   }
 
   /* Reset the UART to the original baudrate. */
