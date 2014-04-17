@@ -93,6 +93,7 @@ void usart_send_str_blocking(u32 usart, char* str)
     usart_send_blocking(usart, *str & 0x00FF);
     str++;
   }
+  usart_wait_send_ready(usart);
 }
 
 /**
@@ -152,7 +153,6 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud)
     }
 
     usart_send_str_blocking(usart, "\r\n");
-    usart_wait_send_ready(usart);
     busy_wait_for_str(usart, "\x00", WAIT_BETWEEN_COMMANDS);
 
   }
