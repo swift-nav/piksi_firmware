@@ -449,10 +449,8 @@ void set_simulation_enabled_callback(u16 sender_id, u8 len, u8 msg[], void* cont
 
   if (simulation_enabled()) {
     printf("Enabled Simulation\n");
-    led_on(LED_RED);
   } else {
     printf("Disabled Simulation\n");
-    led_off(LED_RED);
   }
 
 }
