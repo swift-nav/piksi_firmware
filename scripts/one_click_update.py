@@ -18,6 +18,8 @@ import sbp_piksi as ids
 import flash
 
 # TODO: handle case where NAP and STM firmwares are bad?
+# TODO: sort out Settings dict
+# TODO: sort out handler calling firmware update function
 
 # Not using --dirty so local changes (which could be to non-console files)
 # don't make one_click_update think console is out of date.
@@ -32,14 +34,13 @@ class OneClickUpdateHandler(Handler):
     return True
 
   def fw_update_handler(self, info):
+    info.ui.dispose()
     info.object.manage_fw_update()
     info.object.handler_executed = True
-    time.sleep(5)
-    info.ui.dispose()
 
   def no_fw_update_handler(self, info):
-    info.object.handler_executed = True
     info.ui.dispose()
+    info.object.handler_executed = True
 
 class OneClickUpdateWindow(HasTraits):
 
@@ -60,10 +61,10 @@ class OneClickUpdateWindow(HasTraits):
                 show_label=False
               ),
               buttons=[yes_button, no_button],
-              title="New Firmware Available",
+              title="New Piksi Firmware Available",
               handler=OneClickUpdateHandler(),
               height=250,
-              width=400,
+              width=450,
               resizable=True
              )
 
@@ -72,17 +73,44 @@ class OneClickUpdateWindow(HasTraits):
     self.manage_fw_update = manage_fw_update
 
   def init_prompt_text(self, local_stm, local_nap, remote_stm, remote_nap):
-    init_strings = "Your STM Firmware Version :\n\t%s\n" % local_stm + \
-                   "Newest STM Firmware Version :\n\t%s\n\n" % remote_stm + \
-                   "Your NAP Firmware Version :\n\t%s\n" % local_nap + \
-                   "Newest NAP Firmware Version :\n\t%s\n\n" % remote_nap + \
+    init_strings = "Your Piksi STM Firmware Version :\n\t%s\n" % local_stm + \
+                   "Newest Piksi STM Firmware Version :\n\t%s\n\n" % remote_stm + \
+                   "Your Piksi SwiftNAP Firmware Version :\n\t%s\n" % local_nap + \
+                   "Newest Piksi SwiftNAP Firmware Version :\n\t%s\n\n" % remote_nap + \
                    "Upgrade Now?"
     self.output_stream.write(init_strings.encode('ascii', 'ignore'))
 
-#class ConsoleOutdatedWindow(HasTraits):
+class ConsoleOutdatedWindow(HasTraits):
+  output_stream = Instance(OutputStream)
+  view = View(
+              Item(
+                'output_stream',
+                style='custom',
+                editor=InstanceEditor(),
+                height=0.3,
+                show_label=False
+              ),
+              buttons=['OK'],
+              title="Your Piksi Console is out of date",
+              height=250,
+              width=450,
+              resizable=True
+             )
+
+  def __init__(self):
+    self.output_stream = OutputStream()
+
+  def init_prompt_text(self, local_console, remote_console):
+    txt = "Your Piksi Console is out of date and may be incompatible with " + \
+          "current firmware. We highly recommend upgrading to ensure proper " + \
+          "behavior. Please visit Swift Navigation's website to download " + \
+          "the most recent version.\n\n" + \
+          "Your Piksi Console Version :\n\t" + local_console + \
+          "\nNewest Piksi Console Version :\n\t" + \
+          remote_console + "\n"
+    self.output_stream.write(txt)
 
 # TODO: Better error handling
-# TODO: Have console output prints
 # TODO: Check if network connection is available?
 #       Will urlopen just throw URLError?
 class OneClickUpdate(Thread):
@@ -94,11 +122,12 @@ class OneClickUpdate(Thread):
     self.link = link
     self.settings = settings # Reference to SettingsView.settings dict.
     self.index = None
-    self.window = OneClickUpdateWindow(self.manage_firmware_updates)
+    self.fw_update_prompt = OneClickUpdateWindow(self.manage_firmware_updates)
+    self.console_outdated_prompt = ConsoleOutdatedWindow()
     if output:
       self.output = output
     else:
-      self.output = self.window.output_stream
+      self.output = self.fw_update_prompt.output_stream
 
   def write(self, text):
     GUI.invoke_later(self.output.write, text)
@@ -137,27 +166,22 @@ class OneClickUpdate(Thread):
                                !=  self.piksi_stm_version
     self.nap_fw_outdated = self.index['piksi_v2.3.1']['nap_fw']['version'] \
                                !=  self.piksi_nap_version
-    self.window.init_prompt_text(self.piksi_stm_version, \
+    self.fw_update_prompt.init_prompt_text(self.piksi_stm_version, \
                             self.piksi_nap_version, \
                             self.index['piksi_v2.3.1']['stm_fw']['version'], \
                             self.index['piksi_v2.3.1']['nap_fw']['version'])
 
     if self.stm_fw_outdated or self.nap_fw_outdated:
-      GUI.invoke_later(self.window.edit_traits) # Start prompt.
-      while not self.window.handler_executed:
+      GUI.invoke_later(self.fw_update_prompt.edit_traits) # Start prompt.
+      while not self.fw_update_prompt.handler_executed:
         time.sleep(0.5)
 
     # Check if console is out of date and notify user if so.
     # TODO: add pop up window to tell user console is out of date.
     if (self.index['piksi_v2.3.1']['console']['version'] != CONSOLE_VERSION):
-      txt = "Console is out of date and may be incompatible with current\n" + \
-            "firmware. We highly recommend upgrading to ensure proper\n" + \
-            "behavior. Please visit Swift Navigation's website or Github\n" + \
-            "page to upgrade to a newer version.\n" + \
-            "Your Console Version  :\n\t" + CONSOLE_VERSION + \
-            "\nNewest Console Version :\n\t" + \
-            self.index['piksi_v2.3.1']['console']['version'] + "\n"
-      self.write(txt)
+      self.console_outdated_prompt.init_prompt_text(CONSOLE_VERSION, \
+                    self.index['piksi_v2.3.1']['console']['version'])
+      GUI.invoke_later(self.console_outdated_prompt.edit_traits)
 
   def manage_firmware_updates(self):
 

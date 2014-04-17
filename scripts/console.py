@@ -11,7 +11,6 @@
 
 import serial_link
 import sbp_piksi as ids
-from one_click_update import OneClickUpdate
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
@@ -57,6 +56,7 @@ from observation_view import ObservationView
 from system_monitor_view import SystemMonitorView
 from simulator_view import SimulatorView
 from settings_view import SettingsView
+from one_click_update import OneClickUpdate
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -139,7 +139,7 @@ class SwiftConsole(HasTraits):
     # Reference to settings_view.settings that OneClickUpdate can
     # see while settings_view can simultaneously update.
     settings = {}
-    self.ocu = OneClickUpdate(self.link, settings)
+    self.ocu = OneClickUpdate(self.link, settings, self.console_output)
     self.settings_view = SettingsView(self.link, settings, [self.ocu.start])
 
     self.python_console_env = {
