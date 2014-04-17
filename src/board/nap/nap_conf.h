@@ -21,16 +21,14 @@
 
 /* Configuration flash addresses of interest. */
 /* TODO: Change NAP version to be a string for more flexibility. */
-#define NAP_FLASH_PARAMS_ADDR      0xD0000
-#define NAP_FLASH_GIT_HASH_ADDR    0xE0000
-#define NAP_FLASH_GIT_UNCLEAN_ADDR (NAP_FLASH_GIT_HASH_ADDR + 20)
+#define NAP_FLASH_PARAMS_ADDR         0xD0000
+#define NAP_FLASH_VERSION_STRING_ADDR 0xE0000
 
 /** \} */
 
 void nap_conf_rd_parameters(void);
 
-void nap_conf_rd_git_hash(u8 git_hash[]);
-u8 nap_conf_rd_git_unclean(void);
+u8 nap_conf_rd_version_string(char version_string[]);
 
 #endif /* SWIFTNAV_NAP_CONF_H */
 
