@@ -23,6 +23,11 @@
 
 static struct setting *settings_head;
 
+static const char const * bool_enum[] = {"False", "True", NULL};
+static struct setting_type bool_settings_type;
+/* Bool type identifier can't be a constant because its allocated on setup. */
+int TYPE_BOOL = 0;
+
 static int float_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
   (void)priv;
@@ -174,6 +179,8 @@ int settings_type_register_enum(const char * const enumnames[], struct setting_t
 
 void settings_setup(void)
 {
+  TYPE_BOOL = settings_type_register_enum(bool_enum, &bool_settings_type);
+
   static sbp_msg_callbacks_node_t settings_msg_node;
   sbp_register_cbk(
     MSG_SETTINGS,

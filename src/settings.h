@@ -21,6 +21,7 @@ enum setting_types {
   TYPE_FLOAT,
   TYPE_STRING,
 };
+extern int TYPE_BOOL;
 
 struct setting_type {
   int (*to_string)(const void *priv, char *str, int slen, const void *blob, int blen);
