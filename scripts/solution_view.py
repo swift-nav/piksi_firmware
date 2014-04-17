@@ -23,6 +23,7 @@ import math
 import os
 import numpy as np
 import datetime
+import time
 
 import sbp_piksi as sbp_messages
 
@@ -193,8 +194,8 @@ class SolutionView(HasTraits):
   def __init__(self, link):
     super(SolutionView, self).__init__()
 
-    self.log_file = open("position_log.csv", 'a')
-    self.vel_log_file = open("velocity_log.csv", 'a')
+    self.log_file = open(time.strftime("position_log_%Y%m%d-%H%M%S.csv"), 'w')
+    self.vel_log_file = open(time.strftime("velocity_log_%Y%m%d-%H%M%S.csv"), 'w')
 
     self.plot_data = ArrayPlotData(lat=[0.0], lng=[0.0], alt=[0.0], t=[0.0], ref_lat=[0.0], ref_lng=[0.0], region_lat=[0.0], region_lng=[0.0])
     self.plot = Plot(self.plot_data)

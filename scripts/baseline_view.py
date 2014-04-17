@@ -22,6 +22,7 @@ import math
 import os
 import numpy as np
 import datetime
+import time
 
 import sbp_piksi as sbp_messages
 
@@ -201,7 +202,7 @@ class BaselineView(HasTraits):
   def __init__(self, link):
     super(BaselineView, self).__init__()
 
-    self.log_file = open("baseline_log.csv", 'a')
+    self.log_file = open(time.strftime("baseline_log_%Y%m%d-%H%M%S.csv"), 'w')
 
     self.num_hyps = 0
 
