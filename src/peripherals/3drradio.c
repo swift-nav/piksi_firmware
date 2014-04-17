@@ -136,7 +136,7 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
 
   /* If we found a radio, we send it a configuration string. */
   if (found_radio) {
-    printf("Telemetry radio found on %s at baudrate %u, sending configuration string.\n", uart_name, baud_rate);
+    printf("Telemetry radio found on %s at baudrate %lu, sending configuration string.\n", uart_name, baud_rate);
 
     char* command = commandstr;
     while (*command != 0) {
