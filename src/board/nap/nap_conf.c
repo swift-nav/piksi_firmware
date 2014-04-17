@@ -123,6 +123,8 @@ const char * nap_conf_rd_hw_rev_string()
   /* If hw_rev is equal to 0xFFFFFFFF (i.e. unprogrammed)
    * then hw_rev+1 == 0. */
   u32 hw_rev = nap_conf_rd_hw_rev()+1;
+  if (hw_rev > sizeof(rev_strings)/sizeof(rev_strings[0]))
+    hw_rev = 0;
   return rev_strings[hw_rev];
 }
 
