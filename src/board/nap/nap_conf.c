@@ -102,8 +102,12 @@ s32 nap_conf_rd_serial_number()
  */
 u32 nap_conf_rd_hw_rev()
 {
-  u32 hw_rev;
-  m25_read(NAP_FLASH_SERIAL_NUMBER_ADDR, (u8 *)&hw_rev, 4);
+  u8 hw_rev_u8[4];
+  m25_read(NAP_FLASH_SERIAL_NUMBER_ADDR, hw_rev_u8, 4);
+  u32 hw_rev = (hw_rev_u8[0] << 24) |
+               (hw_rev_u8[1] << 16) |
+               (hw_rev_u8[2] << 8) |
+               (hw_rev_u8[3] << 0);
   return hw_rev;
 }
 
