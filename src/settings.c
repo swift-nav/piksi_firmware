@@ -373,7 +373,7 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* contex
 
   (void)sender_id; (void) context; (void)len; (void)msg;
 
-  if (f < 0) {
+  if (f == -1) {
     printf("Error opening config file!\n");
     return;
   }
