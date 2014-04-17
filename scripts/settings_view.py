@@ -202,6 +202,9 @@ class SettingsView(HasTraits):
     self.settings[section][setting].value = Undefined
     self.settings[section][setting].value = value
 
+  def piksi_startup_callback(self, data):
+    self._settings_read_button_fired()
+
   def __init__(self, link):
     super(SettingsView, self).__init__()
 
@@ -209,7 +212,9 @@ class SettingsView(HasTraits):
     self.settings = {}
     self.link = link
     self.link.add_callback(ids.SETTINGS, self.settings_read_callback)
-    self.link.add_callback(ids.SETTINGS_READ_BY_INDEX, self.settings_read_by_index_callback)
+    self.link.add_callback(ids.SBP_STARTUP, self.piksi_startup_callback)
+    self.link.add_callback(ids.SETTINGS_READ_BY_INDEX,
+        self.settings_read_by_index_callback)
 
     self.setting_detail = SettingBase()
 
