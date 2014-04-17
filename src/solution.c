@@ -52,26 +52,30 @@ double known_baseline[3] = {0, 0, 0};
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
-  /* Send GPS_TIME message first. */
-  sbp_gps_time_t gps_time;
-  sbp_make_gps_time(&gps_time, &soln->time, 0);
-  sbp_send_msg(SBP_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
+  if (soln) {
+    /* Send GPS_TIME message first. */
+    sbp_gps_time_t gps_time;
+    sbp_make_gps_time(&gps_time, &soln->time, 0);
+    sbp_send_msg(SBP_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
 
-  /* Position in LLH. */
-  sbp_pos_llh_t pos_llh;
-  sbp_make_pos_llh(&pos_llh, soln, 0);
-  sbp_send_msg(SBP_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
+    /* Position in LLH. */
+    sbp_pos_llh_t pos_llh;
+    sbp_make_pos_llh(&pos_llh, soln, 0);
+    sbp_send_msg(SBP_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
 
-  /* Velocity in NED. */
-  sbp_vel_ned_t vel_ned;
-  sbp_make_vel_ned(&vel_ned, soln, 0);
-  sbp_send_msg(SBP_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
+    /* Velocity in NED. */
+    sbp_vel_ned_t vel_ned;
+    sbp_make_vel_ned(&vel_ned, soln, 0);
+    sbp_send_msg(SBP_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
+  }
 
-  DO_EVERY(10,
-    sbp_dops_t sbp_dops;
-    sbp_make_dops(&sbp_dops, dops);
-    sbp_send_msg(SBP_DOPS, sizeof(sbp_dops_t), (u8 *) &sbp_dops);
-  );
+  if (dops) {
+    DO_EVERY(10,
+      sbp_dops_t sbp_dops;
+      sbp_make_dops(&sbp_dops, dops);
+      sbp_send_msg(SBP_DOPS, sizeof(sbp_dops_t), (u8 *) &sbp_dops);
+    );
+  }
 }
 
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
@@ -250,7 +254,9 @@ static msg_t solution_thread(void *arg)
       n_ready_old = n_ready;
 
       dops_t dops;
-      if (calc_PVT(n_ready_tdcp, nav_meas_tdcp, &position_solution, &dops) == 0) {
+      s8 ret;
+      if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp,
+                          &position_solution, &dops)) == 0) {
 
         /* Update global position solution state. */
         position_updated();
@@ -350,6 +356,24 @@ static msg_t solution_thread(void *arg)
         /* Reset timer period with the count that we will estimate will being
          * us up to the next solution time. */
         timer_set_period(TIM5, round(65472000 * dt));
+
+      } else {
+        /* An error occurred with calc_PVT! */
+        /* TODO: Move these error messages into libswiftnav. */
+        static const char *err_msg[] = {
+          "PDOP too high",
+          "Altitude unreasonable",
+          "ITAR lockout",
+          "Took too long to converge",
+        };
+        /* TODO: Make this based on time since last error instead of a simple
+         * count. */
+        DO_EVERY((u32)soln_freq,
+          printf("Position solution solver: %s (%d)\n", err_msg[-ret-1], ret);
+        );
+
+        /* Send just the DOPs */
+        solution_send_sbp(0, &dops);
       }
 
     }
