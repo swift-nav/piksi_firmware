@@ -46,7 +46,7 @@ void _fini(void)
   return;
 }
 
-static WORKING_AREA_CCM(wa_nav_msg_thread, 2000);
+static WORKING_AREA_CCM(wa_nav_msg_thread, 3000);
 static msg_t nav_msg_thread(void *arg)
 {
   (void)arg;
