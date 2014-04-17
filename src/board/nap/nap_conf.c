@@ -85,6 +85,39 @@ u8 nap_conf_rd_version_string(char version_string[])
   return count;
 }
 
+/** Return Piksi serial number from the configuration flash.
+ */
+s32 nap_conf_rd_serial_number()
+{
+  u32 serial_num;
+  m25_read(NAP_FLASH_SERIAL_NUMBER_ADDR, (u8 *)&serial_num, 4);
+  return serial_num;
+}
+
+/** Return Piksi hardware revision identifier.
+ */
+u32 nap_conf_rd_hw_rev()
+{
+  u32 hw_rev;
+  m25_read(NAP_FLASH_SERIAL_NUMBER_ADDR, (u8 *)&hw_rev, 4);
+  return hw_rev;
+}
+
+/** Return Piksi hardware revision string.
+ */
+const char * nap_conf_rd_hw_rev_string()
+{
+  const char *rev_strings[] = {
+    "(unknown)",
+    "piksi_2.3.1",
+  };
+
+  /* If hw_rev is equal to 0xFFFFFFFF (i.e. unprogrammed)
+   * then hw_rev+1 == 0. */
+  u32 hw_rev = nap_conf_rd_hw_rev()+1;
+  return rev_strings[hw_rev];
+}
+
 /** \} */
 
 /** \} */

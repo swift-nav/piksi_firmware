@@ -20,6 +20,7 @@
 #include "board/leds.h"
 #include "board/max2769.h"
 #include "board/nap/nap_conf.h"
+#include "board/nap/acq_channel.h"
 #include "board/max2769.h"
 #include "sbp.h"
 #include "init.h"
@@ -119,9 +120,10 @@ int main(void)
 
 
   static char nap_version_string[64] = {0};
-
-  /* Read out NAP version string. */
   nap_conf_rd_version_string(nap_version_string);
+
+  static s32 serial_number;
+  serial_number = nap_conf_rd_serial_number();
 
   max2769_setup();
   timing_setup();
@@ -134,10 +136,30 @@ int main(void)
 
   simulator_setup();
 
-  READ_ONLY_PARAMETER("system_info", "firmware_version", GIT_VERSION, TYPE_STRING);
-  READ_ONLY_PARAMETER("system_info", "firmware_built", __DATE__ " " __TIME__, TYPE_STRING);
-  READ_ONLY_PARAMETER("system_info", "nap_version", nap_version_string, TYPE_STRING);
-  READ_ONLY_PARAMETER("system_info", "nap_channels", nap_track_n_channels, TYPE_INT);
+  if (serial_number < 0) {
+    READ_ONLY_PARAMETER("system_info", "serial_number", "(unknown)", TYPE_STRING);
+  } else {
+    READ_ONLY_PARAMETER("system_info", "serial_number", serial_number, TYPE_INT);
+  }
+  READ_ONLY_PARAMETER("system_info", "firmware_version", GIT_VERSION,
+                      TYPE_STRING);
+  READ_ONLY_PARAMETER("system_info", "firmware_built", __DATE__ " " __TIME__,
+                      TYPE_STRING);
+
+  static struct setting hw_rev = {
+    "system_info", "hw_revision", NULL, 0,
+    settings_read_only_notify, NULL,
+    NULL, false
+  };
+  hw_rev.addr = (char *)nap_conf_rd_hw_rev_string();
+  hw_rev.len = strlen(hw_rev.addr);
+  settings_register(&hw_rev, TYPE_STRING);
+
+  READ_ONLY_PARAMETER("system_info", "nap_version", nap_version_string,
+                      TYPE_STRING);
+  READ_ONLY_PARAMETER("system_info", "nap_channels", nap_track_n_channels,
+                      TYPE_INT);
+  READ_ONLY_PARAMETER("system_info", "nap_taps", nap_acq_n_taps, TYPE_INT);
 
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);
