@@ -41,7 +41,7 @@ libopencm3/lib/libopencm3_stm32f4.a:
 libswiftnav/build/src/libswiftnav-static.a: .FORCE
 	@printf "BUILD   libswiftnav\n"; \
 	mkdir -p libswiftnav/build; cd libswiftnav/build; \
-	cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake $(CMAKEFLAGS) ../
+	cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake $(CMAKEFLAGS) ../
 	$(MAKE) -C libswiftnav/build $(MAKEFLAGS)
 
 clean:
