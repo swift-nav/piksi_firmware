@@ -20,32 +20,6 @@
 
 #define SETTINGS_FILE "config"
 
-/** \addtogroup io
- * \{ */
-
-settings_t settings /*__attribute__ ((section(".settings_area"))) */=
-/* Default settings: */
-{
-  .settings_valid = VALID,
-
-  .ftdi_usart = {
-    .mode         = SBP,
-    .baud_rate    = USART_DEFAULT_BAUD_FTDI,
-    .message_mask = 0xFFFF,
-  },
-  .uarta_usart = {
-    .mode         = SBP,
-    .baud_rate    = 57600,
-    .message_mask = 0x40,
-  },
-  .uartb_usart = {
-    .mode         = SBP,
-    .baud_rate    = USART_DEFAULT_BAUD_TTL,
-    .message_mask = 0xFF00
-  },
-};
-
-/** \} */
 
 static struct setting *settings_head;
 
@@ -218,16 +192,6 @@ void settings_setup(void)
     &settings_read_by_index_callback,
     &settings_read_by_index_node
   );
-  static const char const * portmode_enum[] = {"SBP", "NMEA", "RTCM", NULL};
-  static struct setting_type portmode;
-  int TYPE_PORTMODE = settings_type_register_enum(portmode_enum, &portmode);
-
-  SETTING("ftdi_uart", "mode", settings.ftdi_usart.mode, TYPE_PORTMODE);
-  SETTING("ftdi_uart", "baudrate", settings.ftdi_usart.baud_rate, TYPE_INT);
-  SETTING("uarta_uart", "mode", settings.uarta_usart.mode, TYPE_PORTMODE);
-  SETTING("uarta_uart", "baudrate", settings.uarta_usart.baud_rate, TYPE_INT);
-  SETTING("uartb_uart", "mode", settings.uartb_usart.mode, TYPE_PORTMODE);
-  SETTING("uartb_uart", "baudrate", settings.uartb_usart.baud_rate, TYPE_INT);
 }
 
 void settings_register(struct setting *setting, enum setting_types type)
