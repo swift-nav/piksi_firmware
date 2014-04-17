@@ -31,8 +31,6 @@
 #include "settings.h"
 #include "main.h"
 
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
 /** \defgroup io Input/Output
  * Communications to and from host.
  * \{ */
@@ -55,14 +53,18 @@ static msg_t sbp_thread(void *arg)
   (void)arg;
   chRegSetThreadName("SBP");
   while (TRUE) {
-    led_toggle(LED_GREEN);
     chThdSleepMilliseconds(50);
     sbp_process_messages();
 
     DO_EVERY(50,
         sbp_send_msg(MSG_UART_STATE, sizeof(msg_uart_state_t),
                      (u8*)&uart_state_msg);
-        memset(&uart_state_msg, 0, sizeof(uart_state_msg));
+        uart_state_msg.uarts[0].tx_buffer_level = 0;
+        uart_state_msg.uarts[0].rx_buffer_level = 0;
+        uart_state_msg.uarts[1].tx_buffer_level = 0;
+        uart_state_msg.uarts[1].rx_buffer_level = 0;
+        uart_state_msg.uarts[2].tx_buffer_level = 0;
+        uart_state_msg.uarts[2].rx_buffer_level = 0;
     );
   }
 

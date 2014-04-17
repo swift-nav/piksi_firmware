@@ -67,7 +67,7 @@ def crc16(s, crc=0):
 
 class ListenerThread (threading.Thread):
 
-  def __init__(self, link, print_unhandled=True):
+  def __init__(self, link, print_unhandled=False):
     super(ListenerThread, self).__init__()
     self.link = link
     self.wants_to_stop = False
@@ -101,7 +101,7 @@ class ListenerThread (threading.Thread):
 
 class SerialLink:
 
-  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False, print_unhandled=True):
+  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False, print_unhandled=False):
     self.print_unhandled = print_unhandled
     self.unhandled_bytes = 0
     self.callbacks = {}
@@ -135,7 +135,11 @@ class SerialLink:
         return (None, None, None)
 
       # Sync with magic start bytes
-      magic = self.ser.read(1)
+      try:
+        magic = self.ser.read(1)
+      except OSError:
+        print "Error: Piksi not connected"
+        sys.exit(1)
       if magic:
         if ord(magic) == SBP_PREAMBLE:
           break
@@ -207,13 +211,17 @@ if __name__ == "__main__":
   parser.add_argument("-b", "--baud",
                      default=[DEFAULT_BAUD], nargs=1,
                      help="specify the baud rate to use.")
+  parser.add_argument("-v", "--verbose",
+                     help="print extra debugging information.",
+                     action="store_true")
   parser.add_argument("-f", "--ftdi",
                      help="use pylibftdi instead of pyserial.",
                      action="store_true")
   args = parser.parse_args()
   serial_port = args.port[0]
   baud = args.baud[0]
-  link = SerialLink(serial_port, baud, use_ftdi=args.ftdi)
+  link = SerialLink(serial_port, baud, use_ftdi=args.ftdi,
+                    print_unhandled=args.verbose)
   link.add_callback(ids.PRINT, default_print_callback)
   try:
     while True:

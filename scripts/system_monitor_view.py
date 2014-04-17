@@ -22,15 +22,16 @@ import datetime
 import sbp_piksi as sbp_messages
 
 class SimpleAdapter(TabularAdapter):
-    columns = [('Thread Name', 0), ('CPU %',  1)]
+    columns = [('Thread Name', 0), ('CPU %',  1), ('Stack Free',  2)]
 
 class ThreadState:
   def from_binary(self, data):
-    state = struct.unpack('<20sH', data)
+    state = struct.unpack('<20sHI', data)
     self.name = state[0].rstrip('\0')
     if self.name == '':
       self.name = '(no name)'
     self.cpu = 100 * state[1] / 1000.
+    self.stack_free = state[2]
 
 
 class SystemMonitorView(HasTraits):
@@ -88,7 +89,7 @@ class SystemMonitorView(HasTraits):
   )
 
   def update_threads(self):
-    self._threads_table_list = [(thread_name, state.cpu) for thread_name, state in sorted(self.threads, key=lambda x: x[1].cpu, reverse=True)]
+    self._threads_table_list = [(thread_name, state.cpu, state.stack_free) for thread_name, state in sorted(self.threads, key=lambda x: x[1].cpu, reverse=True)]
 
   def heartbeat_callback(self, data):
     self.update_threads()

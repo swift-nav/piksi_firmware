@@ -146,8 +146,9 @@ static void manage_calc_scores(void)
 
       double dt = fabs(gpsdifftime(t, toa));
 
-      if (time_quality == TIME_GUESS ||
-          position_quality == POSITION_GUESS ||
+      if (
+          /*time_quality == TIME_GUESS ||*/
+          /*position_quality == POSITION_GUESS ||*/
           dt > 2*24*3600) {
         /* Don't exclude other sats if our time is just a guess or our almanac
          * is old. */
@@ -424,6 +425,17 @@ s8 use_tracking_channel(u8 i)
             - tracking_channel[i].snr_below_threshold_count
             > TRACK_SNR_THRES_COUNT)
       && (tracking_channel[i].TOW_ms > 0);
+}
+
+u8 tracking_channels_ready()
+{
+  u8 n_ready = 0;
+  for (u8 i=0; i<nap_track_n_channels; i++) {
+    if (use_tracking_channel(i)) {
+      n_ready++;
+    }
+  }
+  return n_ready;
 }
 
 /** \} */

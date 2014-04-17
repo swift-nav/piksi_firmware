@@ -18,17 +18,13 @@ else
 	MAKEFLAGS += PRN=$(PRN)
 endif
 
-.PHONY: all tests firmware bootloader docs .FORCE
+.PHONY: all tests firmware docs .FORCE
 
-all: firmware # bootloader tests
+all: firmware # tests
 
 firmware: libopencm3/lib/libopencm3_stm32f4.a libswiftnav/build/src/libswiftnav-static.a
 	@printf "BUILD   src\n"; \
 	$(MAKE) -r -C src $(MAKEFLAGS)
-
-bootloader:
-	@printf "BUILD   bootloader\n"; \
-	$(MAKE) -r -C bootloader $(MAKEFLAGS)
 
 tests:
 	$(Q)for i in tests/*; do \
@@ -45,7 +41,7 @@ libopencm3/lib/libopencm3_stm32f4.a:
 libswiftnav/build/src/libswiftnav-static.a: .FORCE
 	@printf "BUILD   libswiftnav\n"; \
 	mkdir -p libswiftnav/build; cd libswiftnav/build; \
-	cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake $(CMAKEFLAGS) ../
+	cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake $(CMAKEFLAGS) ../
 	$(MAKE) -C libswiftnav/build $(MAKEFLAGS)
 
 clean:

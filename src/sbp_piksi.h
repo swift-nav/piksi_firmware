@@ -52,23 +52,14 @@
 
 #define MSG_M25_FLASH_WRITE_STATUS  0xF3  /**< Host   -> Piksi */
 
-#define MSG_SOLUTION                0x20  /**< Piksi  -> Host  */
-#define MSG_DOPS                    0x21  /**< Piksi  -> Host  */
-
-#define MSG_SIMULATION_ENABLED      0x94  /**< Host  <-> Piksi */
-#define MSG_SIMULATION_SETTINGS     0x93  /**< Host  <-> Piksi */
+#define MSG_RESET_FILTERS           0x22  /**< Piksi  -> Host  */
+#define MSG_INIT_BASE               0x23  /**< Piksi  -> Host  */
 
 #define MSG_SETTINGS                0xA0  /**< Host  <-> Piksi */
 #define MSG_SETTINGS_SAVE           0xA1  /**< Host   -> Piksi */
 #define MSG_SETTINGS_READ_BY_INDEX  0xA2  /**< Host   -> Piksi */
 
-#define MSG_BASELINE                0x23  /**< Piksi  -> Host  */
-typedef struct __attribute__((packed)) {
-  double ned[3]; /**< Baseline in local North, East, Down frame (m). */
-  gps_time_t t;  /**< GPS time of baseline solution. */
-  u16 flags;     /**< Baseline solution flags. TODO: Add defs. */
-  u8 n_sats;     /**< Number of satellites used in solution. */
-} msg_baseline_t;
+#define MSG_SIMULATION_ENABLED      0xAA  /**< Host  <-> Piksi */
 
 #define MSG_OBS_HDR                 0x40  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
@@ -94,11 +85,16 @@ typedef struct __attribute__((packed)) {
 } msg_obs_t;
 
 #define MSG_TRACKING_STATE        0x16  /**< Piksi  -> Host  */
+#define MSG_IAR_STATE             0x19  /**< Piksi  -> Host  */
+typedef struct __attribute__((packed)) {
+  u32 num_hyps;
+} msg_iar_state_t;
 
 #define MSG_THREAD_STATE          0x17  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
   char name[20];
   u16 cpu;
+  u32 stack_free;
 } msg_thread_state_t;
 
 #define MSG_UART_STATE            0x18  /**< Piksi  -> Host  */

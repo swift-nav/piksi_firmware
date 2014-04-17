@@ -21,7 +21,7 @@
 #include "sbp.h"
 #include "track.h"
 #include "simulator.h"
- 
+
 #include <libswiftnav/constants.h>
 
 /** \defgroup tracking Tracking
@@ -227,7 +227,9 @@ void tracking_channel_update(u8 channel)
       s32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
 
       if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
-        printf("PRN %d TOW mismatch: %u, %u\n",(int)chan->prn + 1, (unsigned int)chan->TOW_ms, (unsigned int)TOW_ms);
+        if (chan->TOW_ms > 0) {
+          printf("PRN %d TOW mismatch: %ld, %u\n",(int)chan->prn + 1, chan->TOW_ms, (unsigned int)TOW_ms);
+        }
         chan->TOW_ms = TOW_ms;
       }
 
@@ -303,7 +305,7 @@ void tracking_send_state()
   tracking_state_msg_t states[nap_track_n_channels];
 
   if (simulation_enabled_for(SIMULATION_MODE_TRACKING)) {
-  
+
     u8 num_sats = simulation_current_num_sats();
     for (u8 i=0; i < num_sats; i++) {
       states[i] = simulation_current_tracking_state(i);
@@ -312,12 +314,12 @@ void tracking_send_state()
       for (u8 i = num_sats; i < nap_track_n_channels; i++) {
         states[i].state = TRACKING_DISABLED;
         states[i].prn   = 0;
-        states[i].cn0   = -1;        
+        states[i].cn0   = -1;
       }
     }
-    
+
   } else {
-    
+
     for (u8 i=0; i<nap_track_n_channels; i++) {
       states[i].state = tracking_channel[i].state;
       states[i].prn = tracking_channel[i].prn;

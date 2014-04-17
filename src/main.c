@@ -18,6 +18,7 @@
 #include <ch.h>
 
 #include "board/leds.h"
+#include "board/max2769.h"
 #include "board/nap/nap_conf.h"
 #include "board/max2769.h"
 #include "sbp.h"
@@ -36,8 +37,8 @@
 #endif
 
 /* TODO: Think about thread safety when updating ephemerides. */
-ephemeris_t es[32];
-ephemeris_t es_old[32];
+ephemeris_t es[32] _CCM;
+ephemeris_t es_old[32] _CCM;
 
 /* Required by exit() which is called from BLAS/LAPACK. */
 void _fini(void)
@@ -45,7 +46,7 @@ void _fini(void)
   return;
 }
 
-static WORKING_AREA_CCM(wa_nav_msg_thread, 4096);
+static WORKING_AREA_CCM(wa_nav_msg_thread, 2000);
 static msg_t nav_msg_thread(void *arg)
 {
   (void)arg;
