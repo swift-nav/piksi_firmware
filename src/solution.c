@@ -45,6 +45,9 @@ Mailbox obs_mailbox;
 dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_TIME_MATCHED;
 dgnss_filter_t dgnss_filter = FILTER_FIXED;
 
+double soln_freq = 10.0;
+u8 obs_output_divisor = 2;
+
 double known_baseline[3] = {0, 0, 0};
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
@@ -132,7 +135,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   sbp_send_msg_(MSG_NEW_OBS, len, msg, 0);
 
   gps_time_t *t = (gps_time_t *)msg;
-  double epoch_count = t->tow * SOLN_FREQ;
+  double epoch_count = t->tow * soln_freq;
 
   if (fabs(epoch_count - round(epoch_count)) > TIME_MATCH_THRESHOLD) {
     printf("Unaligned observation from base station ignored.\n");
@@ -281,8 +284,8 @@ static msg_t solution_thread(void *arg)
 
         /* Calculate the time of the nearest solution epoch, were we expected
          * to be and calculate how far we were away from it. */
-        double expected_tow = round(position_solution.time.tow*SOLN_FREQ)
-                                / SOLN_FREQ;
+        double expected_tow = round(position_solution.time.tow*soln_freq)
+                                / soln_freq;
         double t_err = expected_tow - position_solution.time.tow;
 
         /* Only send observations that are closely aligned with the desired
@@ -302,7 +305,9 @@ static msg_t solution_thread(void *arg)
 
           if (!simulation_enabled()) {
             /* Output obervations. */
-            send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
+            DO_EVERY(obs_output_divisor,
+              send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
+            );
           }
 
           /* TODO: use a buffer from the pool from the start instead of
@@ -335,7 +340,7 @@ static msg_t solution_thread(void *arg)
         }
 
         /* Calculate time till the next desired solution epoch. */
-        double dt = expected_tow + (1/SOLN_FREQ) - position_solution.time.tow;
+        double dt = expected_tow + (1.0/soln_freq) - position_solution.time.tow;
 
         /* Limit dt to 2 seconds maximum to prevent hang if dt calculated
          * incorrectly. */
@@ -353,7 +358,7 @@ static msg_t solution_thread(void *arg)
     if (simulation_enabled()) {
 
       /* Set the timer period appropriately. */
-      timer_set_period(TIM5, round(65472000 * (1.0/SOLN_FREQ)));
+      timer_set_period(TIM5, round(65472000 * (1.0/soln_freq)));
 
       simulation_step();
 
@@ -470,7 +475,7 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
-        process_matched_obs(n_sds, &obss->t, sds, 1.0 / SOLN_FREQ);
+        process_matched_obs(n_sds, &obss->t, sds, 1.0 / soln_freq);
         chPoolFree(&obs_buff_pool, obss);
         chMtxUnlock();
         break;
@@ -548,6 +553,9 @@ void solution_setup()
   timer_set_period(TIM5, 65472000); /* 1 second. */
   timer_enable_counter(TIM5);
   timer_enable_irq(TIM5, TIM_DIER_UIE);
+
+  SETTING("solution", "soln_freq", soln_freq, TYPE_FLOAT);
+  SETTING("solution", "output_every_n_obs", obs_output_divisor, TYPE_INT);
 
   static const char const *dgnss_soln_mode_enum[] = {
     "Low Latency",
