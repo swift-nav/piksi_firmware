@@ -7,16 +7,15 @@ from subprocess import check_output
 
 from threading import Thread
 
-from traits.api import HasTraits, String, Button, Int, Str
+from traits.api import HasTraits, String, Button, Int, Str, Instance
 from traitsui.api import View, Handler, Action, VGroup, HGroup, HSplit, VSplit, Item, InstanceEditor, UItem, TextEditor
 from pyface.api import GUI
+
+from output_stream import OutputStream
 
 import bootload
 import sbp_piksi as ids
 import flash
-
-#impot traits.api
-#impot traitsui.api
 
 # Not using --dirty so local changes (which could be to non-console files)
 # don't make one_click_update think console is out of date.
@@ -46,41 +45,51 @@ class OneClickUpdateWindow(HasTraits):
 
   handler = OneClickUpdateHandler()
   update_desired = False
-  text = Str(None)
-#  text = Instance(OutputStream)
+#  user_prompt_text = Str(None)
+  user_prompt_text = Instance(OutputStream)
+#  user_prompt_text = List(Str)
   handler_executed = False
   yes_button = Action(name = "Yes", action = "set_update_desired_true")
   no_button = Action(name = "No", action = "set_update_desired_false")
 
-#  view = View('text',
+#  view = View('user_prompt_text',
   view = View(
-#              UItem('text', show_label=False, resizable=True),
-#              View(Item('text',)),# editor=TextEditor(multi_line=True))),
+#              UItem('user_prompt_text', show_label=False, resizable=True),
+#              View(Item('user_prompt_text',)),# editor=TextEditor(multi_line=True))),
 #                         resizable=True,
 #                        ),
 #                         show_label=False,
 #                   handler=_OutputStreamViewHandler()
 #              ),
-              Item('text', show_label=False, resizable=True),
+#              Item('user_prompt_text', show_label=False, resizable=True,
+#                   editor=InstanceEditor()),
+              Item(
+                'user_prompt_text',
+                style='custom',
+                editor=InstanceEditor(),
+                height=0.3,
+                show_label=False,
+              ),
               buttons=[yes_button, no_button],
               title="New Firmware Available",
               handler=OneClickUpdateHandler(),
-              height=200,
-              width=300,
+              height=250,
+              width=400,
               resizable=True
              )
 
-  def update_text(self, local_stm, local_nap, remote_stm, remote_nap):
-#    text_string = "Local STM Firmware Version  : %s\n" % local_stm + \
-    self.text = "Local STM Firmware Version  : %s\n" % local_stm + \
-                "Remote STM Firmware Version : %s\n\n" % remote_stm + \
-                "Local NAP Firmware Version  : %s\n" % local_nap + \
-                "Remote NAP Firmware Version : %s\n\n\n" % remote_nap + \
-                "Upgrade Now?"
-#    self.text = self.text.repr()
-#    text_string.encode('ascii', 'ignore')
-#    self.text = text_string
-#    self.text.write(text_string)
+  def __init__(self):
+    self.user_prompt_text = OutputStream()
+
+  def init_prompt_text(self, local_stm, local_nap, remote_stm, remote_nap):
+    init_strings = "Your STM Firmware Version :\n\t%s\n" % local_stm + \
+                   "Newest STM Firmware Version :\n\t%s\n\n" % remote_stm + \
+                   "Your NAP Firmware Version :\n\t%s\n" % local_nap + \
+                   "Newest NAP Firmware Version :\n\t%s\n\n" % remote_nap + \
+                   "Upgrade Now?"
+    # Hack to get more spaces to print.
+    for i in init_strings:
+      self.user_prompt_text.write(i.encode('ascii', 'ignore'))
 
 # TODO: Better error handling
 # TODO: Have console output prints
@@ -128,13 +137,18 @@ class OneClickUpdate(Thread):
                                !=  self.piksi_stm_version
     self.nap_fw_outdated = self.index['piksi_v2.3.1']['nap_fw']['version'] \
                                !=  self.piksi_nap_version
-    self.window.update_text(self.piksi_stm_version, self.piksi_nap_version, \
+    self.window.init_prompt_text(self.piksi_stm_version, \
+                            self.piksi_nap_version, \
                             self.index['piksi_v2.3.1']['stm_fw']['version'], \
                             self.index['piksi_v2.3.1']['nap_fw']['version'])
 
     if self.stm_fw_outdated or self.nap_fw_outdated:
       GUI.invoke_later(self.window.edit_traits) # Start firmware update prompt.
       while not self.window.handler_executed:
+#        GUI.invoke_later(self.window.update_user_prompt_text, self.piksi_stm_version, \
+#                            self.piksi_nap_version, \
+#                            self.index['piksi_v2.3.1']['stm_fw']['version'], \
+#                            self.index['piksi_v2.3.1']['nap_fw']['version'])
         time.sleep(0.1)
       print "GUI INVOKED LATER!!!"
       print self.window.handler_executed, type(self.window.handler_executed)
