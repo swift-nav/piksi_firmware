@@ -119,16 +119,10 @@ int main(void)
          "Firmware Version: " GIT_VERSION "\n" \
          "Built: " __DATE__ " " __TIME__ "\n");
 
-  u8 nap_git_hash[20];
   static char nap_version_string[64] = {0};
 
-  /* Read out NAP git hash and construct version string. */
-  /* TODO: Change NAP version in the M25 to just be a string. */
-  nap_conf_rd_git_hash(nap_git_hash);
-  for (u8 i=0; i<20; i++)
-    snprintf(&nap_version_string[2*i], 3, "%02x", nap_git_hash[i]);
-  if (nap_conf_rd_git_unclean())
-    strcpy(&nap_version_string[40], " (unclean)");
+  /* Read out NAP version string. */
+  nap_conf_rd_version_string(nap_version_string);
 
   settings_setup();
   max2769_setup();

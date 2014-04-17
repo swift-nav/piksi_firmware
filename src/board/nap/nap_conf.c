@@ -43,29 +43,28 @@ void nap_conf_rd_parameters(void)
     m25_read(NAP_FLASH_PARAMS_ADDR + i, nap_parameters[i], 1);
 }
 
-/** Return git commit hash from NAP configuration build.
- * Retrieves commit hash of HDL repository at the time FPGA configuration was
- * built.
+/** Return version string from NAP configuration build.
  *
- * \param git_hash Array of u8 (length 20) in which git hash will be put.
+ * \param git_hash char [] that version string will be written to.
+ * \return Length of version string.
  */
-void nap_conf_rd_git_hash(u8 git_hash[])
+u8 nap_conf_rd_version_string(char version_string[])
 {
-  m25_read(NAP_FLASH_GIT_HASH_ADDR, git_hash, 20);
-}
+  u8 count = 0;
+  char c;
 
-/** Return git repository cleanliness status from NAP configuration build.
- * Retrieves cleanliness status of HDL repository at the time FPGA
- * configuration was built.
- *
- * \return 1 if repository was unclean, 0 if clean
- */
-u8 nap_conf_rd_git_unclean(void)
-{
-  u8 unclean;
+  m25_read(NAP_FLASH_VERSION_STRING_ADDR, (u8 *)&c, 1);
+  while (c) {
+    version_string[count] = c;
+    count++;
+    m25_read(NAP_FLASH_VERSION_STRING_ADDR + count, (u8 *)&c, 1);
+  }
 
-  m25_read(NAP_FLASH_GIT_UNCLEAN_ADDR, &unclean, 1);
-  return unclean;
+  /* Append 0 for proper string delimitation. */
+  version_string[count] = 0;
+  count++;
+
+  return count;
 }
 
 /** \} */
