@@ -32,9 +32,9 @@ typedef struct {
     SBP  = 0,
     NMEA = 1,
     RTCM = 2
-  } mode; /** Communication mode : Swift Binary Protocol or NMEA */
+  } mode; /**< Communication mode : Swift Binary Protocol or NMEA */
   u32 baud_rate;
-  u16 sbp_message_mask;
+  u32 sbp_message_mask;
   u8  configure_telemetry_radio_on_boot;
 } usart_settings_t;
 

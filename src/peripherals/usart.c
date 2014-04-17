@@ -99,15 +99,23 @@ void usarts_setup()
   int TYPE_PORTMODE = settings_type_register_enum(portmode_enum, &portmode);
 
   SETTING("uart_ftdi", "mode", ftdi_usart.mode, TYPE_PORTMODE);
-  SETTING_NOTIFY("uart_ftdi", "baudrate", ftdi_usart.baud_rate, TYPE_INT, baudrate_change_notify);
+  SETTING("uart_ftdi", "sbp_message_mask", ftdi_usart.sbp_message_mask, TYPE_INT);
+  SETTING_NOTIFY("uart_ftdi", "baudrate", ftdi_usart.baud_rate, TYPE_INT,
+                 baudrate_change_notify);
 
   SETTING("uart_uarta", "mode", uarta_usart.mode, TYPE_PORTMODE);
-  SETTING("uart_uarta", "configure_telemetry_radio_on_boot", uarta_usart.configure_telemetry_radio_on_boot, TYPE_INT);
-  SETTING_NOTIFY("uart_uarta", "baudrate", uarta_usart.baud_rate, TYPE_INT, baudrate_change_notify);
+  SETTING("uart_uarta", "sbp_message_mask", uarta_usart.sbp_message_mask, TYPE_INT);
+  SETTING("uart_uarta", "configure_telemetry_radio_on_boot",
+          uarta_usart.configure_telemetry_radio_on_boot, TYPE_BOOL);
+  SETTING_NOTIFY("uart_uarta", "baudrate", uarta_usart.baud_rate, TYPE_INT,
+          baudrate_change_notify);
 
   SETTING("uart_uartb", "mode", uartb_usart.mode, TYPE_PORTMODE);
-  SETTING("uart_uartb", "configure_telemetry_radio_on_boot", uartb_usart.configure_telemetry_radio_on_boot, TYPE_INT);
-  SETTING_NOTIFY("uart_uartb", "baudrate", uartb_usart.baud_rate, TYPE_INT, baudrate_change_notify);
+  SETTING("uart_uartb", "sbp_message_mask", uartb_usart.sbp_message_mask, TYPE_INT);
+  SETTING("uart_uartb", "configure_telemetry_radio_on_boot",
+          uartb_usart.configure_telemetry_radio_on_boot, TYPE_BOOL);
+  SETTING_NOTIFY("uart_uartb", "baudrate", uartb_usart.baud_rate, TYPE_INT,
+          baudrate_change_notify);
 
   usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate, true);
 
