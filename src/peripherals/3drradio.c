@@ -135,6 +135,7 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud)
 
   /* If we found a radio, we send it a configuration string. */
   if (found_radio) {
+    printf("Configuring a radio detected at baudrate %d\n", baud_rate);
 
     char* command = commandstr;
     while (*command != 0) {
@@ -151,6 +152,7 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud)
     }
 
     usart_send_str_blocking(usart, "\r\n");
+    usart_wait_send_ready(usart);
     busy_wait_for_str(usart, "\x00", WAIT_BETWEEN_COMMANDS);
 
   }
