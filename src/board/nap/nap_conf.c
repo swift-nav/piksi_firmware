@@ -89,8 +89,12 @@ u8 nap_conf_rd_version_string(char version_string[])
  */
 s32 nap_conf_rd_serial_number()
 {
-  u32 serial_num;
-  m25_read(NAP_FLASH_SERIAL_NUMBER_ADDR, (u8 *)&serial_num, 4);
+  u8 serial_num_u8[4];
+  m25_read(NAP_FLASH_SERIAL_NUMBER_ADDR, serial_num_u8, 4);
+  s32 serial_num = (serial_num_u8[0] << 24) |
+                   (serial_num_u8[1] << 16) |
+                   (serial_num_u8[2] << 8) |
+                   (serial_num_u8[3] << 0);
   return serial_num;
 }
 
