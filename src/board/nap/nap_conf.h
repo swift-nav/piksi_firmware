@@ -20,9 +20,13 @@
  * \{ */
 
 /* Configuration flash addresses of interest. */
-/* TODO: Change NAP version to be a string for more flexibility. */
 #define NAP_FLASH_PARAMS_ADDR         0xD0000
 #define NAP_FLASH_VERSION_STRING_ADDR 0xE0000
+
+/* DEPRECATED: These addresses now hold the version string but are still used
+ * in the case where we detect and fall back to using old stlye versioning. */
+#define NAP_FLASH_GIT_HASH_ADDR    0xE0000
+#define NAP_FLASH_GIT_UNCLEAN_ADDR (NAP_FLASH_GIT_HASH_ADDR + 20)
 
 /** \} */
 

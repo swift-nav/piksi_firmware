@@ -11,6 +11,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <string.h>
+#include <stdio.h>
+#include <ctype.h>
+
 #include "../m25_flash.h"
 #include "acq_channel.h"
 #include "nap_conf.h"
@@ -53,16 +57,30 @@ u8 nap_conf_rd_version_string(char version_string[])
   u8 count = 0;
   char c;
 
-  m25_read(NAP_FLASH_VERSION_STRING_ADDR, (u8 *)&c, 1);
-  while (c) {
+  do {
+    m25_read(NAP_FLASH_VERSION_STRING_ADDR + count, (u8 *)&c, 1);
     version_string[count] = c;
     count++;
-    m25_read(NAP_FLASH_VERSION_STRING_ADDR + count, (u8 *)&c, 1);
-  }
 
-  /* Append 0 for proper string delimitation. */
-  version_string[count] = 0;
-  count++;
+    if (!isprint(c)) {
+      /* We have hit an unexpected character, this must not be an ASCII version
+       * string. Fall back to old Git Hash style version. */
+
+      strcpy(version_string, "OLD ");
+      for (count=0; count<20; count++) {
+        m25_read(NAP_FLASH_GIT_HASH_ADDR + count, (u8 *)&c, 1);
+        snprintf(&version_string[2*count + 4], 3, "%02x", c);
+      }
+      u8 unclean;
+      m25_read(NAP_FLASH_GIT_UNCLEAN_ADDR, &unclean, 1);
+      if (unclean) {
+        strcpy(&version_string[44], " (unclean)");
+      }
+      count = strlen(version_string);
+      /* Make sure we exit the loop. */
+      break;
+    }
+  } while (c);
 
   return count;
 }
