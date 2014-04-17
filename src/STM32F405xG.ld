@@ -28,8 +28,7 @@ MEMORY
 {
     flash : org = 0x08004000, len = 496K
     coffee_fs_rom : org = 0x08080000, len = 512K
-    ram : org = 0x20000000, len = 112k
-    ethram : org = 0x2001C000, len = 16k
+    ram : org = 0x20000000, len = 128k
     ccmram : org = 0x10000000, len = 64k
 }
 
