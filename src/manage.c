@@ -146,8 +146,7 @@ static void manage_calc_scores(void)
 
       double dt = fabs(gpsdifftime(t, toa));
 
-      if (
-          /*time_quality == TIME_GUESS ||*/
+      if (time_quality == TIME_GUESS ||
           /*position_quality == POSITION_GUESS ||*/
           dt > 2*24*3600) {
         /* Don't exclude other sats if our time is just a guess or our almanac
