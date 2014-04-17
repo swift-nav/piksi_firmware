@@ -48,7 +48,7 @@ class TrackingState(HasTraits):
 
   def update(self, state, prn, cn0):
     self.state = state
-    self.cn0 = np.nan if cn0 == -1 else cn0
+    self.cn0 = 0 if cn0 == -1 else cn0
     self.prn = prn
 
   def __repr__(self):

@@ -14,7 +14,7 @@ endif
 
 # C specific options here (added to USE_OPT).
 ifeq ($(USE_COPT),)
-  USE_COPT = 
+  USE_COPT =
 endif
 
 # C++ specific options here (added to USE_OPT).
@@ -29,7 +29,7 @@ endif
 
 # Linker extra options here.
 ifeq ($(USE_LDOPT),)
-  USE_LDOPT = 
+  USE_LDOPT =
 endif
 
 # Enable this if you want link time optimizations (LTO)
@@ -96,6 +96,7 @@ CSRC = $(PORTSRC) \
        $(SWIFTNAV_ROOT)/src/board/m25_flash.o \
        $(SWIFTNAV_ROOT)/src/board/max2769.o \
        $(SWIFTNAV_ROOT)/src/board/leds.o \
+       $(SWIFTNAV_ROOT)/src/peripherals/3drradio.o \
        $(SWIFTNAV_ROOT)/src/peripherals/stm_flash.o \
        $(SWIFTNAV_ROOT)/src/peripherals/spi.o \
        $(SWIFTNAV_ROOT)/src/peripherals/usart.o \

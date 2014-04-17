@@ -181,8 +181,8 @@ double lerp(double t, double u, double v, double x, double y) {
 void simulation_step(void)
 {
 
-  /* First we propagate the current fake PVT solution */
-  u32 now_ticks = chTimeNow();
+  //First we propagate the current fake PVT solution
+  systime_t now_ticks = chTimeNow();
 
   double elapsed = (now_ticks - sim_state.last_update_ticks)/(double)CH_FREQUENCY;
   sim_state.last_update_ticks = now_ticks;

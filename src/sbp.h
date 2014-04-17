@@ -20,7 +20,7 @@
 #include "peripherals/usart.h"
 #include "sbp_piksi.h"
 
-void sbp_setup(u8 use_settings, u16 sender_id);
+void sbp_setup(u16 sender_id);
 void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb, sbp_msg_callbacks_node_t *node);
 void sbp_disable(void);
 u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[]);
