@@ -116,10 +116,6 @@ int main(void)
   settings_setup();
   usarts_setup();
 
-  printf("\n\nPiksi Starting...\n"
-         "Firmware Version: " GIT_VERSION "\n" \
-         "Built: " __DATE__ " " __TIME__ "\n");
-
 
   u8 nap_git_hash[20];
   static char nap_version_string[64] = {0};

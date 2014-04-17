@@ -20,7 +20,7 @@ bool usart_wait_recv_ready_with_timeout(uint32_t usart, u32 ms);
 bool busy_wait_for_str(u32 usart, char* str, u32 ms);
 void usart_send_str_blocking(u32 usart, char* str);
 
-void radio_preconfigure_hook(u32 usart, u32 default_baud);
+void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name);
 void radio_setup();
 
 #endif  /* _SWIFTNAV_3DRRADIO_H_ */

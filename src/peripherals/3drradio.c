@@ -100,7 +100,7 @@ void usart_send_str_blocking(u32 usart, char* str)
 * This function hooks into the UART setup code before DMA gets enabled,
 * and configures any 3DR radio it finds on the given uart.
 */
-void radio_preconfigure_hook(u32 usart, u32 default_baud)
+void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
 {
 
   /** TODO:
@@ -136,7 +136,7 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud)
 
   /* If we found a radio, we send it a configuration string. */
   if (found_radio) {
-    printf("Configuring a radio detected at baudrate %d\n", baud_rate);
+    printf("Telemetry radio found on %s at baudrate %u, sending configuration string.\n", uart_name, baud_rate);
 
     char* command = commandstr;
     while (*command != 0) {
@@ -155,6 +155,8 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud)
     usart_send_str_blocking(usart, "\r\n");
     busy_wait_for_str(usart, "\x00", WAIT_BETWEEN_COMMANDS);
 
+  } else {
+    printf("No telemetry radio found on %s, skipping configuration.\n", uart_name);
   }
 
   /* Reset the UART to the original baudrate. */
@@ -164,5 +166,5 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud)
 
 void radio_setup()
 {
-    SETTING("3dr_radio", "configuration_string", commandstr, TYPE_STRING);
+    SETTING("telemetry_radio", "configuration_string", commandstr, TYPE_STRING);
 }

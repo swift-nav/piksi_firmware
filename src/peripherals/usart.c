@@ -16,6 +16,7 @@
 #include <libopencm3/stm32/f4/usart.h>
 
 #include <ch.h>
+#include <stdio.h>
 
 #include "../settings.h"
 #include "usart.h"
@@ -32,21 +33,21 @@ usart_settings_t ftdi_usart = {
   .mode               = SBP,
   .baud_rate          = USART_DEFAULT_BAUD_FTDI,
   .sbp_message_mask   = 0xFFFF,
-  .send_3drradio_init = 0,
+  .configure_telemetry_radio_on_boot = 0,
 };
 
 usart_settings_t uarta_usart = {
   .mode               = SBP,
   .baud_rate          = USART_DEFAULT_BAUD_TTL,
   .sbp_message_mask   = 0x40,
-  .send_3drradio_init = 1,
+  .configure_telemetry_radio_on_boot = 1,
 };
 
 usart_settings_t uartb_usart = {
   .mode             = SBP,
   .baud_rate        = USART_DEFAULT_BAUD_TTL,
   .sbp_message_mask = 0xFF00,
-  .send_3drradio_init = 1,
+  .configure_telemetry_radio_on_boot = 1,
 };
 
 bool all_uarts_enabled = false;
@@ -101,11 +102,11 @@ void usarts_setup()
   SETTING_NOTIFY("ftdi_uart", "baudrate", ftdi_usart.baud_rate, TYPE_INT, baudrate_change_notify);
 
   SETTING("uarta_uart", "mode", uarta_usart.mode, TYPE_PORTMODE);
-  SETTING("uarta_uart", "send_3drradio_config_on_boot", uarta_usart.send_3drradio_init, TYPE_INT);
+  SETTING("uarta_uart", "configure_telemetry_radio_on_boot", uarta_usart.configure_telemetry_radio_on_boot, TYPE_INT);
   SETTING_NOTIFY("uarta_uart", "baudrate", uarta_usart.baud_rate, TYPE_INT, baudrate_change_notify);
 
   SETTING("uartb_uart", "mode", uartb_usart.mode, TYPE_PORTMODE);
-  SETTING("uartb_uart", "send_3drradio_config_on_boot", uartb_usart.send_3drradio_init, TYPE_INT);
+  SETTING("uartb_uart", "configure_telemetry_radio_on_boot", uartb_usart.configure_telemetry_radio_on_boot, TYPE_INT);
   SETTING_NOTIFY("uartb_uart", "baudrate", uartb_usart.baud_rate, TYPE_INT, baudrate_change_notify);
 
   usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate, true);
@@ -174,11 +175,16 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
   usart_rx_dma_setup(&ftdi_rx_state, USART6, DMA2, 1, 5);
 
   if (do_preconfigure_hooks) {
-    if (uarta_usart.send_3drradio_init) {
-      radio_preconfigure_hook(USART1, uarta_baud);
+
+    printf("\n\nPiksi Starting...\n"
+       "Firmware Version: " GIT_VERSION "\n" \
+       "Built: " __DATE__ " " __TIME__ "\n");
+
+    if (uarta_usart.configure_telemetry_radio_on_boot) {
+      radio_preconfigure_hook(USART1, uarta_baud, "UARTA");
     }
-    if (uartb_usart.send_3drradio_init) {
-      radio_preconfigure_hook(USART3, uartb_baud);
+    if (uartb_usart.configure_telemetry_radio_on_boot) {
+      radio_preconfigure_hook(USART3, uartb_baud, "UARTB");
     }
   }
 

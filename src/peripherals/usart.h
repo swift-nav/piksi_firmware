@@ -35,7 +35,7 @@ typedef struct {
   } mode; /** Communication mode : Swift Binary Protocol or NMEA */
   u32 baud_rate;
   u16 sbp_message_mask;
-  u8  send_3drradio_init;
+  u8  configure_telemetry_radio_on_boot;
 } usart_settings_t;
 
 /** Message and baud rate settings for all USARTs. */
