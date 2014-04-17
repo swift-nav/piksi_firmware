@@ -178,9 +178,9 @@ class BaselineView(HasTraits):
     self.es.append(soln.e)
     self.ds.append(soln.d)
 
-    self.ns = self.ns[-5000:]
-    self.es = self.es[-5000:]
-    self.ds = self.ds[-5000:]
+    self.ns = self.ns[-1000:]
+    self.es = self.es[-1000:]
+    self.ds = self.ds[-1000:]
 
     self.plot_data.set_data('n', self.ns)
     self.plot_data.set_data('e', self.es)

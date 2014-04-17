@@ -149,6 +149,10 @@ class SolutionView(HasTraits):
     self.lngs.append(soln.lon)
     self.alts.append(soln.height)
 
+    self.lats = self.lats[-1000:]
+    self.lngs = self.lngs[-1000:]
+    self.alts = self.alts[-1000:]
+
     self.plot_data.set_data('lat', self.lats)
     self.plot_data.set_data('lng', self.lngs)
     self.plot_data.set_data('alt', self.alts)
@@ -176,7 +180,7 @@ class SolutionView(HasTraits):
 
   def vel_ned_callback(self, data):
     vel_ned = sbp_messages.VelNED(data)
-    
+
     self.vel_log_file.write('%.2f,%.4f,%.4f,%.4f,%.4f,%d\n' % (vel_ned.tow * 1e3, vel_ned.n, vel_ned.e, vel_ned.d, math.sqrt(vel_ned.n*vel_ned.n + vel_ned.e*vel_ned.e),vel_ned.n_sats))
     self.vel_log_file.flush()
 
