@@ -369,7 +369,7 @@ static msg_t solution_thread(void *arg)
         /* TODO: Make this based on time since last error instead of a simple
          * count. */
         DO_EVERY((u32)soln_freq,
-          printf("Position solution solver: %s (%d)\n", err_msg[-ret-1], ret);
+          printf("PVT solver: %s (%d)\n", err_msg[-ret-1], ret);
         );
 
         /* Send just the DOPs */
