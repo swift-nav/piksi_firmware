@@ -13,6 +13,7 @@ from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change,
 from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, TextEditor, EnumEditor
 from traitsui.tabular_adapter import TabularAdapter
 from enable.savage.trait_defs.ui.svg_button import SVGButton
+from pyface.API import GUI
 
 import struct
 import math
@@ -139,7 +140,7 @@ class SettingsView(HasTraits):
     )
   )
 
-  ##Simulator buttons
+  # Simulator buttons.
   def _settings_read_button_fired(self):
     # Use clear rather than = {} so as not to delete reference
     # to external dict if __init__ was passed one.
@@ -164,10 +165,8 @@ class SettingsView(HasTraits):
           self.settings_list.append(self.settings[sec][setting])
 
       # Execute list of functions now that we have all of Piksi's settings.
-      print "Finished getting settings, before calling functions passed to settings_view"
       for cb in self.read_finished_functions:
-        print "Finished getting settings, calling functions passed to settings_view"
-        cb()
+        GUI.invoke_later(cb())
       return
 
     section, setting, value, format_type = data[2:].split('\0')[:4]
@@ -201,12 +200,11 @@ class SettingsView(HasTraits):
     self.settings[section][setting].value = Undefined
     self.settings[section][setting].value = value
 
-  def __init__(self, link, settings={}, read_finished_functions=[]):
+  def __init__(self, link, read_finished_functions=[]):
     super(SettingsView, self).__init__()
 
     self.enumindex = 0
-    # Optional dict argument so other objects can access settings by reference.
-    self.settings = settings
+    self.settings = {}
     self.link = link
     self.link.add_callback(ids.SETTINGS, self.settings_read_callback)
     self.link.add_callback(ids.SETTINGS_READ_BY_INDEX, self.settings_read_by_index_callback)

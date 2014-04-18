@@ -116,18 +116,20 @@ class ConsoleOutdatedWindow(HasTraits):
 class OneClickUpdate(Thread):
 
   index = None
+  settings = {}
 
-  def __init__(self, link, settings, output=None):
+  def __init__(self, link, output=None):
     super(OneClickUpdate, self).__init__()
     self.link = link
-    self.settings = settings # Reference to SettingsView.settings dict.
-    self.index = None
     self.fw_update_prompt = OneClickUpdateWindow(self.manage_firmware_updates)
     self.console_outdated_prompt = ConsoleOutdatedWindow()
     if output:
       self.output = output
     else:
       self.output = self.fw_update_prompt.output_stream
+
+  def point_to_settings(self, settings):
+    self.settings = settings
 
   def write(self, text):
     GUI.invoke_later(self.output.write, text)
@@ -213,7 +215,6 @@ class OneClickUpdate(Thread):
         time.sleep(0.5)
 
     # Check if console is out of date and notify user if so.
-    # TODO: add pop up window to tell user console is out of date.
     if (self.index['piksi_v2.3.1']['console']['version'] != CONSOLE_VERSION):
       self.console_outdated_prompt.init_prompt_text(CONSOLE_VERSION, \
                     self.index['piksi_v2.3.1']['console']['version'])

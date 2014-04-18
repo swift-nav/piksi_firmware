@@ -106,6 +106,7 @@ class SwiftConsole(HasTraits):
     resizable = True,
     width = 1000,
     height = 800,
+    # TODO: include version in title
     title = 'Piksi console'
   )
 
@@ -136,11 +137,10 @@ class SwiftConsole(HasTraits):
     self.observation_view_base = ObservationView(self.link, name='Base', sender_id=0)
     self.system_monitor_view = SystemMonitorView(self.link)
     self.simulator_view = SimulatorView(self.link)
-    # Reference to settings_view.settings that OneClickUpdate can
-    # see while settings_view can simultaneously update.
-    settings = {}
-    self.ocu = OneClickUpdate(self.link, settings, self.console_output)
-    self.settings_view = SettingsView(self.link, settings, [self.ocu.start])
+    self.ocu = OneClickUpdate(self.link, self.console_output)
+    self.settings_view = SettingsView(self.link, [self.ocu.start])
+    # Tell OneClickUpdate where to find settings dict.
+    self.ocu.point_to_settings(self.settings_view.settings)
 
     self.python_console_env = {
         'send_message': self.link.send_message,
