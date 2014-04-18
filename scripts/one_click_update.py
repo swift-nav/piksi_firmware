@@ -218,12 +218,10 @@ class OneClickUpdate(Thread):
       self.write("Updating SwiftNAP firmware...\n")
       self.update_firmware(self.nap_ihx, "M25")
 
-    #TODO : Change to STM case
     # Flash STM if outdated.
     if self.stm_fw_outdated:
       self.write("Updating STM firmware...\n")
-      self.update_firmware(self.nap_ihx, "M25")
-      #self.update_firmware(self.stm_ihx, "STM")
+      self.update_firmware(self.stm_ihx, "STM")
 
     # Piksi needs to jump to application if we updated either firmware.
     if self.nap_fw_outdated or self.stm_fw_outdated:
