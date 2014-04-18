@@ -185,7 +185,10 @@ class SerialLink:
     # threads to write messages to the same SerialLink instance.
     self.queue.put(framed_msg)
 
-    # If another thread is already sending the messages in the queue, just return.
+    # If another thread is already sending the messages in the queue,
+    # just return.
+    # TODO: callbacks to functions/methods that reside in other threads are
+    #       still not safe, should implement something to fix this.
     if self.queue_lock.locked():
       return
     self.queue_lock.acquire()
