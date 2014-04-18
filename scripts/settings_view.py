@@ -13,7 +13,7 @@ from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change,
 from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, TextEditor, EnumEditor
 from traitsui.tabular_adapter import TabularAdapter
 from enable.savage.trait_defs.ui.svg_button import SVGButton
-from pyface.API import GUI
+from pyface.api import GUI
 
 import struct
 import math
@@ -166,7 +166,7 @@ class SettingsView(HasTraits):
 
       # Execute list of functions now that we have all of Piksi's settings.
       for cb in self.read_finished_functions:
-        GUI.invoke_later(cb())
+        GUI.invoke_later(cb)
       return
 
     section, setting, value, format_type = data[2:].split('\0')[:4]
