@@ -142,8 +142,6 @@ class SettingsView(HasTraits):
 
   # Simulator buttons.
   def _settings_read_button_fired(self):
-    # Use clear rather than = {} so as not to delete reference
-    # to external dict if __init__ was passed one.
     self.settings.clear()
     self.enumindex = 0
     self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))

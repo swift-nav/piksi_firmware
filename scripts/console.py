@@ -137,9 +137,10 @@ class SwiftConsole(HasTraits):
     self.observation_view_base = ObservationView(self.link, name='Base', sender_id=0)
     self.system_monitor_view = SystemMonitorView(self.link)
     self.simulator_view = SimulatorView(self.link)
+    #TODO : by default don't instantiate OneClickUpdate, i.e. only for
+    #       people who are running the compiled binary console?
     self.ocu = OneClickUpdate(self.link, self.console_output)
     self.settings_view = SettingsView(self.link, [self.ocu.start])
-    # Tell OneClickUpdate where to find settings dict.
     self.ocu.point_to_settings(self.settings_view.settings)
 
     self.python_console_env = {
