@@ -18,7 +18,6 @@ import sbp_piksi as ids
 import flash
 
 # TODO: handle case where NAP and STM firmwares are bad?
-# TODO: sort out Settings dict
 # TODO: sort out handler calling firmware update function
 
 # Not using --dirty so local changes (which could be to non-console files)
@@ -111,8 +110,6 @@ class ConsoleOutdatedWindow(HasTraits):
     self.output_stream.write(txt)
 
 # TODO: Better error handling
-# TODO: Check if network connection is available?
-#       Will urlopen just throw URLError?
 class OneClickUpdate(Thread):
 
   index = None
@@ -135,15 +132,6 @@ class OneClickUpdate(Thread):
     GUI.invoke_later(self.output.write, text)
     GUI.process_events()
 
-  # Get index of files from Swift Nav's website.
-  def get_file_index(self):
-    try:
-      f = urlopen(INDEX_URL)
-      self.index = jsonload(f)
-      f.close()
-    except URLError:
-      self.write("Error: Unable to retrieve file index from Swift Navigation's website\n")
-
   def wait_for_settings(self):
     # TODO: timeout if settings.version info isn't available after some point.
     while True:
@@ -161,7 +149,13 @@ class OneClickUpdate(Thread):
 
     # Get index that contains file URLs and latest
     # version strings from Swift Nav's website.
-    self.get_file_index()
+    try:
+      f = urlopen(INDEX_URL)
+      self.index = jsonload(f)
+      f.close()
+    except URLError:
+      self.write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n\n" % INDEX_URL)
+      return
 
     # Wait until console has received Piksi's settings,
     # which contain version strings.
@@ -187,25 +181,20 @@ class OneClickUpdate(Thread):
         self.nap_ihx = IntelHex(f)
         f.close()
       except URLError:
-        self.write("\nError: Failed to download latest Piksi SwiftNAP " +
-                   "firmware. Please visit our website to " +
-                   "check that you're running the latest firmware.\n")
+        self.write("\nError: Failed to download latest Piksi SwiftNAP firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % self.index['piksi_v2.3.1']['nap_fw']['url'])
     self.stm_ihx = None
     if self.stm_fw_outdated:
       # TODO: timeout?
-      # TODO : no internet connecton?
       try:
         f = urlopen(self.index['piksi_v2.3.1']['stm_fw']['url'])
         self.stm_ihx = IntelHex(f)
         f.close()
       except URLError:
-        self.write("\nError: Failed to download latest Piksi STM firmware. " +
-                   "Please visit our website to " +
-                   "check that you're running the latest firmware.\n")
+        self.write("\nError: Failed to download latest Piksi STM firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % self.index['piksi_v2.3.1']['stm_fw']['url'])
 
-    # Prompt user to update firmware(s). Only update if firmware was successfully
-    # downloaded. If both are out of date, only allow update if we successfully
-    # downloaded both files.
+    # Prompt user to update firmware(s). Only update if firmware was
+    # successfully downloaded. If both are out of date, only allow update if we
+    # successfully downloaded both files.
     if (self.stm_fw_outdated and self.stm_ihx and not self.nap_fw_outdated) or \
         (self.nap_fw_outdated and self.nap_ihx and not self.stm_fw_outdated) or \
           (self.stm_fw_outdated and self.stm_ihx and \
