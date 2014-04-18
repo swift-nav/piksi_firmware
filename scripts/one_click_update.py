@@ -157,11 +157,16 @@ class OneClickUpdate(Thread):
 
   def run(self):
 
-    # Check if firmwares are up to date, and if not prompt user to update.
+    # Get index that contains file URLs and latest
+    # version strings from Swift Nav's website.
     self.get_file_index()
 
+    # Wait until console has received Piksi's settings,
+    # which contain version strings.
     self.wait_for_settings()
 
+    # Firmware is outdated if version string from Piksi doesn't match
+    # latest from website.
     self.stm_fw_outdated = self.index['piksi_v2.3.1']['stm_fw']['version'] \
                                !=  self.piksi_stm_version
     self.nap_fw_outdated = self.index['piksi_v2.3.1']['nap_fw']['version'] \
@@ -171,7 +176,38 @@ class OneClickUpdate(Thread):
                             self.index['piksi_v2.3.1']['stm_fw']['version'], \
                             self.index['piksi_v2.3.1']['nap_fw']['version'])
 
-    if self.stm_fw_outdated or self.nap_fw_outdated:
+    # Get firmware files from Swift Nav's website.
+    self.nap_ihx = None
+    if self.nap_fw_outdated:
+      # TODO: timeout?
+      try:
+        f = urlopen(self.index['piksi_v2.3.1']['nap_fw']['url'])
+        self.nap_ihx = IntelHex(f)
+        f.close()
+      except URLError:
+        self.write("\nError: Failed to download latest Piksi SwiftNAP " +
+                   "firmware. Please visit our website to " +
+                   "check that you're running the latest firmware.\n")
+    self.stm_ihx = None
+    if self.stm_fw_outdated:
+      # TODO: timeout?
+      # TODO : no internet connecton?
+      try:
+        f = urlopen(self.index['piksi_v2.3.1']['stm_fw']['url'])
+        self.stm_ihx = IntelHex(f)
+        f.close()
+      except URLError:
+        self.write("\nError: Failed to download latest Piksi STM firmware. " +
+                   "Please visit our website to " +
+                   "check that you're running the latest firmware.\n")
+
+    # Prompt user to update firmware(s). Only update if firmware was successfully
+    # downloaded. If both are out of date, only allow update if we successfully
+    # downloaded both files.
+    if (self.stm_fw_outdated and self.stm_ihx and not self.nap_fw_outdated) or \
+        (self.nap_fw_outdated and self.nap_ihx and not self.stm_fw_outdated) or \
+          (self.stm_fw_outdated and self.stm_ihx and \
+            self.nap_fw_outdated and self.nap_ihx):
       GUI.invoke_later(self.fw_update_prompt.edit_traits) # Start prompt.
       while not self.fw_update_prompt.handler_executed:
         time.sleep(0.5)
@@ -185,47 +221,19 @@ class OneClickUpdate(Thread):
 
   def manage_firmware_updates(self):
 
-    # Get firmware files from Swift Nav's website.
-    # TODO: do this before prompting user to reduce latency?
-    if self.nap_fw_outdated:
-      # TODO: timeout?
-      self.write("Downloading SwiftNAP firmware, this may take a few moments...\n")
-      try:
-#        f = urlopen(self.index['piksi_v2.3.1']['nap_fw']['url'])
-        f = open('swift-nap_mcs.mcs', 'r')
-        nap_ihx = IntelHex(f)
-        f.close()
-#        nap_ihx = None
-        self.write("Successfully downloaded SwiftNAP firmware.\n\n")
-      except URLError:
-        # TODO: Make this print to normal console
-        self.write("Error: Failed to download NAP firmware from Swift Nav website\n")
-        return
-    if self.stm_fw_outdated:
-      # TODO: timeout?
-      self.write("Downloading STM firmware, this may take a few moments...\n")
-      try:
-#        f = urlopen(self.index['piksi_v2.3.1']['stm_fw']['url'])
-#        stm_ihx = IntelHex(f)
-#        f.close()
-        stm_ihx = None
-        self.write("Successfully downloaded STM firmware.\n\n")
-      except URLError:
-        # TODO: Make this print to normal console
-        self.write("Error: Failed to download STM firmware from Swift Nav website\n")
-        return
+    self.write("\n")
 
     # Flash NAP if outdated.
     if self.nap_fw_outdated:
       self.write("Updating SwiftNAP firmware...\n")
-      self.update_firmware(nap_ihx, "M25")
+      self.update_firmware(self.nap_ihx, "M25")
 
     #TODO : Change to STM case
     # Flash STM if outdated.
     if self.stm_fw_outdated:
       self.write("Updating STM firmware...\n")
-      self.update_firmware(nap_ihx, "M25")
-      #update_firmware(stm_ihx, self.link, "STM")
+      self.update_firmware(self.nap_ihx, "M25")
+      #self.update_firmware(self.stm_ihx, "STM")
 
     # Piksi needs to jump to application if we updated either firmware.
     if self.nap_fw_outdated or self.stm_fw_outdated:
@@ -237,13 +245,17 @@ class OneClickUpdate(Thread):
     # Reset device if the application is running to put into bootloader mode.
     self.link.send_message(ids.RESET, '')
 
+    self.write("\n")
+
     piksi_bootloader = bootload.Bootloader(self.link)
     self.write("Waiting for bootloader handshake message from Piksi ...\n")
     piksi_bootloader.wait_for_handshake()
     piksi_bootloader.reply_handshake()
-    self.write("received bootloader handshake message.\n\n")
-    self.write("Piksi Onboard Bootloader Version: " + piksi_bootloader.version + "\n\n")
+    self.write("received bootloader handshake message.\n")
+    self.write("Piksi Onboard Bootloader Version: " + piksi_bootloader.version + "\n")
 
     piksi_flash = flash.Flash(self.link, flash_type)
     piksi_flash.write_ihx(ihx, self.output, mod_print = 0x1F)
+
+    self.write("\n")
 
