@@ -38,13 +38,13 @@ void nmea_output(char *s)
   /* Global interrupt disable to avoid concurrency/reentrancy problems. */
   __asm__("CPSID i;");
 
-  if (settings.ftdi_usart.mode == NMEA)
+  if (ftdi_usart.mode == NMEA)
     usart_write_dma(&ftdi_tx_state, (u8 *)s, strlen(s));
 
-  if (settings.uarta_usart.mode == NMEA)
+  if (uarta_usart.mode == NMEA)
     usart_write_dma(&uarta_tx_state, (u8 *)s, strlen(s));
 
-  if (settings.uartb_usart.mode == NMEA)
+  if (uartb_usart.mode == NMEA)
     usart_write_dma(&uartb_tx_state, (u8 *)s, strlen(s));
 
   __asm__("CPSIE i;");  /* Re-enable interrupts. */

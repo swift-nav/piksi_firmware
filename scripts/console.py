@@ -18,6 +18,9 @@ parser.add_argument('-p', '--port', nargs=1, default=[serial_link.DEFAULT_PORT],
                    help='specify the serial port to use.')
 parser.add_argument('-b', '--baud', nargs=1, default=[serial_link.DEFAULT_BAUD],
                    help='specify the baud rate to use.')
+parser.add_argument("-v", "--verbose",
+                  help="print extra debugging information.",
+                  action="store_true")
 parser.add_argument("-f", "--ftdi",
                   help="use pylibftdi instead of pyserial.",
                   action="store_true")
@@ -157,7 +160,8 @@ class SwiftConsole(HasTraits):
   def stop(self):
     self.link.close()
 
-console = SwiftConsole(serial_port, baud, use_ftdi=args.ftdi)
+console = SwiftConsole(serial_port, baud, use_ftdi=args.ftdi,
+                       print_unhandled=args.verbose)
 
 console.configure_traits()
 console.stop()

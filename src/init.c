@@ -19,6 +19,7 @@
 #include "board/m25_flash.h"
 #include "peripherals/stm_flash.h"
 #include "board/nap/nap_common.h"
+#include "board/nap/nap_conf.h"
 #include "sbp.h"
 #include "error.h"
 #include "flash_callbacks.h"
@@ -78,7 +79,12 @@ void init(u8 check_fpga_auth)
 
   nap_setup();
 
-  sbp_setup(1, 0x2222);
+  s32 serial_number = nap_conf_rd_serial_number();
+  if (serial_number < 0) {
+    /* TODO: Handle this properly! */
+    serial_number = 0x2222;
+  }
+  sbp_setup(serial_number);
 
   /* Check NAP verification status. */
   if (check_fpga_auth) {

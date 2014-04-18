@@ -30,6 +30,7 @@ class SettingBase(HasTraits):
   name = Str()
   description = Str()
   value = Str(Undefined)
+  ordering = Float(0)
 
   traits_view = View()
 
@@ -47,12 +48,13 @@ class Setting(SettingBase):
     ),
   )
 
-  def __init__(self, name, section, value, link):
+  def __init__(self, name, section, value, link, ordering):
     self.name = name
     self.section = section
     self.full_name = "%s.%s" % (section, name)
     self.value = value
     self.link = link
+    self.ordering = ordering
 
   def _value_changed(self, name, old, new):
     if (old != new and
@@ -75,9 +77,9 @@ class EnumSetting(Setting):
     ),
   )
 
-  def __init__(self, name, section, value, link, values):
+  def __init__(self, name, section, value, link, ordering, values):
     self.values = values
-    Setting.__init__(self, name, section, value, link)
+    Setting.__init__(self, name, section, value, link, ordering)
 
 class SectionHeading(SettingBase):
   value = Constant('')
@@ -144,6 +146,7 @@ class SettingsView(HasTraits):
   def _settings_read_button_fired(self):
     self.settings.clear()
     self.enumindex = 0
+    self.ordering_counter = 0
     self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
 
   def _settings_save_button_fired(self):
@@ -152,22 +155,22 @@ class SettingsView(HasTraits):
   ##Callbacks for receiving messages
 
   def settings_read_by_index_callback(self, data):
-    if not data: # All settings have been reported to console.
+    if not data:
       self.settings_list = []
 
       sections = sorted(self.settings.keys())
 
       for sec in sections:
         self.settings_list.append(SectionHeading(sec))
-        for setting in sorted(self.settings[sec].keys()):
-          self.settings_list.append(self.settings[sec][setting])
+        for name, setting in sorted(self.settings[sec].iteritems(), key=lambda (n, s): s.ordering):
+          self.settings_list.append(setting)
 
-      # Execute list of functions now that we have all of Piksi's settings.
       for cb in self.read_finished_functions:
         GUI.invoke_later(cb)
       return
 
     section, setting, value, format_type = data[2:].split('\0')[:4]
+    self.ordering_counter += 1
 
     if format_type == '':
       format_type = None
@@ -179,12 +182,17 @@ class SettingsView(HasTraits):
 
     if format_type is None:
       # Plain old setting, no format information
-      self.settings[section][setting] = Setting(setting, section, value, link=self.link)
+      self.settings[section][setting] = Setting(setting, section, value,
+                                                link=self.link,
+                                                ordering=self.ordering_counter
+        )
     else:
       if setting_type == 'enum':
         enum_values = setting_format.split(',')
         self.settings[section][setting] = EnumSetting(setting, section, value,
-                                                      link=self.link, values=enum_values)
+                                                      link=self.link,
+                                                      ordering=self.ordering_counter,
+                                                      values=enum_values)
       else:
         # Unknown type, just treat is as a string
         self.settings[section][setting] = Setting(setting, section, value, link=self.link)
@@ -198,6 +206,9 @@ class SettingsView(HasTraits):
     self.settings[section][setting].value = Undefined
     self.settings[section][setting].value = value
 
+  def piksi_startup_callback(self, data):
+    self._settings_read_button_fired()
+
   def __init__(self, link, read_finished_functions=[]):
     super(SettingsView, self).__init__()
 
@@ -205,7 +216,9 @@ class SettingsView(HasTraits):
     self.settings = {}
     self.link = link
     self.link.add_callback(ids.SETTINGS, self.settings_read_callback)
-    self.link.add_callback(ids.SETTINGS_READ_BY_INDEX, self.settings_read_by_index_callback)
+    self.link.add_callback(ids.SBP_STARTUP, self.piksi_startup_callback)
+    self.link.add_callback(ids.SETTINGS_READ_BY_INDEX,
+        self.settings_read_by_index_callback)
 
     # List of functions to be executed after all settings are read.
     # No support for arguments currently.
@@ -213,7 +226,6 @@ class SettingsView(HasTraits):
 
     self.setting_detail = SettingBase()
 
-    # TODO: read system settings out of Piksi after receiving startup message
     self._settings_read_button_fired()
 
     self.python_console_cmds = {

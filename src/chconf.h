@@ -548,7 +548,8 @@ extern u64 g_ctime;
 /* Change vector table location for compatibility with the bootloader. */
 #define CORTEX_VTOR_INIT 0x08004000
 
-#define WORKING_AREA_CCM(s, n) WORKING_AREA(s, n) __attribute__((section (".ccmram")))
+#define _CCM __attribute__((section (".ccmram")))
+#define WORKING_AREA_CCM(s, n) WORKING_AREA(s, n) _CCM
 
 #endif  /* _CHCONF_H_ */
 

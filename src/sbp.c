@@ -31,8 +31,6 @@
 #include "settings.h"
 #include "main.h"
 
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
 /** \defgroup io Input/Output
  * Communications to and from host.
  * \{ */
@@ -42,7 +40,6 @@
  * \{ */
 
 u16 my_sender_id;
-u8 sbp_use_settings = 0;
 
 msg_uart_state_t uart_state_msg;
 
@@ -56,14 +53,18 @@ static msg_t sbp_thread(void *arg)
   (void)arg;
   chRegSetThreadName("SBP");
   while (TRUE) {
-    led_toggle(LED_GREEN);
     chThdSleepMilliseconds(50);
     sbp_process_messages();
 
     DO_EVERY(50,
         sbp_send_msg(MSG_UART_STATE, sizeof(msg_uart_state_t),
                      (u8*)&uart_state_msg);
-        memset(&uart_state_msg, 0, sizeof(uart_state_msg));
+        uart_state_msg.uarts[0].tx_buffer_level = 0;
+        uart_state_msg.uarts[0].rx_buffer_level = 0;
+        uart_state_msg.uarts[1].tx_buffer_level = 0;
+        uart_state_msg.uarts[1].rx_buffer_level = 0;
+        uart_state_msg.uarts[2].tx_buffer_level = 0;
+        uart_state_msg.uarts[2].rx_buffer_level = 0;
     );
   }
 
@@ -77,25 +78,9 @@ static msg_t sbp_thread(void *arg)
  * \param use_settings If 0 use default baud rate, else use baud rates in
  *                     flash settings
  */
-void sbp_setup(u8 use_settings, u16 sender_id)
+void sbp_setup(u16 sender_id)
 {
   my_sender_id = sender_id;
-
-  if (use_settings && settings.settings_valid == VALID) {
-    sbp_use_settings = 1;
-    usarts_setup(
-      settings.ftdi_usart.baud_rate,
-      settings.uarta_usart.baud_rate,
-      settings.uartb_usart.baud_rate
-      );
-  } else {
-    sbp_use_settings = 0;
-    usarts_setup(
-      USART_DEFAULT_BAUD_FTDI,
-      USART_DEFAULT_BAUD_TTL,
-      USART_DEFAULT_BAUD_TTL
-      );
-  }
 
   sbp_state_init(&uarta_sbp_state);
   sbp_state_init(&uartb_sbp_state);
@@ -127,15 +112,14 @@ void sbp_disable()
 /** Checks if the message should be sent from a particular USART. */
 static inline u32 use_usart(usart_settings_t *us, u16 msg_type)
 {
-  if (sbp_use_settings) {
-    if (us->mode != SBP)
-      /* This USART is not in SBP mode. */
-      return 0;
+  if (us->mode != SBP)
+    /* This USART is not in SBP mode. */
+    return 0;
 
-    if (!(us->message_mask & msg_type))
-      /* This message type is masked out on this USART. */
-      return 0;
-  }
+  if (!(us->sbp_message_mask & msg_type))
+    /* This message type is masked out on this USART. */
+    return 0;
+
   return 1;
 }
 
@@ -178,14 +162,14 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
   /* Only send relayed messages (sender_id 0) on the FTDI UART. */
   if (sender_id != 0) {
 
-    if (use_usart(&settings.uarta_usart, msg_type))
+    if (use_usart(&uarta_usart, msg_type))
       ret |= sbp_send_message(&uarta_sbp_state, msg_type, sender_id,
                               len, buff, &uarta_write);
 
     uart_state_msg.uarts[0].tx_buffer_level = MAX(uart_state_msg.uarts[0].tx_buffer_level,
         255 - (255 * usart_tx_n_free(&uarta_tx_state)) / (USART_TX_BUFFER_LEN-1));
 
-    if (use_usart(&settings.uartb_usart, msg_type))
+    if (use_usart(&uartb_usart, msg_type))
       ret |= sbp_send_message(&uartb_sbp_state, msg_type, sender_id,
                               len, buff, &uartb_write);
 
@@ -194,7 +178,7 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
 
   }
 
-  if (use_usart(&settings.ftdi_usart, msg_type))
+  if (use_usart(&ftdi_usart, msg_type))
     ret |= sbp_send_message(&ftdi_sbp_state, msg_type, sender_id,
                             len, buff, &ftdi_write);
 

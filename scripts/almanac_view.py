@@ -50,6 +50,7 @@ class AlmanacView(HasTraits):
 
     for sat in self.alm.sats:
       self.link.send_message(ids.ALMANAC, sat.packed())
+      time.sleep(0.1)
 
   def update_alamanc_view(self):
     #prns, dopps = zip(*self.alm.get_dopps())

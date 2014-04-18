@@ -18,13 +18,27 @@
 #include <libswiftnav/sbp_messages.h>
 
 #include "board/nap/nap_common.h"
+#include "board/leds.h"
 #include "main.h"
 #include "sbp.h"
 #include "sbp_piksi.h"
+#include "manage.h"
+#include "simulator.h"
 #include "system_monitor.h"
 
 /* Global CPU time accumulator, used to measure thread CPU usage. */
 u64 g_ctime = 0;
+
+u32 check_stack_free(Thread *tp)
+{
+  u32 *stack = (u32 *)tp->p_stklimit;
+  u32 i;
+  for (i=0; i<65536/sizeof(u32); i++) {
+    if (stack[i] != 0x55555555)
+      break;
+  }
+  return 4 * (i - 1);
+}
 
 void send_thread_states()
 {
@@ -33,6 +47,7 @@ void send_thread_states()
     msg_thread_state_t tp_state;
     u16 cpu = 1000.0f * tp->p_ctime / (float)g_ctime;
     tp_state.cpu = cpu;
+    tp_state.stack_free = check_stack_free(tp);
     strncpy(tp_state.name, chRegGetThreadName(tp), sizeof(tp_state.name));
     sbp_send_msg(MSG_THREAD_STATE, sizeof(tp_state), (u8 *)&tp_state);
 
@@ -45,19 +60,51 @@ void send_thread_states()
   g_ctime = 0;
 }
 
-static WORKING_AREA_CCM(wa_nap_error_thread, 4096);
-static msg_t nap_error_thread(void *arg)
+static WORKING_AREA_CCM(wa_track_status_thread, 128);
+static msg_t track_status_thread(void *arg)
+{
+  (void)arg;
+  chRegSetThreadName("track status");
+  while (TRUE) {
+    if (simulation_enabled()) {
+      led_on(LED_GREEN);
+      chThdSleepMilliseconds(500);
+    } else {
+      chThdSleepMilliseconds(1000);
+      u8 n_ready = tracking_channels_ready();
+      if (n_ready == 0) {
+        led_on(LED_GREEN);
+        chThdSleepMilliseconds(1000);
+        led_off(LED_GREEN);
+      } else {
+        for (u8 i=0; i<n_ready; i++) {
+          led_on(LED_GREEN);
+          chThdSleepMilliseconds(250);
+          led_off(LED_GREEN);
+          chThdSleepMilliseconds(250);
+        }
+        chThdSleepMilliseconds(1000);
+      }
+    }
+  }
+  return 0;
+}
+
+static WORKING_AREA_CCM(wa_system_monitor_thread, 3000);
+static msg_t system_monitor_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("system monitor");
 
   while (TRUE) {
-    chThdSleepMilliseconds(500);
+    chThdSleepMilliseconds(1000);
+
     DO_EVERY(2,
         u32 status_flags = 0;
         sbp_send_msg(SBP_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
         send_thread_states();
     );
+
     u32 err = nap_error_rd_blocking();
     if (err)
       printf("Error: 0x%08X\n", (unsigned int)err);
@@ -74,10 +121,16 @@ void system_monitor_setup()
   DWT_CTRL |= 1 ; /* Enable the counter. */
 
   chThdCreateStatic(
-      wa_nap_error_thread,
-      sizeof(wa_nap_error_thread),
+      wa_system_monitor_thread,
+      sizeof(wa_system_monitor_thread),
       LOWPRIO+10,
-      nap_error_thread, NULL
+      system_monitor_thread, NULL
+  );
+  chThdCreateStatic(
+      wa_track_status_thread,
+      sizeof(wa_track_status_thread),
+      LOWPRIO+9,
+      track_status_thread, NULL
   );
 }
 

@@ -20,15 +20,24 @@
  * \{ */
 
 /* Configuration flash addresses of interest. */
-/* TODO: Change NAP version to be a string for more flexibility. */
 #define NAP_FLASH_PARAMS_ADDR         0xD0000
 #define NAP_FLASH_VERSION_STRING_ADDR 0xE0000
+#define NAP_FLASH_SERIAL_NUMBER_ADDR  0xF0000
+#define NAP_FLASH_HW_REVISION_ADDR    0xF0004
+
+/* DEPRECATED: These addresses now hold the version string but are still used
+ * in the case where we detect and fall back to using old stlye versioning. */
+#define NAP_FLASH_GIT_HASH_ADDR    0xE0000
+#define NAP_FLASH_GIT_UNCLEAN_ADDR (NAP_FLASH_GIT_HASH_ADDR + 20)
 
 /** \} */
 
 void nap_conf_rd_parameters(void);
 
 u8 nap_conf_rd_version_string(char version_string[]);
+s32 nap_conf_rd_serial_number(void);
+u32 nap_conf_rd_hw_rev(void);
+const char * nap_conf_rd_hw_rev_string(void);
 
 #endif /* SWIFTNAV_NAP_CONF_H */
 

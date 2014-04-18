@@ -15,7 +15,7 @@
 
 #define INI_READONLY
 #define INI_FILETYPE                  int
-#define ini_openread(filename,file)   ((*(file) = cfs_open((filename),CFS_READ)) > 0)
+#define ini_openread(filename,file)   ((*(file) = cfs_open((filename),CFS_READ)) != -1)
 #define ini_close(file)               (cfs_close(*(file)))
 /* minIni requires fgets(3) like read, but cfs only provides a read(2). */
 int ini_read(char *buffer, int size, int *fd);

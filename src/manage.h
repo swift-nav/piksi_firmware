@@ -34,10 +34,10 @@
 #define MANAGE_NO_CHANNELS_FREE 255
 
 #define MANAGE_ACQ_THREAD_PRIORITY NORMALPRIO
-#define MANAGE_ACQ_THREAD_STACK    4096
+#define MANAGE_ACQ_THREAD_STACK    3000
 
 #define MANAGE_TRACK_THREAD_PRIORITY (NORMALPRIO-2)
-#define MANAGE_TRACK_THREAD_STACK    4096
+#define MANAGE_TRACK_THREAD_STACK    3000
 
 /** Acquisition management states. */
 typedef enum {
@@ -82,5 +82,6 @@ void manage_track_setup(void);
 u8 manage_track_new_acq(float snr);
 void manage_track(void);
 s8 use_tracking_channel(u8 i);
+u8 tracking_channels_ready(void);
 
 #endif

@@ -22,6 +22,7 @@ import math
 import os
 import numpy as np
 import datetime
+import time
 
 import sbp_piksi as sbp_messages
 
@@ -75,7 +76,9 @@ class BaselineView(HasTraits):
     width=16, height=16
   )
 
-  init_button = Button(label='Init Ambs.')
+  reset_button = Button(label='Reset Filters')
+  reset_iar_button = Button(label='Reset IAR')
+  init_base_button = Button(label='Init. with known baseline')
 
   traits_view = View(
     HSplit(
@@ -86,7 +89,9 @@ class BaselineView(HasTraits):
           Item('clear_button', show_label=False),
           Item('zoomall_button', show_label=False),
           Item('center_button', show_label=False),
-          Item('init_button', show_label=False),
+          Item('reset_button', show_label=False),
+          Item('reset_iar_button', show_label=False),
+          Item('init_base_button', show_label=False),
         ),
         Item(
           'plot',
@@ -109,8 +114,14 @@ class BaselineView(HasTraits):
   def _paused_button_fired(self):
     self.running = not self.running
 
-  def _init_button_fired(self):
-    self.link.send_message(0x99, '\0')
+  def _reset_button_fired(self):
+    self.link.send_message(sbp_messages.RESET_FILTERS, '\x00')
+
+  def _reset_iar_button_fired(self):
+    self.link.send_message(sbp_messages.RESET_FILTERS, '\x01')
+
+  def _init_base_button_fired(self):
+    self.link.send_message(sbp_messages.INIT_BASE, '')
 
   def _clear_button_fired(self):
     self.ns = []
@@ -125,6 +136,9 @@ class BaselineView(HasTraits):
     #Don't do anything for ECEF currently
     return
 
+  def iar_state_callback(self, data):
+    self.num_hyps = struct.unpack('<I', data)
+
   def _baseline_callback_ned(self, data):
     # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
     # actually perform the update in the UI thread.
@@ -136,6 +150,7 @@ class BaselineView(HasTraits):
 
   def baseline_callback(self, data):
     soln = sbp_messages.BaselineNED(data)
+
     soln.n = soln.n * 1e-3
     soln.e = soln.e * 1e-3
     soln.d = soln.d * 1e-3
@@ -150,6 +165,11 @@ class BaselineView(HasTraits):
     table.append(('Dist.', dist))
     table.append(('Num. Sats.', soln.n_sats))
     table.append(('Flags', hex(soln.flags)))
+    if soln.flags & 1:
+      table.append(('Mode', 'Fixed RTK'))
+    else:
+      table.append(('Mode', 'Float'))
+    table.append(('IAR Num. Hyps.', self.num_hyps))
 
     self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow * 1e3, soln.n, soln.e, soln.d, soln.n_sats))
     self.log_file.flush()
@@ -158,16 +178,16 @@ class BaselineView(HasTraits):
     self.es.append(soln.e)
     self.ds.append(soln.d)
 
-    self.ns = self.ns[-5000:]
-    self.es = self.es[-5000:]
-    self.ds = self.ds[-5000:]
+    self.ns = self.ns[-1000:]
+    self.es = self.es[-1000:]
+    self.ds = self.ds[-1000:]
 
     self.plot_data.set_data('n', self.ns)
     self.plot_data.set_data('e', self.es)
     self.plot_data.set_data('d', self.ds)
-    self.plot_data.set_data('ref_n', [0.0, -0.8977, soln.n])
-    self.plot_data.set_data('ref_e', [0.0, -0.9489, soln.e])
-    self.plot_data.set_data('ref_d', [0.0, 0.1623, soln.d])
+    self.plot_data.set_data('ref_n', [0.0, soln.n])
+    self.plot_data.set_data('ref_e', [0.0, soln.e])
+    self.plot_data.set_data('ref_d', [0.0, soln.d])
     t = range(len(self.ns))
     self.plot_data.set_data('t', t)
 
@@ -182,7 +202,9 @@ class BaselineView(HasTraits):
   def __init__(self, link):
     super(BaselineView, self).__init__()
 
-    self.log_file = open("baseline_log.csv", 'a')
+    self.log_file = open(time.strftime("baseline_log_%Y%m%d-%H%M%S.csv"), 'w')
+
+    self.num_hyps = 0
 
     self.plot_data = ArrayPlotData(n=[0.0], e=[0.0], d=[0.0], t=[0.0], ref_n=[0.0], ref_e=[0.0], ref_d=[0.0])
     self.plot = Plot(self.plot_data)
@@ -212,6 +234,7 @@ class BaselineView(HasTraits):
     self.link = link
     self.link.add_callback(sbp_messages.SBP_BASELINE_NED, self._baseline_callback_ned)
     self.link.add_callback(sbp_messages.SBP_BASELINE_ECEF, self._baseline_callback_ecef)
+    self.link.add_callback(sbp_messages.IAR_STATE, self.iar_state_callback)
 
     self.python_console_cmds = {
       'baseline': self

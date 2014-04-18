@@ -20,34 +20,13 @@
 
 #define SETTINGS_FILE "config"
 
-/** \addtogroup io
- * \{ */
-
-settings_t settings /*__attribute__ ((section(".settings_area"))) */=
-/* Default settings: */
-{
-  .settings_valid = VALID,
-
-  .ftdi_usart = {
-    .mode         = SBP,
-    .baud_rate    = USART_DEFAULT_BAUD_FTDI,
-    .message_mask = 0xFFFF,
-  },
-  .uarta_usart = {
-    .mode         = SBP,
-    .baud_rate    = 57600,
-    .message_mask = 0x40,
-  },
-  .uartb_usart = {
-    .mode         = SBP,
-    .baud_rate    = USART_DEFAULT_BAUD_TTL,
-    .message_mask = 0xFF00
-  },
-};
-
-/** \} */
 
 static struct setting *settings_head;
+
+static const char const * bool_enum[] = {"False", "True", NULL};
+static struct setting_type bool_settings_type;
+/* Bool type identifier can't be a constant because its allocated on setup. */
+int TYPE_BOOL = 0;
 
 static int float_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
 {
@@ -55,9 +34,9 @@ static int float_to_string(const void *priv, char *str, int slen, const void *bl
 
   switch (blen) {
   case 4:
-    return snprintf(str, slen, "%e", (double)*(float*)blob);
+    return snprintf(str, slen, "%g", (double)*(float*)blob);
   case 8:
-    return snprintf(str, slen, "%e", *(double*)blob);
+    return snprintf(str, slen, "%g", *(double*)blob);
   }
   return -1;
 }
@@ -95,8 +74,15 @@ static bool int_from_string(const void *priv, void *blob, int blen, const char *
   (void)priv;
 
   switch (blen) {
-  case 1:
-    return sscanf(str, "%hhd", (s8*)blob) == 1;
+  case 1: {
+    s16 tmp;
+    /* Newlib's crappy sscanf doesn't understand %hhd */
+    if (sscanf(str, "%hd", &tmp) == 1) {
+      *(s8*)blob = tmp;
+      return true;
+    }
+    return false;
+  }
   case 2:
     return sscanf(str, "%hd", (s16*)blob) == 1;
   case 4:
@@ -193,6 +179,8 @@ int settings_type_register_enum(const char * const enumnames[], struct setting_t
 
 void settings_setup(void)
 {
+  TYPE_BOOL = settings_type_register_enum(bool_enum, &bool_settings_type);
+
   static sbp_msg_callbacks_node_t settings_msg_node;
   sbp_register_cbk(
     MSG_SETTINGS,
@@ -211,16 +199,6 @@ void settings_setup(void)
     &settings_read_by_index_callback,
     &settings_read_by_index_node
   );
-  static const char const * portmode_enum[] = {"SBP", "NMEA", "RTCM", NULL};
-  static struct setting_type portmode;
-  int TYPE_PORTMODE = settings_type_register_enum(portmode_enum, &portmode);
-
-  SETTING("ftdi_uart", "mode", settings.ftdi_usart.mode, TYPE_PORTMODE);
-  SETTING("ftdi_uart", "baudrate", settings.ftdi_usart.baud_rate, TYPE_INT);
-  SETTING("uarta_uart", "mode", settings.uarta_usart.mode, TYPE_PORTMODE);
-  SETTING("uarta_uart", "baudrate", settings.uarta_usart.baud_rate, TYPE_INT);
-  SETTING("uartb_uart", "mode", settings.uartb_usart.mode, TYPE_PORTMODE);
-  SETTING("uartb_uart", "baudrate", settings.uartb_usart.baud_rate, TYPE_INT);
 }
 
 void settings_register(struct setting *setting, enum setting_types type)
@@ -237,7 +215,8 @@ void settings_register(struct setting *setting, enum setting_types type)
     settings_head = setting;
   } else {
     for (s = settings_head; s->next; s = s->next) {
-      if (strcmp(s->section, setting->section) == 0)
+      if ((strcmp(s->section, setting->section) == 0) &&
+          (strcmp(s->next->section, setting->section) != 0))
         break;
     }
     setting->next = s->next;
@@ -394,7 +373,7 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* contex
 
   (void)sender_id; (void) context; (void)len; (void)msg;
 
-  if (f < 0) {
+  if (f == -1) {
     printf("Error opening config file!\n");
     return;
   }

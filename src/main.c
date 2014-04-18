@@ -18,7 +18,9 @@
 #include <ch.h>
 
 #include "board/leds.h"
+#include "board/max2769.h"
 #include "board/nap/nap_conf.h"
+#include "board/nap/acq_channel.h"
 #include "board/max2769.h"
 #include "sbp.h"
 #include "init.h"
@@ -36,8 +38,8 @@
 #endif
 
 /* TODO: Think about thread safety when updating ephemerides. */
-ephemeris_t es[32];
-ephemeris_t es_old[32];
+ephemeris_t es[32] _CCM;
+ephemeris_t es_old[32] _CCM;
 
 /* Required by exit() which is called from BLAS/LAPACK. */
 void _fini(void)
@@ -45,7 +47,7 @@ void _fini(void)
   return;
 }
 
-static WORKING_AREA_CCM(wa_nav_msg_thread, 4096);
+static WORKING_AREA_CCM(wa_nav_msg_thread, 3000);
 static msg_t nav_msg_thread(void *arg)
 {
   (void)arg;
@@ -113,17 +115,16 @@ int main(void)
 
   /* Piksi hardware initialization. */
   init(1);
+  settings_setup();
+  usarts_setup();
 
-  printf("\n\nPiksi Starting...\n"
-         "Firmware Version: " GIT_VERSION "\n" \
-         "Built: " __DATE__ " " __TIME__ "\n");
 
   static char nap_version_string[64] = {0};
-
-  /* Read out NAP version string. */
   nap_conf_rd_version_string(nap_version_string);
 
-  settings_setup();
+  static s32 serial_number;
+  serial_number = nap_conf_rd_serial_number();
+
   max2769_setup();
   timing_setup();
   position_setup();
@@ -135,10 +136,30 @@ int main(void)
 
   simulator_setup();
 
-  READ_ONLY_PARAMETER("system_info", "firmware_version", GIT_VERSION, TYPE_STRING);
-  READ_ONLY_PARAMETER("system_info", "firmware_built", __DATE__ " " __TIME__, TYPE_STRING);
-  READ_ONLY_PARAMETER("system_info", "nap_version", nap_version_string, TYPE_STRING);
-  READ_ONLY_PARAMETER("system_info", "nap_channels", nap_track_n_channels, TYPE_INT);
+  if (serial_number < 0) {
+    READ_ONLY_PARAMETER("system_info", "serial_number", "(unknown)", TYPE_STRING);
+  } else {
+    READ_ONLY_PARAMETER("system_info", "serial_number", serial_number, TYPE_INT);
+  }
+  READ_ONLY_PARAMETER("system_info", "firmware_version", GIT_VERSION,
+                      TYPE_STRING);
+  READ_ONLY_PARAMETER("system_info", "firmware_built", __DATE__ " " __TIME__,
+                      TYPE_STRING);
+
+  static struct setting hw_rev = {
+    "system_info", "hw_revision", NULL, 0,
+    settings_read_only_notify, NULL,
+    NULL, false
+  };
+  hw_rev.addr = (char *)nap_conf_rd_hw_rev_string();
+  hw_rev.len = strlen(hw_rev.addr);
+  settings_register(&hw_rev, TYPE_STRING);
+
+  READ_ONLY_PARAMETER("system_info", "nap_version", nap_version_string,
+                      TYPE_STRING);
+  READ_ONLY_PARAMETER("system_info", "nap_channels", nap_track_n_channels,
+                      TYPE_INT);
+  READ_ONLY_PARAMETER("system_info", "nap_taps", nap_acq_n_taps, TYPE_INT);
 
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);

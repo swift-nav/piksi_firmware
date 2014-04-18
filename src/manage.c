@@ -144,13 +144,14 @@ static void manage_calc_scores(void)
       toa.wn = almanac[prn].week + 1024;
       toa.tow = almanac[prn].toa;
 
-      double dt = fabs(gpsdifftime(t, toa));
+      double dt_alm = fabs(gpsdifftime(t, toa));
+      double dt_pos = fabs(gpsdifftime(t, position_solution.time));
 
       if (time_quality == TIME_GUESS ||
-          position_quality == POSITION_GUESS ||
-          dt > 2*24*3600) {
-        /* Don't exclude other sats if our time is just a guess or our almanac
-         * is old. */
+          dt_pos > 1*24*3600 ||
+          dt_alm > 4*24*3600) {
+        /* Don't exclude other sats if our time is just a guess, our last
+         * position solution was ages ago or our almanac is old. */
         if (acq_prn_param[prn].score < 0)
           acq_prn_param[prn].score = 0;
       }
@@ -424,6 +425,17 @@ s8 use_tracking_channel(u8 i)
             - tracking_channel[i].snr_below_threshold_count
             > TRACK_SNR_THRES_COUNT)
       && (tracking_channel[i].TOW_ms > 0);
+}
+
+u8 tracking_channels_ready()
+{
+  u8 n_ready = 0;
+  for (u8 i=0; i<nap_track_n_channels; i++) {
+    if (use_tracking_channel(i)) {
+      n_ready++;
+    }
+  }
+  return n_ready;
 }
 
 /** \} */

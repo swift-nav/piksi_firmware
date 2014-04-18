@@ -14,6 +14,7 @@
 #define SWIFTNAV_USART_H
 
 #include <libswiftnav/common.h>
+#include "settings.h"
 
 #define dma2_stream6_isr Vector154
 #define dma2_stream1_isr Vector124
@@ -21,6 +22,28 @@
 #define dma2_stream2_isr Vector128
 #define dma1_stream3_isr Vector78
 #define dma1_stream1_isr Vector70
+
+/** \addtogroup io
+ * \{ */
+
+ /** Message and baud rate settings for a USART. */
+typedef struct {
+  enum {
+    SBP  = 0,
+    NMEA = 1,
+    RTCM = 2
+  } mode; /**< Communication mode : Swift Binary Protocol or NMEA */
+  u32 baud_rate;
+  u32 sbp_message_mask;
+  u8  configure_telemetry_radio_on_boot;
+} usart_settings_t;
+
+/** Message and baud rate settings for all USARTs. */
+extern usart_settings_t ftdi_usart;
+extern usart_settings_t uarta_usart;
+extern usart_settings_t uartb_usart;
+
+/** \} */
 
 /** \addtogroup peripherals
  * \{ */
@@ -30,8 +53,8 @@
 
 #define USART_DMA_ISR_PRIORITY 7
 
-#define USART_TX_BUFFER_LEN 4096
-#define USART_RX_BUFFER_LEN 4096
+#define USART_TX_BUFFER_LEN 2048
+#define USART_RX_BUFFER_LEN 2048
 
 #define USART_DEFAULT_BAUD_FTDI 1000000
 #define USART_DEFAULT_BAUD_TTL  115200
@@ -79,7 +102,10 @@ extern usart_rx_dma_state uarta_rx_state;
 extern usart_tx_dma_state uartb_tx_state;
 extern usart_rx_dma_state uartb_rx_state;
 
-void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud);
+void usarts_setup();
+bool baudrate_change_notify(struct setting *s, const char *val);
+
+void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_preconfigure_hooks);
 void usarts_disable(void);
 
 void usart_set_parameters(u32 usart, u32 baud);
