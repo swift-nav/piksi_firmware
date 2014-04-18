@@ -26,9 +26,9 @@ class Bootloader():
 
   def __init__(self, link):
     self.handshake_received = False
+    self.version = None
     self.link = link
     self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
-    self.version = None
 
   def __del__(self):
     self.stop()
@@ -59,10 +59,10 @@ class Bootloader():
 if __name__ == "__main__":
   import argparse
   import thread
-  import serial_link
-  import flash
   import sys
   from intelhex import IntelHex
+  import serial_link
+  import flash
   parser = argparse.ArgumentParser(description='Piksi Bootloader')
   parser.add_argument("file",
                       help="the Intel hex file to write to flash.")
@@ -133,7 +133,7 @@ if __name__ == "__main__":
   elif args.m25:
     piksi_flash = flash.Flash(link, flash_type="M25")
 
-  piksi_flash.write_ihx(ihx)
+  piksi_flash.write_ihx(ihx, sys.stdout)
 
   print "Bootloader jumping to application"
   piksi_bootloader.jump_to_app()
