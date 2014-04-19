@@ -15,6 +15,9 @@
 #include <stdio.h>
 #include <ctype.h>
 
+#include <libswiftnav/common.h>
+#include <libswiftnav/constants.h>
+
 #include "../m25_flash.h"
 #include "acq_channel.h"
 #include "nap_conf.h"
@@ -45,6 +48,9 @@ void nap_conf_rd_parameters(void)
   /* Get parameters from FPGA configuration flash */
   for (u8 i = 0; i < (sizeof(nap_parameters) / sizeof(nap_parameters[0])); i++)
     m25_read(NAP_FLASH_PARAMS_ADDR + i, nap_parameters[i], 1);
+
+  /* Bound number of channels with used by libswiftnav MAX_CHANNELS parameter. */
+  nap_track_n_channels = MIN(nap_track_n_channels, MAX_CHANNELS);
 }
 
 /** Return version string from NAP configuration build.
@@ -62,7 +68,7 @@ u8 nap_conf_rd_version_string(char version_string[])
     version_string[count] = c;
     count++;
 
-    if (c && !isprint(c)) {
+    if (c && !isprint((u8)c)) {
       /* We have hit an unexpected character, this must not be an ASCII version
        * string. Fall back to old Git Hash style version. */
 
