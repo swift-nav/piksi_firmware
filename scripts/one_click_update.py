@@ -30,6 +30,7 @@ import flash
 
 # TODO: handle case where NAP or STM firmwares are bad?
 # TODO: sort out handler calling firmware update function
+# TODO: handle KeyError's that could result if Dict key names get changed?
 
 CONSOLE_VERSION = filter(lambda x: x!='\n', \
                          check_output(['git describe --dirty'], shell=True))
@@ -41,6 +42,7 @@ class OneClickUpdateHandler(Handler):
     info.object.handler_executed = True
     return True
 
+  # Executed in GUI thread.
   def fw_update_handler(self, info):
     info.ui.dispose()
     info.object.manage_fw_update()
@@ -134,25 +136,21 @@ class OneClickUpdate():
   def __init__(self, link, output=None):
     self.link = link
     self.thread = None
+    self.fw_update_prompt = OneClickUpdateWindow(self.manage_firmware_updates)
+    self.console_outdated_prompt = ConsoleOutdatedWindow()
     if output:
       self.output = output
     else:
       self.output = self.fw_update_prompt.output_stream
 
-  # Instead of inheriting Thread so we can run multiple times.
+  # Instead of inheriting Thread so start can be called multiple times.
+  # Expectation is that OneClickUpdate.start is passed to SettingsView to
+  # be called after settings are read out, which can happen multiple times.
+  # Executed in GUI thread.
   def start(self):
-    self.piksi_stm_version = None
-    self.piksi_nap_version = None
-    self.index = None
-    self.stm_fw_outdated = None
-    self.nap_fw_outdated = None
-    self.stm_ihx = None
-    self.nap_ihx = None
-    # Make sure previous update thread has finished.
-    while self.thread and self.thread.is_alive():
-      time.sleep(1)
-    self.fw_update_prompt = OneClickUpdateWindow(self.manage_firmware_updates)
-    self.console_outdated_prompt = ConsoleOutdatedWindow()
+    # Only run once.
+    if self.thread:
+      return
     self.thread = Thread(target=self.run)
     self.thread.start()
 
@@ -176,6 +174,7 @@ class OneClickUpdate():
         self.write("Piksi system info not received yet\n")
         time.sleep(1)
 
+  # Executed in it's own thread.
   def run(self):
 
     # Get index that contains file URLs and latest
@@ -242,6 +241,7 @@ class OneClickUpdate():
       while not self.console_outdated_prompt.handler_executed:
         time.sleep(0.5)
 
+  # Executed in GUI thread, called from handler.
   def manage_firmware_updates(self):
 
     self.write("\n")
