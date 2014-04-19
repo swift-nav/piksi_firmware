@@ -21,6 +21,9 @@ parser.add_argument('-b', '--baud', nargs=1, default=[serial_link.DEFAULT_BAUD],
 parser.add_argument("-v", "--verbose",
                   help="print extra debugging information.",
                   action="store_true")
+parser.add_argument("-u", "--update",
+                  help="don't prompt about firmware/console updates.",
+                  action="store_false")
 parser.add_argument("-f", "--ftdi",
                   help="use pylibftdi instead of pyserial.",
                   action="store_true")
@@ -125,12 +128,19 @@ class SwiftConsole(HasTraits):
     print "VAR: %s = %d" % (name, x)
 
   def __init__(self, *args, **kwargs):
+    try:
+      update = kwargs.pop('update')
+    except KeyError:
+      update = True
+
     self.console_output = OutputStream()
 
     self.link = serial_link.SerialLink(*args, **kwargs)
     self.link.add_callback(ids.PRINT, self.print_message_callback)
 
     self.link.add_callback(ids.DEBUG_VAR, self.debug_var_callback)
+
+    settings_read_finished_functions = []
 
     self.tracking_view = TrackingView(self.link)
     self.almanac_view = AlmanacView(self.link)
@@ -140,11 +150,14 @@ class SwiftConsole(HasTraits):
     self.observation_view_base = ObservationView(self.link, name='Base', sender_id=0)
     self.system_monitor_view = SystemMonitorView(self.link)
     self.simulator_view = SimulatorView(self.link)
-    #TODO : by default don't instantiate OneClickUpdate, i.e. only for
-    #       people who are running the compiled binary console?
-    self.ocu = OneClickUpdate(self.link, self.console_output)
-    self.settings_view = SettingsView(self.link, [self.ocu.start])
-    self.ocu.point_to_settings(self.settings_view.settings)
+    if update:
+      self.ocu = OneClickUpdate(self.link, self.console_output)
+      settings_read_finished_functions.append(self.ocu.start)
+    self.settings_view = \
+        SettingsView(self.link, settings_read_finished_functions)
+
+    if update:
+      self.ocu.point_to_settings(self.settings_view.settings)
 
     self.python_console_env = {
         'send_message': self.link.send_message,
@@ -161,7 +174,7 @@ class SwiftConsole(HasTraits):
     self.link.close()
 
 console = SwiftConsole(serial_port, baud, use_ftdi=args.ftdi,
-                       print_unhandled=args.verbose)
+                       print_unhandled=args.verbose, update=args.update)
 
 console.configure_traits()
 console.stop()
