@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+# Copyright (C) 2014 Swift Navigation Inc.
+# Contact: Colin Beighley <colin@swift-nav.com>
+#
+# This source is subject to the license found in the file 'LICENSE' which must
+# be be distributed together with this source. All other rights reserved.
+#
+# THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+# EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+
 from urllib2 import urlopen, URLError
 from json import load as jsonload
 import time
@@ -17,13 +28,11 @@ import bootload
 import sbp_piksi as ids
 import flash
 
-# TODO: handle case where NAP and STM firmwares are bad?
+# TODO: handle case where NAP or STM firmwares are bad?
 # TODO: sort out handler calling firmware update function
 
-# Not using --dirty so local changes (which could be to non-console files)
-# don't make one_click_update think console is out of date.
 CONSOLE_VERSION = filter(lambda x: x!='\n', \
-                         check_output(['git describe'], shell=True))
+                         check_output(['git describe --dirty'], shell=True))
 INDEX_URL = 'http://download.swift-nav.com/index.json'
 
 class OneClickUpdateHandler(Handler):
@@ -109,21 +118,34 @@ class ConsoleOutdatedWindow(HasTraits):
           remote_console + "\n"
     self.output_stream.write(txt)
 
-# TODO: Better error handling
-class OneClickUpdate(Thread):
+class OneClickUpdate():
 
   index = None
   settings = {}
 
   def __init__(self, link, output=None):
-    super(OneClickUpdate, self).__init__()
     self.link = link
-    self.fw_update_prompt = OneClickUpdateWindow(self.manage_firmware_updates)
-    self.console_outdated_prompt = ConsoleOutdatedWindow()
+    self.thread = None
     if output:
       self.output = output
     else:
       self.output = self.fw_update_prompt.output_stream
+
+  # Instead of inheriting Thread so we can run multiple times.
+  def start(self):
+    self.piksi_stm_version = None
+    self.piksi_nap_version = None
+    self.index = None
+    self.stm_fw_outdated = None
+    self.nap_fw_outdated = None
+    self.stm_ihx = None
+    self.nap_ihx = None
+    while self.thread and self.thread.is_alive():
+      time.sleep(1)
+    self.fw_update_prompt = OneClickUpdateWindow(self.manage_firmware_updates)
+    self.console_outdated_prompt = ConsoleOutdatedWindow()
+    self.thread = Thread(target=self.run)
+    self.thread.start()
 
   def point_to_settings(self, settings):
     self.settings = settings
