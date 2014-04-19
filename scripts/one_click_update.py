@@ -28,8 +28,8 @@ import bootload
 import sbp_piksi as ids
 import flash
 
-# TODO: handle case where NAP or STM firmwares are bad?
-# TODO: sort out handler calling firmware update function
+# TODO: handle case where NAP and/or STM firmwares is bad?
+# TODO: Find better way for handler to trigger firmware update
 # TODO: handle KeyError's that could result if Dict key names get changed?
 
 CONSOLE_VERSION = filter(lambda x: x!='\n', \
@@ -161,19 +161,6 @@ class OneClickUpdate():
     GUI.invoke_later(self.output.write, text)
     GUI.process_events()
 
-  def wait_for_settings(self):
-    # TODO: timeout if settings.version info isn't available after some point.
-    while True:
-      try:
-        self.piksi_stm_version = \
-            self.settings['system_info']['firmware_version'].value
-        self.piksi_nap_version = \
-            self.settings['system_info']['nap_version'].value
-        break
-      except KeyError:
-        self.write("Piksi system info not received yet\n")
-        time.sleep(1)
-
   # Executed in it's own thread.
   def run(self):
 
@@ -186,10 +173,27 @@ class OneClickUpdate():
     except URLError:
       self.write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n\n" % INDEX_URL)
       return
+    # Make sure index contains all keys we are interested in.
+    try:
+      self.index['piksi_v2.3.1']['stm_fw']['version']
+      self.index['piksi_v2.3.1']['stm_fw']['url']
+      self.index['piksi_v2.3.1']['nap_fw']['version']
+      self.index['piksi_v2.3.1']['nap_fw']['url']
+      self.index['piksi_v2.3.1']['console']['version']
+    except KeyError:
+      self.write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
+      return
 
-    # Wait until console has received Piksi's settings,
+    # Make sure settings contains Piksi firmware version strings.
     # which contain version strings.
-    self.wait_for_settings()
+    try:
+      self.piksi_stm_version = \
+          self.settings['system_info']['firmware_version'].value
+      self.piksi_nap_version = \
+          self.settings['system_info']['nap_version'].value
+    except:
+      self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
+      return
 
     # Firmware is outdated if version string from Piksi doesn't match
     # latest from website.
@@ -197,10 +201,11 @@ class OneClickUpdate():
                                !=  self.piksi_stm_version
     self.nap_fw_outdated = self.index['piksi_v2.3.1']['nap_fw']['version'] \
                                !=  self.piksi_nap_version
-    self.fw_update_prompt.init_prompt_text(self.piksi_stm_version, \
-                            self.piksi_nap_version, \
-                            self.index['piksi_v2.3.1']['stm_fw']['version'], \
-                            self.index['piksi_v2.3.1']['nap_fw']['version'])
+    self.fw_update_prompt.init_prompt_text(
+                          self.piksi_stm_version, \
+                          self.piksi_nap_version, \
+                          self.index['piksi_v2.3.1']['stm_fw']['version'], \
+                          self.index['piksi_v2.3.1']['nap_fw']['version'])
 
     # Get firmware files from Swift Nav's website.
     self.nap_ihx = None
