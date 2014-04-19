@@ -120,7 +120,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   sbp_send_msg_(MSG_NEW_OBS, len, msg, 0);
 
   gps_time_t *t = (gps_time_t *)msg;
-  double epoch_count = t->tow * soln_freq;
+  double epoch_count = t->tow * (soln_freq / obs_output_divisor);
 
   if (fabs(epoch_count - round(epoch_count)) > TIME_MATCH_THRESHOLD) {
     printf("Unaligned observation from base station ignored.\n");
@@ -277,7 +277,11 @@ static msg_t solution_thread(void *arg)
 
         /* Only send observations that are closely aligned with the desired
          * solution epochs to ensure they haven't been propagated too far. */
-        if (fabs(t_err) < OBS_PROPAGATION_LIMIT) {
+        /* Output obervations only every obs_output_divisor times, taking
+         * care to ensure that the observations are aligned. */
+        double t_check = expected_tow * (soln_freq / obs_output_divisor);
+        if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
+            fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
           /* Propagate observation to desired time. */
           for (u8 i=0; i<n_ready_tdcp; i++) {
             nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
@@ -291,10 +295,7 @@ static msg_t solution_thread(void *arg)
           new_obs_time.tow = expected_tow;
 
           if (!simulation_enabled()) {
-            /* Output obervations. */
-            DO_EVERY(obs_output_divisor,
-              send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
-            );
+            send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
           }
 
           /* TODO: use a buffer from the pool from the start instead of
