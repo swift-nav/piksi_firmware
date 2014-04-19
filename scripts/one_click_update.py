@@ -88,8 +88,15 @@ class OneClickUpdateWindow(HasTraits):
                    "Upgrade Now?"
     self.output_stream.write(init_strings.encode('ascii', 'ignore'))
 
+class ConsoleOutdatedHandler(Handler):
+
+  def close(self, info, is_ok):
+    info.object.handler_executed = True
+    return True
+
 class ConsoleOutdatedWindow(HasTraits):
   output_stream = Instance(OutputStream)
+  handler_executed = False
   view = View(
               Item(
                 'output_stream',
@@ -102,6 +109,7 @@ class ConsoleOutdatedWindow(HasTraits):
               title="Your Piksi Console is out of date",
               height=250,
               width=450,
+              handler=ConsoleOutdatedHandler(),
               resizable=True
              )
 
@@ -140,6 +148,7 @@ class OneClickUpdate():
     self.nap_fw_outdated = None
     self.stm_ihx = None
     self.nap_ihx = None
+    # Make sure previous update thread has finished.
     while self.thread and self.thread.is_alive():
       time.sleep(1)
     self.fw_update_prompt = OneClickUpdateWindow(self.manage_firmware_updates)
@@ -230,6 +239,8 @@ class OneClickUpdate():
       self.console_outdated_prompt.init_prompt_text(CONSOLE_VERSION, \
                     self.index['piksi_v2.3.1']['console']['version'])
       GUI.invoke_later(self.console_outdated_prompt.edit_traits)
+      while not self.console_outdated_prompt.handler_executed:
+        time.sleep(0.5)
 
   def manage_firmware_updates(self):
 
