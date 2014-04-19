@@ -62,7 +62,7 @@ u8 nap_conf_rd_version_string(char version_string[])
     version_string[count] = c;
     count++;
 
-    if (!isprint(c)) {
+    if (c && !isprint(c)) {
       /* We have hit an unexpected character, this must not be an ASCII version
        * string. Fall back to old Git Hash style version. */
 
