@@ -91,35 +91,16 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
 void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
                             double ref_ecef[3], u8 flags)
 {
-  if (1) {
-    sbp_baseline_ecef_t sbp_ecef = {
-      .tow = t->tow,
-      .x = (s32)round(1e3 * b_ecef[0]),
-      .y = (s32)round(1e3 * b_ecef[1]),
-      .z = (s32)round(1e3 * b_ecef[2]),
-      .accuracy = 0,
-      .n_sats = n_sats,
-      .flags = flags
-    };
-    sbp_send_msg(SBP_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
-  }
+  sbp_baseline_ecef_t sbp_ecef;
+  sbp_make_baseline_ecef(&sbp_ecef, t, n_sats, b_ecef, flags);
+  sbp_send_msg(SBP_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
 
-  if (1) {
-    double b_ned[3];
-    wgsecef2ned(b_ecef, ref_ecef, b_ned);
+  double b_ned[3];
+  wgsecef2ned(b_ecef, ref_ecef, b_ned);
 
-    sbp_baseline_ned_t sbp_ned = {
-      .tow = t->tow,
-      .n = (s32)round(1e3 * b_ned[0]),
-      .e = (s32)round(1e3 * b_ned[1]),
-      .d = (s32)round(1e3 * b_ned[2]),
-      .h_accuracy = 0,
-      .v_accuracy = 0,
-      .n_sats = n_sats,
-      .flags = flags
-    };
-    sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
-  }
+  sbp_baseline_ned_t sbp_ned;
+  sbp_make_baseline_ned(&sbp_ned, t, n_sats, b_ned, flags);
+  sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
 }
 
 extern ephemeris_t es[MAX_SATS];
