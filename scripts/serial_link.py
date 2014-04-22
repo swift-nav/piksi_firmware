@@ -124,6 +124,7 @@ class SerialLink:
       self.lt.stop()
     except AttributeError:
       pass
+    self.ser.close()
 
   def get_message(self):
     while True:
