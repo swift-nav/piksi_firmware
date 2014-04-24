@@ -73,15 +73,8 @@ typedef struct __attribute__((packed)) {
 typedef struct __attribute__((packed)) {
   double P;      /**< Pseudorange (m) */
   double L;      /**< Carrier-phase (cycles) */
-  //float D;       /**< Doppler frequency (Hz) */
   float snr;     /**< Signal-to-Noise ratio */
-  //u8 lock_count; /**< Number of epochs that phase lock has been maintained. */
-  //u8 signal;     /**< Upper nibble: Satellite system designator,
-  //                    Lower nibble: Signal type designator.
-  //                    TODO: Add defs.*/
   u8 prn;        /**< Satellite number. */
-  //u8 flags;      /**< Observation flags. TODO: Add defs. */
-  //u8 obs_n;      /**< Observation number in set. */
 } msg_obs_t;
 
 #define MSG_TRACKING_STATE        0x16  /**< Piksi  -> Host  */
