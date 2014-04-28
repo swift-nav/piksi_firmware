@@ -18,7 +18,7 @@ from subprocess import check_output
 
 from threading import Thread
 
-from traits.api import HasTraits, String, Button, Int, Instance
+from traits.api import HasTraits, String, Button, Int, Instance, Event
 from traitsui.api import View, Handler, Action, Item, InstanceEditor
 from pyface.api import GUI
 
@@ -30,7 +30,6 @@ import flash
 
 # TODO: handle case where NAP and/or STM firmwares is bad?
 # TODO: Find better way for handler to trigger firmware update
-# TODO: handle KeyError's that could result if Dict key names get changed?
 
 CONSOLE_VERSION = filter(lambda x: x!='\n', \
                          check_output(['git describe --dirty'], shell=True))
@@ -40,27 +39,32 @@ class OneClickUpdateHandler(Handler):
 
   def close(self, info, is_ok): # X button was pressed.
     info.object.handler_executed = True
+    info.object.closed = True
     return True
 
   # Executed in GUI thread.
   def fw_update_handler(self, info):
-    info.ui.dispose()
     info.object.manage_fw_update()
     info.object.handler_executed = True
 
   def no_fw_update_handler(self, info):
-    info.ui.dispose()
     info.object.handler_executed = True
+
+  def object_close_changed(self, info):
+    info.object.closed = True
+    info.ui.owner.close()
 
 class OneClickUpdateWindow(HasTraits):
 
   handler = OneClickUpdateHandler()
   output_stream = Instance(OutputStream)
   handler_executed = False
+  close = Event
+  closed = False
   yes_button = Action(name = "Yes", action = "fw_update_handler", \
-                    show_label=False)
+                      show_label=False)
   no_button = Action(name = "No", action = "no_fw_update_handler", \
-                   show_label=False)
+                     show_label=False)
 
   view = View(
               Item(
@@ -94,11 +98,23 @@ class ConsoleOutdatedHandler(Handler):
 
   def close(self, info, is_ok):
     info.object.handler_executed = True
+    info.object.closed = True
     return True
+
+  def okay_pressed(self, info):
+    info.object.handler_executed = True
+
+  def object_close_changed(self, info):
+    info.object.closed = True
+    info.ui.owner.close()
 
 class ConsoleOutdatedWindow(HasTraits):
   output_stream = Instance(OutputStream)
   handler_executed = False
+  close = Event
+  closed = False
+  okay_button = Action(name = "Okay", action = "okay_pressed", \
+                       show_label = False)
   view = View(
               Item(
                 'output_stream',
@@ -107,8 +123,9 @@ class ConsoleOutdatedWindow(HasTraits):
                 height=0.3,
                 show_label=False
               ),
-              buttons=['OK'],
-              title="Your Piksi Console is out of date",
+              #buttons=['OK'],
+              buttons=[okay_button],
+              title="Piksi Console is Out of Date",
               height=250,
               width=450,
               handler=ConsoleOutdatedHandler(),
@@ -237,6 +254,9 @@ class OneClickUpdate():
       GUI.invoke_later(self.fw_update_prompt.edit_traits) # Start prompt.
       while not self.fw_update_prompt.handler_executed:
         time.sleep(0.5)
+      while not self.fw_update_prompt.closed:
+        self.fw_update_prompt.close = 1
+        time.sleep(0.5)
 
     # Check if console is out of date and notify user if so.
     if (self.index['piksi_v2.3.1']['console']['version'] != CONSOLE_VERSION):
@@ -244,6 +264,9 @@ class OneClickUpdate():
                     self.index['piksi_v2.3.1']['console']['version'])
       GUI.invoke_later(self.console_outdated_prompt.edit_traits)
       while not self.console_outdated_prompt.handler_executed:
+        time.sleep(0.5)
+      while not self.console_outdated_prompt.closed:
+        self.console_outdated_prompt.close = 1
         time.sleep(0.5)
 
   # Executed in GUI thread, called from handler.
