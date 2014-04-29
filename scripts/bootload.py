@@ -25,16 +25,19 @@ import struct
 class Bootloader():
 
   def __init__(self, link):
+    self.stopped = False
     self.handshake_received = False
     self.version = None
     self.link = link
     self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
 
   def __del__(self):
-    self.stop()
+    if not self.stopped:
+      self.stop()
 
   def stop(self):
-    self.link.rm_callback(ids.BOOTLOADER_HANDSHAKE)
+    self.stopped = True
+    self.link.rm_callback(ids.BOOTLOADER_HANDSHAKE, self._handshake_callback)
 
   def _handshake_callback(self, data):
     if len(data)==1 and struct.unpack('B', data[0])==0:
@@ -133,10 +136,13 @@ if __name__ == "__main__":
   elif args.m25:
     piksi_flash = flash.Flash(link, flash_type="M25")
 
-  piksi_flash.write_ihx(ihx, sys.stdout)
+  piksi_flash.write_ihx(ihx, sys.stdout, mod_print = 0x10)
 
   print "Bootloader jumping to application"
   piksi_bootloader.jump_to_app()
+
+  piksi_flash.stop()
+  piksi_bootloader.stop()
 
   # Wait for ctrl+C until we exit
   try:
