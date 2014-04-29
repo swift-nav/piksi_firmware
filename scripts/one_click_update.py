@@ -13,7 +13,6 @@ from urllib2 import urlopen, URLError
 from json import load as jsonload
 from time import sleep
 from intelhex import IntelHex
-from subprocess import check_output
 from new import instancemethod
 
 from threading import Thread
@@ -24,12 +23,11 @@ from pyface.api import GUI
 
 from output_stream import OutputStream
 
+from version import VERSION as CONSOLE_VERSION
 import bootload
 import sbp_piksi as ids
 import flash
 
-CONSOLE_VERSION = filter(lambda x: x!='\n', \
-                         check_output(['git describe --dirty'], shell=True))
 INDEX_URL = 'http://download.swift-nav.com/index.json'
 
 # Handler methods that can be associated with buttons.
