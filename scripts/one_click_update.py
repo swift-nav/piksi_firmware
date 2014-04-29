@@ -29,9 +29,6 @@ import bootload
 import sbp_piksi as ids
 import flash
 
-# TODO: handle case where NAP and/or STM firmwares is bad?
-# TODO: Find better way for handler to trigger firmware update
-
 CONSOLE_VERSION = filter(lambda x: x!='\n', \
                          check_output(['git describe --dirty'], shell=True))
 INDEX_URL = 'http://download.swift-nav.com/index.json'
@@ -103,23 +100,11 @@ class UpdatePrompt(HasTraits):
 
 class OneClickUpdate():
 
-  index = None
   settings = {}
 
   def __init__(self, link, output):
     self.link = link
     self.thread = None
-    self.fw_update_prompt = \
-        UpdatePrompt(
-                     title='New Piksi Firmware Available',
-                     actions=[yes_button, no_button],
-                     handler_callback=self.manage_firmware_updates,
-                    )
-    self.console_outdated_prompt = \
-        UpdatePrompt(
-                     title="Piksi Console is Out of Date",
-                     actions=[close_button],
-                    )
     self.output = output
 
   # Instead of inheriting Thread so start can be called multiple times.
@@ -144,11 +129,25 @@ class OneClickUpdate():
   # Executed in it's own thread.
   def run(self):
 
+    # Create prompt objects.
+    fw_update_prompt = \
+        UpdatePrompt(
+                     title='New Piksi Firmware Available',
+                     actions=[yes_button, no_button],
+                     handler_callback=self.manage_firmware_updates,
+                    )
+
+    console_outdated_prompt = \
+        UpdatePrompt(
+                     title="Piksi Console is Out of Date",
+                     actions=[close_button],
+                    )
+
     # Get index that contains file URLs and latest
     # version strings from Swift Nav's website.
     try:
       f = urlopen(INDEX_URL)
-      self.index = jsonload(f)
+      index = jsonload(f)
       f.close()
     except URLError:
       self.write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n\n" % INDEX_URL)
@@ -156,75 +155,48 @@ class OneClickUpdate():
 
     # Make sure index contains all keys we are interested in.
     try:
-      self.index['piksi_v2.3.1']['stm_fw']['version']
-      self.index['piksi_v2.3.1']['stm_fw']['url']
-      self.index['piksi_v2.3.1']['nap_fw']['version']
-      self.index['piksi_v2.3.1']['nap_fw']['url']
-      self.index['piksi_v2.3.1']['console']['version']
+      index['piksi_v2.3.1']['stm_fw']['version']
+      index['piksi_v2.3.1']['stm_fw']['url']
+      index['piksi_v2.3.1']['nap_fw']['version']
+      index['piksi_v2.3.1']['nap_fw']['url']
+      index['piksi_v2.3.1']['console']['version']
     except KeyError:
       self.write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
       return
 
-    # Set text for Console Outdated Prompt.
-    init_string = "Your Piksi Console is out of date and may be incompatible with " + \
-                  "current firmware. We highly recommend upgrading to ensure proper " + \
-                  "behavior. Please visit Swift Navigation's website to download " + \
-                  "the most recent version.\n\n" + \
-                  "Your Piksi Console Version :\n\t" + \
-                      CONSOLE_VERSION + \
-                  "\nNewest Piksi Console Version :\n\t" + \
-                      self.index['piksi_v2.3.1']['console']['version'] + "\n"
-    self.console_outdated_prompt.output_stream.write(init_string)
-
     # Make sure settings contains Piksi firmware version strings.
     try:
-      self.piksi_stm_version = \
-          self.settings['system_info']['firmware_version'].value
-      self.piksi_nap_version = \
-          self.settings['system_info']['nap_version'].value
+      self.settings['system_info']['firmware_version'].value
+      self.settings['system_info']['nap_version'].value
     except:
       self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
       return
 
     # Do local version match latest from website?
-    self.stm_fw_outdated = self.index['piksi_v2.3.1']['stm_fw']['version'] \
-                               !=  self.piksi_stm_version
-    self.nap_fw_outdated = self.index['piksi_v2.3.1']['nap_fw']['version'] \
-                               !=  self.piksi_nap_version
-    self.console_outdated = self.index['piksi_v2.3.1']['console']['version'] \
+    self.stm_fw_outdated = index['piksi_v2.3.1']['stm_fw']['version'] \
+                               !=  self.settings['system_info']['firmware_version'].value
+    self.nap_fw_outdated = index['piksi_v2.3.1']['nap_fw']['version'] \
+                               !=  self.settings['system_info']['nap_version'].value
+    self.console_outdated = index['piksi_v2.3.1']['console']['version'] \
                                !=  CONSOLE_VERSION
-
-    # Set text for Firmware Update Prompt.
-    init_string = "Your Piksi STM Firmware Version :\n\t%s\n" % \
-                       self.piksi_stm_version + \
-                   "Newest Piksi STM Firmware Version :\n\t%s\n\n" % \
-                       self.index['piksi_v2.3.1']['stm_fw']['version'] + \
-                   "Your Piksi SwiftNAP Firmware Version :\n\t%s\n" % \
-                       self.piksi_nap_version + \
-                   "Newest Piksi SwiftNAP Firmware Version :\n\t%s\n\n" % \
-                       self.index['piksi_v2.3.1']['nap_fw']['version'] + \
-                   "Upgrade Now?"
-    self.fw_update_prompt.output_stream.write(init_string)
 
     # Get firmware files from Swift Nav's website.
     self.nap_ihx = None
     if self.nap_fw_outdated:
       try:
-        f = urlopen(self.index['piksi_v2.3.1']['nap_fw']['url'])
-        #f = open('piksi_v2.3.1_nap_fw_v0.8.hex','r')
+        f = urlopen(index['piksi_v2.3.1']['nap_fw']['url'])
         self.nap_ihx = IntelHex(f)
         f.close()
       except URLError:
-        self.write("\nError: Failed to download latest Piksi SwiftNAP firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % self.index['piksi_v2.3.1']['nap_fw']['url'])
+        self.write("\nError: Failed to download latest Piksi SwiftNAP firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['nap_fw']['url'])
     self.stm_ihx = None
     if self.stm_fw_outdated:
       try:
-        f = urlopen(self.index['piksi_v2.3.1']['stm_fw']['url'])
-        #f = open('piksi_v2.3.1_stm_fw_v0.8.hex','r')
+        f = urlopen(index['piksi_v2.3.1']['stm_fw']['url'])
         self.stm_ihx = IntelHex(f)
         f.close()
       except URLError:
-        self.write("\nError: Failed to download latest Piksi STM firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % self.index['piksi_v2.3.1']['stm_fw']['url'])
+        self.write("\nError: Failed to download latest Piksi STM firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['stm_fw']['url'])
 
     # Prompt user to update firmware(s). Only update if firmware was
     # successfully downloaded. If both are out of date, only allow
@@ -233,20 +205,39 @@ class OneClickUpdate():
         (self.nap_fw_outdated and self.nap_ihx and not self.stm_fw_outdated) or \
          (self.stm_fw_outdated and self.stm_ihx and \
            self.nap_fw_outdated and self.nap_ihx):
-      GUI.invoke_later(self.fw_update_prompt.start)
-      while not self.fw_update_prompt.handler_executed:
+      init_string = "Your Piksi STM Firmware Version :\n\t%s\n" % \
+                        self.settings['system_info']['firmware_version'].value + \
+                    "Newest Piksi STM Firmware Version :\n\t%s\n\n" % \
+                        index['piksi_v2.3.1']['stm_fw']['version'] + \
+                    "Your Piksi SwiftNAP Firmware Version :\n\t%s\n" % \
+                        self.settings['system_info']['nap_version'].value + \
+                    "Newest Piksi SwiftNAP Firmware Version :\n\t%s\n\n" % \
+                        index['piksi_v2.3.1']['nap_fw']['version'] + \
+                    "Upgrade Now?"
+      fw_update_prompt.output_stream.write(init_string)
+      GUI.invoke_later(fw_update_prompt.start)
+      while not fw_update_prompt.handler_executed:
         time.sleep(0.1)
-      while not self.fw_update_prompt.closed:
-        self.fw_update_prompt.close = 1
+      while not fw_update_prompt.closed:
+        fw_update_prompt.close = 1
         time.sleep(0.1)
 
     # Check if console is out of date and notify user if so.
     if self.console_outdated:
-      GUI.invoke_later(self.console_outdated_prompt.start)
-      while not self.console_outdated_prompt.handler_executed:
+      init_string = "Your Piksi Console is out of date and may be incompatible with " + \
+                    "current firmware. We highly recommend upgrading to ensure proper " + \
+                    "behavior. Please visit Swift Navigation's website to download " + \
+                    "the most recent version.\n\n" + \
+                    "Your Piksi Console Version :\n\t" + \
+                        CONSOLE_VERSION + \
+                    "\nNewest Piksi Console Version :\n\t" + \
+                        index['piksi_v2.3.1']['console']['version'] + "\n"
+      console_outdated_prompt.output_stream.write(init_string)
+      GUI.invoke_later(console_outdated_prompt.start)
+      while not console_outdated_prompt.handler_executed:
         time.sleep(0.1)
-      while not self.console_outdated_prompt.closed:
-        self.console_outdated_prompt.close = 1
+      while not console_outdated_prompt.closed:
+        console_outdated_prompt.close = 1
         time.sleep(0.1)
 
   # Executed in GUI thread, called from Handler.
@@ -284,7 +275,10 @@ class OneClickUpdate():
     self.write("Piksi Onboard Bootloader Version: " + piksi_bootloader.version + "\n")
 
     piksi_flash = flash.Flash(self.link, flash_type)
-    piksi_flash.write_ihx(ihx, self.output, mod_print = 0x1F)
+    piksi_flash.write_ihx(ihx, self.output, mod_print = 0x10)
+    piksi_flash.stop()
+
+    piksi_bootloader.stop()
 
     self.write("\n")
 
