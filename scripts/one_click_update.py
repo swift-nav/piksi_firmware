@@ -72,20 +72,6 @@ class UpdateHandler(Handler):
     info.object.closed = True
     info.ui.owner.close()
 
-class ConsoleUpdateHandler(Handler):
-
-  def close(self, info, is_ok):
-    info.object.handler_executed = True
-    info.object.closed = True
-    return True
-
-  def okay_pressed(self, info):
-    info.object.handler_executed = True
-
-  def object_close_changed(self, info):
-    info.object.closed = True
-    info.ui.owner.close()
-
 class UpdatePrompt(HasTraits):
 
   output_stream = Instance(OutputStream)
@@ -93,7 +79,7 @@ class UpdatePrompt(HasTraits):
   close = Event
   closed = False
 
-  def __init__(self, title, actions, handler_callback):
+  def __init__(self, title, actions, handler_callback=None):
     self.handler_callback = handler_callback
     self.output_stream = OutputStream()
     self.view = View(
@@ -115,44 +101,6 @@ class UpdatePrompt(HasTraits):
   def start(self):
     self.edit_traits(self.view)
 
-
-class ConsoleOutdatedWindow(HasTraits):
-  output_stream = Instance(OutputStream)
-  handler_executed = False
-  close = Event
-  closed = False
-  okay_button = Action(name = "Okay", action = "okay_pressed", \
-                       show_label = False)
-  view = View(
-              Item(
-                'output_stream',
-                style='custom',
-                editor=InstanceEditor(),
-                height=0.3,
-                show_label=False
-              ),
-              #buttons=['OK'],
-              buttons=[okay_button],
-              title="Piksi Console is Out of Date",
-              height=250,
-              width=450,
-              handler=ConsoleUpdateHandler(),
-              resizable=True
-             )
-
-  def __init__(self):
-    self.output_stream = OutputStream()
-
-  def init_prompt_text(self, local_console, remote_console):
-    txt = "Your Piksi Console is out of date and may be incompatible with " + \
-          "current firmware. We highly recommend upgrading to ensure proper " + \
-          "behavior. Please visit Swift Navigation's website to download " + \
-          "the most recent version.\n\n" + \
-          "Your Piksi Console Version :\n\t" + local_console + \
-          "\nNewest Piksi Console Version :\n\t" + \
-          remote_console + "\n"
-    self.output_stream.write(txt)
-
 class OneClickUpdate():
 
   index = None
@@ -167,7 +115,11 @@ class OneClickUpdate():
                      actions=[yes_button, no_button],
                      handler_callback=self.manage_firmware_updates,
                     )
-    self.console_outdated_prompt = ConsoleOutdatedWindow()
+    self.console_outdated_prompt = \
+        UpdatePrompt(
+                     title="Piksi Console is Out of Date",
+                     actions=[close_button],
+                    )
     self.output = output
 
   # Instead of inheriting Thread so start can be called multiple times.
@@ -212,10 +164,17 @@ class OneClickUpdate():
     except KeyError:
       self.write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
       return
-    self.index['piksi_v2.3.1']['stm_fw']['version'] = "blah_stm"
-    self.index['piksi_v2.3.1']['nap_fw']['version'] = "blah_nap"
-    global CONSOLE_VERSION
-    CONSOLE_VERSION = "blah_console"
+
+    # Set text for Console Outdated Prompt.
+    init_string = "Your Piksi Console is out of date and may be incompatible with " + \
+                  "current firmware. We highly recommend upgrading to ensure proper " + \
+                  "behavior. Please visit Swift Navigation's website to download " + \
+                  "the most recent version.\n\n" + \
+                  "Your Piksi Console Version :\n\t" + \
+                      CONSOLE_VERSION + \
+                  "\nNewest Piksi Console Version :\n\t" + \
+                      self.index['piksi_v2.3.1']['console']['version'] + "\n"
+    self.console_outdated_prompt.output_stream.write(init_string)
 
     # Make sure settings contains Piksi firmware version strings.
     try:
@@ -227,12 +186,15 @@ class OneClickUpdate():
       self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
       return
 
-    # Does local firmware match latest from website?
+    # Do local version match latest from website?
     self.stm_fw_outdated = self.index['piksi_v2.3.1']['stm_fw']['version'] \
                                !=  self.piksi_stm_version
     self.nap_fw_outdated = self.index['piksi_v2.3.1']['nap_fw']['version'] \
                                !=  self.piksi_nap_version
+    self.console_outdated = self.index['piksi_v2.3.1']['console']['version'] \
+                               !=  CONSOLE_VERSION
 
+    # Set text for Firmware Update Prompt.
     init_string = "Your Piksi STM Firmware Version :\n\t%s\n" % \
                        self.piksi_stm_version + \
                    "Newest Piksi STM Firmware Version :\n\t%s\n\n" % \
@@ -265,14 +227,13 @@ class OneClickUpdate():
         self.write("\nError: Failed to download latest Piksi STM firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % self.index['piksi_v2.3.1']['stm_fw']['url'])
 
     # Prompt user to update firmware(s). Only update if firmware was
-    # successfully downloaded. If both are out of date, only allow update if we
-    # successfully downloaded both files.
+    # successfully downloaded. If both are out of date, only allow
+    # update if we successfully downloaded both files.
     if (self.stm_fw_outdated and self.stm_ihx and not self.nap_fw_outdated) or \
         (self.nap_fw_outdated and self.nap_ihx and not self.stm_fw_outdated) or \
          (self.stm_fw_outdated and self.stm_ihx and \
            self.nap_fw_outdated and self.nap_ihx):
-      #GUI.invoke_later(self.fw_update_prompt.edit_traits, UpdateView()) # Start prompt.
-      GUI.invoke_later(self.fw_update_prompt.start) # Start prompt.
+      GUI.invoke_later(self.fw_update_prompt.start)
       while not self.fw_update_prompt.handler_executed:
         time.sleep(0.1)
       while not self.fw_update_prompt.closed:
@@ -280,10 +241,8 @@ class OneClickUpdate():
         time.sleep(0.1)
 
     # Check if console is out of date and notify user if so.
-    if (self.index['piksi_v2.3.1']['console']['version'] != CONSOLE_VERSION):
-      self.console_outdated_prompt.init_prompt_text(CONSOLE_VERSION, \
-                    self.index['piksi_v2.3.1']['console']['version'])
-      GUI.invoke_later(self.console_outdated_prompt.edit_traits)
+    if self.console_outdated:
+      GUI.invoke_later(self.console_outdated_prompt.start)
       while not self.console_outdated_prompt.handler_executed:
         time.sleep(0.1)
       while not self.console_outdated_prompt.closed:
