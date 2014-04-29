@@ -16,6 +16,9 @@
 #include <libswiftnav/common.h>
 #include <libopencm3/stm32/spi.h>
 
+#define dma2_stream0_isr Vector120
+#define dma2_stream3_isr Vector12C
+
 /** \addtogroup spi
  * \{ */
 
@@ -33,6 +36,8 @@ void spi_setup(void);
 void spi_deactivate(void);
 void spi_slave_select(u8 slave);
 void spi_slave_deselect(void);
+void spi1_dma_setup(void);
+void spi1_xfer_dma(u16 n_bytes, u8 data_in[], const u8 data_out[]);
 
 #endif
 

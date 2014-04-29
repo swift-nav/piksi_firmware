@@ -76,7 +76,7 @@ void nap_setup()
 
   /* FPGA is done using SPI2: re-initialise the SPI peripheral. */
   spi_setup();
-  //spi_dma_setup();
+  spi1_dma_setup();
 
   /* Switch the STM's clock to use the Frontend clock from the NAP */
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
@@ -194,14 +194,18 @@ void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[],
 
   spi_xfer(SPI_BUS_FPGA, reg_id);
 
-  /* If data_in is NULL then discard read data. */
-  if (data_in)
-    for (u16 i = 0; i < n_bytes; i++)
-      data_in[i] = spi_xfer(SPI_BUS_FPGA, data_out[i]);
-  else
-    for (u16 i = 0; i < n_bytes; i++)
-      spi_xfer(SPI_BUS_FPGA, data_out[i]);
-
+  /* Spin for shorter transfers to avoid the overhead of context switching. */
+  if (n_bytes < 8) {
+    /* If data_in is NULL then discard read data. */
+    if (data_in)
+      for (u16 i = 0; i < n_bytes; i++)
+        data_in[i] = spi_xfer(SPI_BUS_FPGA, data_out[i]);
+    else
+      for (u16 i = 0; i < n_bytes; i++)
+        spi_xfer(SPI_BUS_FPGA, data_out[i]);
+  } else {
+        spi1_xfer_dma(n_bytes, data_in, data_out);
+  }
   spi_slave_deselect();
 }
 
