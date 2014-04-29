@@ -86,7 +86,8 @@ class ObservationView(HasTraits):
     self._obs_table_list = [(prn + 1,) + obs for prn, obs in sorted(self.obs.items(), key=lambda x: x[0])]
 
   def obs_callback(self, data, sender=None):
-    if sender is not None and sender != self.sender_id:
+    if (sender is not None and
+        (self.relay ^ (sender == 0))):
       return
 
     if self.rinex_file is None and self.recording:
@@ -161,13 +162,13 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
 
     self.update_obs()
 
-  def __init__(self, link, name='Rover', sender_id=0x2222):
+  def __init__(self, link, name='Rover', relay=False):
     super(ObservationView, self).__init__()
 
     self.obs_count = 0
     self.n_obs = 1
 
-    self.sender_id = sender_id
+    self.relay = relay
     self.name = name
 
     self.rinex_file = None

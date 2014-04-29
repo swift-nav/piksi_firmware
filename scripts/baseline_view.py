@@ -34,7 +34,7 @@ class Baseline:
   def from_binary(self, data):
     soln = struct.unpack('<3ddHHB', data)
     self.ned = np.array([soln[0], soln[1], soln[2]])
-    self.tow = soln[3]
+    self.tow = soln[3] / 1e3
     self.wn = soln[4]
     self.flags = soln[5]
     self.n_sats = soln[6]
@@ -171,7 +171,7 @@ class BaselineView(HasTraits):
       table.append(('Mode', 'Float'))
     table.append(('IAR Num. Hyps.', self.num_hyps))
 
-    self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow * 1e3, soln.n, soln.e, soln.d, soln.n_sats))
+    self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow, soln.n, soln.e, soln.d, soln.n_sats))
     self.log_file.flush()
 
     self.ns.append(soln.n)

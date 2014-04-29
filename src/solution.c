@@ -46,7 +46,7 @@ dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_TIME_MATCHED;
 dgnss_filter_t dgnss_filter = FILTER_FIXED;
 
 double soln_freq = 10.0;
-u32 obs_output_divisor = 2;
+u32 obs_output_divisor = 5;
 
 double known_baseline[3] = {0, 0, 0};
 
@@ -91,35 +91,16 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
 void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
                             double ref_ecef[3], u8 flags)
 {
-  if (1) {
-    sbp_baseline_ecef_t sbp_ecef = {
-      .tow = t->tow,
-      .x = (s32)round(1e3 * b_ecef[0]),
-      .y = (s32)round(1e3 * b_ecef[1]),
-      .z = (s32)round(1e3 * b_ecef[2]),
-      .accuracy = 0,
-      .n_sats = n_sats,
-      .flags = flags
-    };
-    sbp_send_msg(SBP_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
-  }
+  sbp_baseline_ecef_t sbp_ecef;
+  sbp_make_baseline_ecef(&sbp_ecef, t, n_sats, b_ecef, flags);
+  sbp_send_msg(SBP_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
 
-  if (1) {
-    double b_ned[3];
-    wgsecef2ned(b_ecef, ref_ecef, b_ned);
+  double b_ned[3];
+  wgsecef2ned(b_ecef, ref_ecef, b_ned);
 
-    sbp_baseline_ned_t sbp_ned = {
-      .tow = t->tow,
-      .n = (s32)round(1e3 * b_ned[0]),
-      .e = (s32)round(1e3 * b_ned[1]),
-      .d = (s32)round(1e3 * b_ned[2]),
-      .h_accuracy = 0,
-      .v_accuracy = 0,
-      .n_sats = n_sats,
-      .flags = flags
-    };
-    sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
-  }
+  sbp_baseline_ned_t sbp_ned;
+  sbp_make_baseline_ned(&sbp_ned, t, n_sats, b_ned, flags);
+  sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
 }
 
 extern ephemeris_t es[MAX_SATS];
@@ -139,7 +120,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   sbp_send_msg_(MSG_NEW_OBS, len, msg, 0);
 
   gps_time_t *t = (gps_time_t *)msg;
-  double epoch_count = t->tow * soln_freq;
+  double epoch_count = t->tow * (soln_freq / obs_output_divisor);
 
   if (fabs(epoch_count - round(epoch_count)) > TIME_MATCH_THRESHOLD) {
     printf("Unaligned observation from base station ignored.\n");
@@ -296,7 +277,11 @@ static msg_t solution_thread(void *arg)
 
         /* Only send observations that are closely aligned with the desired
          * solution epochs to ensure they haven't been propagated too far. */
-        if (fabs(t_err) < OBS_PROPAGATION_LIMIT) {
+        /* Output obervations only every obs_output_divisor times, taking
+         * care to ensure that the observations are aligned. */
+        double t_check = expected_tow * (soln_freq / obs_output_divisor);
+        if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
+            fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
           /* Propagate observation to desired time. */
           for (u8 i=0; i<n_ready_tdcp; i++) {
             nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
@@ -310,10 +295,7 @@ static msg_t solution_thread(void *arg)
           new_obs_time.tow = expected_tow;
 
           if (!simulation_enabled()) {
-            /* Output obervations. */
-            DO_EVERY(obs_output_divisor,
-              send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
-            );
+            send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
           }
 
           /* TODO: use a buffer from the pool from the start instead of
@@ -415,9 +397,8 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
 {
   (void)n_sds; (void)sds;
 
-  /* Hook Float KF and AR filters in here. */
-  if (n_sds > 4) {
-    if (init_known_base) {
+  if (init_known_base) {
+    if (n_sds > 4) {
       /* Calculate ambiguities from known baseline. */
       printf("Initializing using known baseline\n");
       double known_baseline_ecef[3];
@@ -426,44 +407,48 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
       dgnss_init_known_baseline(n_sds, sds, position_solution.pos_ecef,
                                 known_baseline_ecef);
       init_known_base = false;
+    } else {
+      printf("> 4 satellites required for known baseline init.\n");
     }
-    if (!init_done) {
+  }
+  if (!init_done) {
+    if (n_sds > 4) {
       /* Initialize filters. */
       printf("Initializing DGNSS filters\n");
       dgnss_init(n_sds, sds, position_solution.pos_ecef, dt);
       init_done = 1;
-    } else {
-      if (reset_iar) {
-        dgnss_reset_iar();
-        reset_iar = false;
-      }
-      /* Update filters. */
-      dgnss_update(n_sds, sds, position_solution.pos_ecef, dt);
-      /* If we are in time matched mode then calculate and output the baseline
-       * for this observation. */
-      if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED) {
-        double b[3];
-        u8 num_used;
-        switch (dgnss_filter) {
-        case FILTER_FIXED:
-          /* Calculate least squares solution using ambiguities from IAR. */
-          dgnss_fixed_baseline(n_sds, sds, position_solution.pos_ecef,
-                               &num_used, b);
-          msg_iar_state_t iar_state = { .num_hyps = dgnss_iar_num_hyps() };
-          sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
-          u8 flags = (dgnss_iar_resolved()) ? 1 : 0;
-          solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
-          break;
-        case FILTER_FLOAT:
-          dgnss_new_float_baseline(n_sds, sds,
-                                   position_solution.pos_ecef, &num_used, b);
-          solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
-          break;
-        case FILTER_OLD_FLOAT:
-          dgnss_float_baseline(&num_used, b);
-          solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
-          break;
-        }
+    }
+  } else {
+    if (reset_iar) {
+      dgnss_reset_iar();
+      reset_iar = false;
+    }
+    /* Update filters. */
+    dgnss_update(n_sds, sds, position_solution.pos_ecef, dt);
+    /* If we are in time matched mode then calculate and output the baseline
+     * for this observation. */
+    if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED) {
+      double b[3];
+      u8 num_used;
+      switch (dgnss_filter) {
+      case FILTER_FIXED:
+        /* Calculate least squares solution using ambiguities from IAR. */
+        dgnss_fixed_baseline(n_sds, sds, position_solution.pos_ecef,
+                             &num_used, b);
+        msg_iar_state_t iar_state = { .num_hyps = dgnss_iar_num_hyps() };
+        sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
+        u8 flags = (dgnss_iar_resolved()) ? 1 : 0;
+        solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
+        break;
+      case FILTER_FLOAT:
+        dgnss_new_float_baseline(n_sds, sds,
+                                 position_solution.pos_ecef, &num_used, b);
+        solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
+        break;
+      case FILTER_OLD_FLOAT:
+        dgnss_float_baseline(&num_used, b);
+        solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
+        break;
       }
     }
   }

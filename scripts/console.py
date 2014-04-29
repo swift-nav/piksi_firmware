@@ -146,8 +146,8 @@ class SwiftConsole(HasTraits):
     self.almanac_view = AlmanacView(self.link)
     self.solution_view = SolutionView(self.link)
     self.baseline_view = BaselineView(self.link)
-    self.observation_view = ObservationView(self.link, name='Rover', sender_id=0x2222)
-    self.observation_view_base = ObservationView(self.link, name='Base', sender_id=0)
+    self.observation_view = ObservationView(self.link, name='Rover', relay=False)
+    self.observation_view_base = ObservationView(self.link, name='Base', relay=True)
     self.system_monitor_view = SystemMonitorView(self.link)
     self.simulator_view = SimulatorView(self.link)
     if update:
