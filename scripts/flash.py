@@ -119,6 +119,7 @@ def _m25_write_status(self, sr):
 class Flash():
 
   def __init__(self, link, flash_type):
+    self.stopped = False
     self.status = ''
     self.link = link
     self.flash_type = flash_type
@@ -139,7 +140,6 @@ class Flash():
     elif self.flash_type == "M25":
       self.flash_type_byte = 1
       self.addr_sector_map = m25_addr_sector_map
-      self.status_register = None
       # Add M25-specific functions.
       self.__dict__['write_status'] = \
           new.instancemethod(_m25_write_status, self, Flash)
@@ -147,11 +147,13 @@ class Flash():
       raise ValueError("flash_type must be \"STM\" or \"M25\"")
 
   def __del__(self):
-    self.stop()
+    if not self.stopped:
+      self.stop()
 
   def stop(self):
-    self.link.rm_callback(ids.FLASH_DONE)
-    self.link.rm_callback(ids.FLASH_READ)
+    self.stopped = True
+    self.link.rm_callback(ids.FLASH_DONE, self._done_callback)
+    self.link.rm_callback(ids.FLASH_READ, self._read_callback)
 
   def __str__(self):
     return self.status
@@ -247,5 +249,5 @@ class Flash():
                                     "verified, total time = %d seconds" % \
                                     int(time.time()-start_time)
     if stream:
-      stream.write('\n')
+      stream.write('\n\r' + self.status + '\n')
 
