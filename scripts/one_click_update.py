@@ -11,15 +11,14 @@
 
 from urllib2 import urlopen, URLError
 from json import load as jsonload
-import time
+from time import sleep
 from intelhex import IntelHex
-import sys
 from subprocess import check_output
 from new import instancemethod
 
 from threading import Thread
 
-from traits.api import HasTraits, String, Button, Int, Instance, Event
+from traits.api import HasTraits, Instance, Event
 from traitsui.api import View, Handler, Action, Item, InstanceEditor
 from pyface.api import GUI
 
@@ -217,10 +216,10 @@ class OneClickUpdate():
       fw_update_prompt.output_stream.write(init_string)
       GUI.invoke_later(fw_update_prompt.start)
       while not fw_update_prompt.handler_executed:
-        time.sleep(0.1)
+        sleep(0.1)
       while not fw_update_prompt.closed:
         fw_update_prompt.close = 1
-        time.sleep(0.1)
+        sleep(0.1)
 
     # Check if console is out of date and notify user if so.
     if self.console_outdated:
@@ -235,10 +234,10 @@ class OneClickUpdate():
       console_outdated_prompt.output_stream.write(init_string)
       GUI.invoke_later(console_outdated_prompt.start)
       while not console_outdated_prompt.handler_executed:
-        time.sleep(0.1)
+        sleep(0.1)
       while not console_outdated_prompt.closed:
         console_outdated_prompt.close = 1
-        time.sleep(0.1)
+        sleep(0.1)
 
   # Executed in GUI thread, called from Handler.
   def manage_firmware_updates(self):
