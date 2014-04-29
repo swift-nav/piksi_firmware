@@ -11,6 +11,7 @@
 
 import serial_link
 import sbp_piksi as ids
+from version import VERSION as CONSOLE_VERSION
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
@@ -112,8 +113,7 @@ class SwiftConsole(HasTraits):
     resizable = True,
     width = 1000,
     height = 800,
-    # TODO: include version in title
-    title = 'Piksi console'
+    title = 'Piksi Console, Version: ' + CONSOLE_VERSION
   )
 
   def print_message_callback(self, data):
