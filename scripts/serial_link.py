@@ -111,7 +111,21 @@ class SerialLink:
       self.ser.baudrate = baud
     else:
       import serial
-      self.ser = serial.Serial(port, baud, timeout=1)
+      try:
+        self.ser = serial.Serial(port, baud, timeout=1)
+      except serial.SerialException:
+        print
+        print "Serial device '%s' not found" % port
+        print
+        print "The following serial devices were detected:"
+        print
+        for p in self.list_ports():
+          p_name, p_desc, _ = p
+          if p_desc == p_name:
+            print "\t%s" % p_name
+          else:
+            print "\t%s (%s)" % (p_name, p_desc)
+        sys.exit(1)
 
     # Delay then flush the buffer to make sure the receive buffer starts empty.
     time.sleep(0.5)
@@ -122,6 +136,10 @@ class SerialLink:
 
   def __del__(self):
     self.close()
+
+  def list_ports(self):
+    import serial.tools.list_ports
+    return serial.tools.list_ports.comports()
 
   def close(self):
     try:
