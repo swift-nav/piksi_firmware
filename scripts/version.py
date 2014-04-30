@@ -9,8 +9,10 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-from subprocess import check_output
+from subprocess import Popen, PIPE
 
-VERSION = filter(lambda x: x!='\n', \
-                 check_output(['git describe --dirty --tags'], shell=True))
+proc = Popen("git describe --dirty --tags", shell=True, stdout=PIPE)
+VERSION = filter(lambda x: x!='\n', proc.stdout.readlines()[0])
 
+if __name__ == "__main__":
+  print "Version:", VERSION
