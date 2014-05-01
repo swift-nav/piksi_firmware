@@ -17,7 +17,7 @@ from new import instancemethod
 
 from threading import Thread
 
-from traits.api import HasTraits, Instance, Event
+from traits.api import HasTraits, Instance, Event, Bool
 from traitsui.api import View, Handler, Action, Item, InstanceEditor
 from pyface.api import GUI
 
@@ -32,10 +32,16 @@ INDEX_URL = 'http://download.swift-nav.com/index.json'
 
 # Handler methods that can be associated with buttons.
 def execute_callback_handler(self, info):
+  if info.object.button_pressed == True:
+    return
+  info.object.button_pressed = True
   info.object.handler_callback()
   info.object.handler_executed = True
 
 def no_callback_handler(self, info):
+  if info.object.button_pressed == True:
+    return
+  info.object.button_pressed = True
   info.object.handler_executed = True
 
 upgrade_button = Action(name = "Update", action = "execute_callback_handler", \
@@ -69,12 +75,13 @@ class UpdateHandler(Handler):
 class UpdatePrompt(HasTraits):
 
   output_stream = Instance(OutputStream)
-  handler_executed = False
   close = Event
-  closed = False
 
   def __init__(self, title, actions, handler_callback=None):
     self.handler_callback = handler_callback
+    self.closed = False
+    self.handler_executed = False
+    self.button_pressed = False
     self.output_stream = OutputStream()
     self.view = View(
                      Item(
