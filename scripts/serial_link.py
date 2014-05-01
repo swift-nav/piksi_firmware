@@ -99,6 +99,10 @@ class ListenerThread (threading.Thread):
         import traceback
         print traceback.format_exc()
 
+def list_ports(self=None):
+  import serial.tools.list_ports
+  return serial.tools.list_ports.comports()
+
 class SerialLink:
 
   def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False, print_unhandled=False):
@@ -119,7 +123,7 @@ class SerialLink:
         print
         print "The following serial devices were detected:"
         print
-        for p in self.list_ports():
+        for p in list_ports():
           p_name, p_desc, _ = p
           if p_desc == p_name:
             print "\t%s" % p_name
@@ -136,10 +140,6 @@ class SerialLink:
 
   def __del__(self):
     self.close()
-
-  def list_ports(self):
-    import serial.tools.list_ports
-    return serial.tools.list_ports.comports()
 
   def close(self):
     try:
