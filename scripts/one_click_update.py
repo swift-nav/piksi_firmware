@@ -38,9 +38,9 @@ def execute_callback_handler(self, info):
 def no_callback_handler(self, info):
   info.object.handler_executed = True
 
-yes_button = Action(name = "Yes", action = "execute_callback_handler", \
+upgrade_button = Action(name = "Update", action = "execute_callback_handler", \
                              show_label=False)
-no_button = Action(name = "No", action = "no_callback_handler", \
+cancel_button = Action(name = "Cancel", action = "no_callback_handler", \
                              show_label=False)
 close_button = Action(name = "Close", action = "no_callback_handler", \
                              show_label=False)
@@ -129,14 +129,14 @@ class OneClickUpdate():
     # Create prompt objects.
     fw_update_prompt = \
         UpdatePrompt(
-                     title='New Piksi Firmware Available',
-                     actions=[yes_button, no_button],
+                     title='Firmware Update',
+                     actions=[upgrade_button, cancel_button],
                      handler_callback=self.manage_firmware_updates,
                     )
 
     console_outdated_prompt = \
         UpdatePrompt(
-                     title="Piksi Console is Out of Date",
+                     title="Console Outdated",
                      actions=[close_button],
                     )
 
@@ -202,15 +202,14 @@ class OneClickUpdate():
         (self.nap_fw_outdated and self.nap_ihx and not self.stm_fw_outdated) or \
          (self.stm_fw_outdated and self.stm_ihx and \
            self.nap_fw_outdated and self.nap_ihx):
-      init_string = "Your Piksi STM Firmware Version :\n\t%s\n" % \
+      init_string = "Local STM Version :\n\t%s\n" % \
                         self.settings['system_info']['firmware_version'].value + \
-                    "Newest Piksi STM Firmware Version :\n\t%s\n\n" % \
+                    "Newest STM Version :\n\t%s\n\n" % \
                         index['piksi_v2.3.1']['stm_fw']['version'] + \
-                    "Your Piksi SwiftNAP Firmware Version :\n\t%s\n" % \
+                    "Local SwiftNAP Version :\n\t%s\n" % \
                         self.settings['system_info']['nap_version'].value + \
-                    "Newest Piksi SwiftNAP Firmware Version :\n\t%s\n\n" % \
-                        index['piksi_v2.3.1']['nap_fw']['version'] + \
-                    "Upgrade Now?"
+                    "Newest SwiftNAP Version :\n\t%s\n\n" % \
+                        index['piksi_v2.3.1']['nap_fw']['version']
       fw_update_prompt.output_stream.write(init_string)
       GUI.invoke_later(fw_update_prompt.start)
       while not fw_update_prompt.handler_executed:
@@ -221,13 +220,13 @@ class OneClickUpdate():
 
     # Check if console is out of date and notify user if so.
     if self.console_outdated:
-      init_string = "Your Piksi Console is out of date and may be incompatible with " + \
+      init_string = "Your Console is out of date and may be incompatible with " + \
                     "current firmware. We highly recommend upgrading to ensure proper " + \
-                    "behavior. Please visit Swift Navigation's website to download " + \
-                    "the most recent version.\n\n" + \
-                    "Your Piksi Console Version :\n\t" + \
+                    "behavior. Please visit download.swift-nav.com to download " + \
+                    "the newest version.\n\n" + \
+                    "Local Console Version :\n\t" + \
                         CONSOLE_VERSION + \
-                    "\nNewest Piksi Console Version :\n\t" + \
+                    "\nNewest Console Version :\n\t" + \
                         index['piksi_v2.3.1']['console']['version'] + "\n"
       console_outdated_prompt.output_stream.write(init_string)
       GUI.invoke_later(console_outdated_prompt.start)
