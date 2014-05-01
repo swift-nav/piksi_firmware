@@ -14,7 +14,7 @@ import sbp_piksi as ids
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
-parser.add_argument('-p', '--port', nargs=1, default=[serial_link.DEFAULT_PORT],
+parser.add_argument('-p', '--port', nargs=1, default=[None],
                    help='specify the serial port to use.')
 parser.add_argument('-b', '--baud', nargs=1, default=[serial_link.DEFAULT_BAUD],
                    help='specify the baud rate to use.')
@@ -39,16 +39,19 @@ logging.basicConfig()
 
 # Fix default font issue on Linux
 import os
+import sys
 #from kiva.fonttools.font_manager import fontManager, FontProperties
 #if os.name == "posix":
   #font = FontProperties()
   #font.set_name("Arial")
   #fontManager.defaultFont = fontManager.findfont(font)
 
-from traits.api import Str, Instance, Dict, HasTraits, Int, Button
-from traitsui.api import Item, ShellEditor, View, VSplit, HSplit, Tabbed, InstanceEditor
+from traits.api import Str, Instance, Dict, HasTraits, Int, Button, List
+from traitsui.api import Item, Label, View, VGroup, VSplit, HSplit, Tabbed, InstanceEditor, EnumEditor, ShellEditor
 
 import struct
+
+icon = ImageResource('icon', search_path=['images'])
 
 from output_stream import OutputStream
 from tracking_view import TrackingView
@@ -105,6 +108,7 @@ class SwiftConsole(HasTraits):
         show_label=False,
       ),
     ),
+    icon = icon,
     resizable = True,
     width = 1000,
     height = 800,
@@ -124,35 +128,68 @@ class SwiftConsole(HasTraits):
 
   def __init__(self, *args, **kwargs):
     self.console_output = OutputStream()
+    sys.stdout = self.console_output
+    sys.stderr = self.console_output
 
-    self.link = serial_link.SerialLink(*args, **kwargs)
-    self.link.add_callback(ids.PRINT, self.print_message_callback)
+    try:
+      self.link = serial_link.SerialLink(*args, **kwargs)
+      self.link.add_callback(ids.PRINT, self.print_message_callback)
 
-    self.link.add_callback(ids.DEBUG_VAR, self.debug_var_callback)
+      self.link.add_callback(ids.DEBUG_VAR, self.debug_var_callback)
 
-    self.tracking_view = TrackingView(self.link)
-    self.almanac_view = AlmanacView(self.link)
-    self.solution_view = SolutionView(self.link)
-    self.baseline_view = BaselineView(self.link)
-    self.observation_view = ObservationView(self.link, name='Rover', relay=False)
-    self.observation_view_base = ObservationView(self.link, name='Base', relay=True)
-    self.system_monitor_view = SystemMonitorView(self.link)
-    self.simulator_view = SimulatorView(self.link)
-    self.settings_view = SettingsView(self.link)
+      self.tracking_view = TrackingView(self.link)
+      self.almanac_view = AlmanacView(self.link)
+      self.solution_view = SolutionView(self.link)
+      self.baseline_view = BaselineView(self.link)
+      self.observation_view = ObservationView(self.link, name='Rover', relay=False)
+      self.observation_view_base = ObservationView(self.link, name='Base', relay=True)
+      self.system_monitor_view = SystemMonitorView(self.link)
+      self.simulator_view = SimulatorView(self.link)
+      self.settings_view = SettingsView(self.link)
 
-    self.python_console_env = {
-        'send_message': self.link.send_message,
-        'link': self.link,
-    }
-    self.python_console_env.update(self.tracking_view.python_console_cmds)
-    self.python_console_env.update(self.almanac_view.python_console_cmds)
-    self.python_console_env.update(self.solution_view.python_console_cmds)
-    self.python_console_env.update(self.baseline_view.python_console_cmds)
-    self.python_console_env.update(self.observation_view.python_console_cmds)
-    self.python_console_env.update(self.system_monitor_view.python_console_cmds)
+      self.python_console_env = {
+          'send_message': self.link.send_message,
+          'link': self.link,
+      }
+      self.python_console_env.update(self.tracking_view.python_console_cmds)
+      self.python_console_env.update(self.almanac_view.python_console_cmds)
+      self.python_console_env.update(self.solution_view.python_console_cmds)
+      self.python_console_env.update(self.baseline_view.python_console_cmds)
+      self.python_console_env.update(self.observation_view.python_console_cmds)
+      self.python_console_env.update(self.system_monitor_view.python_console_cmds)
+    except:
+      import traceback
+      traceback.print_exc()
 
   def stop(self):
     self.link.close()
+
+class PortChooser(HasTraits):
+  ports = List()
+  port = Str(None)
+  traits_view = View(
+    VGroup(
+      Label('Select Piksi device:'),
+      Item('port', editor=EnumEditor(name='ports'), show_label=False),
+    ),
+    buttons = ['OK', 'Cancel'],
+    icon = icon,
+    title = 'Select serial device'
+  )
+
+  def __init__(self):
+    self.ports = [p for p, _, _ in serial_link.list_ports()]
+
+if serial_port is None:
+  port_chooser = PortChooser()
+  port_chooser.configure_traits()
+  serial_port = port_chooser.port
+  if serial_port is None:
+    print "No serial device selected!"
+    import sys
+    sys.exit(1)
+  else:
+    print "Using serial device '%s'" % serial_port
 
 console = SwiftConsole(serial_port, baud, use_ftdi=args.ftdi,
                        print_unhandled=args.verbose)
