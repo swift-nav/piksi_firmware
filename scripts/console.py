@@ -9,6 +9,11 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
+import pyface.ui.qt4.resource_manager
+#import pyface.ui.qt4.python_shell
+#from pygments.lexers import PythonLexer
+from pyface.image_resource import ImageResource
+
 import serial_link
 import sbp_piksi as ids
 
@@ -47,11 +52,19 @@ import sys
   #fontManager.defaultFont = fontManager.findfont(font)
 
 from traits.api import Str, Instance, Dict, HasTraits, Int, Button, List
-from traitsui.api import Item, Label, View, VGroup, VSplit, HSplit, Tabbed, InstanceEditor, EnumEditor, ShellEditor
+from traitsui.api import Item, Label, View, VGroup, VSplit, HSplit, Tabbed, InstanceEditor, EnumEditor #, ShellEditor
 
 import struct
 
-icon = ImageResource('icon', search_path=['images'])
+if getattr(sys, 'frozen', False):
+    # we are running in a |PyInstaller| bundle
+    basedir = sys._MEIPASS
+    os.chdir(basedir)
+else:
+    # we are running in a normal Python environment
+    basedir = os.path.dirname(__file__)
+icon = ImageResource('icon',
+         search_path=['images', os.path.join(basedir, 'images')])
 
 from output_stream import OutputStream
 from tracking_view import TrackingView
@@ -94,10 +107,10 @@ class SwiftConsole(HasTraits):
         Item('simulator_view', style='custom', label='Simulator'),
         Item('settings_view', style='custom', label='Settings'),
         Item('system_monitor_view', style='custom', label='System Monitor'),
-        Item(
-          'python_console_env', style='custom',
-          label='Python Console', editor=ShellEditor()
-        ),
+        #Item(
+          #'python_console_env', style='custom',
+          #label='Python Console', editor=ShellEditor()
+        #),
         show_labels=False
       ),
       Item(

@@ -12,5 +12,7 @@ docs/html
 *.map
 *.pyc
 *.csv
+scripts/pyinstaller/build
+scripts/pyinstaller/dist
 build/
 testing_crap/
