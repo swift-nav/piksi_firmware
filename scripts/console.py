@@ -186,8 +186,9 @@ class PortChooser(HasTraits):
       Item('port', editor=EnumEditor(name='ports'), show_label=False),
     ),
     buttons = ['OK', 'Cancel'],
+    close_result=False,
     icon = icon,
-    title = 'Select serial device'
+    title = 'Select serial device',
   )
 
   def __init__(self):
@@ -195,9 +196,9 @@ class PortChooser(HasTraits):
 
 if serial_port is None:
   port_chooser = PortChooser()
-  port_chooser.configure_traits()
+  is_ok = port_chooser.configure_traits()
   serial_port = port_chooser.port
-  if serial_port is None:
+  if serial_port is None or not is_ok:
     print "No serial device selected!"
     import sys
     sys.exit(1)
@@ -209,3 +210,4 @@ console = SwiftConsole(serial_port, baud, use_ftdi=args.ftdi,
 
 console.configure_traits()
 console.stop()
+
