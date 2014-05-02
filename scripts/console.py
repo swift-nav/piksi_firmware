@@ -9,11 +9,6 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import pyface.ui.qt4.resource_manager
-#import pyface.ui.qt4.python_shell
-#from pygments.lexers import PythonLexer
-from pyface.image_resource import ImageResource
-
 import serial_link
 import sbp_piksi as ids
 
@@ -52,7 +47,24 @@ import sys
   #fontManager.defaultFont = fontManager.findfont(font)
 
 from traits.api import Str, Instance, Dict, HasTraits, Int, Button, List
-from traitsui.api import Item, Label, View, VGroup, VSplit, HSplit, Tabbed, InstanceEditor, EnumEditor #, ShellEditor
+from traitsui.api import Item, Label, View, VGroup, VSplit, HSplit, Tabbed, InstanceEditor, EnumEditor, ShellEditor
+
+# When bundled with pyInstaller, PythonLexer can't be found. The problem is
+# pygments.lexers is doing some crazy magic to load up all of the available
+# lexers at runtime which seems to break when frozen.
+#
+# The horrible workaround is to load the PythonLexer class explicitly and then
+# manually insert it into the pygments.lexers module.
+from pygments.lexers.agile import PythonLexer
+import pygments.lexers
+pygments.lexers.PythonLexer = PythonLexer
+
+# These imports seem to be required to make pyinstaller work?
+# (usually traitsui would load them automatically)
+import pyface.ui.qt4.resource_manager
+import pyface.ui.qt4.python_shell
+from pyface.image_resource import ImageResource
+
 
 import struct
 
@@ -107,10 +119,10 @@ class SwiftConsole(HasTraits):
         Item('simulator_view', style='custom', label='Simulator'),
         Item('settings_view', style='custom', label='Settings'),
         Item('system_monitor_view', style='custom', label='System Monitor'),
-        #Item(
-          #'python_console_env', style='custom',
-          #label='Python Console', editor=ShellEditor()
-        #),
+        Item(
+          'python_console_env', style='custom',
+          label='Python Console', editor=ShellEditor()
+        ),
         show_labels=False
       ),
       Item(
