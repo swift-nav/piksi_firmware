@@ -171,6 +171,9 @@ class BaselineView(HasTraits):
       table.append(('Mode', 'Float'))
     table.append(('IAR Num. Hyps.', self.num_hyps))
 
+    if self.log_file is None:
+      self.log_file = open(time.strftime("baseline_log_%Y%m%d-%H%M%S.csv"), 'w')
+
     self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow, soln.n, soln.e, soln.d, soln.n_sats))
     self.log_file.flush()
 
@@ -202,7 +205,7 @@ class BaselineView(HasTraits):
   def __init__(self, link):
     super(BaselineView, self).__init__()
 
-    self.log_file = open(time.strftime("baseline_log_%Y%m%d-%H%M%S.csv"), 'w')
+    self.log_file = None
 
     self.num_hyps = 0
 
