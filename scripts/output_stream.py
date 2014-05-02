@@ -14,6 +14,7 @@
 from traits.api import HasTraits, Str, Bool, Trait, Int
 from traitsui.api import View, UItem, TextEditor, Handler
 from traits.etsconfig.api import ETSConfig
+from pyface.api import GUI
 
 
 DEFAULT_MAX_LEN = 8000
@@ -79,7 +80,7 @@ class OutputStream(HasTraits):
             self.text = self._truncated_concat(self.text, s)
 
     def flush(self):
-        pass
+        GUI.process_events()
 
     def close(self):
         pass

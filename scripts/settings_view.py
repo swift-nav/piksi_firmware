@@ -13,6 +13,7 @@ from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change,
 from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, TextEditor, EnumEditor
 from traitsui.tabular_adapter import TabularAdapter
 from enable.savage.trait_defs.ui.svg_button import SVGButton
+from pyface.api import GUI
 
 import struct
 import math
@@ -141,9 +142,9 @@ class SettingsView(HasTraits):
     )
   )
 
-  ##Simulator buttons
+  # Simulator buttons.
   def _settings_read_button_fired(self):
-    self.settings = {}
+    self.settings.clear()
     self.enumindex = 0
     self.ordering_counter = 0
     self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
@@ -163,6 +164,9 @@ class SettingsView(HasTraits):
         self.settings_list.append(SectionHeading(sec))
         for name, setting in sorted(self.settings[sec].iteritems(), key=lambda (n, s): s.ordering):
           self.settings_list.append(setting)
+
+      for cb in self.read_finished_functions:
+        GUI.invoke_later(cb)
       return
 
     section, setting, value, format_type = data[2:].split('\0')[:4]
@@ -205,7 +209,7 @@ class SettingsView(HasTraits):
   def piksi_startup_callback(self, data):
     self._settings_read_button_fired()
 
-  def __init__(self, link):
+  def __init__(self, link, read_finished_functions=[]):
     super(SettingsView, self).__init__()
 
     self.enumindex = 0
@@ -215,6 +219,10 @@ class SettingsView(HasTraits):
     self.link.add_callback(ids.SBP_STARTUP, self.piksi_startup_callback)
     self.link.add_callback(ids.SETTINGS_READ_BY_INDEX,
         self.settings_read_by_index_callback)
+
+    # List of functions to be executed after all settings are read.
+    # No support for arguments currently.
+    self.read_finished_functions = read_finished_functions
 
     self.setting_detail = SettingBase()
 
