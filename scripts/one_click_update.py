@@ -17,11 +17,9 @@ from new import instancemethod
 
 from threading import Thread
 
-from traits.api import HasTraits, Instance, Event, Bool
-from traitsui.api import View, Handler, Action, Item, InstanceEditor
+from traits.api import HasTraits, Event, String
+from traitsui.api import View, Handler, Action, Item, TextEditor
 from pyface.api import GUI
-
-from output_stream import OutputStream
 
 from version import VERSION as CONSOLE_VERSION
 import bootload
@@ -67,7 +65,7 @@ class UpdateHandler(Handler):
 
 class UpdatePrompt(HasTraits):
 
-  output_stream = Instance(OutputStream)
+  text = String
   close = Event
 
   def __init__(self, title, actions, update_callback=None):
@@ -78,13 +76,11 @@ class UpdatePrompt(HasTraits):
     self.closed = False
     self.close = 0
 
-    self.output_stream = OutputStream()
     self.view = View(
                      Item(
-                          'output_stream',
-                          style='custom',
-                          editor=InstanceEditor(),
-                          height=0.3,
+                          'text',
+                          style='readonly',
+                          editor=TextEditor(),
                           show_label=False
                          ),
                      buttons=actions,
@@ -112,12 +108,11 @@ class UpdatePrompt(HasTraits):
 
 class OneClickUpdate():
 
-  settings = {}
-
   def __init__(self, link, output):
     self.link = link
     self.thread = None
     self.output = output
+    self.settings = {}
 
   # Instead of inheriting Thread so start can be called multiple times.
   # Expectation is that OneClickUpdate.start is passed to SettingsView to
@@ -184,6 +179,27 @@ class OneClickUpdate():
       self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
       return
 
+    # Assign text to UpdatePrompt's
+    fw_update_prompt.text = \
+        "Local STM Version :\n\t%s\n" % \
+            self.settings['system_info']['firmware_version'].value + \
+        "Newest STM Version :\n\t%s\n\n" % \
+            index['piksi_v2.3.1']['stm_fw']['version'] + \
+        "Local SwiftNAP Version :\n\t%s\n" % \
+            self.settings['system_info']['nap_version'].value + \
+        "Newest SwiftNAP Version :\n\t%s\n\n" % \
+            index['piksi_v2.3.1']['nap_fw']['version']
+
+    console_outdated_prompt.text = \
+        "Your Console is out of date and may be incompatible with " + \
+        "current firmware. We highly recommend upgrading to ensure proper " + \
+        "behavior. Please visit download.swift-nav.com to download " + \
+        "the newest version.\n\n" + \
+        "Local Console Version :\n\t" + \
+            CONSOLE_VERSION + \
+        "\nNewest Console Version :\n\t" + \
+            index['piksi_v2.3.1']['console']['version'] + "\n"
+
     # Do local version match latest from website?
     self.stm_fw_outdated = index['piksi_v2.3.1']['stm_fw']['version'] \
                                !=  self.settings['system_info']['firmware_version'].value
@@ -218,30 +234,13 @@ class OneClickUpdate():
         (self.nap_fw_outdated and self.nap_ihx and not self.stm_fw_outdated) or \
          (self.stm_fw_outdated and self.stm_ihx and \
            self.nap_fw_outdated and self.nap_ihx):
-      init_string = "Local STM Version :\n\t%s\n" % \
-                        self.settings['system_info']['firmware_version'].value + \
-                    "Newest STM Version :\n\t%s\n\n" % \
-                        index['piksi_v2.3.1']['stm_fw']['version'] + \
-                    "Local SwiftNAP Version :\n\t%s\n" % \
-                        self.settings['system_info']['nap_version'].value + \
-                    "Newest SwiftNAP Version :\n\t%s\n\n" % \
-                        index['piksi_v2.3.1']['nap_fw']['version']
-      fw_update_prompt.output_stream.write(init_string)
       fw_update_prompt.run()
 
-    sleep(0.5) # For aesthetics.
+    # For timing aesthetics between windows popping up.
+    sleep(0.5)
 
     # Check if console is out of date and notify user if so.
     if self.console_outdated:
-      init_string = "Your Console is out of date and may be incompatible with " + \
-                    "current firmware. We highly recommend upgrading to ensure proper " + \
-                    "behavior. Please visit download.swift-nav.com to download " + \
-                    "the newest version.\n\n" + \
-                    "Local Console Version :\n\t" + \
-                        CONSOLE_VERSION + \
-                    "\nNewest Console Version :\n\t" + \
-                        index['piksi_v2.3.1']['console']['version'] + "\n"
-      console_outdated_prompt.output_stream.write(init_string)
       console_outdated_prompt.run()
 
   # Executed in GUI thread, called from Handler.
