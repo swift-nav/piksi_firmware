@@ -31,24 +31,17 @@ import flash
 INDEX_URL = 'http://download.swift-nav.com/index.json'
 
 # Handler methods that can be associated with buttons.
-def execute_callback_handler(self, info):
-  if info.object.button_pressed == True:
-    return
-  info.object.button_pressed = True
-  info.object.handler_callback()
+def set_execute_callback_true(self, info):
+  info.object.execute_callback = True
   info.object.handler_executed = True
 
-def no_callback_handler(self, info):
-  if info.object.button_pressed == True:
-    return
-  info.object.button_pressed = True
+def set_execute_callback_false(self, info):
+  info.object.execute_callback = False
   info.object.handler_executed = True
 
-upgrade_button = Action(name = "Update", action = "execute_callback_handler", \
+update_button = Action(name = "Update", action = "set_execute_callback_true", \
                              show_label=False)
-cancel_button = Action(name = "Cancel", action = "no_callback_handler", \
-                             show_label=False)
-close_button = Action(name = "Close", action = "no_callback_handler", \
+close_button = Action(name = "Close", action = "set_execute_callback_false", \
                              show_label=False)
 
 class UpdateHandler(Handler):
@@ -77,11 +70,14 @@ class UpdatePrompt(HasTraits):
   output_stream = Instance(OutputStream)
   close = Event
 
-  def __init__(self, title, actions, handler_callback=None):
-    self.handler_callback = handler_callback
-    self.closed = False
+  def __init__(self, title, actions, update_callback=None):
+    self.update_callback = update_callback
+
     self.handler_executed = False
-    self.button_pressed = False
+    self.execute_callback = False
+    self.closed = False
+    self.close = 0
+
     self.output_stream = OutputStream()
     self.view = View(
                      Item(
@@ -99,8 +95,20 @@ class UpdatePrompt(HasTraits):
                      resizable=True
                     )
 
-  def start(self):
-    self.edit_traits(self.view)
+  def run(self):
+
+    GUI.invoke_later(self.edit_traits, self.view)
+    while not self.handler_executed:
+      sleep(0.1)
+
+    if self.execute_callback:
+      GUI.invoke_later(self.update_callback)
+
+    if not self.closed:
+      self.close = 1
+    while not self.closed:
+      sleep(0.1)
+
 
 class OneClickUpdate():
 
@@ -137,8 +145,8 @@ class OneClickUpdate():
     fw_update_prompt = \
         UpdatePrompt(
                      title='Firmware Update',
-                     actions=[upgrade_button, cancel_button],
-                     handler_callback=self.manage_firmware_updates,
+                     actions=[update_button, close_button],
+                     update_callback=self.manage_firmware_updates,
                     )
 
     console_outdated_prompt = \
@@ -193,6 +201,7 @@ class OneClickUpdate():
         f.close()
       except URLError:
         self.write("\nError: Failed to download latest Piksi SwiftNAP firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['nap_fw']['url'])
+
     self.stm_ihx = None
     if self.stm_fw_outdated:
       try:
@@ -218,12 +227,9 @@ class OneClickUpdate():
                     "Newest SwiftNAP Version :\n\t%s\n\n" % \
                         index['piksi_v2.3.1']['nap_fw']['version']
       fw_update_prompt.output_stream.write(init_string)
-      GUI.invoke_later(fw_update_prompt.start)
-      while not fw_update_prompt.handler_executed:
-        sleep(0.1)
-      while not fw_update_prompt.closed:
-        fw_update_prompt.close = 1
-        sleep(0.1)
+      fw_update_prompt.run()
+
+    sleep(0.5) # For aesthetics.
 
     # Check if console is out of date and notify user if so.
     if self.console_outdated:
@@ -236,12 +242,7 @@ class OneClickUpdate():
                     "\nNewest Console Version :\n\t" + \
                         index['piksi_v2.3.1']['console']['version'] + "\n"
       console_outdated_prompt.output_stream.write(init_string)
-      GUI.invoke_later(console_outdated_prompt.start)
-      while not console_outdated_prompt.handler_executed:
-        sleep(0.1)
-      while not console_outdated_prompt.closed:
-        console_outdated_prompt.close = 1
-        sleep(0.1)
+      console_outdated_prompt.run()
 
   # Executed in GUI thread, called from Handler.
   def manage_firmware_updates(self):
