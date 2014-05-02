@@ -37,14 +37,8 @@ if args.toolkit[0] is not None:
 import logging
 logging.basicConfig()
 
-# Fix default font issue on Linux
 import os
 import sys
-#from kiva.fonttools.font_manager import fontManager, FontProperties
-#if os.name == "posix":
-  #font = FontProperties()
-  #font.set_name("Arial")
-  #fontManager.defaultFont = fontManager.findfont(font)
 
 from traits.api import Str, Instance, Dict, HasTraits, Int, Button, List
 from traitsui.api import Item, Label, View, VGroup, VSplit, HSplit, Tabbed, InstanceEditor, EnumEditor, ShellEditor
