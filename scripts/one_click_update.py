@@ -191,10 +191,11 @@ class OneClickUpdate():
             index['piksi_v2.3.1']['nap_fw']['version']
 
     console_outdated_prompt.text = \
-        "Your Console is out of date and may be incompatible with " + \
-        "current firmware. We highly recommend upgrading to ensure proper " + \
-        "behavior. Please visit download.swift-nav.com to download " + \
-        "the newest version.\n\n" + \
+        "Your Console is out of date and may be incompatible\n" + \
+        "with current firmware. We highly recommend upgrading\n" + \
+        "to ensure proper behavior.\n\n" + \
+        "Please visit http://download.swift-nav.com to\n" + \
+        "download the newest version.\n\n" + \
         "Local Console Version :\n\t" + \
             CONSOLE_VERSION + \
         "\nNewest Console Version :\n\t" + \
