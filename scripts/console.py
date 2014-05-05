@@ -11,6 +11,7 @@
 
 import serial_link
 import sbp_piksi as ids
+from version import VERSION as CONSOLE_VERSION
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
@@ -21,6 +22,9 @@ parser.add_argument('-b', '--baud', nargs=1, default=[serial_link.DEFAULT_BAUD],
 parser.add_argument("-v", "--verbose",
                   help="print extra debugging information.",
                   action="store_true")
+parser.add_argument("-u", "--update",
+                  help="don't prompt about firmware/console updates.",
+                  action="store_false")
 parser.add_argument("-f", "--ftdi",
                   help="use pylibftdi instead of pyserial.",
                   action="store_true")
@@ -81,6 +85,7 @@ from observation_view import ObservationView
 from system_monitor_view import SystemMonitorView
 from simulator_view import SimulatorView
 from settings_view import SettingsView
+from one_click_update import OneClickUpdate
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -131,7 +136,7 @@ class SwiftConsole(HasTraits):
     resizable = True,
     width = 1000,
     height = 800,
-    title = 'Piksi console'
+    title = 'Piksi Console, Version: ' + CONSOLE_VERSION
   )
 
   def print_message_callback(self, data):
@@ -146,6 +151,11 @@ class SwiftConsole(HasTraits):
     print "VAR: %s = %d" % (name, x)
 
   def __init__(self, *args, **kwargs):
+    try:
+      update = kwargs.pop('update')
+    except KeyError:
+      update = True
+
     self.console_output = OutputStream()
     sys.stdout = self.console_output
     sys.stderr = self.console_output
@@ -156,15 +166,29 @@ class SwiftConsole(HasTraits):
 
       self.link.add_callback(ids.DEBUG_VAR, self.debug_var_callback)
 
+      settings_read_finished_functions = []
+
       self.tracking_view = TrackingView(self.link)
       self.almanac_view = AlmanacView(self.link)
       self.solution_view = SolutionView(self.link)
       self.baseline_view = BaselineView(self.link)
-      self.observation_view = ObservationView(self.link, name='Rover', relay=False)
-      self.observation_view_base = ObservationView(self.link, name='Base', relay=True)
+      self.observation_view = ObservationView(self.link,
+                                              name='Rover', relay=False)
+      self.observation_view_base = ObservationView(self.link,
+                                                   name='Base', relay=True)
       self.system_monitor_view = SystemMonitorView(self.link)
       self.simulator_view = SimulatorView(self.link)
       self.settings_view = SettingsView(self.link)
+
+      if update:
+        self.ocu = OneClickUpdate(self.link, self.console_output)
+        settings_read_finished_functions.append(self.ocu.start)
+
+      self.settings_view = \
+          SettingsView(self.link, settings_read_finished_functions)
+
+      if update:
+        self.ocu.point_to_settings(self.settings_view.settings)
 
       self.python_console_env = {
           'send_message': self.link.send_message,
@@ -212,7 +236,7 @@ if serial_port is None:
     print "Using serial device '%s'" % serial_port
 
 console = SwiftConsole(serial_port, baud, use_ftdi=args.ftdi,
-                       print_unhandled=args.verbose)
+                       print_unhandled=args.verbose, update=args.update)
 
 console.configure_traits()
 console.stop()

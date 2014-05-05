@@ -119,6 +119,7 @@ def _m25_write_status(self, sr):
 class Flash():
 
   def __init__(self, link, flash_type):
+    self.stopped = False
     self.status = ''
     self.link = link
     self.flash_type = flash_type
@@ -139,19 +140,20 @@ class Flash():
     elif self.flash_type == "M25":
       self.flash_type_byte = 1
       self.addr_sector_map = m25_addr_sector_map
-      self.status_register = None
       # Add M25-specific functions.
       self.__dict__['write_status'] = \
           new.instancemethod(_m25_write_status, self, Flash)
     else:
-      raise ValueError
+      raise ValueError("flash_type must be \"STM\" or \"M25\"")
 
   def __del__(self):
-    self.stop()
+    if not self.stopped:
+      self.stop()
 
   def stop(self):
-    self.link.rm_callback(ids.FLASH_DONE)
-    self.link.rm_callback(ids.FLASH_READ)
+    self.stopped = True
+    self.link.rm_callback(ids.FLASH_DONE, self._done_callback)
+    self.link.rm_callback(ids.FLASH_READ, self._read_callback)
 
   def __str__(self):
     return self.status
@@ -206,21 +208,22 @@ class Flash():
     self._read_callback_data = list(struct.unpack(str(length)+'B', data[5:]))
     self._waiting_for_callback = False
 
-  def write_ihx(self, ihx, verbose=True):
+  def write_ihx(self, ihx, stream=None, mod_print=0):
     self.ihx_total_ops = ihx_n_ops(ihx, self.addr_sector_map)
     self.ihx_elapsed_ops = 0
+    self.count = 0
 
     # Erase sectors
     ihx_addrs = ihx_ranges(ihx)
     for sector in sectors_used(ihx_addrs, self.addr_sector_map):
       self.status = self.flash_type + " Flash: Erasing sector %d" % sector
-      if verbose:
-        print '\r' + self.status,
-        sys.stdout.flush()
+      if stream:
+        stream.write('\r' + self.status)
+        stream.flush()
       self.erase_sector(sector)
       self.ihx_elapsed_ops += 1
-    if verbose:
-      print ''
+    if stream:
+      stream.write('\n')
 
     # Write data to flash and validate
     start_time = time.time()
@@ -228,9 +231,13 @@ class Flash():
       for addr in range(start, end, ADDRS_PER_OP):
         self.status = self.flash_type + " Flash: Programming address" + \
                                         " 0x%08X" % addr
-        if verbose:
-          print '\r' + self.status,
-          sys.stdout.flush()
+        if stream:
+          if mod_print == 0 or mod_print != 0 and self.count % mod_print == 0:
+            stream.write('\r' + self.status)
+            stream.flush()
+            self.count = 1
+          else:
+            self.count += 1
         binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
         self.program(addr, binary)
         self.ihx_elapsed_ops += 1
@@ -241,6 +248,6 @@ class Flash():
     self.status = self.flash_type + " Flash: Successfully programmed and " + \
                                     "verified, total time = %d seconds" % \
                                     int(time.time()-start_time)
-    if verbose:
-      print '\n' + self.status
+    if stream:
+      stream.write('\n\r' + self.status + '\n')
 
