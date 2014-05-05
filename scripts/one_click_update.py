@@ -26,6 +26,18 @@ import bootload
 import sbp_piksi as ids
 import flash
 
+import sys, os
+from pyface.image_resource import ImageResource
+if getattr(sys, 'frozen', False):
+    # we are running in a |PyInstaller| bundle
+    basedir = sys._MEIPASS
+    os.chdir(basedir)
+else:
+    # we are running in a normal Python environment
+    basedir = os.path.dirname(__file__)
+icon = ImageResource('icon',
+         search_path=['images', os.path.join(basedir, 'images')])
+
 INDEX_URL = 'http://download.swift-nav.com/index.json'
 
 # Handler methods that can be associated with buttons.
@@ -77,19 +89,20 @@ class UpdatePrompt(HasTraits):
     self.close = 0
 
     self.view = View(
-                     Item(
-                          'text',
-                          style='readonly',
-                          editor=TextEditor(),
-                          show_label=False
-                         ),
-                     buttons=actions,
-                     title=title,
-                     handler=UpdateHandler(actions),
-                     height=250,
-                     width=450,
-                     resizable=True
-                    )
+      Item(
+        'text',
+        style='readonly',
+        editor=TextEditor(),
+        show_label=False
+      ),
+      buttons=actions,
+      title=title,
+      handler=UpdateHandler(actions),
+      height=250,
+      width=450,
+      icon = icon,
+      resizable=True,
+    )
 
   def run(self):
 
