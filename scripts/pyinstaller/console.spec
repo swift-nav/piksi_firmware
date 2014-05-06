@@ -35,6 +35,7 @@ a = Analysis(['../console.py'],
 
 resources = [
   ('sbp_piksi.h', '../../src/sbp_piksi.h', 'DATA'),
+  ('RELEASE-VERSION', '../RELEASE-VERSION', 'DATA'),
 ]
 resources += Tree('../images', prefix='images')
 
@@ -43,7 +44,7 @@ exe = EXE(pyz,
           a.scripts,
           exclude_binaries=True,
           name='console',
-          debug=True,
+          debug=False,
           strip=None,
           upx=True,
           #console=True )
