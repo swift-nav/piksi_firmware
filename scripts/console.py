@@ -241,3 +241,9 @@ console = SwiftConsole(serial_port, baud, use_ftdi=args.ftdi,
 console.configure_traits()
 console.stop()
 
+# Force exit, even if threads haven't joined
+try:
+  os._exit(0)
+except:
+  pass
+
