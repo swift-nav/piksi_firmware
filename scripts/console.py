@@ -134,8 +134,8 @@ class SwiftConsole(HasTraits):
     ),
     icon = icon,
     resizable = True,
-    width = 1000,
-    height = 800,
+    width = 800,
+    height = 600,
     title = 'Piksi Console, Version: ' + CONSOLE_VERSION
   )
 
