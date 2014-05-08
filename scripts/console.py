@@ -37,6 +37,10 @@ baud = args.baud[0]
 if args.toolkit[0] is not None:
   from traits.etsconfig.api import ETSConfig
   ETSConfig.toolkit = args.toolkit[0]
+else:
+  from traits.etsconfig.api import ETSConfig
+  ETSConfig.toolkit = 'qt4'
+
 
 import logging
 logging.basicConfig()
