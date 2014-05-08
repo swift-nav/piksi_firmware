@@ -39,16 +39,27 @@ resources = [
 ]
 resources += Tree('../images', prefix='images')
 
+import sys, os
+
+kwargs = {}
+exe_ext = ''
+if os.name == 'nt':
+  kwargs['icon'] = 'icon.ico'
+  exe_ext = '.exe'
+elif sys.platform.startswith('darwin'):
+  kwargs['icon'] = 'icon.icns'
+
 pyz = PYZ(a.pure)
 exe = EXE(pyz,
           a.scripts,
           exclude_binaries=True,
-          name='console',
+          name='console'+exe_ext,
           debug=False,
           strip=None,
           upx=True,
-          #console=True )
-          console=False, icon='icon.icns')
+          console=False,
+          **kwargs
+          )
 coll = COLLECT(exe,
                resources,
                a.binaries,
@@ -57,6 +68,9 @@ coll = COLLECT(exe,
                strip=None,
                upx=True,
                name='console')
-app = BUNDLE(coll,
-             name='Piksi Console.app',
-             icon='icon.icns')
+
+if sys.platform.startswith('darwin'):
+  app = BUNDLE(coll,
+               name='Piksi Console.app',
+               icon='icon.icns')
+
