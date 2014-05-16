@@ -374,7 +374,10 @@ static msg_t solution_thread(void *arg)
                           simulation_current_dops_solution());
       }
 
-      if (simulation_enabled_for(SIMULATION_MODE_RTK)) {
+      double expected_tow = round(simulation_current_gnss_solution()->time.tow * soln_freq) / soln_freq;
+      double t_check = expected_tow * (soln_freq / obs_output_divisor);
+
+      if (simulation_enabled_for(SIMULATION_MODE_RTK) && fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
         solution_send_baseline(&simulation_current_gnss_solution()->time,
           simulation_current_num_sats(),
           simulation_current_baseline_ecef(),
