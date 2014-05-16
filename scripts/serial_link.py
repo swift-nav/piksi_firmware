@@ -80,7 +80,8 @@ class ListenerThread (threading.Thread):
     while not self.wants_to_stop:
       try:
         mt, md = self.link.get_message()
-        if self.wants_to_stop: #will throw away last message here even if it is valid
+        # Will throw away last message here even if it is valid.
+        if self.wants_to_stop:
           if self.link.ser:
             self.link.ser.close()
           break
@@ -122,9 +123,10 @@ class SerialLink:
   def close(self):
     try:
       self.lt.stop()
+      while self.lt.isAlive():
+        time.sleep(0.1)
     except AttributeError:
       pass
-    self.ser.close()
 
   def get_message(self):
     while True:
