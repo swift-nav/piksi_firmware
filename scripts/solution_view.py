@@ -23,13 +23,9 @@ import math
 import os
 import numpy as np
 import datetime
+import time
 
-import sbp_piksi as ids
-
-import os, sys
-lib_path = os.path.abspath('../libswiftnav/sbp_generate')
-sys.path.append(lib_path)
-import sbp_messages
+import sbp_piksi as sbp_messages
 
 class SimpleAdapter(TabularAdapter):
     columns = [('Item', 0), ('Value',  1)]
@@ -55,23 +51,23 @@ class SolutionView(HasTraits):
 
   clear_button = SVGButton(
     label='', tooltip='Clear',
-    filename=os.path.join(os.path.dirname(__file__), 'images', 'x.svg'),
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'x.svg'),
     width=16, height=16
   )
   zoomall_button = SVGButton(
     label='', tooltip='Zoom All',
-    filename=os.path.join(os.path.dirname(__file__), 'images', 'fullscreen.svg'),
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'fullscreen.svg'),
     width=16, height=16
   )
   center_button = SVGButton(
     label='', tooltip='Center on Solution', toggle=True,
-    filename=os.path.join(os.path.dirname(__file__), 'images', 'target.svg'),
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'target.svg'),
     width=16, height=16
   )
   paused_button = SVGButton(
     label='', tooltip='Pause', toggle_tooltip='Run', toggle=True,
-    filename=os.path.join(os.path.dirname(__file__), 'images', 'pause.svg'),
-    toggle_filename=os.path.join(os.path.dirname(__file__), 'images', 'play.svg'),
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'pause.svg'),
+    toggle_filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'play.svg'),
     width=16, height=16
   )
 
@@ -128,22 +124,37 @@ class SolutionView(HasTraits):
     soln = sbp_messages.PosLLH(data)
     self.pos_table = []
 
-    #t = datetime.datetime(1980, 1, 5) + \
-        #datetime.timedelta(weeks=soln.gps_week) + \
-        #datetime.timedelta(seconds=soln.gps_tow)
-    #self.pos_table.append(('GPS Time', soln.tow / 1e3))
+    if self.log_file is None:
+      self.log_file = open(time.strftime("position_log_%Y%m%d-%H%M%S.csv"), 'w')
+
+    self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow * 1e3, soln.lat, soln.lon, soln.height, soln.n_sats))
+    self.log_file.flush()
+
+    if self.week is not None:
+      t = datetime.datetime(1980, 1, 6) + \
+          datetime.timedelta(weeks=self.week) + \
+          datetime.timedelta(seconds=soln.tow/1e3)
+      self.pos_table.append(('GPS Time', t))
+      self.pos_table.append(('GPS Week', str(self.week)))
+
+    tow = soln.tow*1e-3 + self.nsec*1e-9
+    if self.nsec is not None:
+      tow += self.nsec*1e-9
+    self.pos_table.append(('GPS ToW', tow))
+
+    self.pos_table.append(('Num. sats', soln.n_sats))
 
     self.pos_table.append(('Lat', soln.lat))
     self.pos_table.append(('Lng', soln.lon))
     self.pos_table.append(('Alt', soln.height))
 
-    self.pos_table.append(('GPS Week', str(self.week)))
-    self.pos_table.append(('GPS ToW', soln.tow / 1e3))
-    self.pos_table.append(('Num. sats', soln.n_sats))
-
     self.lats.append(soln.lat)
     self.lngs.append(soln.lon)
     self.alts.append(soln.height)
+
+    self.lats = self.lats[-1000:]
+    self.lngs = self.lngs[-1000:]
+    self.alts = self.alts[-1000:]
 
     self.plot_data.set_data('lat', self.lats)
     self.plot_data.set_data('lng', self.lngs)
@@ -172,6 +183,13 @@ class SolutionView(HasTraits):
 
   def vel_ned_callback(self, data):
     vel_ned = sbp_messages.VelNED(data)
+
+    if self.vel_log_file is None:
+      self.vel_log_file = open(time.strftime("velocity_log_%Y%m%d-%H%M%S.csv"), 'w')
+
+    self.vel_log_file.write('%.2f,%.4f,%.4f,%.4f,%.4f,%d\n' % (vel_ned.tow * 1e3, vel_ned.n, vel_ned.e, vel_ned.d, math.sqrt(vel_ned.n*vel_ned.n + vel_ned.e*vel_ned.e),vel_ned.n_sats))
+    self.vel_log_file.flush()
+
     self.vel_table = [
       ('Vel. N', '% 8.4f' % (vel_ned.n * 1e-3)),
       ('Vel. E', '% 8.4f' % (vel_ned.e * 1e-3)),
@@ -181,15 +199,19 @@ class SolutionView(HasTraits):
 
   def gps_time_callback(self, data):
     self.week = sbp_messages.GPSTime(data).wn
+    self.nsec = sbp_messages.GPSTime(data).ns
 
   def __init__(self, link):
     super(SolutionView, self).__init__()
 
+    self.log_file = None
+    self.vel_log_file = None
+
     self.plot_data = ArrayPlotData(lat=[0.0], lng=[0.0], alt=[0.0], t=[0.0], ref_lat=[0.0], ref_lng=[0.0], region_lat=[0.0], region_lng=[0.0])
     self.plot = Plot(self.plot_data)
 
-    self.plot.plot(('lat', 'lng'), type='line', name='line', color=(0, 0, 0, 0.1))
-    self.plot.plot(('lat', 'lng'), type='scatter', name='points', color='blue', marker='dot', line_width=0.0, marker_size=1.0)
+    self.plot.plot(('lng', 'lat'), type='line', name='line', color=(0, 0, 0, 0.1))
+    self.plot.plot(('lng', 'lat'), type='scatter', name='points', color='blue', marker='dot', line_width=0.0, marker_size=1.0)
 
     self.plot.index_axis.tick_label_position = 'inside'
     self.plot.index_axis.tick_label_color = 'gray'
@@ -210,6 +232,7 @@ class SolutionView(HasTraits):
     self.link.add_callback(sbp_messages.SBP_GPS_TIME, self.gps_time_callback)
 
     self.week = None
+    self.nsec = 0
 
     self.python_console_cmds = {
       'solution': self

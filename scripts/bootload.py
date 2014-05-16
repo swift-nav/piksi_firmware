@@ -25,13 +25,27 @@ import struct
 class Bootloader():
 
   def __init__(self, link):
+    self.stopped = False
     self.handshake_received = False
+    self.version = None
     self.link = link
     self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
-    self.version = None
+
+  def __del__(self):
+    if not self.stopped:
+      self.stop()
+
+  def stop(self):
+    self.stopped = True
+    self.link.rm_callback(ids.BOOTLOADER_HANDSHAKE, self._handshake_callback)
 
   def _handshake_callback(self, data):
-    self.version = struct.unpack('B', data[0])[0]
+    if len(data)==1 and struct.unpack('B', data[0])==0:
+      # == v0.1 of the bootloader, returns hardcoded version number 0.
+      self.version = "v0.1"
+    else:
+      # > v0.1 of the bootloader, returns git commit string.
+      self.version = data[:]
     self.handshake_received = True
 
   def wait_for_handshake(self):
@@ -48,10 +62,10 @@ class Bootloader():
 if __name__ == "__main__":
   import argparse
   import thread
-  import serial_link
-  import flash
   import sys
   from intelhex import IntelHex
+  import serial_link
+  import flash
   parser = argparse.ArgumentParser(description='Piksi Bootloader')
   parser.add_argument("file",
                       help="the Intel hex file to write to flash.")
@@ -100,6 +114,9 @@ if __name__ == "__main__":
   print "link successfully created."
   link.add_callback(ids.PRINT, serial_link.default_print_callback)
 
+  # Reset device if the payload is running
+  link.send_message(ids.RESET, '')
+
   # Tell Bootloader we want to change flash data
   piksi_bootloader = Bootloader(link)
   print "Waiting for bootloader handshake message from Piksi ...",
@@ -119,10 +136,13 @@ if __name__ == "__main__":
   elif args.m25:
     piksi_flash = flash.Flash(link, flash_type="M25")
 
-  piksi_flash.write_ihx(ihx)
+  piksi_flash.write_ihx(ihx, sys.stdout, mod_print = 0x10)
 
   print "Bootloader jumping to application"
   piksi_bootloader.jump_to_app()
+
+  piksi_flash.stop()
+  piksi_bootloader.stop()
 
   # Wait for ctrl+C until we exit
   try:

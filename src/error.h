@@ -13,7 +13,7 @@
 #ifndef SWIFTNAV_ERROR_H
 #define SWIFTNAV_ERROR_H
 
-void screaming_death(char *msg);
+void screaming_death(const char *msg);
 
 #endif  /* SWIFTNAV_ERROR_H */
 

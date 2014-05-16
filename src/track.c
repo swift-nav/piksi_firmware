@@ -20,6 +20,7 @@
 #include "board/nap/track_channel.h"
 #include "sbp.h"
 #include "track.h"
+#include "simulator.h"
 
 #include <libswiftnav/constants.h>
 
@@ -102,7 +103,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].update_count = 0;
   /* Use -1 to indicate an uninitialised value. */
   tracking_channel[channel].TOW_ms = -1;
-  tracking_channel[channel].snr_threshold_count = 0;
+  tracking_channel[channel].snr_above_threshold_count = 0;
+  tracking_channel[channel].snr_below_threshold_count = 0;
 
   comp_tl_init(&(tracking_channel[channel].tl_state), 1e3,
                code_phase_rate-1.023e6, 1, 0.7, 1,
@@ -225,7 +227,9 @@ void tracking_channel_update(u8 channel)
       s32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
 
       if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
-        printf("PRN %d TOW mismatch: %u, %u\n",(int)chan->prn + 1, (unsigned int)chan->TOW_ms, (unsigned int)TOW_ms);
+        if (chan->TOW_ms > 0) {
+          printf("PRN %d TOW mismatch: %ld, %u\n",(int)chan->prn + 1, chan->TOW_ms, (unsigned int)TOW_ms);
+        }
         chan->TOW_ms = TOW_ms;
       }
 
@@ -297,16 +301,38 @@ float tracking_channel_snr(u8 channel)
  */
 void tracking_send_state()
 {
+
   tracking_state_msg_t states[nap_track_n_channels];
-  for (u8 i=0; i<nap_track_n_channels; i++) {
-    states[i].state = tracking_channel[i].state;
-    states[i].prn = tracking_channel[i].prn;
-    if (tracking_channel[i].state == TRACKING_RUNNING)
-      states[i].cn0 = tracking_channel_snr(i);
-    else
-      states[i].cn0 = -1;
+
+  if (simulation_enabled_for(SIMULATION_MODE_TRACKING)) {
+
+    u8 num_sats = simulation_current_num_sats();
+    for (u8 i=0; i < num_sats; i++) {
+      states[i] = simulation_current_tracking_state(i);
+    }
+    if (num_sats < nap_track_n_channels) {
+      for (u8 i = num_sats; i < nap_track_n_channels; i++) {
+        states[i].state = TRACKING_DISABLED;
+        states[i].prn   = 0;
+        states[i].cn0   = -1;
+      }
+    }
+
+  } else {
+
+    for (u8 i=0; i<nap_track_n_channels; i++) {
+      states[i].state = tracking_channel[i].state;
+      states[i].prn = tracking_channel[i].prn;
+      if (tracking_channel[i].state == TRACKING_RUNNING)
+        states[i].cn0 = tracking_channel_snr(i);
+      else
+        states[i].cn0 = -1;
+    }
+
   }
+
   sbp_send_msg(MSG_TRACKING_STATE, sizeof(states), (u8*)states);
+
 }
 
 /** \} */

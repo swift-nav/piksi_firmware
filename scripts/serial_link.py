@@ -67,7 +67,7 @@ def crc16(s, crc=0):
 
 class ListenerThread (threading.Thread):
 
-  def __init__(self, link, print_unhandled=True):
+  def __init__(self, link, print_unhandled=False):
     super(ListenerThread, self).__init__()
     self.link = link
     self.wants_to_stop = False
@@ -79,26 +79,34 @@ class ListenerThread (threading.Thread):
   def run(self):
     while not self.wants_to_stop:
       try:
-        mt, md = self.link.get_message()
+        mt, ms, md = self.link.get_message()
         # Will throw away last message here even if it is valid.
         if self.wants_to_stop:
           if self.link.ser:
             self.link.ser.close()
           break
         if mt is not None:
-          cb = self.link.get_callback(mt)
-          if cb:
-            cb(md)
-          else:
+          cbs = self.link.get_callback(mt)
+          if cbs is None or len(cbs) == 0:
             if self.print_unhandled:
               print "Host Side Unhandled message %02X" % mt
+          else:
+            for cb in cbs:
+              try:
+                cb(md, sender=ms)
+              except TypeError:
+                cb(md)
       except Exception, err:
         import traceback
         print traceback.format_exc()
 
+def list_ports(self=None):
+  import serial.tools.list_ports
+  return serial.tools.list_ports.comports()
+
 class SerialLink:
 
-  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False, print_unhandled=True):
+  def __init__(self, port=DEFAULT_PORT, baud=DEFAULT_BAUD, use_ftdi=False, print_unhandled=False):
     self.print_unhandled = print_unhandled
     self.unhandled_bytes = 0
     self.callbacks = {}
@@ -108,7 +116,21 @@ class SerialLink:
       self.ser.baudrate = baud
     else:
       import serial
-      self.ser = serial.Serial(port, baud, timeout=1)
+      try:
+        self.ser = serial.Serial(port, baud, timeout=1)
+      except serial.SerialException:
+        print
+        print "Serial device '%s' not found" % port
+        print
+        print "The following serial devices were detected:"
+        print
+        for p in list_ports():
+          p_name, p_desc, _ = p
+          if p_desc == p_name:
+            print "\t%s" % p_name
+          else:
+            print "\t%s (%s)" % (p_name, p_desc)
+        sys.exit(1)
 
     # Delay then flush the buffer to make sure the receive buffer starts empty.
     time.sleep(0.5)
@@ -131,10 +153,14 @@ class SerialLink:
   def get_message(self):
     while True:
       if self.lt.wants_to_stop:
-        return (None, None)
+        return (None, None, None)
 
       # Sync with magic start bytes
-      magic = self.ser.read(1)
+      try:
+        magic = self.ser.read(1)
+      except OSError:
+        print "Error: Piksi not connected"
+        sys.exit(1)
       if magic:
         if ord(magic) == SBP_PREAMBLE:
           break
@@ -164,9 +190,9 @@ class SerialLink:
 
     if crc != crc_received:
       print "Host Side CRC mismatch: 0x%04X 0x%04X" % (crc, crc_received)
-      return (None, None)
+      return (None, None, None)
 
-    return (msg_type, data)
+    return (msg_type, sender_id, data)
 
   def send_message(self, msg_type, msg, sender_id=0x42):
     framed_msg = struct.pack('<BHHB', SBP_PREAMBLE, msg_type, sender_id, len(msg))
@@ -181,13 +207,19 @@ class SerialLink:
 
   def add_callback(self, msg_type, callback):
     try:
-      self.callbacks[msg_type]
-      raise Exception("callback for msg_type 0x%02x already exists" % msg_type)
+      self.callbacks[msg_type].append(callback)
     except KeyError:
-      self.callbacks[msg_type] = callback
+      self.callbacks[msg_type] = [callback]
 
-  def rm_callback(self, msg_type):
-    self.callbacks.pop(msg_type)
+  def rm_callback(self, msg_type, callback):
+    try:
+      self.callbacks[msg_type].remove(callback)
+    except KeyError:
+      print "Can't remove callback for msg 0x%04x: message not registered" \
+            % msg_type
+    except ValueError:
+      print "Can't remove callback for msg 0x%04x: callback not registered" \
+            % msg_type
 
   def get_callback(self, msg_type):
     if msg_type in self.callbacks:
@@ -207,13 +239,17 @@ if __name__ == "__main__":
   parser.add_argument("-b", "--baud",
                      default=[DEFAULT_BAUD], nargs=1,
                      help="specify the baud rate to use.")
+  parser.add_argument("-v", "--verbose",
+                     help="print extra debugging information.",
+                     action="store_true")
   parser.add_argument("-f", "--ftdi",
                      help="use pylibftdi instead of pyserial.",
                      action="store_true")
   args = parser.parse_args()
   serial_port = args.port[0]
   baud = args.baud[0]
-  link = SerialLink(serial_port, baud, use_ftdi=args.ftdi)
+  link = SerialLink(serial_port, baud, use_ftdi=args.ftdi,
+                    print_unhandled=args.verbose)
   link.add_callback(ids.PRINT, default_print_callback)
   try:
     while True:

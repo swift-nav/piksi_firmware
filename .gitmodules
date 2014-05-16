@@ -4,3 +4,6 @@
 [submodule "libswiftnav"]
 	path = libswiftnav
 	url = https://github.com/swift-nav/libswiftnav.git
+[submodule "ChibiOS-RT"]
+	path = ChibiOS-RT
+	url = https://github.com/ChibiOS/ChibiOS-RT.git

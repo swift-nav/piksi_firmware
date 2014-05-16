@@ -15,8 +15,44 @@
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/usart.h>
 
+#include <ch.h>
+#include <stdio.h>
+
 #include "../settings.h"
 #include "usart.h"
+#include "3drradio.h"
+
+/** \addtogroup io
+ * \{ */
+
+
+static const char const * portmode_enum[] = {"SBP", "NMEA", "RTCM", NULL};
+static struct setting_type portmode;
+
+usart_settings_t ftdi_usart = {
+  .mode               = SBP,
+  .baud_rate          = USART_DEFAULT_BAUD_FTDI,
+  .sbp_message_mask   = 0xFFFF,
+  .configure_telemetry_radio_on_boot = 0,
+};
+
+usart_settings_t uarta_usart = {
+  .mode               = SBP,
+  .baud_rate          = USART_DEFAULT_BAUD_TTL,
+  .sbp_message_mask   = 0x40,
+  .configure_telemetry_radio_on_boot = 1,
+};
+
+usart_settings_t uartb_usart = {
+  .mode             = SBP,
+  .baud_rate        = USART_DEFAULT_BAUD_TTL,
+  .sbp_message_mask = 0xFF00,
+  .configure_telemetry_radio_on_boot = 1,
+};
+
+bool all_uarts_enabled = false;
+
+/** \} */
 
 /** \addtogroup peripherals
  * \{ */
@@ -52,12 +88,64 @@ void usart_set_parameters(u32 usart, u32 baud)
   usart_enable(usart);
 }
 
-/** Set up the USART peripherals.
+/** Set up the USART peripherals, hook them into the settings subsystem
+*
+*/
+void usarts_setup()
+{
+
+  radio_setup();
+
+  int TYPE_PORTMODE = settings_type_register_enum(portmode_enum, &portmode);
+
+  SETTING("uart_ftdi", "mode", ftdi_usart.mode, TYPE_PORTMODE);
+  SETTING("uart_ftdi", "sbp_message_mask", ftdi_usart.sbp_message_mask, TYPE_INT);
+  SETTING_NOTIFY("uart_ftdi", "baudrate", ftdi_usart.baud_rate, TYPE_INT,
+                 baudrate_change_notify);
+
+  SETTING("uart_uarta", "mode", uarta_usart.mode, TYPE_PORTMODE);
+  SETTING("uart_uarta", "sbp_message_mask", uarta_usart.sbp_message_mask, TYPE_INT);
+  SETTING("uart_uarta", "configure_telemetry_radio_on_boot",
+          uarta_usart.configure_telemetry_radio_on_boot, TYPE_BOOL);
+  SETTING_NOTIFY("uart_uarta", "baudrate", uarta_usart.baud_rate, TYPE_INT,
+          baudrate_change_notify);
+
+  SETTING("uart_uartb", "mode", uartb_usart.mode, TYPE_PORTMODE);
+  SETTING("uart_uartb", "sbp_message_mask", uartb_usart.sbp_message_mask, TYPE_INT);
+  SETTING("uart_uartb", "configure_telemetry_radio_on_boot",
+          uartb_usart.configure_telemetry_radio_on_boot, TYPE_BOOL);
+  SETTING_NOTIFY("uart_uartb", "baudrate", uartb_usart.baud_rate, TYPE_INT,
+          baudrate_change_notify);
+
+  usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate, true);
+
+}
+
+/** Callback for settings subsystem changing the baudrate of a UART.
+*
+*/
+bool baudrate_change_notify(struct setting *s, const char *val)
+{
+  if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
+    usarts_disable();
+    usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate, false);
+    return true;
+  }
+  return false;
+}
+
+
+/** Enable the USART peripherals.
  * USART 6, 1 and 3 peripherals are configured
  * (connected to the FTDI, UARTA and UARTB ports on the Piksi respectively).
  */
-void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
+void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_preconfigure_hooks)
 {
+
+  /* Ensure that the first time around, we do the preconfigure hooks */
+  if (!all_uarts_enabled && !do_preconfigure_hooks)
+    return;
+
   /* First give everything a clock. */
 
   /* Clock the USARTs. */
@@ -76,13 +164,13 @@ void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
    * 3     PC10  PC11  UARTB
    */
 
-  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO6 | GPIO7);
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO6 | GPIO7);
   gpio_set_af(GPIOC, GPIO_AF8, GPIO6 | GPIO7);
 
-  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9 | GPIO10);
+  gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO9 | GPIO10);
   gpio_set_af(GPIOA, GPIO_AF7, GPIO9 | GPIO10);
 
-  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO10 | GPIO11);
+  gpio_mode_setup(GPIOC, GPIO_MODE_AF, GPIO_PUPD_PULLUP, GPIO10 | GPIO11);
   gpio_set_af(GPIOC, GPIO_AF7, GPIO10 | GPIO11);
 
   usart_set_parameters(USART6, ftdi_baud);
@@ -94,6 +182,20 @@ void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
   /* FTDI (USART6) RX - DMA2, stream 1, channel 5. */
   usart_rx_dma_setup(&ftdi_rx_state, USART6, DMA2, 1, 5);
 
+  if (do_preconfigure_hooks) {
+
+    printf("\n\nPiksi Starting...\n"
+       "Firmware Version: " GIT_VERSION "\n" \
+       "Built: " __DATE__ " " __TIME__ "\n");
+
+    if (uarta_usart.configure_telemetry_radio_on_boot) {
+      radio_preconfigure_hook(USART1, uarta_baud, "UARTA");
+    }
+    if (uartb_usart.configure_telemetry_radio_on_boot) {
+      radio_preconfigure_hook(USART3, uartb_baud, "UARTB");
+    }
+  }
+
   /* UARTA (USART1) TX - DMA2, stream 7, channel 4. */
   usart_tx_dma_setup(&uarta_tx_state, USART1, DMA2, 7, 4);
   /* UARTA (USART1) RX - DMA2, stream 2, channel 4. */
@@ -103,54 +205,86 @@ void usarts_setup(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud)
   usart_tx_dma_setup(&uartb_tx_state, USART3, DMA1, 3, 4);
   /* UARTB (USART3) RX - DMA1, stream 1, channel 4. */
   usart_rx_dma_setup(&uartb_rx_state, USART3, DMA1, 1, 4);
+
+  all_uarts_enabled = true;
+
 }
 
 /** Disable all USARTs. */
 void usarts_disable()
 {
   /* Disable DMA channels. */
+  /* Disable all USARTs. */
+
+  if (!all_uarts_enabled)
+    return;
+
   usart_tx_dma_disable(&ftdi_tx_state);
   usart_rx_dma_disable(&ftdi_rx_state);
+  usart_disable(USART6);
+
   usart_tx_dma_disable(&uarta_tx_state);
   usart_rx_dma_disable(&uarta_rx_state);
+  usart_disable(USART1);
+
   usart_tx_dma_disable(&uartb_tx_state);
   usart_rx_dma_disable(&uartb_rx_state);
-
-  /* Disable all USARTs. */
-  usart_disable(USART6);
-  usart_disable(USART1);
   usart_disable(USART3);
 }
 
 /** DMA 2 Stream 6 Interrupt Service Routine. */
 void dma2_stream6_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_tx_dma_isr(&ftdi_tx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 /** DMA 2 Stream 1 Interrupt Service Routine. */
 void dma2_stream1_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_rx_dma_isr(&ftdi_rx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 /** DMA 2 Stream 7 Interrupt Service Routine. */
 void dma2_stream7_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_tx_dma_isr(&uarta_tx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 /** DMA 2 Stream 2 Interrupt Service Routine. */
 void dma2_stream2_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_rx_dma_isr(&uarta_rx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 /** DMA 1 Stream 3 Interrupt Service Routine. */
 void dma1_stream3_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_tx_dma_isr(&uartb_tx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 /** DMA 1 Stream 1 Interrupt Service Routine. */
 void dma1_stream1_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
   usart_rx_dma_isr(&uartb_rx_state);
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 
 /** \} */

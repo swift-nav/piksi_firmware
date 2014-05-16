@@ -20,16 +20,16 @@
 #include "peripherals/usart.h"
 
 sbp_msg_callbacks_node_t foo_callback_node;
-void foo_callback(u16 sender_id, u8 len, u8 msg[])
+void foo_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len;
+  (void)sender_id; (void)len; (void) context;
   printf("Foo callback: %f\n", *((float*)msg));
 }
 
 sbp_msg_callbacks_node_t led_callback_node;
-void led_callback(u16 sender_id, u8 len, u8 msg[])
+void led_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len;
+  (void)sender_id; (void)len; (void) context;
 
   printf("Green LED: ");
   if (msg[0] & 1) {
@@ -57,8 +57,8 @@ int main(void)
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n");
   printf("--- SWIFT BINARY PROTOCOL TEST ---\n");
 
-  sbp_register_callback(0x22, &foo_callback, &foo_callback_node);
-  sbp_register_callback(0x42, &led_callback, &led_callback_node);
+  sbp_register_cbk(0x22, &foo_callback, &foo_callback_node);
+  sbp_register_cbk(0x42, &led_callback, &led_callback_node);
   while(1)
   {
     sbp_process_messages();

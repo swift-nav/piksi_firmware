@@ -1,3 +1,4 @@
+.DS_Store
 .gdbinit
 docs/html
 *.o
@@ -10,17 +11,8 @@ docs/html
 *.bin
 *.map
 *.pyc
-*.gcno
-*.gcda
-*.swp
-libswiftnav/lcov
-/tags
-/libopencm3_for_ctags
-libswiftnav/tests/check_libswiftnav
-docs/diagrams/*.aux
-docs/diagrams/*.log
-docs/diagrams/*.pdf
-docs/diagrams/*.png
-libswiftnav/python/build
-libswiftnav/python/swiftnav/*.c
-.DS_Store
+*.csv
+scripts/pyinstaller/build
+scripts/pyinstaller/dist
+build/
+testing_crap/

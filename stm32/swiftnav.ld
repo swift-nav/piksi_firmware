@@ -14,9 +14,9 @@
 MEMORY
 {
   /* Bootloader occupies first sector of flash. */
-	rom (rx) : ORIGIN = 0x08004000, LENGTH = 240K
-	coffee_fs_rom (r) : ORIGIN = 0x08040000, LENGTH = 768K
-	ram (rwx) : ORIGIN = 0x20000000, LENGTH = 128K
+  rom (rx) : ORIGIN = 0x08004000, LENGTH = 368K
+  coffee_fs_rom (r) : ORIGIN = 0x08060000, LENGTH = 640K
+  ram (rwx) : ORIGIN = 0x20000000, LENGTH = 128K
   /* STM32F4 Core Coupled Memory, not accesible by peripherals or DMA. */
   ccm (rwx) : ORIGIN = 0x10000000, LENGTH = 64K
 }
@@ -25,6 +25,12 @@ MEMORY
 INCLUDE libopencm3_stm32f4.ld
 
 SECTIONS {
+  . = ALIGN(0x4);
+  _init = . ;
+
+  . = ALIGN(0x4);
+  _fini = . ;
+
   _stack_size = 65536;
   _stack = ORIGIN(ccm)+LENGTH(ccm);
   _stack_begin = _stack - _stack_size;

@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <ch.h>
+
 #include <libswiftnav/almanac.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
@@ -27,6 +29,7 @@
 #include "timing.h"
 #include "position.h"
 #include "manage.h"
+#include "nmea.h"
 #include "sbp.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
@@ -45,9 +48,9 @@ almanac_t almanac[32];
 acq_manage_t acq_manage;
 
 sbp_msg_callbacks_node_t almanac_callback_node;
-void almanac_callback(u16 sender_id, u8 len, u8 msg[])
+void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len;
+  (void)sender_id; (void)len; (void) context;
 
   almanac_t *new_almanac = (almanac_t*)msg;
 
@@ -65,6 +68,21 @@ void almanac_callback(u16 sender_id, u8 len, u8 msg[])
   } else {
     printf("Error opening almanac file\n");
   }
+}
+
+static WORKING_AREA_CCM(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
+static msg_t manage_acq_thread(void *arg)
+{
+  /* TODO: This should be trigged by a semaphore from the acq ISR code, not
+   * just ran periodically. */
+  (void)arg;
+  chRegSetThreadName("manage acq");
+  while (TRUE) {
+    chThdSleepMilliseconds(100);
+    manage_acq();
+  }
+
+  return 0;
 }
 
 void manage_acq_setup()
@@ -89,14 +107,21 @@ void manage_acq_setup()
     }
   }
 
-  sbp_register_callback(
+  sbp_register_cbk(
     MSG_ALMANAC,
     &almanac_callback,
     &almanac_callback_node
   );
+
+  chThdCreateStatic(
+      wa_manage_acq_thread,
+      sizeof(wa_manage_acq_thread),
+      MANAGE_ACQ_THREAD_PRIORITY,
+      manage_acq_thread, NULL
+  );
 }
 
-void manage_calc_scores()
+static void manage_calc_scores(void)
 {
   double az, el;
   gps_time_t t;
@@ -119,13 +144,14 @@ void manage_calc_scores()
       toa.wn = almanac[prn].week + 1024;
       toa.tow = almanac[prn].toa;
 
-      double dt = fabs(gpsdifftime(t, toa));
+      double dt_alm = fabs(gpsdifftime(t, toa));
+      double dt_pos = fabs(gpsdifftime(t, position_solution.time));
 
       if (time_quality == TIME_GUESS ||
-          position_quality == POSITION_GUESS ||
-          dt > 2*24*3600) {
-        /* Don't exclude other sats if our time is just a guess or our almanac
-         * is old. */
+          dt_pos > 1*24*3600 ||
+          dt_alm > 4*24*3600) {
+        /* Don't exclude other sats if our time is just a guess, our last
+         * position solution was ages ago or our almanac is old. */
         if (acq_prn_param[prn].score < 0)
           acq_prn_param[prn].score = 0;
       }
@@ -182,7 +208,7 @@ void manage_acq()
       acq_manage.prn = best_prn;
       acq_prn_param[best_prn].state = ACQ_PRN_ACQUIRING;
       acq_manage.state = ACQ_MANAGE_LOADING_COARSE;
-      acq_manage.coarse_timer_count = nap_timing_count() + 1000;
+      acq_manage.coarse_timer_count = nap_timing_count() + 20000;
       acq_schedule_load(acq_manage.coarse_timer_count);
       break;
     }
@@ -195,8 +221,8 @@ void manage_acq()
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
       /* Wait until we are done loading. */
-      if (!acq_get_load_done())
-        break;
+      acq_wait_load_done();
+
       /* Done loading, now lets set that coarse acquisition going. */
       nap_acq_code_wr_blocking(acq_manage.prn);
       if (almanac[acq_manage.prn].valid && time_quality == TIME_COARSE) {
@@ -239,7 +265,7 @@ void manage_acq()
       }
       /* Looks like we have a winner! */
       acq_manage.state = ACQ_MANAGE_LOADING_FINE;
-      acq_manage.fine_timer_count = nap_timing_count() + 1000;
+      acq_manage.fine_timer_count = nap_timing_count() + 20000;
       acq_schedule_load(acq_manage.fine_timer_count);
       break;
 
@@ -250,8 +276,8 @@ void manage_acq()
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
       }
       /* Wait until we are done loading. */
-      if (!acq_get_load_done())
-        break;
+      acq_wait_load_done();
+
       /* Done loading, now lets set the fine acquisition going. */
       float fine_cp = propagate_code_phase(
                         acq_manage.coarse_cp,
@@ -321,8 +347,10 @@ void manage_acq()
  * \param snr SNR of the acquisition.
  * \return Index of first unused tracking channel.
  */
-u8 manage_track_new_acq(float snr __attribute__((unused)))
+u8 manage_track_new_acq(float snr)
 {
+  (void)snr;
+
   /* Decide which (if any) tracking channel to put
    * a newly acquired satellite into.
    */
@@ -335,24 +363,79 @@ u8 manage_track_new_acq(float snr __attribute__((unused)))
   return MANAGE_NO_CHANNELS_FREE;
 }
 
+static WORKING_AREA_CCM(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
+static msg_t manage_track_thread(void *arg)
+{
+  (void)arg;
+  chRegSetThreadName("manage track");
+  while (TRUE) {
+    chThdSleepMilliseconds(200);
+    DO_EVERY(5,
+      manage_track();
+      nmea_gpgsa(tracking_channel, 0);
+    );
+    tracking_send_state();
+  }
+
+  return 0;
+}
+
+void manage_track_setup()
+{
+  chThdCreateStatic(
+      wa_manage_track_thread,
+      sizeof(wa_manage_track_thread),
+      MANAGE_TRACK_THREAD_PRIORITY,
+      manage_track_thread, NULL
+  );
+}
+
 /** Disable any tracking channel whose SNR is below a certain margin. */
 void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracking_channel[i].state == TRACKING_RUNNING) {
       if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
+        tracking_channel[i].snr_below_threshold_count =
+          tracking_channel[i].update_count;
         if (tracking_channel[i].update_count > TRACK_SNR_INIT_COUNT &&
-            tracking_channel[i].update_count - tracking_channel[i].snr_threshold_count > TRACK_SNR_THRES_COUNT) {
+            tracking_channel[i].update_count -
+              tracking_channel[i].snr_above_threshold_count >
+              TRACK_SNR_THRES_COUNT) {
           /* This tracking channel has lost its satellite. */
           printf("Disabling channel %d\n", i);
           tracking_channel_disable(i);
           acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_TRIED;
         }
       } else {
-        tracking_channel[i].snr_threshold_count = tracking_channel[i].update_count;
+        tracking_channel[i].snr_above_threshold_count =
+          tracking_channel[i].update_count;
       }
     }
   }
+}
+
+extern ephemeris_t es[32];
+s8 use_tracking_channel(u8 i)
+{
+  return (tracking_channel[i].state == TRACKING_RUNNING)
+      && (es[tracking_channel[i].prn].valid == 1)
+      && (es[tracking_channel[i].prn].healthy == 1)
+      && (tracking_channel[i].update_count
+            - tracking_channel[i].snr_below_threshold_count
+            > TRACK_SNR_THRES_COUNT)
+      && (tracking_channel[i].TOW_ms > 0);
+}
+
+u8 tracking_channels_ready()
+{
+  u8 n_ready = 0;
+  for (u8 i=0; i<nap_track_n_channels; i++) {
+    if (use_tracking_channel(i)) {
+      n_ready++;
+    }
+  }
+  return n_ready;
 }
 
 /** \} */

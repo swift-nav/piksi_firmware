@@ -10,11 +10,19 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <string.h>
+
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/spi.h>
+#include <libopencm3/stm32/f4/dma.h>
+
+#include "ch.h"
 
 #include "spi.h"
+
+/* Defined in usart_rx.c */
+extern const u8 dma_irq_lookup[2][8];
 
 /** \addtogroup peripherals
  * \{ */
@@ -23,6 +31,9 @@
  * Functions to setup and use STM32F4 SPI peripherals to communicate with the
  * SwiftNAP FPGA, MAX2769 front-end and the M25 configuration flash.
  * \{ */
+
+static BinarySemaphore spi_sem;
+static BinarySemaphore spi_dma_sem;
 
 /** Set up the SPI buses.
  * Set up the SPI peripheral, SPI clocks, SPI pins, and SPI pins' clocks.
@@ -37,7 +48,12 @@ void spi_setup(void)
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN | RCC_AHB1ENR_IOPBEN;
 
   /* Setup CS line GPIOs */
-  spi_slave_deselect();
+
+  /* Deselect FPGA CS */
+  gpio_set(GPIOA, GPIO4);
+  /* Deselect configuration flash and front-end CS */
+  gpio_set(GPIOB, GPIO11 | GPIO12);
+
   /* FPGA CS */
   gpio_mode_setup(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO4);
   /* Configuration flash CS */
@@ -63,6 +79,8 @@ void spi_setup(void)
   /* Finally enable the SPI. */
   spi_enable(SPI1);
   spi_enable(SPI2);
+
+  chBSemInit(&spi_sem, FALSE);
 }
 
 /** Deactivate SPI buses.
@@ -102,9 +120,7 @@ void spi_deactivate(void)
  */
 void spi_slave_select(u8 slave)
 {
-
-  spi_slave_deselect();
-  __asm__("CPSID i;");  /* Disable interrupts */
+  chBSemWait(&spi_sem);
 
   switch (slave) {
   case SPI_SLAVE_FPGA:
@@ -131,7 +147,170 @@ void spi_slave_deselect(void)
   /* Deselect configuration flash and front-end CS */
   gpio_set(GPIOB, GPIO11 | GPIO12);
 
-  __asm__("CPSIE i;");  /* Re-enable interrupts */
+  chBSemSignal(&spi_sem);
+}
+
+static void spi_dma_setup_rx(uint32_t spi, uint32_t dma, u8 stream, u8 channel)
+{
+  spi_enable_rx_dma(spi);
+
+  /* Make sure stream is disabled to start. */
+  DMA_SCR(dma, stream) &= ~DMA_SxCR_EN;
+
+  /* RM0090 - 9.3.17 : Supposed to wait until enable bit reads '0' before we
+   * write to registers. */
+  while (DMA_SCR(dma, stream) & DMA_SxCR_EN) ;
+
+  /* RM0090 - 9.3.17 : Supposed to clear any interrupts in DMA status register
+   * before we reconfigure registers. */
+  dma_clear_interrupt_flags(dma, stream, DMA_ISR_FLAGS);
+
+  /* Configure the DMA controller. */
+  DMA_SCR(dma, stream) = 0;
+  DMA_SCR(dma, stream) =
+    /* Error interrupts. */
+    DMA_SxCR_DMEIE | DMA_SxCR_TEIE |
+    DMA_SxCR_DIR_PERIPHERAL_TO_MEM |
+    /* Enable DMA transfer complete interrupt */
+    DMA_SxCR_TCIE |
+    /* Increment the memory address after each transfer. */
+    DMA_SxCR_MINC |
+    /* 8 bit transfers from SPI peripheral. */
+    DMA_SxCR_PSIZE_8BIT |
+    /* and to memory. */
+    DMA_SxCR_MSIZE_8BIT |
+    /* Low priority. */
+    DMA_SxCR_PL_VERY_HIGH |
+    /* The channel selects which request line will trigger a transfer.
+     * (see CD00225773.pdf Table 23). */
+    DMA_SxCR_CHSEL(channel);
+
+  /* Transfer up to the length of the buffer. */
+  DMA_SNDTR(dma, stream) = 0;
+
+  /* DMA from the SPI data register... */
+  DMA_SPAR(dma, stream) = &SPI_DR(spi);
+
+  /* Enable DMA interrupts for this stream with the NVIC. */
+  if (dma == DMA1)
+    nvicEnableVector(dma_irq_lookup[0][stream],
+        CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+2));
+  else if (dma == DMA2)
+    nvicEnableVector(dma_irq_lookup[1][stream],
+        CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+2));
+}
+
+static void spi_dma_setup_tx(uint32_t spi, uint32_t dma, u8 stream, u8 channel)
+{
+  spi_enable_tx_dma(spi);
+
+  /* Make sure stream is disabled to start. */
+  DMA_SCR(dma, stream) &= ~DMA_SxCR_EN;
+
+  /* Configure the DMA controller. */
+  DMA_SCR(dma, stream) = 0;
+  DMA_SCR(dma, stream) =
+    /* Error interrupts. */
+    DMA_SxCR_DMEIE | DMA_SxCR_TEIE |
+    DMA_SxCR_DIR_MEM_TO_PERIPHERAL |
+    /* Increment the memory address after each transfer. */
+    DMA_SxCR_MINC |
+    /* 8 bit transfers from SPI peripheral. */
+    DMA_SxCR_PSIZE_8BIT |
+    /* and to memory. */
+    DMA_SxCR_MSIZE_8BIT |
+    /* Low priority. */
+    DMA_SxCR_PL_VERY_HIGH |
+    /* The channel selects which request line will trigger a transfer.
+     * (see CD00225773.pdf Table 23). */
+    DMA_SxCR_CHSEL(channel);
+
+  /* Transfer up to the length of the buffer. */
+  DMA_SNDTR(dma, stream) = 0;
+
+  /* DMA from the SPI data register... */
+  DMA_SPAR(dma, stream) = &SPI_DR(spi);
+
+  /* Enable DMA interrupts for this stream with the NVIC. */
+  if (dma == DMA1)
+    nvicEnableVector(dma_irq_lookup[0][stream],
+        CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+2));
+  else if (dma == DMA2)
+    nvicEnableVector(dma_irq_lookup[1][stream],
+        CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+2));
+}
+
+void spi1_dma_setup(void)
+{
+  RCC_AHB1ENR |= RCC_AHB1ENR_DMA2EN;
+  spi_dma_setup_rx(SPI1, DMA2, 0, 3);
+  spi_dma_setup_tx(SPI1, DMA2, 3, 3);
+  chBSemInit(&spi_dma_sem, TRUE);
+}
+
+void spi1_xfer_dma(u16 n_bytes, u8 data_in[], const u8 data_out[])
+{
+  /* We use a static buffer here for DMA transfers as data_in/data_out
+   * often are on the stack in CCM which is not accessible by DMA.
+   */
+  static volatile u8 spi_dma_buf[128];
+
+  memcpy((u8*)spi_dma_buf, data_out, n_bytes);
+
+  /* Setup transmit stream */
+  DMA_SM0AR(DMA2, 3) = spi_dma_buf;
+  DMA_SNDTR(DMA2, 3) = n_bytes;
+
+  /* Setup receive stream */
+  DMA_SM0AR(DMA2, 0) = spi_dma_buf;
+  DMA_SNDTR(DMA2, 0) = n_bytes;
+
+  /* We need a memory buffer here to avoid a transfer error */
+  asm volatile ("dmb");
+
+  /* Enable the DMA RX channel. */
+  DMA_SCR(DMA2, 0) |= DMA_SxCR_EN;
+  /* Enable the transmit channel to begin the transaction */
+  DMA_SCR(DMA2, 3) |= DMA_SxCR_EN;
+
+  /* Yeild the CPU while we wait for the transaction to complete */
+  chBSemWait(&spi_dma_sem);
+
+  if (data_in != NULL)
+    memcpy(data_in, (u8*)spi_dma_buf, n_bytes);
+}
+
+/** DMA 2 Stream 0 Interrupt Service Routine. (SPI1_RX) */
+void dma2_stream0_isr(void)
+{
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
+
+  if (dma_get_interrupt_flag(DMA2, 0, DMA_TEIF | DMA_DMEIF))
+    screaming_death("DMA SPI1_RX error interrupt");
+
+  /* Disable both receive and transmit streams */
+  dma_clear_interrupt_flags(DMA2, 3, DMA_TCIF | DMA_HTIF);
+  dma_clear_interrupt_flags(DMA2, 0, DMA_TCIF | DMA_HTIF);
+
+  /* Signal the semaphore to wake up blocking spi1_xfer_dma */
+  chBSemSignalI(&spi_dma_sem);
+
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
+}
+
+/** DMA 2 Stream 3 Interrupt Service Routine. (SPI1_TX) */
+void dma2_stream3_isr(void)
+{
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
+
+  if (dma_get_interrupt_flag(DMA2, 3, DMA_TEIF | DMA_DMEIF))
+    screaming_death("DMA SPI1_TX error interrupt");
+
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
 }
 
 /** \} */

@@ -16,6 +16,9 @@
 
 #include <libswiftnav/common.h>
 
+#define NVIC_EXTI1_IRQ	7
+#define exti1_isr Vector5C
+
 /** \addtogroup nap
  * \{ */
 

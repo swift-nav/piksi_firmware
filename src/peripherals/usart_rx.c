@@ -12,7 +12,8 @@
 
 #include <string.h>
 
-#include <libopencm3/cm3/nvic.h>
+#include <ch.h>
+
 #include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
@@ -107,9 +108,11 @@ void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
 
   /* Enable DMA interrupts for this stream with the NVIC. */
   if (dma == DMA1)
-    nvic_enable_irq(dma_irq_lookup[0][stream]);
+    nvicEnableVector(dma_irq_lookup[0][stream],
+        CORTEX_PRIORITY_MASK(USART_DMA_ISR_PRIORITY));
   else if (dma == DMA2)
-    nvic_enable_irq(dma_irq_lookup[1][stream]);
+    nvicEnableVector(dma_irq_lookup[1][stream],
+        CORTEX_PRIORITY_MASK(USART_DMA_ISR_PRIORITY));
 
   /* Enable the DMA channel. */
   DMA_SCR(dma, stream) |= DMA_SxCR_EN;
@@ -122,9 +125,9 @@ void usart_rx_dma_disable(usart_rx_dma_state* s)
 {
   /* Disable DMA stream interrupts with the NVIC. */
   if (s->dma == DMA1)
-    nvic_disable_irq(dma_irq_lookup[0][s->stream]);
+    nvicDisableVector(dma_irq_lookup[0][s->stream]);
   else if (s->dma == DMA2)
-    nvic_disable_irq(dma_irq_lookup[1][s->stream]);
+    nvicDisableVector(dma_irq_lookup[1][s->stream]);
 
   /* Disable DMA stream. */
   DMA_SCR(s->dma, s->stream) &= ~DMA_SxCR_EN;

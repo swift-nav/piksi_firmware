@@ -50,13 +50,13 @@ typedef struct {
 /** \} */
 
 void cw_schedule_load(u32 count);
-void cw_service_load_done();
-u8 cw_get_load_done();
-u8 cw_get_running_done();
+void cw_service_load_done(void);
+u8 cw_get_load_done(void);
+u8 cw_get_running_done(void);
 
-void cw_setup();
+void cw_setup(void);
 void cw_start(float freq_min, float freq_max, float freq_bin_width);
-void cw_service_irq();
+void cw_service_irq(void);
 void cw_send_result(float freq, u64 power);
 void cw_get_spectrum_point(float* freq, u64* power, u16 index);
 

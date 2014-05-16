@@ -19,6 +19,7 @@
 #include "board/m25_flash.h"
 #include "peripherals/stm_flash.h"
 #include "board/nap/nap_common.h"
+#include "board/nap/nap_conf.h"
 #include "sbp.h"
 #include "error.h"
 #include "flash_callbacks.h"
@@ -39,9 +40,9 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
 };
 
 /** Resets the device back into the bootloader. */
-void reset_callback(u16 sender_id, u8 len, u8 msg[])
+void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len; (void)msg;
+  (void)sender_id; (void)len; (void)msg; (void) context;
 
   /* Ensure all outstanding memory accesses including buffered writes are
    * completed before reset.
@@ -57,11 +58,11 @@ void reset_callback(u16 sender_id, u8 len, u8 msg[])
 }
 
 /** Register the reset_callback. */
-void reset_callback_register()
+static void reset_callback_register(void)
 {
   static sbp_msg_callbacks_node_t reset_node;
 
-  sbp_register_callback(
+  sbp_register_cbk(
     MSG_RESET,
     &reset_callback,
     &reset_node
@@ -78,7 +79,12 @@ void init(u8 check_fpga_auth)
 
   nap_setup();
 
-  sbp_setup(1, 0x2222);
+  s32 serial_number = nap_conf_rd_serial_number();
+  if (serial_number < 0) {
+    /* TODO: Handle this properly! */
+    serial_number = 0x2222;
+  }
+  sbp_setup(serial_number);
 
   /* Check NAP verification status. */
   if (check_fpga_auth) {

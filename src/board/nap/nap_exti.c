@@ -11,10 +11,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
+
+#include <ch.h>
 
 #include "nap_exti.h"
 
@@ -31,6 +32,9 @@
  * TODO : if this starts being used for anything other than waiting to see
  *        if an exti has occurred, maybe we should change to u64? */
 u32 nap_exti_count;
+
+static WORKING_AREA_CCM(wa_nap_exti, 2000);
+static msg_t nap_exti_thread(void *arg);
 
 /** Set up NAP GPIO interrupt.
  * Interrupt alerts STM that a channel in NAP needs to be serviced.
@@ -50,8 +54,11 @@ void nap_exti_setup(void)
   exti_enable_request(EXTI1);
 
   /* Enable EXTI1 interrupt */
-  nvic_enable_irq(NVIC_EXTI1_IRQ);
+  chThdCreateStatic(wa_nap_exti, sizeof(wa_nap_exti), HIGHPRIO, nap_exti_thread, NULL);
+  nvicEnableVector(NVIC_EXTI1_IRQ, CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+2));
 }
+
+static Thread *tp = NULL;
 
 /** NAP interrupt service routine.
  * Reads the IRQ register from NAP to determine what inside the NAP needs to be
@@ -59,9 +66,23 @@ void nap_exti_setup(void)
  */
 void exti1_isr(void)
 {
+  CH_IRQ_PROLOGUE();
+  chSysLockFromIsr();
 
   exti_reset_request(EXTI1);
 
+  /* Wake up processing thread */
+  if (tp != NULL) {
+    chSchReadyI(tp);
+    tp = NULL;
+  }
+
+  chSysUnlockFromIsr();
+  CH_IRQ_EPILOGUE();
+}
+
+static void handle_nap_exti(void)
+{
   u32 irq = nap_irq_rd_blocking();
 
   if (irq & NAP_IRQ_ACQ_DONE)
@@ -96,14 +117,30 @@ void exti1_isr(void)
   }
 
   nap_exti_count++;
+}
 
-  /* We need a level (not edge) sensitive interrupt -
-   * if there is another interrupt pending on the Swift
-   * NAP then the IRQ line will stay high. Therefore if
-   * the line is still high, trigger another interrupt.
-   */
-  if (GPIOA_IDR & GPIO1)
-    EXTI_SWIER = (1 << 1);
+static msg_t nap_exti_thread(void *arg)
+{
+  (void)arg;
+  chRegSetThreadName("NAP ISR");
+
+  while (TRUE) {
+    /* Waiting for the IRQ to happen.*/
+    chSysLock();
+    /* We need a level (not edge) sensitive interrupt -
+     * if there is another interrupt pending on the Swift
+     * NAP then the IRQ line will stay high. Therefore if
+     * the line is still high, don't suspend the thread.
+     */
+    if (!(GPIOA_IDR & GPIO1)) {
+      tp = chThdSelf();
+      chSchGoSleepS(THD_STATE_SUSPENDED);
+    }
+    chSysUnlock();
+
+    handle_nap_exti();
+  }
+  return 0;
 }
 
 /** Get number of NAP ISR's that have occurred.

@@ -59,8 +59,8 @@ void nap_setup()
   spi_setup();
   //spi_dma_setup();
 
-  /* Setup the front end. */
-  max2769_setup();
+  /* Configure the front end. */
+  max2769_configure();
 
   /* Deactivate SPI buses so the FPGA can use the SPI2 bus to configure. */
   spi_deactivate();
@@ -76,7 +76,7 @@ void nap_setup()
 
   /* FPGA is done using SPI2: re-initialise the SPI peripheral. */
   spi_setup();
-  //spi_dma_setup();
+  spi1_dma_setup();
 
   /* Switch the STM's clock to use the Frontend clock from the NAP */
   rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
@@ -163,9 +163,9 @@ void nap_rd_dna(u8 dna[])
  *
  * \param buff Unused argument, callback takes no input.
  */
-void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[])
+void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len; (void)msg;
+  (void)sender_id; (void)len; (void)msg; (void) context;
   u8 dna[8];
   nap_rd_dna(dna);
   sbp_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
@@ -176,7 +176,7 @@ void nap_callbacks_setup(void)
 {
   static sbp_msg_callbacks_node_t nap_dna_node;
 
-  sbp_register_callback(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback,
+  sbp_register_cbk(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback,
                         &nap_dna_node);
 }
 
@@ -194,14 +194,18 @@ void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[],
 
   spi_xfer(SPI_BUS_FPGA, reg_id);
 
-  /* If data_in is NULL then discard read data. */
-  if (data_in)
-    for (u16 i = 0; i < n_bytes; i++)
-      data_in[i] = spi_xfer(SPI_BUS_FPGA, data_out[i]);
-  else
-    for (u16 i = 0; i < n_bytes; i++)
-      spi_xfer(SPI_BUS_FPGA, data_out[i]);
-
+  /* Spin for shorter transfers to avoid the overhead of context switching. */
+  if (n_bytes < 8) {
+    /* If data_in is NULL then discard read data. */
+    if (data_in)
+      for (u16 i = 0; i < n_bytes; i++)
+        data_in[i] = spi_xfer(SPI_BUS_FPGA, data_out[i]);
+    else
+      for (u16 i = 0; i < n_bytes; i++)
+        spi_xfer(SPI_BUS_FPGA, data_out[i]);
+  } else {
+        spi1_xfer_dma(n_bytes, data_in, data_out);
+  }
   spi_slave_deselect();
 }
 
@@ -270,6 +274,9 @@ void nap_timing_strobe(u32 falling_edge_count)
   temp[2] = (falling_edge_count >> 8) & 0xFF;
   temp[3] = (falling_edge_count >> 0) & 0xFF;
   nap_xfer_blocking(NAP_REG_TIMING_COMPARE, 4, temp, temp);
+
+  /* TODO: Check the value read from the latched count register to check that
+   * the timing strobe value requested really was in the future. */
 
   /* TODO: need to wait until the timing strobe has finished but also don't
    * want to spin in a busy loop. */

@@ -45,6 +45,7 @@
 #define MAX2769_CONF1_LNAMODE_LNA2  (1<<13)
 #define MAX2769_CONF1_LNAMODE_LNA1  (2<<13)
 #define MAX2769_CONF1_LNAMODE_OFF   (3<<13)
+#define MAX2769_CONF1_LNAMODE_MASK  (~(3<<13))
 
 #define MAX2769_CONF1_MIXEN         (1<<12)
 #define MAX2769_CONF1_ANTEN         (1<<11)
@@ -178,9 +179,16 @@
 #define MAX2769_CLK_SERCLK   (1<<1)
 #define MAX2769_CLK_MODE     (1<<0)
 
+typedef enum {
+  AUTO,
+  PATCH,
+  EXTERNAL
+} antenna_type_t;
+
 /** \} */
 
 void max2769_write(u8 addr, u32 data);
+void max2769_configure(void);
 void max2769_setup(void);
 
 #endif

@@ -11,6 +11,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <string.h>
+#include <stdio.h>
+#include <ctype.h>
+
+#include <libswiftnav/common.h>
+#include <libswiftnav/constants.h>
+
 #include "../m25_flash.h"
 #include "acq_channel.h"
 #include "nap_conf.h"
@@ -41,31 +48,90 @@ void nap_conf_rd_parameters(void)
   /* Get parameters from FPGA configuration flash */
   for (u8 i = 0; i < (sizeof(nap_parameters) / sizeof(nap_parameters[0])); i++)
     m25_read(NAP_FLASH_PARAMS_ADDR + i, nap_parameters[i], 1);
+
+  /* Bound number of channels with used by libswiftnav MAX_CHANNELS parameter. */
+  nap_track_n_channels = MIN(nap_track_n_channels, MAX_CHANNELS);
 }
 
-/** Return git commit hash from NAP configuration build.
- * Retrieves commit hash of HDL repository at the time FPGA configuration was
- * built.
+/** Return version string from NAP configuration build.
  *
- * \param git_hash Array of u8 (length 20) in which git hash will be put.
+ * \param git_hash char [] that version string will be written to.
+ * \return Length of version string.
  */
-void nap_conf_rd_git_hash(u8 git_hash[])
+u8 nap_conf_rd_version_string(char version_string[])
 {
-  m25_read(NAP_FLASH_GIT_HASH_ADDR, git_hash, 20);
+  u8 count = 0;
+  char c;
+
+  do {
+    m25_read(NAP_FLASH_VERSION_STRING_ADDR + count, (u8 *)&c, 1);
+    version_string[count] = c;
+    count++;
+
+    if (c && !isprint((u8)c)) {
+      /* We have hit an unexpected character, this must not be an ASCII version
+       * string. Fall back to old Git Hash style version. */
+
+      strcpy(version_string, "OLD ");
+      for (count=0; count<20; count++) {
+        m25_read(NAP_FLASH_GIT_HASH_ADDR + count, (u8 *)&c, 1);
+        snprintf(&version_string[2*count + 4], 3, "%02x", c);
+      }
+      u8 unclean;
+      m25_read(NAP_FLASH_GIT_UNCLEAN_ADDR, &unclean, 1);
+      if (unclean) {
+        strcpy(&version_string[44], " (unclean)");
+      }
+      count = strlen(version_string);
+      /* Make sure we exit the loop. */
+      break;
+    }
+  } while (c);
+
+  return count;
 }
 
-/** Return git repository cleanliness status from NAP configuration build.
- * Retrieves cleanliness status of HDL repository at the time FPGA
- * configuration was built.
- *
- * \return 1 if repository was unclean, 0 if clean
+/** Return Piksi serial number from the configuration flash.
  */
-u8 nap_conf_rd_git_unclean(void)
+s32 nap_conf_rd_serial_number()
 {
-  u8 unclean;
+  u8 serial_num_u8[4];
+  m25_read(NAP_FLASH_SERIAL_NUMBER_ADDR, serial_num_u8, 4);
+  s32 serial_num = (serial_num_u8[0] << 24) |
+                   (serial_num_u8[1] << 16) |
+                   (serial_num_u8[2] << 8) |
+                   (serial_num_u8[3] << 0);
+  return serial_num;
+}
 
-  m25_read(NAP_FLASH_GIT_UNCLEAN_ADDR, &unclean, 1);
-  return unclean;
+/** Return Piksi hardware revision identifier.
+ */
+u32 nap_conf_rd_hw_rev()
+{
+  u8 hw_rev_u8[4];
+  m25_read(NAP_FLASH_HW_REVISION_ADDR, hw_rev_u8, 4);
+  u32 hw_rev = (hw_rev_u8[0] << 24) |
+               (hw_rev_u8[1] << 16) |
+               (hw_rev_u8[2] << 8) |
+               (hw_rev_u8[3] << 0);
+  return hw_rev;
+}
+
+/** Return Piksi hardware revision string.
+ */
+const char * nap_conf_rd_hw_rev_string()
+{
+  const char *rev_strings[] = {
+    "(unknown)",
+    "piksi_2.3.1",
+  };
+
+  /* If hw_rev is equal to 0xFFFFFFFF (i.e. unprogrammed)
+   * then hw_rev+1 == 0. */
+  u32 hw_rev = nap_conf_rd_hw_rev()+1;
+  if (hw_rev > sizeof(rev_strings)/sizeof(rev_strings[0]))
+    hw_rev = 0;
+  return rev_strings[hw_rev];
 }
 
 /** \} */

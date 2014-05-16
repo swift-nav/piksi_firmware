@@ -18,41 +18,35 @@ else
 	MAKEFLAGS += PRN=$(PRN)
 endif
 
-.PHONY: all tests firmware bootloader docs libopencm3 libswiftnav
+.PHONY: all tests firmware docs .FORCE
 
-all: firmware bootloader tests
+all: firmware # tests
 
-firmware: libopencm3 libswiftnav
+firmware: libopencm3/lib/libopencm3_stm32f4.a libswiftnav/build/src/libswiftnav-static.a
 	@printf "BUILD   src\n"; \
-	$(MAKE) -C src $(MAKEFLAGS)
-
-bootloader:
-	@printf "BUILD   bootloader\n"; \
-	$(MAKE) -C bootloader $(MAKEFLAGS)
+	$(MAKE) -r -C src $(MAKEFLAGS)
 
 tests:
 	$(Q)for i in tests/*; do \
 		if [ -d $$i ]; then \
 			printf "BUILD   $$i\n"; \
-			$(MAKE) -C $$i $(MAKEFLAGS) || exit $?; \
+			$(MAKE) -r -C $$i $(MAKEFLAGS) || exit $?; \
 		fi; \
 	done
 
-libopencm3:
+libopencm3/lib/libopencm3_stm32f4.a:
 	@printf "BUILD   libopencm3\n"; \
 	$(MAKE) -C libopencm3 $(MAKEFLAGS) lib/stm32/f4
 
-libswiftnav:
+libswiftnav/build/src/libswiftnav-static.a: .FORCE
 	@printf "BUILD   libswiftnav\n"; \
 	mkdir -p libswiftnav/build; cd libswiftnav/build; \
-	cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake $(CMAKEFLAGS) ../
-	
+	cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake $(CMAKEFLAGS) ../
 	$(MAKE) -C libswiftnav/build $(MAKEFLAGS)
+
 clean:
 	@printf "CLEAN   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS) clean
-	@printf "CLEAN   bootloader\n"; \
-	$(MAKE) -C bootloader $(MAKEFLAGS) clean
 	@printf "CLEAN   libopencm3\n"; \
 	$(MAKE) -C libopencm3 $(MAKEFLAGS) clean
 	@printf "CLEAN   libswiftnav\n"; \
@@ -67,4 +61,6 @@ clean:
 docs:
 	$(MAKE) -C docs/diagrams
 	doxygen docs/Doxyfile
+
+.FORCE:
 

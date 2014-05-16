@@ -12,10 +12,29 @@
 import re
 import os
 
-header_file = os.path.join(
-  os.path.dirname(__file__),
-  '..', 'src', 'sbp_piksi.h'
-)
+import os, sys
+
+if getattr(sys, 'frozen', False):
+  # we are running in a |PyInstaller| bundle
+  basedir = sys._MEIPASS
+
+  header_file = os.path.join(
+    sys._MEIPASS, 'sbp_piksi.h'
+  )
+
+else:
+  # we are running in a normal Python environment
+  lib_path = os.path.abspath(
+      os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                   '..', 'libswiftnav', 'sbp_generate'))
+  sys.path.append(lib_path)
+
+  header_file = os.path.join(
+    os.path.dirname(__file__),
+    '..', 'src', 'sbp_piksi.h'
+  )
+
+from sbp_messages import *
 
 with open(header_file, 'r') as f:
   sbph = f.read()
