@@ -30,12 +30,12 @@
 void acq_send_result(u8 sv, float snr, float cp, float cf)
 {
   typedef struct __attribute__((packed)) {
-    u8 sv;     /* SV searched for. */
     float snr; /* SNR of best point. */
     float cp;  /* Code phase of best point. */
     float cf;  /* Carr freq of best point. */
     corr_t bc; /* Correlations of best point. */
     u32 mc;    /* Mean correlation. */
+    u8 sv;     /* SV searched for. */
   } acq_result_msg_t;
 
   acq_result_msg_t acq_result_msg;
