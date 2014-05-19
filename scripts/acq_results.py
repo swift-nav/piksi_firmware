@@ -25,8 +25,7 @@ class AcqResults():
   def __init__(self, link):
     self.acqs = []
     self.link = link
-    # Not an official msg type
-    self.link.add_callback(0xA0, self._receive_acq_result)
+    self.link.add_callback(MSG_ACQ_RESULT, self._receive_acq_result)
     self.max_corr = 0
 
   def __str__(self):

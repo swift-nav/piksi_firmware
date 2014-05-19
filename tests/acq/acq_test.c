@@ -44,16 +44,13 @@ void acq_send_result(u8 sv, float snr, float cp, float cf)
   acq_result_msg.snr = snr;
   acq_result_msg.cp = cp;
   acq_result_msg.cf = cf;
-  //acq_result_msg.bc = bc;
   acq_result_msg.bc.I = 0; /* Currently unused. */
   acq_result_msg.bc.Q = 0; /* Currently unused. */
   acq_result_msg.mc = 0;   /* Currently unused. */
 
-  /*
-   * Use 0xA0 as acq_result message, don't define in sbp_messages.h as we
-   * don't need an official message for it.
-   */
-  while (sbp_send_msg(0xA0, sizeof(acq_result_msg_t), (u8 *)&acq_result_msg)) ;
+  sbp_send_msg(MSG_ACQ_RESULT,
+               sizeof(acq_result_msg_t),
+               (u8 *)&acq_result_msg);
 }
 
 int main(void)
