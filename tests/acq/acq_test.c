@@ -56,7 +56,7 @@ void acq_send_result(u8 sv, float snr, float cp, float cf)
 int main(void)
 {
 
-  init(1);
+  init();
 
   printf("\n\nFirmware info - git: " GIT_VERSION ", built: " __DATE__ " " __TIME__ "\n\r");
   printf("--- ACQ TEST ---\n\r");
