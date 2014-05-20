@@ -257,6 +257,8 @@ void manage_acq()
       printf("PRN %d coarse @ %d Hz, %d SNR\n", acq_manage.prn + 1,
                                     (int)acq_manage.coarse_cf,
                                     (int)acq_manage.coarse_snr);
+      acq_send_result(acq_manage.prn, acq_manage.coarse_snr,
+                      acq_manage.coarse_cp, acq_manage.coarse_cf);
       if (acq_manage.coarse_snr < ACQ_THRESHOLD) {
         /* Didn't find the satellite :( */
         acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
