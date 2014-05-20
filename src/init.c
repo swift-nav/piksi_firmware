@@ -89,6 +89,9 @@ void init(void)
   }
   sbp_setup(serial_number);
 
+  /* Set up NAP callback functions. */
+  nap_callbacks_setup();
+
   reset_callback_register();
 
   flash_callbacks_register();
