@@ -382,6 +382,7 @@ static msg_t manage_track_thread(void *arg)
 
 void manage_track_setup()
 {
+  SETTING("tracking", "n_rollovers", n_rollovers, TYPE_INT);
   chThdCreateStatic(
       wa_manage_track_thread,
       sizeof(wa_manage_track_thread),

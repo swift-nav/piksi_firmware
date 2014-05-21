@@ -78,7 +78,8 @@ void nap_track_init_wr_blocking(u8 channel, u8 prn, s32 carrier_phase,
  * \param carrier_freq    Next correlation period's carrier frequency.
  * \param code_phase_rate Next correlation period's code phase rate.
  */
-void nap_track_update_pack(u8 pack[], s32 carrier_freq, u32 code_phase_rate)
+void nap_track_update_pack(u8 pack[], s32 carrier_freq, u32 code_phase_rate,
+                           u8 rollover_count, u8 corr_spacing)
 {
   pack[0] = (code_phase_rate >> 24) & 0x1F;
   pack[1] = (code_phase_rate >> 16);
@@ -86,6 +87,8 @@ void nap_track_update_pack(u8 pack[], s32 carrier_freq, u32 code_phase_rate)
   pack[3] = code_phase_rate;
   pack[4] = (carrier_freq >> 8);
   pack[5] = carrier_freq;
+  pack[6] = corr_spacing;
+  pack[7] = rollover_count;
 }
 
 /** Write to a NAP track channel's UPDATE register.
@@ -106,13 +109,15 @@ void nap_track_update_pack(u8 pack[], s32 carrier_freq, u32 code_phase_rate)
  * \param code_phase_rate Next correlation period's code phase rate.
  */
 void nap_track_update_wr_blocking(u8 channel, s32 carrier_freq,
-                                  u32 code_phase_rate)
+                                  u32 code_phase_rate, u8 rollover_count,
+                                  u8 corr_spacing)
 {
-  u8 temp[6] = { 0, 0, 0, 0, 0, 0 };
+  u8 temp[8] = { 0 };
 
-  nap_track_update_pack(temp, carrier_freq, code_phase_rate);
+  nap_track_update_pack(temp, carrier_freq, code_phase_rate,
+                        rollover_count, corr_spacing);
   nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
-                     + NAP_REG_TRACK_UPDATE_OFFSET, 6, 0, temp);
+                     + NAP_REG_TRACK_UPDATE_OFFSET, 8, 0, temp);
 }
 
 /** Unpack data read from a NAP track channel's CORR register.
@@ -121,25 +126,25 @@ void nap_track_update_wr_blocking(u8 channel, s32 carrier_freq,
  * \param sample_count Number of sample clock cycles in correlation period.
  * \param corrs        Array of E,P,L correlations from correlation period.
  */
-void nap_track_corr_unpack(u8 packed[], u16* sample_count, corr_t corrs[])
+void nap_track_corr_unpack(u8 packed[], u32* sample_count, corr_t corrs[])
 {
   /* graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
 
   struct { s32 xtend : 24; } sign;
 
-  *sample_count = (packed[0] << 8) | packed[1];
+  *sample_count = (packed[0] << 16) | (packed[1] << 8) | packed[2];
 
   for (u8 i = 0; i < 3; i++) {
 
-    sign.xtend  = (packed[6 * (3 - i - 1) + 2] << 16) /* MSB */
-                | (packed[6 * (3 - i - 1) + 3] << 8)  /* Middle byte */
-                | (packed[6 * (3 - i - 1) + 4]);      /* LSB */
+    sign.xtend  = (packed[6 * (3 - i - 1) + 3] << 16) /* MSB */
+                | (packed[6 * (3 - i - 1) + 4] << 8)  /* Middle byte */
+                | (packed[6 * (3 - i - 1) + 5]);      /* LSB */
 
     corrs[i].Q = sign.xtend;  /* Sign extend! */
 
-    sign.xtend  = (packed[6 * (3 - i - 1) + 5] << 16) /* MSB */
-                | (packed[6 * (3 - i - 1) + 6] << 8)  /* Middle byte */
-                | (packed[6 * (3 - i - 1) + 7]);      /* LSB */
+    sign.xtend  = (packed[6 * (3 - i - 1) + 6] << 16) /* MSB */
+                | (packed[6 * (3 - i - 1) + 7] << 8)  /* Middle byte */
+                | (packed[6 * (3 - i - 1) + 8]);      /* LSB */
 
     corrs[i].I = sign.xtend;  /* Sign extend! */
   }
@@ -151,13 +156,13 @@ void nap_track_corr_unpack(u8 packed[], u16* sample_count, corr_t corrs[])
  * \param sample_count Number of sample clock cycles in correlation period.
  * \param corrs        Array of E,P,L correlations from correlation period.
  */
-void nap_track_corr_rd_blocking(u8 channel, u16* sample_count, corr_t corrs[])
+void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[])
 {
-  /* 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8) + 16 bits sample count. */
-  u8 temp[2*3*3 + 2];
+  /* 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8) + 24 bits sample count. */
+  u8 temp[2*3*3 + 3];
 
   nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
-                     + NAP_REG_TRACK_CORR_OFFSET, 2*3*3 + 2, temp, temp);
+                     + NAP_REG_TRACK_CORR_OFFSET, 2*3*3 + 3, temp, temp);
   nap_track_corr_unpack(temp, sample_count, corrs);
 }
 
