@@ -37,6 +37,10 @@ baud = args.baud[0]
 if args.toolkit[0] is not None:
   from traits.etsconfig.api import ETSConfig
   ETSConfig.toolkit = args.toolkit[0]
+else:
+  from traits.etsconfig.api import ETSConfig
+  ETSConfig.toolkit = 'qt4'
+
 
 import logging
 logging.basicConfig()
@@ -134,8 +138,8 @@ class SwiftConsole(HasTraits):
     ),
     icon = icon,
     resizable = True,
-    width = 1000,
-    height = 800,
+    width = 800,
+    height = 600,
     title = 'Piksi Console, Version: ' + CONSOLE_VERSION
   )
 
@@ -240,4 +244,10 @@ console = SwiftConsole(serial_port, baud, use_ftdi=args.ftdi,
 
 console.configure_traits()
 console.stop()
+
+# Force exit, even if threads haven't joined
+try:
+  os._exit(0)
+except:
+  pass
 
