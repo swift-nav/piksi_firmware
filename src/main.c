@@ -114,10 +114,22 @@ int main(void)
   chSysInit();
 
   /* Piksi hardware initialization. */
-  init(1);
+  init();
   settings_setup();
   usarts_setup();
 
+  /* Check NAP authentication status. */
+  u8 nhs = nap_hash_status();
+  if (nhs != NAP_HASH_MATCH) {
+    led_on(LED_GREEN);
+    led_off(LED_RED);
+    while (1)
+      DO_EVERY(10000000,
+        printf("NAP Verification Failed\n");
+        led_toggle(LED_GREEN);
+        led_toggle(LED_RED);
+      );
+  }
 
   static char nap_version_string[64] = {0};
   nap_conf_rd_version_string(nap_version_string);

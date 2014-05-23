@@ -10,11 +10,14 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <stdio.h>
+
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/cm3/scb.h>
 #include <libswiftnav/sbp.h>
 
+#include "main.h"
 #include "board/leds.h"
 #include "board/m25_flash.h"
 #include "peripherals/stm_flash.h"
@@ -69,7 +72,7 @@ static void reset_callback_register(void)
   );
 }
 
-void init(u8 check_fpga_auth)
+void init(void)
 {
   /* Delay on start-up as some programmers reset the STM twice. */
   for (u32 i = 0; i < 600000; i++)
@@ -86,14 +89,8 @@ void init(u8 check_fpga_auth)
   }
   sbp_setup(serial_number);
 
-  /* Check NAP verification status. */
-  if (check_fpga_auth) {
-    u8 nhs = nap_hash_status();
-    if (nhs == NAP_HASH_NOTREADY)
-      screaming_death("NAP Verification Failed: Timeout ");
-    else if (nhs == NAP_HASH_MISMATCH)
-      screaming_death("NAP Verification Failed: Hash mismatch ");
-  }
+  /* Set up NAP callback functions. */
+  nap_callbacks_setup();
 
   reset_callback_register();
 

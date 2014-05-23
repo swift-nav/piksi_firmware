@@ -21,7 +21,7 @@
 /** \defgroup msgs Piksi Message Types
  * Swift Binary Protocol Message Types for Piksi defined messages.
  *
- * These messages are in the implimentation defined range (`0x0000-0x00FF`).
+ * These messages are in the implementation defined range (`0x0000-0x00FF`).
  * \{ */
 
 #define MSG_PRINT                   0x10  /**< Piksi  -> Host  */
@@ -35,8 +35,8 @@
 
 #define MSG_RESET                   0xB2  /**< Host   -> Piksi */
 
-#define MSG_CW_START                0xC1  /**< Host   -> Piksi */
 #define MSG_CW_RESULTS              0xC0  /**< Piksi  -> Host  */
+#define MSG_CW_START                0xC1  /**< Host   -> Piksi */
 
 #define MSG_NAP_DEVICE_DNA          0xDD  /**< Host  <-> Piksi */
 
@@ -45,10 +45,10 @@
 #define MSG_FLASH_READ              0xE1  /**< Host  <-> Piksi */
 #define MSG_FLASH_ERASE             0xE2  /**< Host   -> Piksi */
 
-#define MSG_STM_UNIQUE_ID           0xE5  /**< Host  <-> Piksi */
-
 #define MSG_STM_FLASH_LOCK_SECTOR   0xE3  /**< Host   -> Piksi */
 #define MSG_STM_FLASH_UNLOCK_SECTOR 0xE4  /**< Host   -> Piksi */
+
+#define MSG_STM_UNIQUE_ID           0xE5  /**< Host  <-> Piksi */
 
 #define MSG_M25_FLASH_WRITE_STATUS  0xF3  /**< Host   -> Piksi */
 
@@ -98,6 +98,14 @@ typedef struct __attribute__((packed)) {
     u8 rx_buffer_level;
   } uarts[3];
 } msg_uart_state_t;
+
+#define MSG_ACQ_RESULT            0x15  /**< Piksi  -> Host  */
+typedef struct __attribute__((packed)) {
+  float snr; /* SNR of best point. */
+  float cp;  /* Code phase of best point. */
+  float cf;  /* Carr freq of best point. */
+  u8 prn;    /* PRN searched for. */
+} acq_result_msg_t;
 
 /** \} */
 

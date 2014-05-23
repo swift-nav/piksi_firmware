@@ -58,6 +58,7 @@ void acq_service_irq(void);
 void acq_wait_done(void);
 u8 acq_get_done(void);
 void acq_get_results(float* cp, float* cf, float* snr);
+void acq_send_result(u8 prn, float snr, float cp, float cf);
 
 u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr);
 
