@@ -38,7 +38,8 @@ typedef uint8_t simulation_mode_t; /* Force uint8_t size for simulation_mode */
 typedef enum {
   SIMULATION_MODE_PVT      = (1<<0),
   SIMULATION_MODE_TRACKING = (1<<1),
-  SIMULATION_MODE_RTK      = (1<<2),
+  SIMULATION_MODE_FLOAT    = (1<<2),
+  SIMULATION_MODE_RTK      = (1<<3)
 } simulation_modes_t;
 
 /* User-configurable GPS Simulator Settings

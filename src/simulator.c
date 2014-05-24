@@ -55,7 +55,8 @@ simulation_settings_t sim_settings = {
   .mode_mask =
     SIMULATION_MODE_PVT |
     SIMULATION_MODE_TRACKING |
-    SIMULATION_MODE_RTK,
+    SIMULATION_MODE_FLOAT |
+    SIMULATION_MODE_RTK
 };
 
 /* Internal Simulation State Definition */

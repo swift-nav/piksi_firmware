@@ -377,15 +377,24 @@ static msg_t solution_thread(void *arg)
       double expected_tow = round(simulation_current_gnss_solution()->time.tow * soln_freq) / soln_freq;
       double t_check = expected_tow * (soln_freq / obs_output_divisor);
 
-      if (simulation_enabled_for(SIMULATION_MODE_RTK) && fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+      if ((simulation_enabled_for(SIMULATION_MODE_FLOAT) || simulation_enabled_for(SIMULATION_MODE_RTK)) &&
+          fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+
+        u8 flags = simulation_enabled_for(SIMULATION_MODE_RTK) ? 1 : 0;
+
         solution_send_baseline(&simulation_current_gnss_solution()->time,
           simulation_current_num_sats(),
           simulation_current_baseline_ecef(),
-          simulation_ref_ecef(), 0);
+          simulation_ref_ecef(), flags);
 
         send_observations(simulation_current_num_sats(),
           &simulation_current_gnss_solution()->time,
           simulation_current_navigation_measurements());
+
+        if (simulation_enabled_for(SIMULATION_MODE_RTK)) {
+          msg_iar_state_t iar_state = { .num_hyps = 1 };
+          sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
+        }
       }
     }
   }
