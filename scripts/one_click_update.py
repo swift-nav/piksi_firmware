@@ -14,6 +14,7 @@ from json import load as jsonload
 from time import sleep
 from intelhex import IntelHex
 from new import instancemethod
+from pkg_resources import parse_version
 
 from threading import Thread
 
@@ -214,13 +215,23 @@ class OneClickUpdate():
         "\nNewest Console Version :\n\t" + \
             index['piksi_v2.3.1']['console']['version'] + "\n"
 
-    # Do local version match latest from website?
-    self.stm_fw_outdated = index['piksi_v2.3.1']['stm_fw']['version'] \
-                               !=  self.settings['system_info']['firmware_version'].value
-    self.nap_fw_outdated = index['piksi_v2.3.1']['nap_fw']['version'] \
-                               !=  self.settings['system_info']['nap_version'].value
-    self.console_outdated = index['piksi_v2.3.1']['console']['version'] \
-                               !=  CONSOLE_VERSION
+    # Does local version match latest from website?
+    local_fw_version = parse_version(
+        self.settings['system_info']['firmware_version'].value)
+    remote_fw_version = parse_version(
+        index['piksi_v2.3.1']['stm_fw']['version'])
+    self.stm_fw_outdated = remote_fw_version > local_fw_version
+
+    local_nap_version = parse_version(
+        self.settings['system_info']['nap_version'].value)
+    remote_nap_version = parse_version(
+        index['piksi_v2.3.1']['nap_fw']['version'])
+    self.nap_fw_outdated = remote_nap_version > local_nap_version
+
+    local_console_version = parse_version(CONSOLE_VERSION)
+    remote_console_version = parse_version(
+        index['piksi_v2.3.1']['console']['version'])
+    self.console_outdated = remote_console_version > local_console_version
 
     # Get firmware files from Swift Nav's website.
     self.nap_ihx = None

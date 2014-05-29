@@ -34,13 +34,11 @@ args = parser.parse_args()
 serial_port = args.port[0]
 baud = args.baud[0]
 
+from traits.etsconfig.api import ETSConfig
 if args.toolkit[0] is not None:
-  from traits.etsconfig.api import ETSConfig
   ETSConfig.toolkit = args.toolkit[0]
 else:
-  from traits.etsconfig.api import ETSConfig
   ETSConfig.toolkit = 'qt4'
-
 
 import logging
 logging.basicConfig()
@@ -63,8 +61,9 @@ pygments.lexers.PythonLexer = PythonLexer
 
 # These imports seem to be required to make pyinstaller work?
 # (usually traitsui would load them automatically)
-import pyface.ui.qt4.resource_manager
-import pyface.ui.qt4.python_shell
+if ETSConfig.toolkit == 'qt4':
+  import pyface.ui.qt4.resource_manager
+  import pyface.ui.qt4.python_shell
 from pyface.image_resource import ImageResource
 
 
@@ -138,7 +137,7 @@ class SwiftConsole(HasTraits):
     ),
     icon = icon,
     resizable = True,
-    width = 800,
+    width = 900,
     height = 600,
     title = 'Piksi Console, Version: ' + CONSOLE_VERSION
   )

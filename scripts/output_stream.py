@@ -38,8 +38,8 @@ class _OutputStreamViewHandler(Handler):
             # With wx, the control is a TextCtrl instance.
             ed.control.SetInsertionPointEnd()
         elif ETSConfig.toolkit == 'qt4':
-            # With qt4, the control is a PyQt4.QtGui.QTextEdit instance.
-            from PyQt4.QtGui import QTextCursor
+            # With qt4, the control is a QtGui.QTextEdit instance.
+            from pyface.qt.QtGui import QTextCursor
             ed.control.moveCursor(QTextCursor.End)
 
 
