@@ -90,28 +90,6 @@ class ObservationView(HasTraits):
         (self.relay ^ (sender == 0))):
       return
 
-    if self.rinex_file is None and self.recording:
-      self.rinex_file = open(self.name+self.t.strftime("-%Y%m%d-%H%M%S.obs"),  'w')
-      header = """     2.11           OBSERVATION DATA    G (GPS)             RINEX VERSION / TYPE
-pyNEX                                   %s UTC PGM / RUN BY / DATE 
-                                                            MARKER NAME         
-                                                            OBSERVER / AGENCY   
-                                                            REC # / TYPE / VERS 
-                                                            ANT # / TYPE        
-   808673.9171 -4086658.5368  4115497.9775                  APPROX POSITION XYZ 
-        0.0000        0.0000        0.0000                  ANTENNA: DELTA H/E/N
-     1     0                                                WAVELENGTH FACT L1/2
-     3    C1    L1    S1                                    # / TYPES OF OBSERV 
-%s%13.7f     GPS         TIME OF FIRST OBS   
-                                                            END OF HEADER       
-""" % (
-          datetime.datetime.utcnow().strftime("%Y%m%d %H%M%S"),
-          self.t.strftime("  %Y    %m    %d    %H    %M"), self.t.second + self.t.microsecond * 1e-6,
-      )
-      self.rinex_file.write(header)
-      self.rinex_file.flush()
-
-
     hdr_fmt = "<dH"
     hdr_size = struct.calcsize(hdr_fmt)
     tow, wn = struct.unpack("<dH", data[:hdr_size])
@@ -121,13 +99,12 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
              datetime.timedelta(weeks=self.gps_week) + \
              datetime.timedelta(seconds=self.gps_tow)
 
+    # Observation message format
+    # double P;      /**< Pseudorange (m) */
+    # double L;      /**< Carrier-phase (cycles) */
+    # float snr;     /**< Signal-to-Noise ratio */
+    # u8 prn;        /**< Satellite number. */
     obs_fmt = '<ddfB'
-    """
-  double P;      /**< Pseudorange (m) */
-  double L;      /**< Carrier-phase (cycles) */
-  float snr;     /**< Signal-to-Noise ratio */
-  u8 prn;        /**< Satellite number. */
-    """
 
     obs_size = struct.calcsize(obs_fmt)
     self.n_obs = (len(data) - hdr_size) / obs_size
@@ -139,28 +116,49 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
       obs_data = obs_data[obs_size:]
       self.obs[prn] = (P, L, snr)
 
-    if self.recording:
-        prns = list(self.obs.iterkeys())
-        self.rinex_file.write("%s %10.7f  0 %2d" % (self.t.strftime(" %y %m %d %H %M"),
-                                                    self.t.second + self.t.microsecond*1e-6,
-                                                    len(prns)))
-        while len(prns) > 0:
-            prns_ = prns[:12]
-            prns = prns[12:]
-            for prn in prns_:
-                self.rinex_file.write('G%2d' % (prn+1))
-            self.rinex_file.write('   ' * (12 - len(prns_)))
-            self.rinex_file.write('\n')
-
-        for prn in list(self.obs.iterkeys()):
-            # G    3 C1C L1C D1C
-            self.rinex_file.write("%14.3f  " % self.obs[prn][0])
-            self.rinex_file.write("%14.3f  " % self.obs[prn][1])
-            self.rinex_file.write("%14.3f  \n" % self.obs[prn][2])
-
-        self.rinex_file.flush()
-
     self.update_obs()
+
+    if self.recording:
+      if self.rinex_file is None:
+        # If the file is being opened for the first time, write the RINEX header
+        self.rinex_file = open(self.name+self.t.strftime("-%Y%m%d-%H%M%S.obs"),  'w')
+        header = """     2.11           OBSERVATION DATA    G (GPS)             RINEX VERSION / TYPE
+  pyNEX                                   %s UTC PGM / RUN BY / DATE 
+                                                              MARKER NAME         
+                                                              OBSERVER / AGENCY   
+                                                              REC # / TYPE / VERS 
+                                                              ANT # / TYPE        
+     808673.9171 -4086658.5368  4115497.9775                  APPROX POSITION XYZ 
+          0.0000        0.0000        0.0000                  ANTENNA: DELTA H/E/N
+       1     0                                                WAVELENGTH FACT L1/2
+       4    C1    L1    S1                                    # / TYPES OF OBSERV 
+  %s%13.7f     GPS         TIME OF FIRST OBS   
+                                                              END OF HEADER       
+  """ % (
+            datetime.datetime.utcnow().strftime("%Y%m%d %H%M%S"),
+            self.t.strftime("  %Y    %m    %d    %H    %M"), self.t.second + self.t.microsecond * 1e-6,
+        )
+        self.rinex_file.write(header)
+
+      prns = list(self.obs.iterkeys())
+      self.rinex_file.write("%s %10.7f  0 %2d" % (self.t.strftime(" %y %m %d %H %M"),
+                                                  self.t.second + self.t.microsecond*1e-6,
+                                                  len(prns)))
+      while len(prns) > 0:
+          prns_ = prns[:12]
+          prns = prns[12:]
+          for prn in prns_:
+              self.rinex_file.write('G%2d' % (prn+1))
+          self.rinex_file.write('   ' * (12 - len(prns_)))
+          self.rinex_file.write('\n')
+
+      for prn in list(self.obs.iterkeys()):
+          # G    3 C1C L1C D1C
+          self.rinex_file.write("%14.3f  " % self.obs[prn][0])
+          self.rinex_file.write("%14.3f  " % self.obs[prn][1])
+          self.rinex_file.write("%14.3f  \n" % self.obs[prn][2])
+
+      self.rinex_file.flush()
 
   def __init__(self, link, name='Rover', relay=False):
     super(ObservationView, self).__init__()
