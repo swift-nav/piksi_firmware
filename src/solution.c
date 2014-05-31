@@ -63,10 +63,20 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
     sbp_make_pos_llh(&pos_llh, soln, 0);
     sbp_send_msg(SBP_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
 
+    /* Position in ECEF. */
+    sbp_pos_ecef_t pos_ecef;
+    sbp_make_pos_ecef(&pos_ecef, soln, 0);
+    sbp_send_msg(SBP_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
+
     /* Velocity in NED. */
     sbp_vel_ned_t vel_ned;
     sbp_make_vel_ned(&vel_ned, soln, 0);
     sbp_send_msg(SBP_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
+
+    /* Velocity in ECEF. */
+    sbp_vel_ecef_t vel_ecef;
+    sbp_make_vel_ecef(&vel_ecef, soln, 0);
+    sbp_send_msg(SBP_VEL_ECEF, sizeof(vel_ecef), (u8 *) &vel_ecef);
   }
 
   if (dops) {
