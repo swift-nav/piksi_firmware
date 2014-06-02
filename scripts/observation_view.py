@@ -131,7 +131,7 @@ class ObservationView(HasTraits):
      808673.9171 -4086658.5368  4115497.9775                  APPROX POSITION XYZ 
           0.0000        0.0000        0.0000                  ANTENNA: DELTA H/E/N
        1     0                                                WAVELENGTH FACT L1/2
-       4    C1    L1    S1                                    # / TYPES OF OBSERV 
+       3    C1    L1    S1                                    # / TYPES OF OBSERV 
   %s%13.7f     GPS         TIME OF FIRST OBS   
                                                               END OF HEADER       
   """ % (
