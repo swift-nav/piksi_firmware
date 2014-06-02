@@ -127,7 +127,7 @@ class SolutionView(HasTraits):
     if self.log_file is None:
       self.log_file = open(time.strftime("position_log_%Y%m%d-%H%M%S.csv"), 'w')
 
-    self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow * 1e3, soln.lat, soln.lon, soln.height, soln.n_sats))
+    self.log_file.write('%.3f,%.10f,%.10f,%.4f,%d\n' % (soln.tow * 1e3, soln.lat, soln.lon, soln.height, soln.n_sats))
     self.log_file.flush()
 
     if self.week is not None:
@@ -187,7 +187,7 @@ class SolutionView(HasTraits):
     if self.vel_log_file is None:
       self.vel_log_file = open(time.strftime("velocity_log_%Y%m%d-%H%M%S.csv"), 'w')
 
-    self.vel_log_file.write('%.2f,%.4f,%.4f,%.4f,%.4f,%d\n' % (vel_ned.tow * 1e3, vel_ned.n, vel_ned.e, vel_ned.d, math.sqrt(vel_ned.n*vel_ned.n + vel_ned.e*vel_ned.e),vel_ned.n_sats))
+    self.vel_log_file.write('%.3f,%.4f,%.4f,%.4f,%.4f,%d\n' % (vel_ned.tow * 1e3, vel_ned.n, vel_ned.e, vel_ned.d, math.sqrt(vel_ned.n*vel_ned.n + vel_ned.e*vel_ned.e),vel_ned.n_sats))
     self.vel_log_file.flush()
 
     self.vel_table = [
