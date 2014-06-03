@@ -137,7 +137,7 @@ class BaselineView(HasTraits):
     return
 
   def iar_state_callback(self, data):
-    self.num_hyps = struct.unpack('<I', data)
+    self.num_hyps = struct.unpack('<I', data)[0]
 
   def _baseline_callback_ned(self, data):
     # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
@@ -148,8 +148,13 @@ class BaselineView(HasTraits):
   def update_table(self):
     self._table_list = self.table.items()
 
+  def gps_time_callback(self, data):
+    self.week = sbp_messages.GPSTime(data).wn
+    self.nsec = sbp_messages.GPSTime(data).ns
+
   def baseline_callback(self, data):
     soln = sbp_messages.BaselineNED(data)
+    table = []
 
     soln.n = soln.n * 1e-3
     soln.e = soln.e * 1e-3
@@ -157,25 +162,43 @@ class BaselineView(HasTraits):
 
     dist = np.sqrt(soln.n**2 + soln.e**2 + soln.d**2)
 
-    table = []
+    tow = soln.tow * 1e-3
+    if self.nsec is not None:
+      tow += self.nsec * 1e-9
+
+    if self.week is not None:
+      t = datetime.datetime(1980, 1, 6) + \
+          datetime.timedelta(weeks=self.week) + \
+          datetime.timedelta(seconds=tow)
+
+      table.append(('GPS Time', t))
+      table.append(('GPS Week', str(self.week)))
+
+      if self.log_file is None:
+        self.log_file = open(time.strftime("baseline_log_%Y%m%d-%H%M%S.csv"), 'w')
+
+      self.log_file.write('%s,%.4f,%.4f,%.4f,%.4f,%d,0x%02x,%d\n' % (
+        str(t),
+        soln.n, soln.e, soln.d, dist,
+        soln.n_sats,
+        soln.flags,
+        self.num_hyps)
+      )
+      self.log_file.flush()
+
+    table.append(('GPS ToW', tow))
 
     table.append(('N', soln.n))
     table.append(('E', soln.e))
     table.append(('D', soln.d))
     table.append(('Dist.', dist))
     table.append(('Num. Sats.', soln.n_sats))
-    table.append(('Flags', hex(soln.flags)))
+    table.append(('Flags', '0x%02x' % soln.flags))
     if soln.flags & 1:
       table.append(('Mode', 'Fixed RTK'))
     else:
       table.append(('Mode', 'Float'))
     table.append(('IAR Num. Hyps.', self.num_hyps))
-
-    if self.log_file is None:
-      self.log_file = open(time.strftime("baseline_log_%Y%m%d-%H%M%S.csv"), 'w')
-
-    self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow, soln.n, soln.e, soln.d, soln.n_sats))
-    self.log_file.flush()
 
     self.ns.append(soln.n)
     self.es.append(soln.e)
@@ -234,10 +257,14 @@ class BaselineView(HasTraits):
     zt = ZoomTool(self.plot, zoom_factor=1.1, tool_mode="box", always_on=False)
     self.plot.overlays.append(zt)
 
+    self.week = None
+    self.nsec = 0
+
     self.link = link
     self.link.add_callback(sbp_messages.SBP_BASELINE_NED, self._baseline_callback_ned)
     self.link.add_callback(sbp_messages.SBP_BASELINE_ECEF, self._baseline_callback_ecef)
     self.link.add_callback(sbp_messages.IAR_STATE, self.iar_state_callback)
+    self.link.add_callback(sbp_messages.SBP_GPS_TIME, self.gps_time_callback)
 
     self.python_console_cmds = {
       'baseline': self
