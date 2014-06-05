@@ -110,6 +110,7 @@ CSRC = $(PORTSRC) \
        $(SWIFTNAV_ROOT)/src/init.o \
        $(SWIFTNAV_ROOT)/src/sbp.o \
        $(SWIFTNAV_ROOT)/src/sbp_piksi.o \
+       $(SWIFTNAV_ROOT)/src/sbp_fileio.o \
        $(SWIFTNAV_ROOT)/src/error.o \
        $(SWIFTNAV_ROOT)/src/cw.o \
        $(SWIFTNAV_ROOT)/src/track.o \

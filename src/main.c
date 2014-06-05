@@ -33,6 +33,7 @@
 #include "system_monitor.h"
 #include "simulator.h"
 #include "settings.h"
+#include "sbp_fileio.h"
 
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
@@ -238,6 +239,8 @@ int main(void)
   solution_setup();
 
   simulator_setup();
+
+  sbp_fileio_setup();
 
   if (serial_number < 0) {
     READ_ONLY_PARAMETER("system_info", "serial_number", "(unknown)", TYPE_STRING);
