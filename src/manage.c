@@ -198,9 +198,7 @@ void manage_acq()
   /*printf("Acq choosing PRN: %d\n", prn+1);*/
   acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
   coarse_timer_count = nap_timing_count() + 20000;
-  acq_schedule_load(coarse_timer_count);
-  /* Wait until we are done loading. */
-  acq_wait_load_done();
+  acq_load(coarse_timer_count);
 
   /* Done loading, now lets set that coarse acquisition going. */
   nap_acq_code_wr_blocking(prn);
@@ -231,9 +229,7 @@ void manage_acq()
   }
   /* Looks like we have a winner! */
   fine_timer_count = nap_timing_count() + 20000;
-  acq_schedule_load(fine_timer_count);
-  /* Wait until we are done loading. */
-  acq_wait_load_done();
+  acq_load(fine_timer_count);
 
   /* Done loading, now lets set the fine acquisition going. */
   cp = propagate_code_phase(cp, cf, fine_timer_count - coarse_timer_count);

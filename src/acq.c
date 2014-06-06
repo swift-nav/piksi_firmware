@@ -27,10 +27,10 @@
  * acquisition channel correlations and peak detection.
  * \{ */
 
-acq_state_t acq_state;
+static acq_state_t acq_state;
 
-BinarySemaphore load_wait_sem;
-BinarySemaphore acq_wait_sem;
+static BinarySemaphore load_wait_sem;
+static BinarySemaphore acq_wait_sem;
 
 /** Schedule a load of samples into the acquisition channel's sample ram.
  * The load starts at the end of the next timing strobe and continues until the
@@ -41,7 +41,7 @@ BinarySemaphore acq_wait_sem;
  * \param count The value of the NAP's internal counter at which the timing
  *              strobe is to go low.
  */
-void acq_schedule_load(u32 count)
+void acq_load(u32 count)
 {
   /* Initialise semaphore in the taken state, the calling thread can then wait
    * for the load to complete by waiting on this semaphore. */
@@ -50,6 +50,7 @@ void acq_schedule_load(u32 count)
   acq_state.state = ACQ_LOADING;
   nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
+  chBSemWait(&load_wait_sem);
 }
 
 /** Handle an acquisition load done interrupt from the NAP acquisition channel.
@@ -64,21 +65,6 @@ void acq_service_load_done()
   /* Release semaphore to signal to waiting thread that
    * the load is complete. */
   chBSemSignal(&load_wait_sem);
-}
-
-/** Pause thread until acquisition channel sample ram loading is complete.
- */
-void acq_wait_load_done()
-{
-  chBSemWait(&load_wait_sem);
-}
-
-/** Query the state of the acquisition channel sample ram loading.
- * \return 1 if loading has finished, 0 otherwise
- */
-u8 acq_get_load_done()
-{
-  return (acq_state.state == ACQ_LOADING_DONE);
 }
 
 /** Start a non-blocking acquisition search for a PRN over a code phase / carrier frequency range.
@@ -220,14 +206,6 @@ void acq_wait_done()
   chBSemWait(&acq_wait_sem);
 }
 
-/** Query if the acquisition search has finished.
- * \return 1 if acq_state = ACQ_RUNNING_DONE, 0 otherwise
- */
-u8 acq_get_done()
-{
-  return (acq_state.state == ACQ_RUNNING_DONE);
-}
-
 /** Get the results of the acquisition search last performed.
  * Get the code phase, carrier frequency, and SNR of the acquisition with the
  * highest SNR of set of acquisitions last performed.
@@ -242,75 +220,6 @@ void acq_get_results(float* cp, float* cf, float* snr)
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   *snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
-}
-
-/** Do a blocking acquisition search in two stages : coarse and fine.
- * Do a coarse acqusition to find the approximate code phase and carrier
- * frequency, and then a more fine grained acquisition to find the code phase
- * and carrier frequency more precisely.
- *
- * \param prn PRN to search (nap_acq_code_wr_blocking must be called prior)
- * \param cp  Code phase of the acquisition result
- * \param cf  Carrier frequency of the acquisition result
- * \param snr SNR of the acquisition result
- */
-u32 acq_full_two_stage(u8 prn, float* cp, float* cf, float* snr)
-{
-  /* Initial coarse acq. */
-  float coarse_code_phase;
-  float coarse_carrier_freq;
-  float coarse_snr;
-
-  u32 coarse_count = nap_timing_count() + 1000;
-  acq_schedule_load(coarse_count);
-  while(!acq_get_load_done());
-
-  acq_start(prn, 0, 1023, -7000, 7000, 300);
-  while(!acq_get_done());
-  acq_get_results(&coarse_code_phase, &coarse_carrier_freq, &coarse_snr);
-
-  /* Fine acq. */
-  u32 fine_count = nap_timing_count() + 2000;
-  acq_schedule_load(fine_count);
-  while(!acq_get_load_done());
-
-  float fine_cp = propagate_code_phase(coarse_code_phase, coarse_carrier_freq, fine_count - coarse_count);
-
-  acq_start(prn, fine_cp-20, fine_cp+20, coarse_carrier_freq-300, coarse_carrier_freq+300, 100);
-  while(!acq_get_done());
-  acq_get_results(cp, cf, snr);
-
-  return fine_count;
-}
-
-/** Do a blocking acquisition search.
- * Perform an acquisition for one PRN over a defined code and doppler range.
- * Returns the code phase and carrier frequency of the largest peak in the
- * search space together with the "SNR" value for that peak defined as
- * (peak_magnitude - mean) / std_deviation.
- *
- * \param prn    PRN number - 1 (0..31) to attempt to acquire
- *               (nap_acq_code_wr_blocking must be called prior).
- * \param cp_min Lower bound for code phase search range in chips.
- * \param cp_max Upper bound for code phase search range in chips.
- * \param cf_min Lower bound for carrier freq. search range in Hz.
- * \param cf_max Upper bound for carrier freq. search range in Hz.
- * \param cp     Pointer to a float where the peak's code phase value will be
- *               stored in chips.
- * \param cf     Pointer to a float where the peak's carrier frequency will be
- *               stored in Hz.
- * \param snr    Pointer to a float where the "SNR" of the peak will be stored.
- */
-void do_acq(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width, float* cp, float* cf, float* snr)
-{
-  acq_start(prn, cp_min, cp_max, cf_min, cf_max, cf_bin_width);
-  while(acq_state.state == ACQ_RUNNING) {
-    wait_for_nap_exti();
-    acq_service_irq();
-  }
-  wait_for_nap_exti();
-  acq_service_irq();
-  acq_get_results(cp, cf, snr);
 }
 
 /** \} */
