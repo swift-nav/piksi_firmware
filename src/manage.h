@@ -49,17 +49,6 @@ typedef enum {
   ACQ_MANAGE_RUNNING_FINE
 } acq_manage_state_t;
 
-/** Acquisition management struct. */
-typedef struct {
-  u8 prn;                   /**< CA Code (0-31) being searched for. */
-  u32 coarse_timer_count;   /**< Sample count corresponding to first sample in coarse acquisition samples. */
-  float coarse_snr;         /**< SNR of highest correlation in coarse search. */
-  float coarse_cp;          /**< Code phase of highest correlation in coarse search. */
-  float coarse_cf;          /**< Carr freq of highest correlation in coarse search. */
-  float fine_snr;           /**< SNR of highest correlation in fine search. */
-  u32 fine_timer_count;     /**< Sample count corresponding to first sample in fine acquisition samples. */
-} acq_manage_t;
-
 /** Status of acquisition for a particular PRN. */
 typedef struct __attribute__((packed)) {
   enum {
