@@ -162,184 +162,129 @@ static void manage_calc_scores(void)
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
 void manage_acq()
 {
-  nap_track_n_channels = 9;
-  switch (acq_manage.state) {
-    default:
-    case ACQ_MANAGE_START: {
-      /* Check if there are tracking channels free first. */
-      u8 i;
-      for (i=0; i<nap_track_n_channels; i++) {
-        if (tracking_channel[i].state == TRACKING_DISABLED)
-          break;
-      }
-      if (i == nap_track_n_channels)
-        /* No tracking channels free :( */
-        break;
-
-      /* Tracking channel is free, decide which PRN
-       * to try and then start it acquiring. */
-      s8 best_prn = -1;
-      s8 best_score = -1;
-      manage_calc_scores();
-      for (u8 prn=0; prn<32; prn++) {
-        if ((acq_prn_param[prn].state != ACQ_PRN_TRACKING) &&
-            (acq_prn_param[prn].state != ACQ_PRN_TRIED) &&
-            (acq_prn_param[prn].score > best_score)) {
-          best_prn = prn;
-          best_score = acq_prn_param[prn].score;
-        }
-      }
-
-      if (best_score < 0) {
-        /* No good satellites right now. Set all back to untried and try again
-         * later. */
-        for (u8 prn=0; prn<32; prn++) {
-          if (acq_prn_param[prn].state == ACQ_PRN_TRIED)
-            acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
-        }
-        break;
-      }
-
-      /* We have our PRN chosen, now load some fresh data
-       * into the acquisition ram on the Swift NAP for
-       * an initial coarse acquisition.
-       */
-      /*printf("Acq choosing PRN: %d\n", best_prn+1);*/
-      acq_manage.prn = best_prn;
-      acq_prn_param[best_prn].state = ACQ_PRN_ACQUIRING;
-      acq_manage.state = ACQ_MANAGE_LOADING_COARSE;
-      acq_manage.coarse_timer_count = nap_timing_count() + 20000;
-      acq_schedule_load(acq_manage.coarse_timer_count);
-      break;
+  /* Decide which PRN to try and then start it acquiring. */
+  s8 best_prn = -1;
+  s8 best_score = -1;
+  manage_calc_scores();
+  for (u8 prn=0; prn<32; prn++) {
+    if ((acq_prn_param[prn].state != ACQ_PRN_TRACKING) &&
+        (acq_prn_param[prn].state != ACQ_PRN_TRIED) &&
+        (acq_prn_param[prn].score > best_score)) {
+      best_prn = prn;
+      best_score = acq_prn_param[prn].score;
     }
-
-    case ACQ_MANAGE_LOADING_COARSE:
-      /* TODO: Loading should be part of the acq code not the manage code. */
-      if ((u32)nap_timing_count() - acq_manage.coarse_timer_count > 2*SAMPLE_FREQ) {
-        printf("Coarse loading timeout %u %u\n", (unsigned int)nap_timing_count(), (unsigned int)acq_manage.coarse_timer_count);
-        acq_manage.state = ACQ_MANAGE_START;
-        acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
-      }
-      /* Wait until we are done loading. */
-      acq_wait_load_done();
-
-      /* Done loading, now lets set that coarse acquisition going. */
-      nap_acq_code_wr_blocking(acq_manage.prn);
-      if (almanac[acq_manage.prn].valid && time_quality == TIME_COARSE) {
-        gps_time_t t = rx2gpstime(acq_manage.coarse_timer_count);
-
-        double dopp = -calc_sat_doppler_almanac(&almanac[acq_manage.prn], t.tow, t.wn, position_solution.pos_ecef);
-        /* TODO: look into accuracy of prediction and possibilities for
-         * improvement, e.g. use clock bias estimated by PVT solution. */
-        /*printf("Expecting PRN %02d @ %.1f\n", acq_manage.prn+1, dopp);*/
-        acq_start(acq_manage.prn, 0, 1023, dopp-4000, dopp+4000, ACQ_FULL_CF_STEP);
-      } else {
-        acq_start(acq_manage.prn, 0, 1023,
-            ACQ_FULL_CF_MIN,
-            ACQ_FULL_CF_MAX,
-            ACQ_FULL_CF_STEP);
-      }
-      acq_manage.state = ACQ_MANAGE_RUNNING_COARSE;
-      break;
-
-    case ACQ_MANAGE_RUNNING_COARSE:
-      /* Wait until we are done acquiring. */
-      if (!acq_get_done())
-        break;
-      /* Done with the coarse acquisition, check if we have found a
-       * satellite, if so save the results and start the loading
-       * for the fine acquisition. If not, start again choosing a
-       * different PRN.
-       */
-      acq_get_results(&acq_manage.coarse_cp,
-                      &acq_manage.coarse_cf,
-                      &acq_manage.coarse_snr);
-      printf("PRN %d coarse @ %d Hz, %d SNR\n", acq_manage.prn + 1,
-                                    (int)acq_manage.coarse_cf,
-                                    (int)acq_manage.coarse_snr);
-      if (acq_manage.coarse_snr < ACQ_THRESHOLD) {
-        /* Didn't find the satellite :( */
-        acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
-        acq_manage.state = ACQ_MANAGE_START;
-        break;
-      }
-      /* Looks like we have a winner! */
-      acq_manage.state = ACQ_MANAGE_LOADING_FINE;
-      acq_manage.fine_timer_count = nap_timing_count() + 20000;
-      acq_schedule_load(acq_manage.fine_timer_count);
-      break;
-
-    case ACQ_MANAGE_LOADING_FINE:
-      if ((u32)nap_timing_count() - acq_manage.fine_timer_count > 2*SAMPLE_FREQ) {
-        printf("Fine loading timeout %u %u\n", (unsigned int)nap_timing_count(), (unsigned int)acq_manage.fine_timer_count);
-        acq_manage.state = ACQ_MANAGE_START;
-        acq_prn_param[acq_manage.prn].state = ACQ_PRN_UNTRIED;
-      }
-      /* Wait until we are done loading. */
-      acq_wait_load_done();
-
-      /* Done loading, now lets set the fine acquisition going. */
-      float fine_cp = propagate_code_phase(
-                        acq_manage.coarse_cp,
-                        acq_manage.coarse_cf,
-                        acq_manage.fine_timer_count - acq_manage.coarse_timer_count
-                      );
-      acq_start(acq_manage.prn,
-                fine_cp-ACQ_FINE_CP_WIDTH,
-                fine_cp+ACQ_FINE_CP_WIDTH,
-                acq_manage.coarse_cf-ACQ_FINE_CF_WIDTH,
-                acq_manage.coarse_cf+ACQ_FINE_CF_WIDTH, ACQ_FINE_CF_STEP);
-      acq_manage.state = ACQ_MANAGE_RUNNING_FINE;
-      break;
-
-    case ACQ_MANAGE_RUNNING_FINE: {
-      /* Wait until we are done acquiring. */
-      if (!acq_get_done())
-        break;
-      /* Fine acquisition done, check if we have the satellite still,
-       * if so then transition to tracking, otherwise start again with
-       * a different PRN.
-       */
-      float fine_cp, fine_cf;
-      acq_get_results(&fine_cp, &fine_cf, &acq_manage.fine_snr);
-      printf("PRN %d Fine @ %+.0f Hz,  %.1f SNR\n", acq_manage.prn + 1,
-                                  fine_cf,
-                                  acq_manage.fine_snr);
-      /* BELOW REMOVED - if we found it in coarse then we'll consider it acquired. */
-      // TODO: Change SNR calculation so it is valid for fine then reenable this.
-      //if (acq_manage.fine_snr < ACQ_THRESHOLD) {
-      //  /* Didn't find the satellite :( */
-      //  acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
-      //  acq_manage.state = ACQ_MANAGE_START;
-      //  break;
-      //}
-      u8 chan = manage_track_new_acq(acq_manage.fine_snr);
-      if (chan == MANAGE_NO_CHANNELS_FREE) {
-        /* No channels are free to accept our new satellite :( */
-        /* TODO: Perhaps we can try to warm start this one
-         * later using another fine acq.
-         */
-        printf("No channels free :(\n");
-        acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
-        acq_manage.state = ACQ_MANAGE_START;
-        break;
-      }
-      /* Transition to tracking. */
-      u32 track_count = nap_timing_count() + 20000;
-      float track_cp = propagate_code_phase(fine_cp, fine_cf, track_count - acq_manage.fine_timer_count);
-
-      // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
-      track_count += 16*(1023.0-track_cp)*(1.0 + fine_cf / GPS_L1_HZ);
-
-      tracking_channel_init(chan, acq_manage.prn, fine_cf, track_count);
-      acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRACKING;
-      acq_manage.state = ACQ_MANAGE_START;
-      break;
-    }
-    case ACQ_MANAGE_DISABLED:
-      /* Do nothing. */
-      break;
   }
+
+  if (best_score < 0) {
+    /* No good satellites right now. Set all back to untried and try again
+     * later. */
+    for (u8 prn=0; prn<32; prn++) {
+      if (acq_prn_param[prn].state == ACQ_PRN_TRIED)
+        acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
+    }
+    return;
+  }
+
+  /* We have our PRN chosen, now load some fresh data
+   * into the acquisition ram on the Swift NAP for
+   * an initial coarse acquisition.
+   */
+  /*printf("Acq choosing PRN: %d\n", best_prn+1);*/
+  acq_manage.prn = best_prn;
+  acq_prn_param[best_prn].state = ACQ_PRN_ACQUIRING;
+  acq_manage.coarse_timer_count = nap_timing_count() + 20000;
+  acq_schedule_load(acq_manage.coarse_timer_count);
+  /* Wait until we are done loading. */
+  acq_wait_load_done();
+
+  /* Done loading, now lets set that coarse acquisition going. */
+  nap_acq_code_wr_blocking(acq_manage.prn);
+  if (almanac[acq_manage.prn].valid && time_quality == TIME_COARSE) {
+    gps_time_t t = rx2gpstime(acq_manage.coarse_timer_count);
+
+    double dopp = -calc_sat_doppler_almanac(&almanac[acq_manage.prn], t.tow, t.wn, position_solution.pos_ecef);
+    /* TODO: look into accuracy of prediction and possibilities for
+     * improvement, e.g. use clock bias estimated by PVT solution. */
+    /*printf("Expecting PRN %02d @ %.1f\n", acq_manage.prn+1, dopp);*/
+    acq_start(acq_manage.prn, 0, 1023, dopp-4000, dopp+4000, ACQ_FULL_CF_STEP);
+  } else {
+    acq_start(acq_manage.prn, 0, 1023,
+        ACQ_FULL_CF_MIN,
+        ACQ_FULL_CF_MAX,
+        ACQ_FULL_CF_STEP);
+  }
+  acq_wait_done();
+
+  /* Done with the coarse acquisition, check if we have found a
+   * satellite, if so save the results and start the loading
+   * for the fine acquisition. If not, start again choosing a
+   * different PRN.
+   */
+  acq_get_results(&acq_manage.coarse_cp,
+                  &acq_manage.coarse_cf,
+                  &acq_manage.coarse_snr);
+  printf("PRN %d coarse @ %d Hz, %d SNR\n", acq_manage.prn + 1,
+                                (int)acq_manage.coarse_cf,
+                                (int)acq_manage.coarse_snr);
+  if (acq_manage.coarse_snr < ACQ_THRESHOLD) {
+    /* Didn't find the satellite :( */
+    acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
+    return;
+  }
+  /* Looks like we have a winner! */
+  acq_manage.fine_timer_count = nap_timing_count() + 20000;
+  acq_schedule_load(acq_manage.fine_timer_count);
+  /* Wait until we are done loading. */
+  acq_wait_load_done();
+
+  /* Done loading, now lets set the fine acquisition going. */
+  float fine_cp = propagate_code_phase(
+                    acq_manage.coarse_cp,
+                    acq_manage.coarse_cf,
+                    acq_manage.fine_timer_count - acq_manage.coarse_timer_count
+                  );
+  acq_start(acq_manage.prn,
+            fine_cp-ACQ_FINE_CP_WIDTH,
+            fine_cp+ACQ_FINE_CP_WIDTH,
+            acq_manage.coarse_cf-ACQ_FINE_CF_WIDTH,
+            acq_manage.coarse_cf+ACQ_FINE_CF_WIDTH, ACQ_FINE_CF_STEP);
+  acq_wait_done();
+  /* Fine acquisition done, check if we have the satellite still,
+   * if so then transition to tracking, otherwise start again with
+   * a different PRN.
+   */
+  float fine_cf;
+  acq_get_results(&fine_cp, &fine_cf, &acq_manage.fine_snr);
+  printf("PRN %d Fine @ %+.0f Hz,  %.1f SNR\n", acq_manage.prn + 1,
+                              fine_cf,
+                              acq_manage.fine_snr);
+  /* BELOW REMOVED - if we found it in coarse then we'll consider it acquired. */
+  // TODO: Change SNR calculation so it is valid for fine then reenable this.
+  //if (acq_manage.fine_snr < ACQ_THRESHOLD) {
+  //  /* Didn't find the satellite :( */
+  //  acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
+  //  acq_manage.state = ACQ_MANAGE_START;
+  //  break;
+  //}
+  u8 chan = manage_track_new_acq(acq_manage.fine_snr);
+  if (chan == MANAGE_NO_CHANNELS_FREE) {
+    /* No channels are free to accept our new satellite :( */
+    /* TODO: Perhaps we can try to warm start this one
+     * later using another fine acq.
+     */
+    printf("No channels free :(\n");
+    acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRIED;
+    return;
+  }
+  /* Transition to tracking. */
+  u32 track_count = nap_timing_count() + 20000;
+  float track_cp = propagate_code_phase(fine_cp, fine_cf, track_count - acq_manage.fine_timer_count);
+
+  // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
+  track_count += 16*(1023.0-track_cp)*(1.0 + fine_cf / GPS_L1_HZ);
+
+  tracking_channel_init(chan, acq_manage.prn, fine_cf, track_count);
+  acq_prn_param[acq_manage.prn].state = ACQ_PRN_TRACKING;
 }
 
 /** Find an available tracking channel to start tracking an acquired PRN with.

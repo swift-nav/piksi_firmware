@@ -51,7 +51,6 @@ typedef enum {
 
 /** Acquisition management struct. */
 typedef struct {
-  acq_manage_state_t state; /**< Acquisition management state. */
   u8 prn;                   /**< CA Code (0-31) being searched for. */
   u32 coarse_timer_count;   /**< Sample count corresponding to first sample in coarse acquisition samples. */
   float coarse_snr;         /**< SNR of highest correlation in coarse search. */
