@@ -209,11 +209,10 @@ void manage_acq()
     /* TODO: look into accuracy of prediction and possibilities for
      * improvement, e.g. use clock bias estimated by PVT solution. */
     /*printf("Expecting PRN %02d @ %.1f\n", prn+1, dopp);*/
-    acq_start(prn, 0, 1023, dopp-4000, dopp+4000, ACQ_FULL_CF_STEP);
+    acq_search(0, 1023, dopp-4000, dopp+4000, ACQ_FULL_CF_STEP);
   } else {
-    acq_start(prn, 0, 1023, ACQ_FULL_CF_MIN, ACQ_FULL_CF_MAX, ACQ_FULL_CF_STEP);
+    acq_search(0, 1023, ACQ_FULL_CF_MIN, ACQ_FULL_CF_MAX, ACQ_FULL_CF_STEP);
   }
-  acq_wait_done();
 
   /* Done with the coarse acquisition, check if we have found a
    * satellite, if so save the results and start the loading
@@ -233,9 +232,8 @@ void manage_acq()
 
   /* Done loading, now lets set the fine acquisition going. */
   cp = propagate_code_phase(cp, cf, fine_timer_count - coarse_timer_count);
-  acq_start(prn, cp-ACQ_FINE_CP_WIDTH, cp+ACQ_FINE_CP_WIDTH,
-            cf-ACQ_FINE_CF_WIDTH, cf+ACQ_FINE_CF_WIDTH, ACQ_FINE_CF_STEP);
-  acq_wait_done();
+  acq_search(cp-ACQ_FINE_CP_WIDTH, cp+ACQ_FINE_CP_WIDTH,
+             cf-ACQ_FINE_CF_WIDTH, cf+ACQ_FINE_CF_WIDTH, ACQ_FINE_CF_STEP);
   /* Fine acquisition done, check if we have the satellite still,
    * if so then transition to tracking, otherwise start again with
    * a different PRN.

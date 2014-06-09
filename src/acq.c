@@ -67,20 +67,20 @@ void acq_service_load_done()
   chBSemSignal(&load_wait_sem);
 }
 
-/** Start a non-blocking acquisition search for a PRN over a code phase / carrier frequency range.
+/** Start a blocking acquisition search for a PRN over a code phase / carrier frequency range.
  * Translate the passed code phase and carrier frequency float values into
  * acquisition register values. Write values for the first acquisition to the
  * channel, and then write values for the next pipelined acquisition.
- * Note : Minimum cf_bin_width is determined by the acq. channel carrier phase  *        register width, and is given by 1/NAP_ACQ_CARRIER_FREQ_UNTS_PER_HZ
+ * Note : Minimum cf_bin_width is determined by the acq. channel carrier phase
+ *        register width, and is given by 1/NAP_ACQ_CARRIER_FREQ_UNTS_PER_HZ
  *
- * \param prn      PRN to search (0-31) (nap_acq_code_wr_blocking must be called prior)
  * \param cp_min   Starting code phase of the first acquisition. (chips)
  * \param cp_max   Starting code phase of the last acquisition. (chips)
  * \param cf_min   Carrier frequency of the first acquisition. (Hz)
  * \param cf_max   Carrier frequency of the last acquisition. (Hz)
  * \param cf_bin_width Step size between each carrier frequency to search. (Hz)
  */
-void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width)
+void acq_search(float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width)
 {
   /* Initialise semaphore in the taken state, the calling thread can then wait
    * for the acq to complete by waiting on this semaphore. */
@@ -100,7 +100,6 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
 
   /* Initialise our acquisition state struct. */
   acq_state.state = ACQ_RUNNING;
-  acq_state.prn = prn;
   acq_state.best_power = 0;
   acq_state.power_acc = 0;
   acq_state.count = 0;
@@ -108,9 +107,11 @@ void acq_start(u8 prn, float cp_min, float cp_max, float cf_min, float cf_max, f
   acq_state.code_phase = acq_state.cp_min;
 
   /* Write first and second sets of acq parameters (for pipelining). */
-  nap_acq_init_wr_params_blocking(prn, acq_state.cp_min, acq_state.cf_min);
+  nap_acq_init_wr_params_blocking(0, acq_state.cp_min, acq_state.cf_min);
   /* TODO: If we are only doing a single acq then write disable here. */
-  nap_acq_init_wr_params_blocking(prn, acq_state.cp_min+nap_acq_n_taps, acq_state.cf_min);
+  nap_acq_init_wr_params_blocking(0, acq_state.cp_min+nap_acq_n_taps, acq_state.cf_min);
+
+  chBSemWait(&acq_wait_sem);
 }
 
 /** Handle an acquisition done interrupt from the NAP acquisition channel.
@@ -197,13 +198,6 @@ void acq_service_irq()
       }
       break;
   }
-}
-
-/** Pause thread until acquisition is complete.
- */
-void acq_wait_done()
-{
-  chBSemWait(&acq_wait_sem);
 }
 
 /** Get the results of the acquisition search last performed.
