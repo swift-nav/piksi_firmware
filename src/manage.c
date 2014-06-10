@@ -23,7 +23,6 @@
 
 #include "main.h"
 #include "board/nap/track_channel.h"
-#include "board/nap/acq_channel.h"
 #include "acq.h"
 #include "track.h"
 #include "timing.h"
@@ -191,6 +190,8 @@ void manage_acq()
   u32 coarse_timer_count, fine_timer_count;
   float snr, cp, cf;
 
+  acq_set_prn(prn);
+
   /* We have our PRN chosen, now load some fresh data
    * into the acquisition ram on the Swift NAP for
    * an initial coarse acquisition.
@@ -201,7 +202,6 @@ void manage_acq()
   acq_load(coarse_timer_count);
 
   /* Done loading, now lets set that coarse acquisition going. */
-  nap_acq_code_wr_blocking(prn);
   if (almanac[prn].valid && time_quality == TIME_COARSE) {
     gps_time_t t = rx2gpstime(coarse_timer_count);
 

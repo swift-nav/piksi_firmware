@@ -11,26 +11,24 @@
  */
 
 #include <math.h>
-#include <stdio.h>
+#include <string.h>
 
 #include <ch.h>
 
-#include <libopencm3/stm32/f4/gpio.h>
-
 #include "board/nap/acq_channel.h"
-#include "board/nap/nap_exti.h"
 #include "acq.h"
-#include "track.h"
 
 /** \defgroup acq Acquisition
  * Do acquisition searches via interrupt driven scheduling of SwiftNAP
  * acquisition channel correlations and peak detection.
  * \{ */
 
-static acq_state_t acq_state;
+void acq_set_prn(u8 prn)
+{
+  nap_acq_code_wr_blocking(prn);
+}
 
 static BinarySemaphore load_wait_sem;
-static BinarySemaphore acq_wait_sem;
 
 /** Schedule a load of samples into the acquisition channel's sample ram.
  * The load starts at the end of the next timing strobe and continues until the
@@ -47,7 +45,6 @@ void acq_load(u32 count)
    * for the load to complete by waiting on this semaphore. */
   chBSemInit(&load_wait_sem, TRUE);
 
-  acq_state.state = ACQ_LOADING;
   nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
   chBSemWait(&load_wait_sem);
@@ -60,12 +57,28 @@ void acq_load(u32 count)
 void acq_service_load_done()
 {
   nap_acq_load_wr_disable_blocking();
-  acq_state.state = ACQ_LOADING_DONE;
 
   /* Release semaphore to signal to waiting thread that
    * the load is complete. */
   chBSemSignal(&load_wait_sem);
 }
+
+
+static Semaphore acq_pipeline_sem;
+static struct {
+  struct {
+    s16 cf;
+    u16 cp;
+  } pipeline[NAP_ACQ_PIPELINE_STAGES];
+  u8 p_head;
+  u8 p_tail;
+
+  u64 power_acc;      /**< Sum of powers of all acquisition set points. */
+  u64 best_power;     /**< Highest power of all acquisition set points. */
+  s16 best_cf;        /**< Carrier freq corresponding to highest power. */
+  u16 best_cp;        /**< Code phase corresponding to highest power. */
+  u32 count;          /**< Total number of acquisition points searched. */
+} acq_state;
 
 /** Start a blocking acquisition search for a PRN over a code phase / carrier frequency range.
  * Translate the passed code phase and carrier frequency float values into
@@ -80,124 +93,67 @@ void acq_service_load_done()
  * \param cf_max   Carrier frequency of the last acquisition. (Hz)
  * \param cf_bin_width Step size between each carrier frequency to search. (Hz)
  */
-void acq_search(float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width)
+void acq_search(float cp_min_, float cp_max_,
+                float cf_min_, float cf_max_, float cf_bin_width)
 {
-  /* Initialise semaphore in the taken state, the calling thread can then wait
-   * for the acq to complete by waiting on this semaphore. */
-  chBSemInit(&acq_wait_sem, TRUE);
+	chSemInit(&acq_pipeline_sem, NAP_ACQ_PIPELINE_STAGES);
+	memset(&acq_state, 0, sizeof(acq_state));
 
-  /* Calculate the range parameters in acq units. Explicitly expand
-   * the range to the nearest multiple of the step size to make sure
-   * we cover at least the specified range.
-   */
-  acq_state.cf_step = cf_bin_width*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-  acq_state.cf_min = acq_state.cf_step*floor(cf_min*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ / (float)acq_state.cf_step);
-  acq_state.cf_max = acq_state.cf_step*ceil(cf_max*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ / (float)acq_state.cf_step);
-  /* cp_step = nap_acq_n_taps */
-  acq_state.cp_min = nap_acq_n_taps*floor(cp_min*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)nap_acq_n_taps);
-  acq_state.cp_max = nap_acq_n_taps*ceil(cp_max*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP / (float)nap_acq_n_taps);
+	/* Calculate the range parameters in acq units. Explicitly expand
+	 * the range to the nearest multiple of the step size to make sure
+	 * we cover at least the specified range.
+	 */
+	s16 cf_step = cf_bin_width * NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+	s16 cf_min = cf_step*floor(cf_min_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
+		(float)cf_step);
+	s16 cf_max = cf_step*ceil(cf_max_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
+		(float)cf_step);
+	/* cp_step = nap_acq_n_taps */
+	u16 cp_min = nap_acq_n_taps*floor(cp_min_*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP /
+					(float)nap_acq_n_taps);
+	u16 cp_max = nap_acq_n_taps*ceil(cp_max_*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP /
+					(float)nap_acq_n_taps);
 
+	for (s16 cf = cf_min; cf < cf_max; cf += cf_step) {
+		for (u16 cp = cp_min; cp < cp_max; cp += nap_acq_n_taps) {
+			chSemWait(&acq_pipeline_sem);
+                        acq_state.pipeline[acq_state.p_head].cp = cp;
+                        acq_state.pipeline[acq_state.p_head].cf = cf;
+                        acq_state.p_head = (acq_state.p_head + 1) % NAP_ACQ_PIPELINE_STAGES;
+			nap_acq_init_wr_params_blocking(0, cp, cf);
+		}
+	}
 
-  /* Initialise our acquisition state struct. */
-  acq_state.state = ACQ_RUNNING;
-  acq_state.best_power = 0;
-  acq_state.power_acc = 0;
-  acq_state.count = 0;
-  acq_state.carrier_freq = acq_state.cf_min;
-  acq_state.code_phase = acq_state.cp_min;
-
-  /* Write first and second sets of acq parameters (for pipelining). */
-  nap_acq_init_wr_params_blocking(0, acq_state.cp_min, acq_state.cf_min);
-  /* TODO: If we are only doing a single acq then write disable here. */
-  nap_acq_init_wr_params_blocking(0, acq_state.cp_min+nap_acq_n_taps, acq_state.cf_min);
-
-  chBSemWait(&acq_wait_sem);
+	for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {
+		chSemWait(&acq_pipeline_sem);
+		nap_acq_init_wr_disable_blocking();
+	}
 }
 
-/** Handle an acquisition done interrupt from the NAP acquisition channel.
- * If acq_state.state =
- *   ACQ_RUNNING :
- *     write the next set of pipelined acquisition parameters.
- *   ACQ_RUNNING_FINISHING :
- *     channel is currently doing the final acquisition of the set of
- *     acquisitions, write a pipelined disable to stop the channel after this
- *     final acquisition.
- */
-void acq_service_irq()
+/** Handle an acquisition done interrupt from the NAP acquisition channel. */
+void acq_service_irq(void)
 {
-  u16 index_max;
-  corr_t corr_max;
-  acc_t acc;
+        s16 cf = acq_state.pipeline[acq_state.p_tail].cf;
+        u16 cp = acq_state.pipeline[acq_state.p_tail].cp;
+        acq_state.p_tail = (acq_state.p_tail + 1) % NAP_ACQ_PIPELINE_STAGES;
 
-  u64 power_max;
+	u16 index_max;
+	corr_t corr_max;
+	acc_t acc;
 
-  switch(acq_state.state)
-  {
-    default:
-      /* If we get an interrupt when we are not running,
-       * disable the acq channel which helpfully also
-       * clears the IRQ.
-       */
-      printf("!!! Acq state error? %d\n", acq_state.state);
-      nap_acq_init_wr_disable_blocking();
-      break;
+	nap_acq_corr_rd_blocking(&index_max, &corr_max, &acc);
+	acq_state.power_acc += acc.I + acc.Q;
+	u64 power_max = (u64)corr_max.I*(u64)corr_max.I +
+		(u64)corr_max.Q*(u64)corr_max.Q;
+	if (power_max > acq_state.best_power) {
+		acq_state.best_power = power_max;
+		acq_state.best_cf = cf;
+		acq_state.best_cp = cp + (nap_acq_n_taps - index_max) %
+			(1<<NAP_ACQ_CODE_PHASE_WIDTH);
+	}
+	acq_state.count += nap_acq_n_taps;
 
-    case ACQ_RUNNING_FINISHING:
-      nap_acq_init_wr_disable_blocking();
-      acq_state.state = ACQ_RUNNING_DONE;
-
-      /* Release semaphore to signal to waiting thread that
-       * the acquisition is complete. */
-      chBSemSignal(&acq_wait_sem);
-      break;
-
-    case ACQ_RUNNING:
-      /* Read in correlations. */
-      nap_acq_corr_rd_blocking(&index_max, &corr_max, &acc);
-
-      /* Write parameters for 2 cycles time for acq pipelining apart
-       * from the last two cycles where we want to write disable.
-       * The first time to disable and the second time really just
-       * to clear the interrupt from the last cycle.
-       *
-       * NOTE: we must take care to handle wrapping, when we get to
-       * the end of the code phase range the parameters for 2 cycles
-       * time will be with the next carrier freq value and a small
-       * code phase value.
-       */
-      if (acq_state.code_phase < acq_state.cp_max - 2*nap_acq_n_taps) {
-        nap_acq_init_wr_params_blocking(acq_state.prn, \
-          acq_state.code_phase+2*nap_acq_n_taps, \
-          acq_state.carrier_freq);
-      } else {
-        if (acq_state.carrier_freq >= acq_state.cf_max && \
-            acq_state.code_phase >= (acq_state.cp_max-2*nap_acq_n_taps)) {
-          nap_acq_init_wr_disable_blocking();
-          acq_state.state = ACQ_RUNNING_FINISHING;
-        } else {
-          nap_acq_init_wr_params_blocking(acq_state.prn, \
-            acq_state.cp_min + acq_state.code_phase - acq_state.cp_max + 2*nap_acq_n_taps, \
-            acq_state.carrier_freq+acq_state.cf_step);
-        }
-      }
-
-      acq_state.power_acc += acc.I + acc.Q;
-      power_max = (u64)corr_max.I*(u64)corr_max.I \
-                + (u64)corr_max.Q*(u64)corr_max.Q;
-      if (power_max > acq_state.best_power) {
-        acq_state.best_power = power_max;
-        acq_state.best_cf = acq_state.carrier_freq;
-        acq_state.best_cp = acq_state.code_phase + (nap_acq_n_taps-index_max) \
-                            % (1<<NAP_ACQ_CODE_PHASE_WIDTH);
-      }
-      acq_state.count += nap_acq_n_taps;
-      acq_state.code_phase += nap_acq_n_taps;
-      if (acq_state.code_phase >= acq_state.cp_max) {
-        acq_state.code_phase = acq_state.cp_min;
-        acq_state.carrier_freq += acq_state.cf_step;
-      }
-      break;
-  }
+	chSemSignal(&acq_pipeline_sem);
 }
 
 /** Get the results of the acquisition search last performed.
@@ -217,3 +173,4 @@ void acq_get_results(float* cp, float* cf, float* snr)
 }
 
 /** \} */
+
