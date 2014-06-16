@@ -23,12 +23,14 @@
  * acquisition channel correlations and peak detection.
  * \{ */
 
+static BinarySemaphore load_wait_sem;
+
 void acq_set_prn(u8 prn)
 {
+  chBSemInit(&load_wait_sem, TRUE);
   nap_acq_code_wr_blocking(prn);
+  chBSemWait(&load_wait_sem);
 }
-
-static BinarySemaphore load_wait_sem;
 
 /** Schedule a load of samples into the acquisition channel's sample ram.
  * The load starts at the end of the next timing strobe and continues until the
@@ -56,8 +58,6 @@ void acq_load(u32 count)
  */
 void acq_service_load_done()
 {
-  nap_acq_load_wr_disable_blocking();
-
   /* Release semaphore to signal to waiting thread that
    * the load is complete. */
   chBSemSignal(&load_wait_sem);
@@ -103,7 +103,9 @@ void acq_search(float cp_min_, float cp_max_,
 	 * the range to the nearest multiple of the step size to make sure
 	 * we cover at least the specified range.
 	 */
-	s16 cf_step = cf_bin_width * NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+	u16 cf_step = cf_bin_width * NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+        if (cf_step < 1)
+		cf_step = 1;
 	s16 cf_min = cf_step*floor(cf_min_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
 		(float)cf_step);
 	s16 cf_max = cf_step*ceil(cf_max_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
@@ -126,7 +128,6 @@ void acq_search(float cp_min_, float cp_max_,
 
 	for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {
 		chSemWait(&acq_pipeline_sem);
-		nap_acq_init_wr_disable_blocking();
 	}
 }
 
@@ -134,24 +135,20 @@ void acq_search(float cp_min_, float cp_max_,
 void acq_service_irq(void)
 {
         s16 cf = acq_state.pipeline[acq_state.p_tail].cf;
-        u16 cp = acq_state.pipeline[acq_state.p_tail].cp;
         acq_state.p_tail = (acq_state.p_tail + 1) % NAP_ACQ_PIPELINE_STAGES;
 
 	u16 index_max;
-	corr_t corr_max;
-	acc_t acc;
+	u16 corr_max;
+	u16 ave;
 
-	nap_acq_corr_rd_blocking(&index_max, &corr_max, &acc);
-	acq_state.power_acc += acc.I + acc.Q;
-	u64 power_max = (u64)corr_max.I*(u64)corr_max.I +
-		(u64)corr_max.Q*(u64)corr_max.Q;
-	if (power_max > acq_state.best_power) {
-		acq_state.best_power = power_max;
+	nap_acq_corr_rd_blocking(&index_max, &corr_max, &ave);
+	acq_state.power_acc += ave;
+	if (corr_max > acq_state.best_power) {
+		acq_state.best_power = corr_max;
 		acq_state.best_cf = cf;
-		acq_state.best_cp = cp + (nap_acq_n_taps - index_max) %
-			(1<<NAP_ACQ_CODE_PHASE_WIDTH);
+		acq_state.best_cp = index_max;
 	}
-	acq_state.count += nap_acq_n_taps;
+	acq_state.count++;
 
 	chSemSignal(&acq_pipeline_sem);
 }
@@ -166,7 +163,8 @@ void acq_service_irq(void)
  */
 void acq_get_results(float* cp, float* cf, float* snr)
 {
-  *cp = (float)acq_state.best_cp / NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP;
+  *cp = 1023.0 - (float)(acq_state.best_cp % (1023 * NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP))
+                  / NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP;
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   *snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
