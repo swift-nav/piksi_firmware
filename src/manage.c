@@ -75,7 +75,6 @@ static msg_t manage_acq_thread(void *arg)
   (void)arg;
   chRegSetThreadName("manage acq");
   while (TRUE) {
-    chThdSleepMilliseconds(100);
     manage_acq();
   }
 
@@ -252,6 +251,7 @@ void manage_acq()
 
   tracking_channel_init(chan, prn, cf, track_count);
   acq_prn_param[prn].state = ACQ_PRN_TRACKING;
+  nap_timing_strobe_wait(100);
 }
 
 /** Find an available tracking channel to start tracking an acquired PRN with.
