@@ -12,6 +12,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <ch.h>
 
@@ -29,7 +30,8 @@ void acq_set_prn(u8 prn)
 {
   chBSemInit(&load_wait_sem, TRUE);
   nap_acq_code_wr_blocking(prn);
-  chBSemWait(&load_wait_sem);
+  if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT)
+    printf("acq: Timeout waiting for code load!\n");
 }
 
 /** Schedule a load of samples into the acquisition channel's sample ram.
@@ -41,7 +43,7 @@ void acq_set_prn(u8 prn)
  * \param count The value of the NAP's internal counter at which the timing
  *              strobe is to go low.
  */
-void acq_load(u32 count)
+bool acq_load(u32 count)
 {
   /* Initialise semaphore in the taken state, the calling thread can then wait
    * for the load to complete by waiting on this semaphore. */
@@ -49,7 +51,11 @@ void acq_load(u32 count)
 
   nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
-  chBSemWait(&load_wait_sem);
+  if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
+    printf("acq: Timeout waiting for sample load!\n");
+    return false;
+  }
+  return true;
 }
 
 /** Handle an acquisition load done interrupt from the NAP acquisition channel.
@@ -96,61 +102,63 @@ static struct {
 void acq_search(float cp_min_, float cp_max_,
                 float cf_min_, float cf_max_, float cf_bin_width)
 {
-	chSemInit(&acq_pipeline_sem, NAP_ACQ_PIPELINE_STAGES);
-	memset(&acq_state, 0, sizeof(acq_state));
+  chSemInit(&acq_pipeline_sem, NAP_ACQ_PIPELINE_STAGES);
+  memset(&acq_state, 0, sizeof(acq_state));
 
-	/* Calculate the range parameters in acq units. Explicitly expand
-	 * the range to the nearest multiple of the step size to make sure
-	 * we cover at least the specified range.
-	 */
-	u16 cf_step = cf_bin_width * NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-        if (cf_step < 1)
-		cf_step = 1;
-	s16 cf_min = cf_step*floor(cf_min_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
-		(float)cf_step);
-	s16 cf_max = cf_step*ceil(cf_max_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
-		(float)cf_step);
-	/* cp_step = nap_acq_n_taps */
-	u16 cp_min = nap_acq_n_taps*floor(cp_min_*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP /
-					(float)nap_acq_n_taps);
-	u16 cp_max = nap_acq_n_taps*ceil(cp_max_*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP /
-					(float)nap_acq_n_taps);
+  /* Calculate the range parameters in acq units. Explicitly expand
+   * the range to the nearest multiple of the step size to make sure
+   * we cover at least the specified range.
+   */
+  u16 cf_step = cf_bin_width * NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+  if (cf_step < 1)
+    cf_step = 1;
+  s16 cf_min = cf_step*floor(cf_min_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
+    (float)cf_step);
+  s16 cf_max = cf_step*ceil(cf_max_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
+    (float)cf_step);
+  /* cp_step = nap_acq_n_taps */
+  u16 cp_min = nap_acq_n_taps*floor(cp_min_*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP /
+                                    (float)nap_acq_n_taps);
+  u16 cp_max = nap_acq_n_taps*ceil(cp_max_*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP /
+                                   (float)nap_acq_n_taps);
 
-	for (s16 cf = cf_min; cf < cf_max; cf += cf_step) {
-		for (u16 cp = cp_min; cp < cp_max; cp += nap_acq_n_taps) {
-			chSemWait(&acq_pipeline_sem);
-                        acq_state.pipeline[acq_state.p_head].cp = cp;
-                        acq_state.pipeline[acq_state.p_head].cf = cf;
-                        acq_state.p_head = (acq_state.p_head + 1) % NAP_ACQ_PIPELINE_STAGES;
-			nap_acq_init_wr_params_blocking(0, cp, cf);
-		}
-	}
+  for (s16 cf = cf_min; cf < cf_max; cf += cf_step) {
+    for (u16 cp = cp_min; cp < cp_max; cp += nap_acq_n_taps) {
+      if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT)
+        printf("acq: Timeout waiting for search!\n");
+      acq_state.pipeline[acq_state.p_head].cp = cp;
+      acq_state.pipeline[acq_state.p_head].cf = cf;
+      acq_state.p_head = (acq_state.p_head + 1) % NAP_ACQ_PIPELINE_STAGES;
+      nap_acq_init_wr_params_blocking(0, cp, cf);
+    }
+  }
 
-	for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {
-		chSemWait(&acq_pipeline_sem);
-	}
+  for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {
+    if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT)
+      printf("acq: Timeout waiting for search!\n");
+  }
 }
 
 /** Handle an acquisition done interrupt from the NAP acquisition channel. */
 void acq_service_irq(void)
 {
-        s16 cf = acq_state.pipeline[acq_state.p_tail].cf;
-        acq_state.p_tail = (acq_state.p_tail + 1) % NAP_ACQ_PIPELINE_STAGES;
+  s16 cf = acq_state.pipeline[acq_state.p_tail].cf;
+  acq_state.p_tail = (acq_state.p_tail + 1) % NAP_ACQ_PIPELINE_STAGES;
 
-	u16 index_max;
-	u16 corr_max;
-	u16 ave;
+  u16 index_max;
+  u16 corr_max;
+  u16 ave;
 
-	nap_acq_corr_rd_blocking(&index_max, &corr_max, &ave);
-	acq_state.power_acc += ave;
-	if (corr_max > acq_state.best_power) {
-		acq_state.best_power = corr_max;
-		acq_state.best_cf = cf;
-		acq_state.best_cp = index_max;
-	}
-	acq_state.count++;
+  nap_acq_corr_rd_blocking(&index_max, &corr_max, &ave);
+  acq_state.power_acc += ave;
+  if (corr_max > acq_state.best_power) {
+    acq_state.best_power = corr_max;
+    acq_state.best_cf = cf;
+    acq_state.best_cp = index_max;
+  }
+  acq_state.count++;
 
-	chSemSignal(&acq_pipeline_sem);
+  chSemSignal(&acq_pipeline_sem);
 }
 
 /** Get the results of the acquisition search last performed.

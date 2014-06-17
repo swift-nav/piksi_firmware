@@ -198,8 +198,10 @@ void manage_acq()
    * an initial coarse acquisition.
    */
   acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
-  timer_count = nap_timing_count() + 20000;
-  acq_load(timer_count);
+  do {
+    timer_count = nap_timing_count() + 20000;
+    /* acq_load could timeout if we're preempted and miss the timing strobe */
+  } while (!acq_load(timer_count));
 
   /* Done loading, now lets set that coarse acquisition going. */
   if (almanac[prn].valid && time_quality == TIME_COARSE) {

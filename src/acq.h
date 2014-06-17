@@ -17,7 +17,7 @@
 
 void acq_set_prn(u8 prn);
 
-void acq_load(u32 count);
+bool acq_load(u32 count);
 void acq_service_load_done(void);
 
 void acq_search(float cp_min, float cp_max, float cf_min, float cf_max, float cf_bin_width);
