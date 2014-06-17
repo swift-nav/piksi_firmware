@@ -178,7 +178,7 @@ u8 best_prn(void)
         acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
     }
     printf("acq: restarting PRN search\n");
-    return 0;
+    return -1;
   }
   return best_prn;
 }
@@ -188,6 +188,9 @@ void manage_acq()
 {
   /* Decide which PRN to try and then start it acquiring. */
   u8 prn = best_prn();
+  if (prn == (u8)-1)
+    return;
+
   u32 timer_count;
   float snr, cp, cf;
 
