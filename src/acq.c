@@ -74,7 +74,6 @@ static Semaphore acq_pipeline_sem;
 static struct {
   struct {
     s16 cf;
-    u16 cp;
   } pipeline[NAP_ACQ_PIPELINE_STAGES];
   u8 p_head;
   u8 p_tail;
@@ -99,8 +98,7 @@ static struct {
  * \param cf_max   Carrier frequency of the last acquisition. (Hz)
  * \param cf_bin_width Step size between each carrier frequency to search. (Hz)
  */
-void acq_search(float cp_min_, float cp_max_,
-                float cf_min_, float cf_max_, float cf_bin_width)
+void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
 {
   chSemInit(&acq_pipeline_sem, NAP_ACQ_PIPELINE_STAGES);
   memset(&acq_state, 0, sizeof(acq_state));
@@ -116,21 +114,13 @@ void acq_search(float cp_min_, float cp_max_,
     (float)cf_step);
   s16 cf_max = cf_step*ceil(cf_max_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
     (float)cf_step);
-  /* cp_step = nap_acq_n_taps */
-  u16 cp_min = nap_acq_n_taps*floor(cp_min_*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP /
-                                    (float)nap_acq_n_taps);
-  u16 cp_max = nap_acq_n_taps*ceil(cp_max_*NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP /
-                                   (float)nap_acq_n_taps);
 
   for (s16 cf = cf_min; cf < cf_max; cf += cf_step) {
-    for (u16 cp = cp_min; cp < cp_max; cp += nap_acq_n_taps) {
-      if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT)
-        printf("acq: Timeout waiting for search!\n");
-      acq_state.pipeline[acq_state.p_head].cp = cp;
-      acq_state.pipeline[acq_state.p_head].cf = cf;
-      acq_state.p_head = (acq_state.p_head + 1) % NAP_ACQ_PIPELINE_STAGES;
-      nap_acq_init_wr_params_blocking(0, cp, cf);
-    }
+    if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT)
+      printf("acq: Timeout waiting for search!\n");
+    acq_state.pipeline[acq_state.p_head].cf = cf;
+    acq_state.p_head = (acq_state.p_head + 1) % NAP_ACQ_PIPELINE_STAGES;
+    nap_acq_init_wr_params_blocking(cf);
   }
 
   for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {

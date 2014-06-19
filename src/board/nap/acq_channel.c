@@ -23,12 +23,13 @@
  * Interface to the SwiftNAP acquisition channel.
  * \{ */
 
-/** Number of acq. channel code phase taps.
+/** Number of bits in the FFT index.
  * Number of acquisition channel code phase taps that NAP configuration was
  * built with. Read from configuration flash at runtime in
  * nap_conf_rd_parameters().
  */
-u16 nap_acq_n_taps;
+u8 nap_acq_fft_index_bits;
+u8 nap_acq_downsample_stages;
 
 /** Set the LOAD ENABLE bit of the NAP acquisition channel's LOAD register.
  * When the LOAD ENABLE bit is set, the acquisition channel will start loading
@@ -44,30 +45,11 @@ void nap_acq_load_wr_enable_blocking(void)
 
 /** Pack data for writing to NAP acquisition channel INIT register.
  *
- * Swift NAP returns corrs corresponding to code phases from
- * code_phase_reg_value-nap_acq_n_taps-1 to code_phase_reg_value where
- * code_phase_reg_value is the raw value written into the code phase portion of
- * the init register.
- *
- * - corrs[0] -> code_phase_reg_value-nap_acq_n_taps+1
- * - corrs[AQC_N_TAPS-1] -> code_phase_reg_value
- *
- * Lets take account of this here by writing code_phase+nap_acq_n_taps-1
- * to the code phase register on the Swift NAP. This means the
- * correlations returned will be:
- *
- * - corrs[0] -> code_phase
- * - corrs[nap_acq_n_taps] -> code_phase-nap_acq_n_taps+1
- *
- * \param prn          PRN number - (0..31) (deprecated)
- * \param code_phase   Code phase of the first correlation returned
- *                     (see note above), in acquisition units.
  * \param carrier_freq Carrier frequency i.e. Doppler in acquisition
  *                     units.
  */
-static void nap_acq_init_pack(u8 pack[], u16 code_phase, s16 carrier_freq)
+static void nap_acq_init_pack(u8 pack[], s16 carrier_freq)
 {
-  (void)code_phase;
   pack[0] = carrier_freq >> 8;
   pack[1] = carrier_freq;
 }
@@ -87,18 +69,14 @@ static void nap_acq_init_pack(u8 pack[], u16 code_phase, s16 carrier_freq)
  *       written, and again after the ACQ_DONE interrupt occurs to clear the
  *       interrupt.
  *
- * \param PRN          C/A PRN to use for the acquisition (deprecated)
- * \param code_phase   Code phase of the first correlation returned
  * \param carrier_freq Carrier frequency i.e. Doppler in acquisition units.
  */
 /* TODO : remove writing of PRN number to init register */
-void nap_acq_init_wr_params_blocking(u8 prn, u16 code_phase, s16 carrier_freq)
+void nap_acq_init_wr_params_blocking(s16 carrier_freq)
 {
   u8 temp[2];
 
-  (void)prn;
-
-  nap_acq_init_pack(temp, code_phase, carrier_freq);
+  nap_acq_init_pack(temp, carrier_freq);
   nap_xfer_blocking(NAP_REG_ACQ_INIT, sizeof(temp), 0, temp);
 }
 
@@ -126,7 +104,7 @@ static void nap_acq_corr_unpack(u8 packed[], u16 *index, u16 *max, u16 *ave)
 {
   *max = (packed[0] << 8) | packed[1];
   *ave = (packed[2] << 8) | packed[3];
-  *index = ((packed[4] << 8) | packed[5]) >> (16 - NAP_ACQ_FFT_INDEX_BITS);
+  *index = ((packed[4] << 8) | packed[5]) >> (16 - nap_acq_fft_index_bits);
 }
 
 /** Read correlations from acquisition channel.

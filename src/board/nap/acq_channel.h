@@ -28,14 +28,13 @@
 #define NAP_REG_ACQ_CORR (NAP_REG_ACQ_BASE + 0x02)
 #define NAP_REG_ACQ_CODE (NAP_REG_ACQ_BASE + 0x03)
 
-#define NAP_ACQ_FFT_INDEX_BITS            13
-
 #define NAP_ACQ_PIPELINE_STAGES           1
 #define NAP_ACQ_CODE_PHASE_WIDTH          11
-#define NAP_ACQ_CARRIER_FREQ_WIDTH        NAP_ACQ_FFT_INDEX_BITS
-#define NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP (1 << (NAP_ACQ_CODE_PHASE_WIDTH - 10))
+#define NAP_ACQ_CARRIER_FREQ_WIDTH        nap_acq_fft_index_bits
+#define NAP_ACQ_SAMPLE_FREQ               (SAMPLE_FREQ/(4*nap_acq_downsample_stages))
+#define NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP (NAP_ACQ_SAMPLE_FREQ/1023)
 #define NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ ((1 << NAP_ACQ_CARRIER_FREQ_WIDTH) \
-                                           / (float)(SAMPLE_FREQ/8))
+                                           / (float)NAP_ACQ_SAMPLE_FREQ)
 
 /** \} */
 
@@ -44,11 +43,12 @@
  * built with. Read from configuration flash at runtime in
  * nap_conf_rd_parameters().
  */
-extern u16 nap_acq_n_taps;
+extern u8 nap_acq_fft_index_bits;
+extern u8 nap_acq_downsample_stages;
 
 void nap_acq_load_wr_enable_blocking(void);
 void nap_acq_load_wr_disable_blocking(void);
-void nap_acq_init_wr_params_blocking(u8 prn, u16 code_phase, s16 carrier_freq);
+void nap_acq_init_wr_params_blocking(s16 carrier_freq);
 void nap_acq_init_wr_disable_blocking(void);
 void nap_acq_corr_rd_blocking(u16 *index, u16 *max, u16 *ave);
 void nap_acq_code_wr_blocking(u8 prn);

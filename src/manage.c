@@ -213,9 +213,9 @@ void manage_acq()
     /* TODO: look into accuracy of prediction and possibilities for
      * improvement, e.g. use clock bias estimated by PVT solution. */
     /*printf("Expecting PRN %02d @ %.1f\n", prn+1, dopp);*/
-    acq_search(0, 1023, dopp-4000, dopp+4000, ACQ_FULL_CF_STEP);
+    acq_search(dopp - 4000, dopp + 4000, ACQ_FULL_CF_STEP);
   } else {
-    acq_search(0, 1023, ACQ_FULL_CF_MIN, ACQ_FULL_CF_MAX, ACQ_FULL_CF_STEP);
+    acq_search(ACQ_FULL_CF_MIN, ACQ_FULL_CF_MAX, ACQ_FULL_CF_STEP);
   }
 
   /* Done with the coarse acquisition, check if we have found a
