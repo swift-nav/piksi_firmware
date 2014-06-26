@@ -32,7 +32,7 @@ extern const u8 dma_irq_lookup[2][8];
  * SwiftNAP FPGA, MAX2769 front-end and the M25 configuration flash.
  * \{ */
 
-static BinarySemaphore spi_sem;
+static Mutex spi_mutex;
 static BinarySemaphore spi_dma_sem;
 
 /** Set up the SPI buses.
@@ -80,7 +80,7 @@ void spi_setup(void)
   spi_enable(SPI1);
   spi_enable(SPI2);
 
-  chBSemInit(&spi_sem, FALSE);
+  chMtxInit(&spi_mutex);
 }
 
 /** Deactivate SPI buses.
@@ -120,7 +120,7 @@ void spi_deactivate(void)
  */
 void spi_slave_select(u8 slave)
 {
-  chBSemWait(&spi_sem);
+  chMtxLock(&spi_mutex);
 
   switch (slave) {
   case SPI_SLAVE_FPGA:
@@ -147,7 +147,7 @@ void spi_slave_deselect(void)
   /* Deselect configuration flash and front-end CS */
   gpio_set(GPIOB, GPIO11 | GPIO12);
 
-  chBSemSignal(&spi_sem);
+  chMtxUnlock();
 }
 
 static void spi_dma_setup_rx(uint32_t spi, uint32_t dma, u8 stream, u8 channel)
