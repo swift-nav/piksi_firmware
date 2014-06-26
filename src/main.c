@@ -159,7 +159,7 @@ int main(void)
                       TYPE_STRING);
   READ_ONLY_PARAMETER("system_info", "nap_channels", nap_track_n_channels,
                       TYPE_INT);
-  READ_ONLY_PARAMETER("system_info", "nap_taps", nap_acq_n_taps, TYPE_INT);
+  READ_ONLY_PARAMETER("system_info", "nap_fft_index_bits", nap_acq_fft_index_bits, TYPE_INT);
 
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);

@@ -35,6 +35,7 @@ u32 nap_exti_count;
 
 static WORKING_AREA_CCM(wa_nap_exti, 2000);
 static msg_t nap_exti_thread(void *arg);
+static u32 nap_irq_rd_blocking(void);
 
 static BinarySemaphore nap_exti_sem;
 
@@ -81,6 +82,10 @@ void exti1_isr(void)
 
 static void handle_nap_exti(void)
 {
+  /* XXX Including ch.h in nap_common.h for an extern declaration causes
+   * serious breakage. */
+  extern BinarySemaphore timing_strobe_sem;
+
   u32 irq = nap_irq_rd_blocking();
 
   if (irq & NAP_IRQ_ACQ_DONE)
@@ -88,6 +93,9 @@ static void handle_nap_exti(void)
 
   if (irq & NAP_IRQ_ACQ_LOAD_DONE)
     acq_service_load_done();
+
+  if (irq & NAP_IRQ_TIMING_STROBE)
+    chBSemReset(&timing_strobe_sem, TRUE);
 
   if (irq & NAP_IRQ_CW_DONE)
     cw_service_irq();
@@ -162,7 +170,7 @@ void wait_for_nap_exti(void)
  *
  * \return 32 bit value from NAP's IRQ register.
  */
-u32 nap_irq_rd_blocking(void)
+static u32 nap_irq_rd_blocking(void)
 {
   u8 temp[4] = { 0, 0, 0, 0 };
 
