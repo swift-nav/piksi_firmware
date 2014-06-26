@@ -47,7 +47,7 @@ typedef struct {
   u8 prn;                      /**< CA Code (0-31) channel is tracking. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   u32 code_phase_early;        /**< Early code phase. */
-  comp_tl_state_t tl_state;    /**< Tracking loop filter state. */
+  aided_tl_state_t tl_state;   /**< Tracking loop filter state. */
   double code_phase_rate;      /**< Code phase rate in chips/s. */
   u32 code_phase_rate_fp;      /**< Code phase rate in NAP register units. */
   u32 code_phase_rate_fp_prev; /**< Previous code phase rate in NAP register units. */

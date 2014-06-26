@@ -106,10 +106,9 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].snr_above_threshold_count = 0;
   tracking_channel[channel].snr_below_threshold_count = 0;
 
-  comp_tl_init(&(tracking_channel[channel].tl_state), 1e3,
+  aided_tl_init(&(tracking_channel[channel].tl_state), 1e3,
                code_phase_rate-1.023e6, 1, 0.7, 1,
-               carrier_freq, 25, 0.7, 1,
-               1, 1540, 5000);
+               carrier_freq);
 
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
@@ -219,7 +218,7 @@ void tracking_channel_update(u8 channel)
         cs2[i].I = cs[2-i].I;
         cs2[i].Q = cs[2-i].Q;
       }
-      comp_tl_update(&(chan->tl_state), cs2);
+      aided_tl_update(&(chan->tl_state), cs2);
       chan->carrier_freq = chan->tl_state.carr_freq;
       chan->code_phase_rate = chan->tl_state.code_freq + 1.023e6;
 
