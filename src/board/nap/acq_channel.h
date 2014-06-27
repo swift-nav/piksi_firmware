@@ -32,7 +32,7 @@
 #define NAP_ACQ_CODE_PHASE_WIDTH          11
 #define NAP_ACQ_CARRIER_FREQ_WIDTH        nap_acq_fft_index_bits
 #define NAP_ACQ_SAMPLE_FREQ               (SAMPLE_FREQ/(4*nap_acq_downsample_stages))
-#define NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP (NAP_ACQ_SAMPLE_FREQ/1023)
+#define NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP (NAP_ACQ_SAMPLE_FREQ/1023000)
 #define NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ ((1 << NAP_ACQ_CARRIER_FREQ_WIDTH) \
                                            / (float)NAP_ACQ_SAMPLE_FREQ)
 
