@@ -212,11 +212,14 @@ int main(void)
 
   static char nap_version_string[64] = {0};
   nap_conf_rd_version_string(nap_version_string);
+  printf("NAP firmware version: %s\n", nap_version_string);
 
   /* Check we are running a compatible version of the NAP firmware. */
-  if (compare_version(nap_version_string, "v0.9-46") < 0) {
-    printf("ERROR: NAP firmware version too old, please update!\n"
-           "(instructions can be found at http://docs.swift-nav.com/)\n");
+  const char *required_nap_version = "v0.9-46";
+  if (compare_version(nap_version_string, required_nap_version) < 0) {
+    printf("ERROR: NAP firmware version newer than %s required, please update!\n"
+           "(instructions can be found at http://docs.swift-nav.com/)\n",
+           required_nap_version);
     while (1);
   }
 
