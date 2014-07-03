@@ -220,7 +220,9 @@ int main(void)
     printf("ERROR: NAP firmware version newer than %s required, please update!\n"
            "(instructions can be found at http://docs.swift-nav.com/)\n",
            required_nap_version);
-    while (1);
+    while (1) {
+      chThdSleepSeconds(60);
+    }
   }
 
   static s32 serial_number;
