@@ -11,6 +11,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <libswiftnav/sbp_messages.h>
@@ -101,6 +102,96 @@ static msg_t nav_msg_thread(void *arg)
   return 0;
 }
 
+/** Compare version strings.
+ * Compares a version of the form 'vX.Y-Z-'. If the first character of the
+ * version is not 'v' then that string will be considered older than any
+ * version string starting with 'v'. Two strings neither starting with 'v' will
+ * compare equal.
+ *
+ * \param a First version string
+ * \param b Second version string
+ * \return `1` if `a > b`, `-1` if `b > a`, `0` if `a == b`
+ */
+s8 compare_version(const char *a, const char *b)
+{
+  if (a[0] != 'v') {
+    if (b[0] != 'v') {
+      /* Both have old style version strings, no way to compare. */
+      return 0;
+    } else {
+      /* a has an old style version string, so is older. */
+      return -1;
+    }
+  }
+
+  if (b[0] != 'v') {
+    /* b has an old style version string, so is older. */
+    return 1;
+  }
+
+  char buff[5];
+  memset(buff, 0, 5);
+
+  /* Skip initial 'v'. */
+  a++; b++;
+
+  /* Extract the major version numbers. */
+  u8 major_span = strchr(a, '.') - a;
+  strncpy(buff, a, major_span);
+  u8 major_a = atoi(buff);
+  a += major_span + 1;
+  memset(buff, 0, 5);
+
+  major_span = strchr(b, '.') - b;
+  strncpy(buff, b, major_span);
+  u8 major_b = atoi(buff);
+  b += major_span + 1;
+  memset(buff, 0, 5);
+
+  if (major_a != major_b) {
+    return (major_a < major_b) ? -1 : 1;
+  }
+
+  u8 commit_a = 0;
+  u8 commit_b = 0;
+  u8 minor_a, minor_b;
+
+  /* Check if we have a commit number. */
+  if (strchr(a, '-')) {
+    /* Extract the minor version numbers. */
+    u8 minor_span = strchr(a, '-') - a;
+    strncpy(buff, a, minor_span);
+    minor_a = atoi(buff);
+    a += minor_span + 1;
+    memset(buff, 0, 5);
+
+    /* Extract the commit numbers. */
+    commit_a = atoi(a);
+  } else {
+    minor_a = atoi(a);
+  }
+
+  /* Check if we have a commit number. */
+  if (strchr(b, '-')) {
+    /* Extract the minor version numbers. */
+    u8 minor_span = strchr(b, '-') - b;
+    strncpy(buff, b, minor_span);
+    minor_b = atoi(buff);
+    b += minor_span + 1;
+
+    /* Extract the commit numbers. */
+    commit_b = atoi(b);
+  } else {
+    minor_b = atoi(b);
+  }
+
+  if (minor_a != minor_b) {
+    return (minor_a < minor_b) ? -1 : 1;
+  }
+
+  return (commit_a < commit_b) ? -1 : (commit_a > commit_b);
+}
+
 int main(void)
 {
   /* Initialise SysTick timer that will be used as the ChibiOS kernel tick
@@ -121,6 +212,13 @@ int main(void)
 
   static char nap_version_string[64] = {0};
   nap_conf_rd_version_string(nap_version_string);
+
+  /* Check we are running a compatible version of the NAP firmware. */
+  if (compare_version(nap_version_string, "v0.9-46") < 0) {
+    printf("ERROR: NAP firmware version too old, please update!\n"
+           "(instructions can be found at http://docs.swift-nav.com/)\n");
+    while (1);
+  }
 
   static s32 serial_number;
   serial_number = nap_conf_rd_serial_number();
