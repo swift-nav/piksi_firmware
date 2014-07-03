@@ -29,6 +29,8 @@
 #define TRACKING_DISABLED 0 /**< Tracking channel disabled state. */
 #define TRACKING_RUNNING  1 /**< Tracking channel running state. */
 
+extern u8 n_rollovers;
+
 /** Message struct for SBP tracking state message. */
 typedef struct __attribute__((packed)) {
   u8 state;  /**< State of the tracking channel. */
@@ -57,7 +59,7 @@ typedef struct {
   double carrier_freq;         /**< Carrier frequency Hz. */
   u32 I_filter;                /**< Filtered Prompt I correlations. */
   u32 Q_filter;                /**< Filtered Prompt Q correlations. */
-  u16 corr_sample_count;       /**< Number of samples in correlation period. */
+  u32 corr_sample_count;       /**< Number of samples in correlation period. */
   corr_t cs[3];                /**< EPL correlation results in correlation period. */
   nav_msg_t nav_msg;           /**< Navigation message of channel SV. */
 } tracking_channel_t;
@@ -67,6 +69,7 @@ typedef struct {
 /* Assuming we will never have a greater number of tracking channels than 12
  * We have to declare the number here as the number of tracking channels in
  * the FPGA is read at runtime. */
+/* TODO: NAP_MAX_N_TRACK_CHANNELS is a duplicate of MAX_CHANNELS */
 extern tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
 
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
