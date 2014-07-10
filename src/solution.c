@@ -50,6 +50,7 @@ double soln_freq = 10.0;
 u32 obs_output_divisor = 5;
 
 double known_baseline[3] = {0, 0, 0};
+u16 msg_obs_max_size = 104;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -118,9 +119,21 @@ extern ephemeris_t es[MAX_SATS];
 
 obss_t base_obss;
 
+void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void) context;
+  (void) len;
+  (void) msg;
+  (void) sender_id;
+
+  printf("Receiving an old deprecated observation message.\n");
+}
 void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context;
+
+  static s16 prev_count = 0;
+  static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
 
   /* Sender ID of zero means that the messages are relayed observations,
    * ignore them. */
@@ -128,27 +141,54 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     return;
 
   /* Relay observations using sender_if = 0. */
-  sbp_send_msg_(MSG_NEW_OBS, len, msg, 0);
+  sbp_send_msg_(MSG_PACKED_OBS, len, msg, 0);
 
-  gps_time_t *t = (gps_time_t *)msg;
-  double epoch_count = t->tow * (soln_freq / obs_output_divisor);
+  gps_time_t t;
+  u8 total;
+  u8 count;
+  unpack_obs_header((msg_obs_header_t*)msg, &t, &total, &count);
+  double epoch_count = t.tow * (soln_freq / obs_output_divisor);
 
   if (fabs(epoch_count - round(epoch_count)) > TIME_MATCH_THRESHOLD) {
     printf("Unaligned observation from base station ignored.\n");
     return;
   }
 
+  static u8 obss_i = 0;
+
+  /* Verify sequence integrity */
+  if (count == 0) {
+    prev_t = t;
+    prev_count = 0;
+  } else if (prev_t.tow != t.tow ||
+        prev_t.wn != t.wn ||
+        prev_count + 1 != count) {
+      printf("Dropped one of the observation packets! Skipping this sequence.\n");
+      prev_count = -1;
+      return;
+  } else {
+      prev_count = count;
+  }
+
+  u8 obs_in_msg = (len - sizeof(msg_obs_header_t)) / sizeof(msg_obs_content_t);
+
   /* Lock mutex before modifying base_obss. */
   chMtxLock(&base_obs_lock);
 
-  base_obss.t = *t;
-  base_obss.n = (len - sizeof(gps_time_t)) / sizeof(msg_obs_t);
-  msg_obs_t *obs = (msg_obs_t *)(msg + sizeof(gps_time_t));
-  for (u8 i=0; i<base_obss.n; i++) {
-    base_obss.nm[i].prn = obs[i].prn;
-    base_obss.nm[i].raw_pseudorange = obs[i].P;
-    base_obss.nm[i].carrier_phase = obs[i].L;
-    base_obss.nm[i].snr = obs[i].snr;
+  if (count == 0) {
+    obss_i = 0;
+    base_obss.n = obs_in_msg;
+    base_obss.t = t;
+  } else {
+    base_obss.n += obs_in_msg;
+  }
+  msg_obs_content_t *obs = (msg_obs_content_t *)(msg + sizeof(msg_obs_header_t));
+  for (u8 i=0; i<obs_in_msg; i++, obss_i++) {
+    unpack_obs_content(&obs[i],
+      &base_obss.nm[obss_i].raw_pseudorange,
+      &base_obss.nm[obss_i].carrier_phase,
+      &base_obss.nm[obss_i].snr,
+      &base_obss.nm[obss_i].prn);
   }
 
   /* Ensure observations sorted by PRN. */
@@ -158,25 +198,57 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   /* Unlock mutex. */
   chMtxUnlock();
 
-  /* Signal that a base observation has been received. */
-  chBSemSignal(&base_obs_received);
+  if (count == total - 1) {
+    /* Signal that a complete base observation has been received. */
+    chBSemSignal(&base_obs_received);
+  }
 }
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 {
   static u8 buff[256];
 
-  memcpy(buff, t, sizeof(gps_time_t));
-  msg_obs_t *obs = (msg_obs_t *)&buff[sizeof(gps_time_t)];
-  if (n * sizeof(msg_obs_t) > 255 - sizeof(gps_time_t))
-    n = 255 / sizeof(msg_obs_t);
-  for (u8 i=0; i<n; i++) {
-    obs[i].prn = m[i].prn;
-    obs[i].P = m[i].raw_pseudorange;
-    obs[i].L = m[i].carrier_phase;
-    obs[i].snr = m[i].snr;
+  /* Upper limit set by SBP framing size, preventing underflow */
+  u16 msg_payload_size = MAX(
+      MIN(msg_obs_max_size, SBP_FRAMING_MAX_PAYLOAD_SIZE),
+      sizeof(msg_obs_header_t)
+    ) - sizeof(msg_obs_header_t);
+
+  /* Lower limit set by sending at least 1 observation */
+  msg_payload_size = MAX(msg_payload_size, sizeof(msg_obs_content_t));
+
+  /* Round down the number of observations per message */
+  u16 obs_in_msg = msg_payload_size / sizeof(msg_obs_content_t);
+
+  /* Round up the number of messages */
+  u16 total = (n + obs_in_msg - 1) / obs_in_msg;
+
+  if (total > MSG_OBS_HEADER_MAX_SIZE) {
+    printf("Capping number of observations sent\n");
+    total = MSG_OBS_HEADER_MAX_SIZE;
   }
-  sbp_send_msg(MSG_NEW_OBS, sizeof(gps_time_t) + n*sizeof(msg_obs_t), buff);
+
+  u8 obs_i = 0;
+  for (u8 count = 0; count < total; count++) {
+
+    u8 curr_n = MIN(n - obs_i, obs_in_msg);
+    pack_obs_header(t, total, count, (msg_obs_header_t*) buff);
+    msg_obs_content_t *obs = (msg_obs_content_t *)&buff[sizeof(msg_obs_header_t)];
+
+    for (u8 i = 0; i < curr_n; i++, obs_i++) {
+      pack_obs_content(m[obs_i].raw_pseudorange,
+        m[obs_i].carrier_phase,
+        m[obs_i].snr,
+        m[obs_i].prn,
+        &obs[i]);
+    }
+
+    sbp_send_msg(MSG_PACKED_OBS,
+      sizeof(msg_obs_header_t) + curr_n*sizeof(msg_obs_content_t),
+      buff);
+
+  }
+
 }
 
 static Thread *tp = NULL;
@@ -386,10 +458,12 @@ static msg_t solution_thread(void *arg)
                           simulation_current_dops_solution());
       }
 
-      double expected_tow = round(simulation_current_gnss_solution()->time.tow * soln_freq) / soln_freq;
+      double expected_tow = \
+        round(simulation_current_gnss_solution()->time.tow * soln_freq) / soln_freq;
       double t_check = expected_tow * (soln_freq / obs_output_divisor);
 
-      if ((simulation_enabled_for(SIMULATION_MODE_FLOAT) || simulation_enabled_for(SIMULATION_MODE_RTK)) &&
+      if ((simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
+           simulation_enabled_for(SIMULATION_MODE_RTK)) &&
           fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
 
         u8 flags = simulation_enabled_for(SIMULATION_MODE_RTK) ? 1 : 0;
@@ -631,6 +705,8 @@ void solution_setup()
   SETTING("old_kf", "pos_init_var", dgnss_settings.pos_init_var, TYPE_FLOAT);
   SETTING("old_kf", "vel_init_var", dgnss_settings.vel_init_var, TYPE_FLOAT);
 
+  SETTING("sbp", "obs_msg_max_size", msg_obs_max_size, TYPE_INT);
+
   chMtxInit(&base_obs_lock);
   chBSemInit(&base_obs_received, TRUE);
   static msg_t obs_mailbox_buff[OBS_N_BUFF];
@@ -645,11 +721,18 @@ void solution_setup()
   chThdCreateStatic(wa_time_matched_obs_thread, sizeof(wa_time_matched_obs_thread),
                     LOWPRIO, time_matched_obs_thread, NULL);
 
-  static sbp_msg_callbacks_node_t obs_node;
+  static sbp_msg_callbacks_node_t obs_old_node;
   sbp_register_cbk(
-    MSG_NEW_OBS,
+    MSG_OLD_OBS,
+    &obs_old_callback,
+    &obs_old_node
+  );
+
+  static sbp_msg_callbacks_node_t obs_packed_node;
+  sbp_register_cbk(
+    MSG_PACKED_OBS,
     &obs_callback,
-    &obs_node
+    &obs_packed_node
   );
 
   static sbp_msg_callbacks_node_t reset_filters_node;
