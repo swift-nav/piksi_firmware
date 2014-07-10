@@ -52,6 +52,9 @@ void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
   s->stream = stream;
   s->channel = channel;
 
+  s->byte_counter = 0;
+  s->last_byte_ticks = chTimeNow();
+
   /* Enable clock to DMA peripheral. */
   if (dma == DMA1)
     RCC_AHB1ENR |= RCC_AHB1ENR_DMA1EN;
@@ -214,7 +217,28 @@ u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len)
     s->rd = n - USART_RX_BUFFER_LEN + s->rd;
   }
 
+  s->byte_counter += n;
+
   return n;
+}
+
+/**
+ * Returns the total bytes divided by the total elapsed seconds since the
+ * previous call of this function.
+ *
+ * \param s The USART DMA state structure
+ */
+float usart_rx_throughput(usart_rx_dma_state* s)
+{
+  systime_t now_ticks = chTimeNow();
+  float elapsed = ((float)((now_ticks - s->last_byte_ticks) /
+    (double)CH_FREQUENCY*1000.0));
+  float kbps = s->byte_counter / elapsed;
+
+  s->byte_counter = 0;
+  s->last_byte_ticks = now_ticks;
+  
+  return kbps;
 }
 
 /** \} */

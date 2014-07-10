@@ -18,6 +18,7 @@ import math
 import os
 import numpy as np
 import datetime
+import almanac
 
 import sbp_piksi as sbp_messages
 
@@ -40,17 +41,26 @@ class SystemMonitorView(HasTraits):
   _threads_table_list = List()
   threads = List()
 
+  last_message_received_tow = Float(0)
+
   uart_a_crc_error_count = Int(0)
-  uart_a_rx = Float(0)
-  uart_a_tx = Float(0)
+  uart_a_rx_buffer = Float(0)
+  uart_a_tx_buffer = Float(0)
+  uart_a_tx_KBps = Float(0)
+  uart_a_rx_KBps = Float(0)
 
   uart_b_crc_error_count = Int(0)
-  uart_b_rx = Float(0)
-  uart_b_tx = Float(0)
+  uart_b_rx_buffer = Float(0)
+  uart_b_tx_buffer = Float(0)
+  uart_b_tx_KBps = Float(0)
+  uart_b_rx_KBps = Float(0)
+
 
   ftdi_crc_error_count = Int(0)
-  ftdi_rx = Float(0)
-  ftdi_tx = Float(0)
+  ftdi_rx_buffer = Float(0)
+  ftdi_tx_buffer = Float(0)
+  ftdi_tx_KBps = Float(0)
+  ftdi_rx_KBps = Float(0)
 
   traits_view = View(
     HSplit(
@@ -61,27 +71,47 @@ class SystemMonitorView(HasTraits):
       ),
       VGroup(
         VGroup(
-          Item('uart_a_crc_error_count', label='CRC Errors', style='readonly'),
-          Item('uart_a_tx', label='TX Buffer %',
+          Item('last_message_received_tow', label='GPS ToW',
+            style='readonly', format_str='%.3fs'),
+          label='Connection Monitor', show_border=True,
+        ),
+        VGroup(
+          Item('uart_a_crc_error_count', label='CRC Errors',
+            style='readonly'),
+          Item('uart_a_tx_buffer', label='TX Buffer %',
                style='readonly', format_str='%.1f'),
-          Item('uart_a_rx', label='RX Buffer %',
+          Item('uart_a_rx_buffer', label='RX Buffer %',
                style='readonly', format_str='%.1f'),
+          Item('uart_a_tx_KBps', label='TX KBytes/s',
+               style='readonly', format_str='%.2f'),
+          Item('uart_a_rx_KBps', label='RX KBytes/s',
+               style='readonly', format_str='%.2f'),
           label='UART A', show_border=True,
         ),
         VGroup(
-          Item('uart_b_crc_error_count', label='CRC Errors', style='readonly'),
-          Item('uart_b_tx', label='TX Buffer %',
+          Item('uart_b_crc_error_count', label='CRC Errors',
+            style='readonly'),
+          Item('uart_b_tx_buffer', label='TX Buffer %',
                style='readonly', format_str='%.1f'),
-          Item('uart_b_rx', label='RX Buffer %',
+          Item('uart_b_rx_buffer', label='RX Buffer %',
                style='readonly', format_str='%.1f'),
+          Item('uart_b_tx_KBps', label='TX KBytes/s',
+               style='readonly', format_str='%.2f'),
+          Item('uart_b_rx_KBps', label='RX KBytes/s',
+               style='readonly', format_str='%.2f'),
           label='UART B', show_border=True,
         ),
         VGroup(
-          Item('ftdi_crc_error_count', label='CRC Errors', style='readonly'),
-          Item('ftdi_tx', label='TX Buffer %',
+          Item('ftdi_crc_error_count', label='CRC Errors',
+            style='readonly'),
+          Item('ftdi_tx_buffer', label='TX Buffer %',
                style='readonly', format_str='%.1f'),
-          Item('ftdi_rx', label='RX Buffer %',
+          Item('ftdi_rx_buffer', label='RX Buffer %',
                style='readonly', format_str='%.1f'),
+          Item('ftdi_tx_KBps', label='TX KBytes/s',
+               style='readonly', format_str='%.2f'),
+          Item('ftdi_rx_KBps', label='RX KBytes/s',
+               style='readonly', format_str='%.2f'),
           label='USB UART', show_border=True,
         ),
       ),
@@ -89,7 +119,9 @@ class SystemMonitorView(HasTraits):
   )
 
   def update_threads(self):
-    self._threads_table_list = [(thread_name, state.cpu, state.stack_free) for thread_name, state in sorted(self.threads, key=lambda x: x[1].cpu, reverse=True)]
+    self._threads_table_list = [(thread_name, state.cpu, state.stack_free)
+      for thread_name, state in sorted(
+        self.threads, key=lambda x: x[1].cpu, reverse=True)]
 
   def heartbeat_callback(self, data):
     self.update_threads()
@@ -101,21 +133,33 @@ class SystemMonitorView(HasTraits):
     self.threads.append((th.name, th))
 
   def uart_state_callback(self, data):
-    state = struct.unpack('<HBBHBBHBB', data)
-    self.uart_a_crc_error_count = state[0]
-    self.uart_a_tx, self.uart_a_rx = map(lambda x: 100.0 * x / 255.0, state[1:3])
-    self.uart_b_crc_error_count = state[3]
-    self.uart_b_tx, self.uart_b_rx = map(lambda x: 100.0 * x / 255.0, state[4:6])
-    self.ftdi_crc_error_count = state[6]
-    self.ftdi_tx, self.ftdi_rx = map(lambda x: 100.0 * x / 255.0, state[7:9])
+    self.last_message_received_tow = almanac.time_of_week();
+    state = struct.unpack('<ffHBBffHBBffHBB', data)
+    self.uart_a_tx_KBps, self.uart_a_rx_KBps = state[0:2]
+    self.uart_a_crc_error_count = state[2]
+    self.uart_a_tx_buffer, self.uart_a_rx_buffer = map(
+      lambda x: 100.0 * x / 255.0, state[3:5])
+
+    self.uart_b_tx_KBps, self.uart_b_rx_KBps = state[5:7]
+    self.uart_b_crc_error_count = state[7]
+    self.uart_b_tx_buffer, self.uart_b_rx_buffer = map(
+      lambda x: 100.0 * x / 255.0, state[8:10])
+
+    self.ftdi_tx_KBps, self.ftdi_rx_KBps = state[10:12]
+    self.ftdi_crc_error_count = state[12]
+    self.ftdi_tx_buffer, self.ftdi_rx_buffer = map(
+      lambda x: 100.0 * x / 255.0, state[13:15])
 
   def __init__(self, link):
     super(SystemMonitorView, self).__init__()
 
     self.link = link
-    self.link.add_callback(sbp_messages.SBP_HEARTBEAT, self.heartbeat_callback)
-    self.link.add_callback(sbp_messages.THREAD_STATE, self.thread_state_callback)
-    self.link.add_callback(sbp_messages.UART_STATE, self.uart_state_callback)
+    self.link.add_callback(sbp_messages.SBP_HEARTBEAT,
+      self.heartbeat_callback)
+    self.link.add_callback(sbp_messages.THREAD_STATE,
+      self.thread_state_callback)
+    self.link.add_callback(sbp_messages.UART_STATE,
+      self.uart_state_callback)
 
     self.python_console_cmds = {
       'mon': self
