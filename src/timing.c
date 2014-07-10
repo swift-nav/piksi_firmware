@@ -150,9 +150,12 @@ void clock_est_update(clock_est_state_t *s, gps_time_t meas_gpst,
  * \param tc SwiftNAP timing count.
  * \param t GPS time estimate associated with timing count.
  */
-void set_time_fine(double tc, double drift, gps_time_t t)
+void set_time_fine(u64 tc, gps_time_t t)
 {
-  clock_est_update(&clock_state, t, 1-drift, tc, 1e-18, 1e-6, 1e-6);
+  clock_state.t0_gps = t;
+  clock_state.t0_gps.tow -= tc * RX_DT_NOMINAL;
+  clock_state.t0_gps = normalize_gps_time(clock_state.t0_gps);
+
   time_quality = TIME_FINE;
 }
 

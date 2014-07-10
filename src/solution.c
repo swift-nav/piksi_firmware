@@ -36,6 +36,7 @@
 #include "manage.h"
 #include "simulator.h"
 #include "settings.h"
+#include "timing.h"
 
 Mutex base_obs_lock;
 BinarySemaphore base_obs_received;
@@ -251,6 +252,7 @@ static msg_t solution_thread(void *arg)
 
         /* Update global position solution state. */
         position_updated();
+        set_time_fine(nav_tc, position_solution.time);
 
         if (!simulation_enabled()) {
           /* Output solution. */

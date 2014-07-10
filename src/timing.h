@@ -48,7 +48,7 @@ extern clock_est_state_t clock_state;
 void timing_setup(void);
 gps_time_t get_current_time(void);
 void set_time(time_quality_t quality, gps_time_t t);
-void set_time_fine(double tc, double, gps_time_t t);
+void set_time_fine(u64 tc, gps_time_t t);
 gps_time_t rx2gpstime(double tc);
 double gps2rxtime(gps_time_t t);
 
