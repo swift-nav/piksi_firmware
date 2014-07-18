@@ -203,7 +203,7 @@ void tracking_channel_update(u8 channel)
       chan->code_phase_early = (u64)chan->code_phase_early +
                                (u64)chan->corr_sample_count
                                  * chan->code_phase_rate_fp_prev;
-      chan->carrier_phase += chan->carrier_freq_fp_prev
+      chan->carrier_phase += (s64)chan->carrier_freq_fp_prev
                                * chan->corr_sample_count;
       /* TODO: Fix this in the FPGA - first integration is one sample short. */
       if (chan->update_count == 1)
