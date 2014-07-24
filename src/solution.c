@@ -198,7 +198,7 @@ void tim5_isr()
   CH_IRQ_EPILOGUE();
 }
 
-static WORKING_AREA_CCM(wa_solution_thread, 5000);
+static WORKING_AREA_CCM(wa_solution_thread, 4000);
 static msg_t solution_thread(void *arg)
 {
   (void)arg;
