@@ -51,6 +51,7 @@ void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
   s->usart = usart;
   s->stream = stream;
   s->channel = channel;
+  chBSemInit(&s->ready_sem, TRUE);
 
   s->byte_counter = 0;
   s->last_byte_ticks = chTimeNow();
@@ -163,6 +164,8 @@ void usart_rx_dma_isr(usart_rx_dma_state* s)
 
     /* Increment our write wrap counter. */
     s->wr_wraps++;
+
+    chBSemSignalI(&s->ready_sem);
   }
 
   /* Note: When DMA is re-enabled after bootloader it appears ISR can get
@@ -201,9 +204,14 @@ u32 usart_n_read_dma(usart_rx_dma_state* s)
  * \param len The number of bytes to attempt to read.
  * \return The number of bytes successfully read from the DMA receive buffer.
  */
-u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len)
+u32 usart_read_dma_timeout(usart_rx_dma_state* s, u8 data[], u32 len, u32 timeout)
 {
-  u32 n_available = usart_n_read_dma(s);
+  u32 n_available;
+  do {
+    n_available = usart_n_read_dma(s);
+  } while ((n_available < len) &&
+           (chBSemWaitTimeout(&s->ready_sem, timeout) == RDY_OK));
+  n_available = usart_n_read_dma(s);
   u16 n = (len > n_available) ? n_available : len;
 
   if (s->rd + n < USART_RX_BUFFER_LEN) {
@@ -222,6 +230,11 @@ u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len)
   return n;
 }
 
+u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len)
+{
+  return usart_read_dma_timeout(s, data, len, 0);
+}
+
 /**
  * Returns the total bytes divided by the total elapsed seconds since the
  * previous call of this function.
@@ -237,7 +250,7 @@ float usart_rx_throughput(usart_rx_dma_state* s)
 
   s->byte_counter = 0;
   s->last_byte_ticks = now_ticks;
-  
+
   return kbps;
 }
 

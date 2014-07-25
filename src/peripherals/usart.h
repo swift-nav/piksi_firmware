@@ -16,6 +16,8 @@
 #include <libswiftnav/common.h>
 #include "settings.h"
 
+#include "ch.h"
+
 #define dma2_stream6_isr Vector154
 #define dma2_stream1_isr Vector124
 #define dma2_stream7_isr Vector158
@@ -78,6 +80,8 @@ typedef struct {
                             statistics were last calculated */
   u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
                             were calculated */
+
+  BinarySemaphore ready_sem; /**< Semaphore released when ready to read. */
 } usart_rx_dma_state;
 
 /** USART TX DMA state structure. */
@@ -134,6 +138,7 @@ void usart_rx_dma_disable(usart_rx_dma_state* s);
 void usart_rx_dma_isr(usart_rx_dma_state* s);
 u32 usart_n_read_dma(usart_rx_dma_state* s);
 u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len);
+u32 usart_read_dma_timeout(usart_rx_dma_state* s, u8 data[], u32 len, u32 timeout);
 float usart_rx_throughput(usart_rx_dma_state* s);
 
 #endif  /* SWIFTNAV_USART_H */

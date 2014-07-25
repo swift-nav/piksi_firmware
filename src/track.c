@@ -14,8 +14,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <libopencm3/cm3/nvic.h>
-#include <libopencm3/stm32/exti.h>
 
 #include "board/nap/track_channel.h"
 #include "sbp.h"

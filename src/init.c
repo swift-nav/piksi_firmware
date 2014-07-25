@@ -12,7 +12,6 @@
 
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
-#include <libopencm3/cm3/scb.h>
 #include <libswiftnav/sbp.h>
 
 #include "board/leds.h"
@@ -39,6 +38,7 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
   .apb2_frequency = 32736000,
 };
 
+#define AIRCR_SYSRESETREQ			(1 << 2)
 /** Resets the device back into the bootloader. */
 void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -49,9 +49,9 @@ void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    */
   __asm__("DSB;");
   /* Keep priority group unchanged. */
-  SCB_AIRCR = SCB_AIRCR_VECTKEY |
-              SCB_AIRCR_PRIGROUP_MASK |
-              SCB_AIRCR_SYSRESETREQ;
+  SCB_AIRCR = AIRCR_VECTKEY |
+              AIRCR_PRIGROUP_MASK |
+              AIRCR_SYSRESETREQ;
   __asm__("DSB;");
   /* Wait until reset. */
   while(1);
