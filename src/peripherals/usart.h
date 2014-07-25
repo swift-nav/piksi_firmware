@@ -31,9 +31,10 @@
  /** Message and baud rate settings for a USART. */
 typedef struct {
   enum {
-    SBP  = 0,
-    NMEA = 1,
-    RTCM = 2
+    PROTOCOL_NONE,
+    SBP,
+    NMEA,
+    RTCM,
   } mode; /**< Communication mode : Swift Binary Protocol or NMEA */
   u32 baud_rate;
   u32 sbp_message_mask;
@@ -129,7 +130,7 @@ void usart_tx_dma_setup(usart_tx_dma_state* s, u32 usart,
 void usart_tx_dma_disable(usart_tx_dma_state* s);
 u32 usart_tx_n_free(usart_tx_dma_state* s);
 void usart_tx_dma_isr(usart_tx_dma_state* s);
-u32 usart_write_dma(usart_tx_dma_state* s, u8 data[], u32 len);
+u32 usart_write_dma(usart_tx_dma_state* s, const u8 data[], u32 len);
 float usart_tx_throughput(usart_tx_dma_state* s);
 
 void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,

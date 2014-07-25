@@ -26,7 +26,7 @@
  * \{ */
 
 
-static const char const * portmode_enum[] = {"SBP", "NMEA", "RTCM", NULL};
+static const char const * portmode_enum[] = {"NONE", "SBP", "NMEA", "RTCM", NULL};
 static struct setting_type portmode;
 
 usart_settings_t ftdi_usart = {

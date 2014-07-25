@@ -216,7 +216,7 @@ void usart_tx_dma_isr(usart_tx_dma_state* s)
  * \param len  The number of bytes to write.
  * \return The number of bytes that will be written, may be less than len.
  */
-u32 usart_write_dma(usart_tx_dma_state* s, u8 data[], u32 len)
+u32 usart_write_dma(usart_tx_dma_state* s, const u8 data[], u32 len)
 {
   /* If there is no data to write, just return. */
   if (len == 0) return 0;
