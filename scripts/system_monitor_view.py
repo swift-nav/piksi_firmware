@@ -18,7 +18,6 @@ import math
 import os
 import numpy as np
 import datetime
-import almanac
 
 import sbp_piksi as sbp_messages
 
@@ -41,8 +40,6 @@ class SystemMonitorView(HasTraits):
   _threads_table_list = List()
   threads = List()
 
-  last_message_received_tow = Float(0)
-
   uart_a_crc_error_count = Int(0)
   uart_a_rx_buffer = Float(0)
   uart_a_tx_buffer = Float(0)
@@ -62,6 +59,11 @@ class SystemMonitorView(HasTraits):
   ftdi_tx_KBps = Float(0)
   ftdi_rx_KBps = Float(0)
 
+  msg_obs_avg_latency_ms    = Int(0)
+  msg_obs_min_latency_ms    = Int(0)
+  msg_obs_max_latency_ms    = Int(0)
+  msg_obs_window_latency_ms = Int(0)
+
   traits_view = View(
     HSplit(
       Item(
@@ -71,8 +73,14 @@ class SystemMonitorView(HasTraits):
       ),
       VGroup(
         VGroup(
-          Item('last_message_received_tow', label='GPS ToW',
-            style='readonly', format_str='%.3fs'),
+          Item('msg_obs_window_latency_ms', label='Obs Latency',
+            style='readonly', format_str='%dms'),
+          Item('msg_obs_avg_latency_ms', label='Obs Latency (Avg ms)',
+            style='readonly', format_str='%dms'),
+          Item('msg_obs_min_latency_ms', label='Obs Latency (Min ms)',
+            style='readonly', format_str='%dms'),
+          Item('msg_obs_max_latency_ms', label='Obs Latency (Max ms)',
+            style='readonly', format_str='%dms'),
           label='Connection Monitor', show_border=True,
         ),
         VGroup(
@@ -133,8 +141,7 @@ class SystemMonitorView(HasTraits):
     self.threads.append((th.name, th))
 
   def uart_state_callback(self, data):
-    self.last_message_received_tow = almanac.time_of_week();
-    state = struct.unpack('<ffHBBffHBBffHBB', data)
+    state = struct.unpack('<ffHBBffHBBffHBBiiii', data)
     self.uart_a_tx_KBps, self.uart_a_rx_KBps = state[0:2]
     self.uart_a_crc_error_count = state[2]
     self.uart_a_tx_buffer, self.uart_a_rx_buffer = map(
@@ -150,6 +157,12 @@ class SystemMonitorView(HasTraits):
     self.ftdi_tx_buffer, self.ftdi_rx_buffer = map(
       lambda x: 100.0 * x / 255.0, state[13:15])
 
+    self.msg_obs_avg_latency_ms = state[15]
+    self.msg_obs_min_latency_ms = state[16]
+    self.msg_obs_max_latency_ms = state[17]
+    self.msg_obs_window_latency_ms = state[18]
+
+
   def __init__(self, link):
     super(SystemMonitorView, self).__init__()
 
@@ -160,6 +173,7 @@ class SystemMonitorView(HasTraits):
       self.thread_state_callback)
     self.link.add_callback(sbp_messages.UART_STATE,
       self.uart_state_callback)
+
 
     self.python_console_cmds = {
       'mon': self

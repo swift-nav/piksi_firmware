@@ -16,8 +16,6 @@
 #include <libswiftnav/common.h>
 #include "settings.h"
 
-#include <ch.h>
-
 #define dma2_stream6_isr Vector154
 #define dma2_stream1_isr Vector124
 #define dma2_stream7_isr Vector158
@@ -76,10 +74,10 @@ typedef struct {
   u8 stream;    /**< DMA stream for this USART. */
   u8 channel;   /**< DMA channel for this USART. */
 
-  u32 byte_counter; /**< Counts the number of bytes received 
-                        since statistics were last calculated */
-  systime_t last_byte_ticks; /**< systime_t of the last time 
-                        throughput statistics were calculated */ 
+  u32 byte_counter;    /**< Counts the number of bytes received since
+                            statistics were last calculated */
+  u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
+                            were calculated */
 } usart_rx_dma_state;
 
 /** USART TX DMA state structure. */
@@ -95,10 +93,10 @@ typedef struct {
   u8 stream;    /**< DMA stream for this USART. */
   u8 channel;   /**< DMA channel for this USART. */
 
-  u32 byte_counter; /**< Counts the number of bytes received 
-                        since statistics were last calculated */
-  systime_t last_byte_ticks; /**< systime_t of the last time 
-                        throughput statistics were calculated */ 
+  u32 byte_counter;    /**< Counts the number of bytes received since
+                            statistics were last calculated */
+  u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
+                            were calculated */
 } usart_tx_dma_state;
 
 /** \} */

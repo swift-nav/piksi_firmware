@@ -106,6 +106,13 @@ typedef struct __attribute__((packed)) {
 
 #define MSG_UART_STATE            0x18  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
+  s32 avg_latency;
+  s32 min_latency;
+  s32 max_latency;
+  s32 current_window_latency;
+} latency_t;
+
+typedef struct __attribute__((packed)) {
   struct __attribute__((packed)) {
     float tx_throughput;
     float rx_throughput;
@@ -113,9 +120,8 @@ typedef struct __attribute__((packed)) {
     u8 tx_buffer_level;
     u8 rx_buffer_level;
   } uarts[3];
+  latency_t obs_latency;
 } msg_uart_state_t;
-
-
 
 #define MSG_OBS_HEADER_SEQ_SHIFT 4u
 #define MSG_OBS_HEADER_SEQ_MASK ((1 << 4u) - 1)

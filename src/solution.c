@@ -154,6 +154,14 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     return;
   }
 
+  /* Calculate packet latency */
+  if (time_quality >= TIME_COARSE) {
+    gps_time_t now = get_current_time();
+    s32 latency_ms = (s32) ((now.tow - t.tow) * 1000.0);
+
+    log_obs_latency(latency_ms);
+  }
+
   static u8 obss_i = 0;
 
   /* Verify sequence integrity */

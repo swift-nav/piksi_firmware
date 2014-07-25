@@ -30,6 +30,7 @@
 #include "sbp.h"
 #include "settings.h"
 #include "main.h"
+#include "timing.h"
 
 /** \defgroup io Input/Output
  * Communications to and from host.
@@ -66,30 +67,47 @@ static msg_t sbp_thread(void *arg)
   uart_state_msg.obs_latency.min_latency = 0;
   uart_state_msg.obs_latency.max_latency = 0;
 
+  uart_state_msg.obs_latency.avg_latency = 0;
+  uart_state_msg.obs_latency.current_window_latency = 0;
+  uart_state_msg.obs_latency.min_latency = 0;
+  uart_state_msg.obs_latency.max_latency = 0;
+
   while (TRUE) {
     chThdSleepMilliseconds(10);
     sbp_process_messages();
 
     DO_EVERY(100,
 
-        uart_state_msg.uarts[0].tx_throughput = usart_tx_throughput(&uarta_tx_state);
-        uart_state_msg.uarts[0].rx_throughput = usart_rx_throughput(&uarta_rx_state);
-        uart_state_msg.uarts[1].tx_throughput = usart_tx_throughput(&uartb_tx_state);
-        uart_state_msg.uarts[1].rx_throughput = usart_rx_throughput(&uartb_rx_state);
-        uart_state_msg.uarts[2].tx_throughput = usart_tx_throughput(&ftdi_tx_state);
-        uart_state_msg.uarts[2].rx_throughput = usart_rx_throughput(&ftdi_rx_state);
+      uart_state_msg.uarts[0].tx_throughput = usart_tx_throughput(&uarta_tx_state);
+      uart_state_msg.uarts[0].rx_throughput = usart_rx_throughput(&uarta_rx_state);
+      uart_state_msg.uarts[1].tx_throughput = usart_tx_throughput(&uartb_tx_state);
+      uart_state_msg.uarts[1].rx_throughput = usart_rx_throughput(&uartb_rx_state);
+      uart_state_msg.uarts[2].tx_throughput = usart_tx_throughput(&ftdi_tx_state);
+      uart_state_msg.uarts[2].rx_throughput = usart_rx_throughput(&ftdi_rx_state);
 
-        sbp_send_msg(MSG_UART_STATE, sizeof(msg_uart_state_t),
-                     (u8*)&uart_state_msg);
+      if (latency_count > 0) {
+        uart_state_msg.obs_latency.avg_latency =
+          (s32) (latency_accum_ms / latency_count);
+      }
 
-        uart_state_msg.uarts[0].tx_buffer_level = 0;
-        uart_state_msg.uarts[0].rx_buffer_level = 0;
-        uart_state_msg.uarts[1].tx_buffer_level = 0;
-        uart_state_msg.uarts[1].rx_buffer_level = 0;
-        uart_state_msg.uarts[2].tx_buffer_level = 0;
-        uart_state_msg.uarts[2].rx_buffer_level = 0;
+      if (window_latency_count > 0) {
+        uart_state_msg.obs_latency.current_window_latency =
+          (s32) (window_latency_accum_ms / window_latency_count);
+      } else {
+        uart_state_msg.obs_latency.current_window_latency = -1;
+      }
 
-        log_obs_latency_tick();
+      sbp_send_msg(MSG_UART_STATE, sizeof(msg_uart_state_t),
+                   (u8*)&uart_state_msg);
+
+      uart_state_msg.uarts[0].tx_buffer_level = 0;
+      uart_state_msg.uarts[0].rx_buffer_level = 0;
+      uart_state_msg.uarts[1].tx_buffer_level = 0;
+      uart_state_msg.uarts[1].rx_buffer_level = 0;
+      uart_state_msg.uarts[2].tx_buffer_level = 0;
+      uart_state_msg.uarts[2].rx_buffer_level = 0;
+
+      log_obs_latency_tick();
     );
   }
 
@@ -107,6 +125,8 @@ void sbp_setup(u16 sender_id)
 {
   my_sender_id = sender_id;
 
+  uart_state_msg.obs_latency.avg_latency = -1;
+
   sbp_state_init(&uarta_sbp_state);
   sbp_state_init(&uartb_sbp_state);
   sbp_state_init(&ftdi_sbp_state);
@@ -119,7 +139,8 @@ void sbp_setup(u16 sender_id)
                     HIGHPRIO-22, sbp_thread, NULL);
 }
 
-void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb, sbp_msg_callbacks_node_t *node)
+void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb,
+                      sbp_msg_callbacks_node_t *node)
 {
   sbp_register_callback(&uarta_sbp_state, msg_type, cb, 0, node);
   sbp_register_callback(&uartb_sbp_state, msg_type, cb, 0, node);
@@ -308,15 +329,16 @@ void debug_variable(char *name, double x)
   free(buff);
 }
 
-void log_obs_latency(s32 latency_ms) {
-
+void log_obs_latency(s32 latency_ms)
+{
   latency_accum_ms += (double) latency_ms;
   latency_count += 1;
 
   window_latency_accum_ms += latency_ms;
   window_latency_count += 1;
 
-  /* Don't change the min and max latencies if we appear to have a zero latency speed. */
+  /* Don't change the min and max latencies if we appear to have a zero latency
+   * speed. */
   if (latency_ms <= 0)
     return;
 
@@ -327,11 +349,10 @@ void log_obs_latency(s32 latency_ms) {
   if (uart_state_msg.obs_latency.max_latency < latency_ms) {
     uart_state_msg.obs_latency.max_latency = latency_ms;
   }
-
 }
 
-void log_obs_latency_tick(double tow) {
-
+void log_obs_latency_tick(double tow)
+{
   gps_time_t now = get_current_time();
 
   static double last_tow = 0;
@@ -342,6 +363,7 @@ void log_obs_latency_tick(double tow) {
     window_latency_accum_ms = 0;
   }
 }
+
 /** \} */
 
 /** \} */
