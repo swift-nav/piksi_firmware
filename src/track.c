@@ -182,11 +182,17 @@ void tracking_channel_update(u8 channel)
     {
       chan->update_count++;
       chan->sample_count += chan->corr_sample_count;
+
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       if (chan->TOW_ms > 0) {
+        /* Have a valid time of week. */
         chan->TOW_ms++;
         if (chan->TOW_ms == 7*24*60*60*1000)
           chan->TOW_ms = 0;
+
+        /* Turn off FLL aiding. For now we do this here because having a valid
+         * TOW is a very good indication that the tracking loops have locked. */
+        chan->tl_state.carr_filt.aiding_igain = 0;
       }
 
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
