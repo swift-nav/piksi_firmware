@@ -20,7 +20,7 @@
 #include "peripherals/usart.h"
 #include "sbp_piksi.h"
 
-void log_obs_latency(s32 latency_ms);
+void log_obs_latency(float latency_ms);
 void log_obs_latency_tick();
 
 void sbp_setup(u16 sender_id);

@@ -106,10 +106,10 @@ typedef struct __attribute__((packed)) {
 
 #define MSG_UART_STATE            0x18  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
-  s32 avg_latency;
-  s32 min_latency;
-  s32 max_latency;
-  s32 current_window_latency;
+  s32 avg;
+  s32 min;
+  s32 max;
+  s32 current;
 } latency_t;
 
 typedef struct __attribute__((packed)) {

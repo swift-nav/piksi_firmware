@@ -31,6 +31,7 @@
 #include "settings.h"
 #include "main.h"
 #include "timing.h"
+#include "error.h"
 
 /** \defgroup io Input/Output
  * Communications to and from host.
@@ -44,13 +45,12 @@ u16 my_sender_id;
 
 msg_uart_state_t uart_state_msg;
 
-s32 window_latency_count;
-s32 window_latency_accum_ms;
-
+#define LATENCY_SMOOTHING 0.5
 #define LOG_OBS_LATENCY_WINDOW_DURATION 3.0
 
 double latency_count;
 double latency_accum_ms;
+systime_t last_obs_msg_ticks = 0;
 
 sbp_state_t uarta_sbp_state;
 sbp_state_t uartb_sbp_state;
@@ -62,22 +62,16 @@ static msg_t sbp_thread(void *arg)
   (void)arg;
   chRegSetThreadName("SBP");
 
-  uart_state_msg.obs_latency.avg_latency = 0;
-  uart_state_msg.obs_latency.current_window_latency = 0;
-  uart_state_msg.obs_latency.min_latency = 0;
-  uart_state_msg.obs_latency.max_latency = 0;
-
-  uart_state_msg.obs_latency.avg_latency = 0;
-  uart_state_msg.obs_latency.current_window_latency = 0;
-  uart_state_msg.obs_latency.min_latency = 0;
-  uart_state_msg.obs_latency.max_latency = 0;
+  uart_state_msg.obs_latency.avg = -1;
+  uart_state_msg.obs_latency.min = 0;
+  uart_state_msg.obs_latency.max = 0;
+  uart_state_msg.obs_latency.current = -1;
 
   while (TRUE) {
     chThdSleepMilliseconds(10);
     sbp_process_messages();
 
     DO_EVERY(100,
-
       uart_state_msg.uarts[0].tx_throughput = usart_tx_throughput(&uarta_tx_state);
       uart_state_msg.uarts[0].rx_throughput = usart_rx_throughput(&uarta_rx_state);
       uart_state_msg.uarts[1].tx_throughput = usart_tx_throughput(&uartb_tx_state);
@@ -86,15 +80,7 @@ static msg_t sbp_thread(void *arg)
       uart_state_msg.uarts[2].rx_throughput = usart_rx_throughput(&ftdi_rx_state);
 
       if (latency_count > 0) {
-        uart_state_msg.obs_latency.avg_latency =
-          (s32) (latency_accum_ms / latency_count);
-      }
-
-      if (window_latency_count > 0) {
-        uart_state_msg.obs_latency.current_window_latency =
-          (s32) (window_latency_accum_ms / window_latency_count);
-      } else {
-        uart_state_msg.obs_latency.current_window_latency = -1;
+        uart_state_msg.obs_latency.avg = (s32) (latency_accum_ms / latency_count);
       }
 
       sbp_send_msg(MSG_UART_STATE, sizeof(msg_uart_state_t),
@@ -124,8 +110,6 @@ static msg_t sbp_thread(void *arg)
 void sbp_setup(u16 sender_id)
 {
   my_sender_id = sender_id;
-
-  uart_state_msg.obs_latency.avg_latency = -1;
 
   sbp_state_init(&uarta_sbp_state);
   sbp_state_init(&uartb_sbp_state);
@@ -329,38 +313,37 @@ void debug_variable(char *name, double x)
   free(buff);
 }
 
-void log_obs_latency(s32 latency_ms)
+void log_obs_latency(float latency_ms)
 {
+  last_obs_msg_ticks = chTimeNow();
+
   latency_accum_ms += (double) latency_ms;
   latency_count += 1;
 
-  window_latency_accum_ms += latency_ms;
-  window_latency_count += 1;
+  uart_state_msg.obs_latency.current = (s32) ((LATENCY_SMOOTHING * ((float)latency_ms)) + 
+    ((1 - LATENCY_SMOOTHING) * (float) (uart_state_msg.obs_latency.current)));
 
   /* Don't change the min and max latencies if we appear to have a zero latency
    * speed. */
   if (latency_ms <= 0)
     return;
 
-  if (uart_state_msg.obs_latency.min_latency > latency_ms ||
-      uart_state_msg.obs_latency.min_latency == 0) {
-    uart_state_msg.obs_latency.min_latency = latency_ms;
+  if (uart_state_msg.obs_latency.min > latency_ms ||
+      uart_state_msg.obs_latency.min == 0) {
+    uart_state_msg.obs_latency.min = latency_ms;
   }
-  if (uart_state_msg.obs_latency.max_latency < latency_ms) {
-    uart_state_msg.obs_latency.max_latency = latency_ms;
+  if (uart_state_msg.obs_latency.max < latency_ms) {
+    uart_state_msg.obs_latency.max = latency_ms;
   }
 }
 
-void log_obs_latency_tick(double tow)
+void log_obs_latency_tick()
 {
-  gps_time_t now = get_current_time();
+  systime_t now_ticks = chTimeNow();
+  double elapsed = (now_ticks - last_obs_msg_ticks) / (double)CH_FREQUENCY;
 
-  static double last_tow = 0;
-
-  if (last_tow == 0 || tow - last_tow > LOG_OBS_LATENCY_WINDOW_DURATION) {
-    last_tow = tow;
-    window_latency_count = 0;
-    window_latency_accum_ms = 0;
+  if (last_obs_msg_ticks == 0 || elapsed > LOG_OBS_LATENCY_WINDOW_DURATION) {
+    uart_state_msg.obs_latency.current = -1;
   }
 }
 
