@@ -47,7 +47,7 @@ dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_TIME_MATCHED;
 dgnss_filter_t dgnss_filter = FILTER_FIXED;
 
 double soln_freq = 10.0;
-u32 obs_output_divisor = 5;
+u32 obs_output_divisor = 2;
 
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
