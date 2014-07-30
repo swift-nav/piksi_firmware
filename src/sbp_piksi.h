@@ -85,6 +85,11 @@ typedef struct __attribute__((packed)) {
                    nibble is the zero-indexed counter (ith packet of n) */
 } msg_obs_header_t;
 
+#define MSG_BASE_POS                0x44
+typedef struct __attribute__((packed)) {
+  double pos_llh[3];
+} msg_base_pos_t;
+
 typedef struct __attribute__((packed)) {
   u32 P;     /**< Pseudorange (cm) */
   struct __attribute__((packed)) carrier {
