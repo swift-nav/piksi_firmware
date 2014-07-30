@@ -93,7 +93,7 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm)
 {
-  nmea_gpgga(soln, dops);
+  nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used, 1, dops->hdop);
 
   DO_EVERY(10,
     nmea_gpgsv(n, nm, soln);
