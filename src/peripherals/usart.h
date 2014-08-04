@@ -83,6 +83,7 @@ typedef struct {
                             were calculated */
 
   BinarySemaphore ready_sem; /**< Semaphore released when ready to read. */
+  BinarySemaphore claimed; /**< Taken by module when channel is in use. */
 } usart_rx_dma_state;
 
 /** USART TX DMA state structure. */
@@ -137,6 +138,8 @@ void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
                         u32 dma, u8 stream, u8 channel);
 void usart_rx_dma_disable(usart_rx_dma_state* s);
 void usart_rx_dma_isr(usart_rx_dma_state* s);
+bool usart_rx_claim(usart_rx_dma_state* s);
+void usart_rx_release(usart_rx_dma_state* s);
 u32 usart_n_read_dma(usart_rx_dma_state* s);
 u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len);
 u32 usart_read_dma_timeout(usart_rx_dma_state* s, u8 data[], u32 len, u32 timeout);
