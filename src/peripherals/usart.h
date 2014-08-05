@@ -64,6 +64,7 @@ extern usart_settings_t uartb_usart;
 
 /** USART RX DMA state structure. */
 typedef struct {
+  bool configured;
   /** USART RX DMA buffer. DMA xfers from USART to buffer, message processing
    * routine reads out of buffer. */
   u8 buff[USART_RX_BUFFER_LEN];

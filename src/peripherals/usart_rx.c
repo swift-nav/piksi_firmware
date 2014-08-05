@@ -121,6 +121,8 @@ void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
 
   /* Enable the DMA channel. */
   DMA_SCR(dma, stream) |= DMA_SxCR_EN;
+
+  s->configured = true;
 }
 
 /** Disable USART RX DMA.
@@ -175,7 +177,7 @@ void usart_rx_dma_isr(usart_rx_dma_state* s)
 
 bool usart_rx_claim(usart_rx_dma_state* s)
 {
-  return chBSemWaitTimeout(&s->claimed, 0) == RDY_OK;
+  return s->configured && (chBSemWaitTimeout(&s->claimed, 0) == RDY_OK);
 }
 
 void usart_rx_release(usart_rx_dma_state* s)
