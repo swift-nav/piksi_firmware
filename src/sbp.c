@@ -256,30 +256,39 @@ void sbp_process_messages()
     MAX(uart_state_msg.uarts[0].rx_buffer_level,
       (255 * usart_n_read_dma(&uarta_rx_state)) / USART_RX_BUFFER_LEN);
 
-  while (usart_n_read_dma(&uarta_rx_state) > 0) {
-    ret = sbp_process(&uarta_sbp_state, &uarta_read);
-    if (ret == SBP_CRC_ERROR)
-      uart_state_msg.uarts[0].crc_error_count++;
+  if (usart_rx_claim(&uarta_rx_state)) {
+    while (usart_n_read_dma(&uarta_rx_state) > 0) {
+      ret = sbp_process(&uarta_sbp_state, &uarta_read);
+      if (ret == SBP_CRC_ERROR)
+        uart_state_msg.uarts[0].crc_error_count++;
+    }
+    usart_rx_release(&uarta_rx_state);
   }
 
   uart_state_msg.uarts[1].rx_buffer_level =
     MAX(uart_state_msg.uarts[1].rx_buffer_level,
       (255 * usart_n_read_dma(&uartb_rx_state)) / USART_RX_BUFFER_LEN);
 
-  while (usart_n_read_dma(&uartb_rx_state) > 0) {
-    ret = sbp_process(&uartb_sbp_state, &uartb_read);
-    if (ret == SBP_CRC_ERROR)
-      uart_state_msg.uarts[1].crc_error_count++;
+  if (usart_rx_claim(&uartb_rx_state)) {
+    while (usart_n_read_dma(&uartb_rx_state) > 0) {
+      ret = sbp_process(&uartb_sbp_state, &uartb_read);
+      if (ret == SBP_CRC_ERROR)
+        uart_state_msg.uarts[1].crc_error_count++;
+    }
+    usart_rx_release(&uartb_rx_state);
   }
 
   uart_state_msg.uarts[2].rx_buffer_level =
     MAX(uart_state_msg.uarts[2].rx_buffer_level,
       (255 * usart_n_read_dma(&ftdi_rx_state)) / USART_RX_BUFFER_LEN);
 
-  while (usart_n_read_dma(&ftdi_rx_state) > 0) {
-    ret = sbp_process(&ftdi_sbp_state, &ftdi_read);
-    if (ret == SBP_CRC_ERROR)
-      uart_state_msg.uarts[2].crc_error_count++;
+  if (usart_rx_claim(&ftdi_rx_state)) {
+    while (usart_n_read_dma(&ftdi_rx_state) > 0) {
+      ret = sbp_process(&ftdi_sbp_state, &ftdi_read);
+      if (ret == SBP_CRC_ERROR)
+        uart_state_msg.uarts[2].crc_error_count++;
+    }
+    usart_rx_release(&ftdi_rx_state);
   }
 }
 
