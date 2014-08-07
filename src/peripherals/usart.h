@@ -31,7 +31,6 @@
  /** Message and baud rate settings for a USART. */
 typedef struct {
   enum {
-    PROTOCOL_NONE,
     SBP,
     NMEA,
     RTCM,
