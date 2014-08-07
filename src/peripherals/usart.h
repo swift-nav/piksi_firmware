@@ -106,6 +106,8 @@ typedef struct {
                               were calculated */
   } tx;
   BinarySemaphore claimed; /**< Taken by module when channel is in use. */
+  const void *claimed_by;
+  int claim_nest;
 } usart_dma_state;
 
 typedef struct usart_tx_dma_state usart_tx_dma_state;
@@ -127,7 +129,7 @@ bool baudrate_change_notify(struct setting *s, const char *val);
 void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_preconfigure_hooks);
 void usarts_disable(void);
 
-bool usart_claim(usart_dma_state* s);
+bool usart_claim(usart_dma_state* s, const void *module);
 void usart_release(usart_dma_state* s);
 
 void usart_set_parameters(u32 usart, u32 baud);

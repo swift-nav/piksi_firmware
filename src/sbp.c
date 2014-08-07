@@ -56,6 +56,8 @@ sbp_state_t uarta_sbp_state;
 sbp_state_t uartb_sbp_state;
 sbp_state_t ftdi_sbp_state;
 
+static const char SBP_MODULE[] = "sbp";
+
 static WORKING_AREA_CCM(wa_sbp_thread, 4096);
 static msg_t sbp_thread(void *arg)
 {
@@ -192,7 +194,7 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
   /* Don't relayed messages (sender_id 0) on the A and B UARTs. (Only FTDI USB) */
   if (sender_id != 0) {
 
-    if (use_usart(&uarta_usart, msg_type) && usart_claim(&uarta_state)) {
+    if (use_usart(&uarta_usart, msg_type) && usart_claim(&uarta_state, SBP_MODULE)) {
       ret |= sbp_send_message(&uarta_sbp_state, msg_type, sender_id,
                               len, buff, &uarta_write);
       usart_release(&uarta_state);
@@ -202,7 +204,7 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
       MAX(uart_state_msg.uarts[0].tx_buffer_level,
         255 - (255 * usart_tx_n_free(&uarta_state.tx)) / (USART_TX_BUFFER_LEN-1));
 
-    if (use_usart(&uartb_usart, msg_type) && usart_claim(&uartb_state)) {
+    if (use_usart(&uartb_usart, msg_type) && usart_claim(&uartb_state, SBP_MODULE)) {
       ret |= sbp_send_message(&uartb_sbp_state, msg_type, sender_id,
                               len, buff, &uartb_write);
       usart_release(&uartb_state);
@@ -214,7 +216,7 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
 
   }
 
-  if (use_usart(&ftdi_usart, msg_type) && usart_claim(&ftdi_state)) {
+  if (use_usart(&ftdi_usart, msg_type) && usart_claim(&ftdi_state, SBP_MODULE)) {
     ret |= sbp_send_message(&ftdi_sbp_state, msg_type, sender_id,
                             len, buff, &ftdi_write);
     usart_release(&ftdi_state);
@@ -262,7 +264,7 @@ void sbp_process_messages()
     MAX(uart_state_msg.uarts[0].rx_buffer_level,
       (255 * usart_n_read_dma(&uarta_state.rx)) / USART_RX_BUFFER_LEN);
 
-  if (usart_claim(&uarta_state)) {
+  if (usart_claim(&uarta_state, SBP_MODULE)) {
     while (usart_n_read_dma(&uarta_state.rx) > 0) {
       ret = sbp_process(&uarta_sbp_state, &uarta_read);
       if (ret == SBP_CRC_ERROR)
@@ -275,7 +277,7 @@ void sbp_process_messages()
     MAX(uart_state_msg.uarts[1].rx_buffer_level,
       (255 * usart_n_read_dma(&uartb_state.rx)) / USART_RX_BUFFER_LEN);
 
-  if (usart_claim(&uartb_state)) {
+  if (usart_claim(&uartb_state, SBP_MODULE)) {
     while (usart_n_read_dma(&uartb_state.rx) > 0) {
       ret = sbp_process(&uartb_sbp_state, &uartb_read);
       if (ret == SBP_CRC_ERROR)
@@ -288,7 +290,7 @@ void sbp_process_messages()
     MAX(uart_state_msg.uarts[2].rx_buffer_level,
       (255 * usart_n_read_dma(&ftdi_state.rx)) / USART_RX_BUFFER_LEN);
 
-  if (usart_claim(&ftdi_state)) {
+  if (usart_claim(&ftdi_state, SBP_MODULE)) {
     while (usart_n_read_dma(&ftdi_state.rx) > 0) {
       ret = sbp_process(&ftdi_sbp_state, &ftdi_read);
       if (ret == SBP_CRC_ERROR)

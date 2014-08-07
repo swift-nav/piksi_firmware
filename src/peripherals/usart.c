@@ -235,14 +235,29 @@ void usarts_disable()
   usart_disable(USART3);
 }
 
-bool usart_claim(usart_dma_state* s)
+bool usart_claim(usart_dma_state* s, const void *module)
 {
-  return s->configured && (chBSemWaitTimeout(&s->claimed, 0) == RDY_OK);
+  chSysLock();
+  if (s->configured && (chBSemWaitTimeoutS(&s->claimed, 0) == RDY_OK)) {
+    s->claimed_by = module;
+    s->claim_nest = 0;
+    chSysUnlock();
+    return true;
+  } else if (s->claimed_by == module) {
+    s->claim_nest++;
+    chSysUnlock();
+    return true;
+  }
+  chSysUnlock();
+  return false;
 }
 
 void usart_release(usart_dma_state* s)
 {
-  chBSemSignal(&s->claimed);
+  if (s->claim_nest)
+    s->claim_nest--;
+  else
+    chBSemSignal(&s->claimed);
 }
 
 /** DMA 2 Stream 6 Interrupt Service Routine. */
