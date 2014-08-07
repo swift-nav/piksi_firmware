@@ -192,17 +192,21 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
   /* Don't relayed messages (sender_id 0) on the A and B UARTs. (Only FTDI USB) */
   if (sender_id != 0) {
 
-    if (use_usart(&uarta_usart, msg_type))
+    if (use_usart(&uarta_usart, msg_type) && usart_claim(&uarta_state)) {
       ret |= sbp_send_message(&uarta_sbp_state, msg_type, sender_id,
                               len, buff, &uarta_write);
+      usart_release(&uarta_state);
+    }
 
     uart_state_msg.uarts[0].tx_buffer_level =
       MAX(uart_state_msg.uarts[0].tx_buffer_level,
         255 - (255 * usart_tx_n_free(&uarta_state.tx)) / (USART_TX_BUFFER_LEN-1));
 
-    if (use_usart(&uartb_usart, msg_type))
+    if (use_usart(&uartb_usart, msg_type) && usart_claim(&uartb_state)) {
       ret |= sbp_send_message(&uartb_sbp_state, msg_type, sender_id,
                               len, buff, &uartb_write);
+      usart_release(&uartb_state);
+    }
 
     uart_state_msg.uarts[1].tx_buffer_level =
       MAX(uart_state_msg.uarts[1].tx_buffer_level,
@@ -210,9 +214,11 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
 
   }
 
-  if (use_usart(&ftdi_usart, msg_type))
+  if (use_usart(&ftdi_usart, msg_type) && usart_claim(&ftdi_state)) {
     ret |= sbp_send_message(&ftdi_sbp_state, msg_type, sender_id,
                             len, buff, &ftdi_write);
+    usart_release(&ftdi_state);
+  }
 
   uart_state_msg.uarts[2].tx_buffer_level =
     MAX(uart_state_msg.uarts[2].tx_buffer_level,
