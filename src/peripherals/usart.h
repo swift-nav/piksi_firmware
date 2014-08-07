@@ -62,49 +62,54 @@ extern usart_settings_t uartb_usart;
 #define USART_DEFAULT_BAUD_FTDI 1000000
 #define USART_DEFAULT_BAUD_TTL  115200
 
-/** USART RX DMA state structure. */
+/** USART DMA state structure. */
 typedef struct {
   bool configured;
-  /** USART RX DMA buffer. DMA xfers from USART to buffer, message processing
-   * routine reads out of buffer. */
-  u8 buff[USART_RX_BUFFER_LEN];
-  u32 rd;       /**< Address of next byte to read out of buffer.  */
-  /* TODO : is u32 big enough for rd_wraps and wr_wraps? */
-  u32 rd_wraps; /**< Number of times rd has wrapped around the buffer. */
-  u32 wr_wraps; /**< Number of times wr has wrapped around the buffer. */
+  /** USART RX DMA state structure. */
+  struct usart_rx_dma_state {
+    /** USART RX DMA buffer. DMA xfers from USART to buffer, message processing
+     * routine reads out of buffer. */
+    u8 buff[USART_RX_BUFFER_LEN];
+    u32 rd;       /**< Address of next byte to read out of buffer.  */
+    /* TODO : is u32 big enough for rd_wraps and wr_wraps? */
+    u32 rd_wraps; /**< Number of times rd has wrapped around the buffer. */
+    u32 wr_wraps; /**< Number of times wr has wrapped around the buffer. */
 
-  u32 dma;      /**< DMA for particular USART. */
-  u32 usart;    /**< USART peripheral this state serves. */
-  u8 stream;    /**< DMA stream for this USART. */
-  u8 channel;   /**< DMA channel for this USART. */
+    u32 dma;      /**< DMA for particular USART. */
+    u32 usart;    /**< USART peripheral this state serves. */
+    u8 stream;    /**< DMA stream for this USART. */
+    u8 channel;   /**< DMA channel for this USART. */
 
-  u32 byte_counter;    /**< Counts the number of bytes received since
-                            statistics were last calculated */
-  u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
-                            were calculated */
+    u32 byte_counter;    /**< Counts the number of bytes received since
+                              statistics were last calculated */
+    u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
+                              were calculated */
 
-  BinarySemaphore ready_sem; /**< Semaphore released when ready to read. */
+    BinarySemaphore ready_sem; /**< Semaphore released when ready to read. */
+  } rx;
+  /** USART TX DMA state structure. */
+  struct usart_tx_dma_state {
+    /** USART TX DMA buffer. DMA xfers from buffer to USART_DR. */
+    u8 buff[USART_TX_BUFFER_LEN];
+    u32 rd;       /**< Address of next byte to read out of buffer. */
+    u32 wr;       /**< Next buffer address to write to. */
+    u32 xfer_len; /**< Number of bytes to DMA from buffer to USART_DR. */
+
+    u32 dma;      /**< DMA for particular USART. */
+    u32 usart;    /**< USART peripheral this state serves. */
+    u8 stream;    /**< DMA stream for this USART. */
+    u8 channel;   /**< DMA channel for this USART. */
+
+    u32 byte_counter;    /**< Counts the number of bytes received since
+                              statistics were last calculated */
+    u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
+                              were calculated */
+  } tx;
   BinarySemaphore claimed; /**< Taken by module when channel is in use. */
-} usart_rx_dma_state;
+} usart_dma_state;
 
-/** USART TX DMA state structure. */
-typedef struct {
-  /** USART TX DMA buffer. DMA xfers from buffer to USART_DR. */
-  u8 buff[USART_TX_BUFFER_LEN];
-  u32 rd;       /**< Address of next byte to read out of buffer. */
-  u32 wr;       /**< Next buffer address to write to. */
-  u32 xfer_len; /**< Number of bytes to DMA from buffer to USART_DR. */
-
-  u32 dma;      /**< DMA for particular USART. */
-  u32 usart;    /**< USART peripheral this state serves. */
-  u8 stream;    /**< DMA stream for this USART. */
-  u8 channel;   /**< DMA channel for this USART. */
-
-  u32 byte_counter;    /**< Counts the number of bytes received since
-                            statistics were last calculated */
-  u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
-                            were calculated */
-} usart_tx_dma_state;
+typedef struct usart_tx_dma_state usart_tx_dma_state;
+typedef struct usart_rx_dma_state usart_rx_dma_state;
 
 /** \} */
 
@@ -112,18 +117,18 @@ typedef struct {
 
 extern const u8 dma_irq_lookup[2][8];
 
-extern usart_tx_dma_state ftdi_tx_state;
-extern usart_rx_dma_state ftdi_rx_state;
-extern usart_tx_dma_state uarta_tx_state;
-extern usart_rx_dma_state uarta_rx_state;
-extern usart_tx_dma_state uartb_tx_state;
-extern usart_rx_dma_state uartb_rx_state;
+extern usart_dma_state ftdi_state;
+extern usart_dma_state uarta_state;
+extern usart_dma_state uartb_state;
 
 void usarts_setup();
 bool baudrate_change_notify(struct setting *s, const char *val);
 
 void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_preconfigure_hooks);
 void usarts_disable(void);
+
+bool usart_claim(usart_dma_state* s);
+void usart_release(usart_dma_state* s);
 
 void usart_set_parameters(u32 usart, u32 baud);
 
@@ -139,8 +144,6 @@ void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
                         u32 dma, u8 stream, u8 channel);
 void usart_rx_dma_disable(usart_rx_dma_state* s);
 void usart_rx_dma_isr(usart_rx_dma_state* s);
-bool usart_rx_claim(usart_rx_dma_state* s);
-void usart_rx_release(usart_rx_dma_state* s);
 u32 usart_n_read_dma(usart_rx_dma_state* s);
 u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len);
 u32 usart_read_dma_timeout(usart_rx_dma_state* s, u8 data[], u32 len, u32 timeout);

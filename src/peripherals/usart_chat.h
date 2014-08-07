@@ -27,18 +27,10 @@ int uart_setting_type(void);
 void usart_escape(enum uart u);
 bool usart_sendwait(enum uart u, const char *send, const char *wait, u32 timeout);
 
-static inline usart_tx_dma_state * uart_tx_state(enum uart u)
+static inline usart_dma_state * uart_state(enum uart u)
 {
-  usart_tx_dma_state * const state[] = {
-    NULL, &ftdi_tx_state, &uarta_tx_state, &uartb_tx_state,
-  };
-  return state[u];
-}
-
-static inline usart_rx_dma_state * uart_rx_state(enum uart u)
-{
-  usart_rx_dma_state * const state[] = {
-    NULL, &ftdi_rx_state, &uarta_rx_state, &uartb_rx_state,
+  usart_dma_state * const state[] = {
+    NULL, &ftdi_state, &uarta_state, &uartb_state,
   };
   return state[u];
 }

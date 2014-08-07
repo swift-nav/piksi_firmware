@@ -52,7 +52,6 @@ void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
   s->stream = stream;
   s->channel = channel;
   chBSemInit(&s->ready_sem, TRUE);
-  chBSemInit(&s->claimed, FALSE);
 
   s->byte_counter = 0;
   s->last_byte_ticks = chTimeNow();
@@ -121,8 +120,6 @@ void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
 
   /* Enable the DMA channel. */
   DMA_SCR(dma, stream) |= DMA_SxCR_EN;
-
-  s->configured = true;
 }
 
 /** Disable USART RX DMA.
@@ -173,16 +170,6 @@ void usart_rx_dma_isr(usart_rx_dma_state* s)
 
   /* Note: When DMA is re-enabled after bootloader it appears ISR can get
    * called without any of the bits of DMA_LISR being high */
-}
-
-bool usart_rx_claim(usart_rx_dma_state* s)
-{
-  return s->configured && (chBSemWaitTimeout(&s->claimed, 0) == RDY_OK);
-}
-
-void usart_rx_release(usart_rx_dma_state* s)
-{
-  chBSemSignal(&s->claimed);
 }
 
 /** Returns a lower bound on the number of bytes in the DMA receive buffer.
