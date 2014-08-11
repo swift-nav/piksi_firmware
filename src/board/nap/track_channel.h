@@ -66,11 +66,13 @@ extern u8 nap_track_n_channels;
 void nap_track_init_pack(u8 pack[], u8 prn, s32 carrier_phase, u16 code_phase);
 void nap_track_init_wr_blocking(u8 channel, u8 prn, s32 carrier_phase,
                                 u16 code_phase);
-void nap_track_update_pack(u8 pack[], s32 carrier_freq, u32 code_phase_rate);
+void nap_track_update_pack(u8 pack[], s32 carrier_freq, u32 code_phase_rate,
+                           u8 rollover_count, u8 corr_spacing);
 void nap_track_update_wr_blocking(u8 channel, s32 carrier_freq,
-                                  u32 code_phase_rate);
-void nap_track_corr_unpack(u8 packed[], u16* sample_count, corr_t corrs[]);
-void nap_track_corr_rd_blocking(u8 channel, u16* sample_count, corr_t corrs[]);
+                                  u32 code_phase_rate, u8 rollover_count,
+                                  u8 corr_spacing);
+void nap_track_corr_unpack(u8 packed[], u32* sample_count, corr_t corrs[]);
+void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[]);
 void nap_track_phase_unpack(u8 packed[], s32* carrier_phase, u64* code_phase);
 void nap_track_phase_rd_blocking(u8 channel, s32* carrier_phase,
                                  u64* code_phase);

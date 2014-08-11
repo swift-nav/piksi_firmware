@@ -38,7 +38,7 @@ typedef enum {
 } dgnss_filter_t;
 
 /** Maximum difference between observation times to consider them matched. */
-#define TIME_MATCH_THRESHOLD 1e-6
+#define TIME_MATCH_THRESHOLD 2e-3
 /** Maximum time that an observation will be propagated for to align it with a
  * solution epoch before it is discarded.  */
 #define OBS_PROPAGATION_LIMIT 10e-3

@@ -24,6 +24,8 @@
 
 #include <libswiftnav/constants.h>
 
+u8 n_rollovers = 20;
+
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
  * Initialize SwiftNAP tracking channels. Run loop filters and update
@@ -106,10 +108,9 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].snr_above_threshold_count = 0;
   tracking_channel[channel].snr_below_threshold_count = 0;
 
-  comp_tl_init(&(tracking_channel[channel].tl_state), 1e3,
-               code_phase_rate-1.023e6, 1, 0.7, 1,
-               carrier_freq, 25, 0.7, 1,
-               1, 1540, 5000);
+  aided_tl_init(&(tracking_channel[channel].tl_state), 1e3,
+                code_phase_rate-1.023e6, 1, 0.7, 1,
+                carrier_freq);
 
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
@@ -133,9 +134,12 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
    */
   nap_track_code_wr_blocking(channel, prn);
   nap_track_init_wr_blocking(channel, prn, 0, 0);
-  nap_track_update_wr_blocking(channel, \
-                     carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ, \
-                     tracking_channel[channel].code_phase_rate_fp);
+  nap_track_update_wr_blocking(
+    channel,
+    carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ,
+    tracking_channel[channel].code_phase_rate_fp,
+    0, 0
+  );
 
   /* Schedule the timing strobe for start_sample_count. */
   nap_timing_strobe(start_sample_count);
@@ -178,22 +182,41 @@ void tracking_channel_update(u8 channel)
     {
       chan->update_count++;
       chan->sample_count += chan->corr_sample_count;
+
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       if (chan->TOW_ms > 0) {
+        /* Have a valid time of week. */
         chan->TOW_ms++;
         if (chan->TOW_ms == 7*24*60*60*1000)
           chan->TOW_ms = 0;
+
+        /* Turn off FLL aiding. For now we do this here because having a valid
+         * TOW is a very good indication that the tracking loops have locked. */
+        chan->tl_state.carr_filt.aiding_igain = 0;
       }
 
-      chan->code_phase_early = (u64)chan->code_phase_early + (u64)chan->corr_sample_count*chan->code_phase_rate_fp_prev;
-      chan->carrier_phase += chan->carrier_freq_fp_prev * chan->corr_sample_count;
+      /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
+      s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I);
+
+      if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
+        if (chan->TOW_ms > 0) {
+          printf("PRN %d TOW mismatch: %ld, %lu\n",
+              chan->prn+1, chan->TOW_ms, TOW_ms);
+        }
+        chan->TOW_ms = TOW_ms;
+      }
+
+      chan->code_phase_early = (u64)chan->code_phase_early +
+                               (u64)chan->corr_sample_count
+                                 * chan->code_phase_rate_fp_prev;
+      chan->carrier_phase += (s64)chan->carrier_freq_fp_prev
+                               * chan->corr_sample_count;
       /* TODO: Fix this in the FPGA - first integration is one sample short. */
       if (chan->update_count == 1)
         chan->carrier_phase -= chan->carrier_freq_fp_prev;
 
       /* Correlations should already be in chan->cs thanks to
-       * tracking_channel_get_corrs.
-       */
+       * tracking_channel_get_corrs. */
       corr_t* cs = chan->cs;
 
       /* Update I and Q magnitude filters for SNR calculation.
@@ -219,29 +242,27 @@ void tracking_channel_update(u8 channel)
         cs2[i].I = cs[2-i].I;
         cs2[i].Q = cs[2-i].Q;
       }
-      comp_tl_update(&(chan->tl_state), cs2);
+      aided_tl_update(&(chan->tl_state), cs2);
       chan->carrier_freq = chan->tl_state.carr_freq;
       chan->code_phase_rate = chan->tl_state.code_freq + 1.023e6;
 
-      /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
-      s32 TOW_ms = nav_msg_update(&chan->nav_msg, cs[1].I);
-
-      if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
-        if (chan->TOW_ms > 0) {
-          printf("PRN %d TOW mismatch: %ld, %u\n",(int)chan->prn + 1, chan->TOW_ms, (unsigned int)TOW_ms);
-        }
-        chan->TOW_ms = TOW_ms;
-      }
 
       chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
-      chan->code_phase_rate_fp = chan->code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+      chan->code_phase_rate_fp = chan->code_phase_rate
+        * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
       chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
-      chan->carrier_freq_fp = chan->carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
+      chan->carrier_freq_fp = chan->carrier_freq
+        * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
-      nap_track_update_wr_blocking(channel, \
-                         chan->carrier_freq_fp, \
-                         chan->code_phase_rate_fp);
+
+      nap_track_update_wr_blocking(
+        channel,
+        chan->carrier_freq_fp,
+        chan->code_phase_rate_fp,
+        0, 0
+      );
+
       break;
     }
     case TRACKING_DISABLED:
@@ -260,7 +281,7 @@ void tracking_channel_update(u8 channel)
  */
 void tracking_channel_disable(u8 channel)
 {
-  nap_track_update_wr_blocking(channel, 0, 0);
+  nap_track_update_wr_blocking(channel, 0, 0, 0, 0);
   tracking_channel[channel].state = TRACKING_DISABLED;
 }
 

@@ -73,6 +73,11 @@ typedef struct {
   u32 usart;    /**< USART peripheral this state serves. */
   u8 stream;    /**< DMA stream for this USART. */
   u8 channel;   /**< DMA channel for this USART. */
+
+  u32 byte_counter;    /**< Counts the number of bytes received since
+                            statistics were last calculated */
+  u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
+                            were calculated */
 } usart_rx_dma_state;
 
 /** USART TX DMA state structure. */
@@ -87,6 +92,11 @@ typedef struct {
   u32 usart;    /**< USART peripheral this state serves. */
   u8 stream;    /**< DMA stream for this USART. */
   u8 channel;   /**< DMA channel for this USART. */
+
+  u32 byte_counter;    /**< Counts the number of bytes received since
+                            statistics were last calculated */
+  u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
+                            were calculated */
 } usart_tx_dma_state;
 
 /** \} */
@@ -116,6 +126,7 @@ void usart_tx_dma_disable(usart_tx_dma_state* s);
 u32 usart_tx_n_free(usart_tx_dma_state* s);
 void usart_tx_dma_isr(usart_tx_dma_state* s);
 u32 usart_write_dma(usart_tx_dma_state* s, u8 data[], u32 len);
+float usart_tx_throughput(usart_tx_dma_state* s);
 
 void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
                         u32 dma, u8 stream, u8 channel);
@@ -123,6 +134,7 @@ void usart_rx_dma_disable(usart_rx_dma_state* s);
 void usart_rx_dma_isr(usart_rx_dma_state* s);
 u32 usart_n_read_dma(usart_rx_dma_state* s);
 u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len);
+float usart_rx_throughput(usart_rx_dma_state* s);
 
 #endif  /* SWIFTNAV_USART_H */
 

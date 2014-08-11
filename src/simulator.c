@@ -55,7 +55,8 @@ simulation_settings_t sim_settings = {
   .mode_mask =
     SIMULATION_MODE_PVT |
     SIMULATION_MODE_TRACKING |
-    SIMULATION_MODE_RTK,
+    SIMULATION_MODE_FLOAT |
+    SIMULATION_MODE_RTK
 };
 
 /* Internal Simulation State Definition */
@@ -68,9 +69,9 @@ struct {
 
   u8             num_sats_selected;
 
-  tracking_state_msg_t      tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
-  navigation_measurement_t  nav_meas[NAP_MAX_N_TRACK_CHANNELS];
-  navigation_measurement_t  base_nav_meas[NAP_MAX_N_TRACK_CHANNELS];
+  tracking_state_msg_t      tracking_channel[MAX_CHANNELS];
+  navigation_measurement_t  nav_meas[MAX_CHANNELS];
+  navigation_measurement_t  base_nav_meas[MAX_CHANNELS];
   dops_t                    dops;
   gnss_solution             noisy_solution;
 
@@ -285,7 +286,7 @@ void simulation_step_tracking_and_observations(double elapsed)
 
     if (el > 0 &&
         num_sats_selected < sim_settings.num_sats &&
-        num_sats_selected < NAP_MAX_N_TRACK_CHANNELS) {
+        num_sats_selected < MAX_CHANNELS) {
 
       /* Generate a code measurement which is just the pseudorange: */
       double points_to_sat[3];

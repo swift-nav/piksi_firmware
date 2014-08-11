@@ -108,6 +108,7 @@ CSRC = $(PORTSRC) \
        $(SWIFTNAV_ROOT)/src/minIni/minGlue.o \
        $(SWIFTNAV_ROOT)/src/init.o \
        $(SWIFTNAV_ROOT)/src/sbp.o \
+       $(SWIFTNAV_ROOT)/src/sbp_piksi.o \
        $(SWIFTNAV_ROOT)/src/error.o \
        $(SWIFTNAV_ROOT)/src/cw.o \
        $(SWIFTNAV_ROOT)/src/track.o \
@@ -187,10 +188,10 @@ AOPT =
 TOPT = -mthumb -DTHUMB
 
 # Define C warning options here
-CWARN = -Wall -Wextra -std=gnu99
+CWARN = -Wall -Wextra -Werror -std=gnu99
 
 # Define C++ warning options here
-CPPWARN = -Wall -Wextra
+CPPWARN = -Wall -Wextra -Werror
 
 #
 # Compiler settings

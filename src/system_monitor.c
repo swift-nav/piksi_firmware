@@ -26,6 +26,10 @@
 #include "simulator.h"
 #include "system_monitor.h"
 
+
+/* Time between sending system monitor and heartbeat messages in milliseconds */
+uint32_t heartbeat_period_milliseconds = 1000;
+
 /* Global CPU time accumulator, used to measure thread CPU usage. */
 u64 g_ctime = 0;
 
@@ -97,13 +101,11 @@ static msg_t system_monitor_thread(void *arg)
   chRegSetThreadName("system monitor");
 
   while (TRUE) {
-    chThdSleepMilliseconds(1000);
+    chThdSleepMilliseconds(heartbeat_period_milliseconds);
 
-    DO_EVERY(2,
-        u32 status_flags = 0;
-        sbp_send_msg(SBP_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
-        send_thread_states();
-    );
+    u32 status_flags = 0;
+    sbp_send_msg(SBP_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
+    send_thread_states();
 
     u32 err = nap_error_rd_blocking();
     if (err)
@@ -119,6 +121,8 @@ void system_monitor_setup()
   SCS_DEMCR |= 0x01000000;
   DWT_CYCCNT = 0; /* Reset the counter. */
   DWT_CTRL |= 1 ; /* Enable the counter. */
+
+  SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
 
   chThdCreateStatic(
       wa_system_monitor_thread,

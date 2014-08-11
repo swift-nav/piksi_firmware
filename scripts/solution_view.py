@@ -127,19 +127,24 @@ class SolutionView(HasTraits):
     if self.log_file is None:
       self.log_file = open(time.strftime("position_log_%Y%m%d-%H%M%S.csv"), 'w')
 
-    self.log_file.write('%.2f,%.4f,%.4f,%.4f,%d\n' % (soln.tow * 1e3, soln.lat, soln.lon, soln.height, soln.n_sats))
-    self.log_file.flush()
+    tow = soln.tow * 1e-3
+    if self.nsec is not None:
+      tow += self.nsec * 1e-9
 
     if self.week is not None:
       t = datetime.datetime(1980, 1, 6) + \
           datetime.timedelta(weeks=self.week) + \
-          datetime.timedelta(seconds=soln.tow/1e3)
+          datetime.timedelta(seconds=tow)
       self.pos_table.append(('GPS Time', t))
       self.pos_table.append(('GPS Week', str(self.week)))
 
-    tow = soln.tow*1e-3 + self.nsec*1e-9
-    if self.nsec is not None:
-      tow += self.nsec*1e-9
+      self.log_file.write('%s,%.10f,%.10f,%.4f,%d\n' % (
+        str(t),
+        soln.lat, soln.lon, soln.height,
+        soln.n_sats)
+      )
+      self.log_file.flush()
+
     self.pos_table.append(('GPS ToW', tow))
 
     self.pos_table.append(('Num. sats', soln.n_sats))
@@ -187,8 +192,22 @@ class SolutionView(HasTraits):
     if self.vel_log_file is None:
       self.vel_log_file = open(time.strftime("velocity_log_%Y%m%d-%H%M%S.csv"), 'w')
 
-    self.vel_log_file.write('%.2f,%.4f,%.4f,%.4f,%.4f,%d\n' % (vel_ned.tow * 1e3, vel_ned.n, vel_ned.e, vel_ned.d, math.sqrt(vel_ned.n*vel_ned.n + vel_ned.e*vel_ned.e),vel_ned.n_sats))
-    self.vel_log_file.flush()
+    tow = vel_ned.tow * 1e-3
+    if self.nsec is not None:
+      tow += self.nsec * 1e-9
+
+    if self.week is not None:
+      t = datetime.datetime(1980, 1, 6) + \
+          datetime.timedelta(weeks=self.week) + \
+          datetime.timedelta(seconds=tow)
+
+      self.vel_log_file.write('%s,%.6f,%.6f,%.6f,%.6f,%d\n' % (
+        str(t),
+        vel_ned.n * 1e-3, vel_ned.e * 1e-3, vel_ned.d * 1e-3,
+        math.sqrt(vel_ned.n*vel_ned.n + vel_ned.e*vel_ned.e) * 1e-3,
+        vel_ned.n_sats)
+      )
+      self.vel_log_file.flush()
 
     self.vel_table = [
       ('Vel. N', '% 8.4f' % (vel_ned.n * 1e-3)),

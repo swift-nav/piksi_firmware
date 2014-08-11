@@ -35,6 +35,9 @@ u32 nap_exti_count;
 
 static WORKING_AREA_CCM(wa_nap_exti, 2000);
 static msg_t nap_exti_thread(void *arg);
+static u32 nap_irq_rd_blocking(void);
+
+static BinarySemaphore nap_exti_sem;
 
 /** Set up NAP GPIO interrupt.
  * Interrupt alerts STM that a channel in NAP needs to be serviced.
@@ -42,6 +45,7 @@ static msg_t nap_exti_thread(void *arg);
 void nap_exti_setup(void)
 {
   /* Signal from the FPGA is on PA1. */
+  chBSemInit(&nap_exti_sem, TRUE);
 
   /* Enable clock to GPIOA. */
   RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
@@ -58,8 +62,6 @@ void nap_exti_setup(void)
   nvicEnableVector(NVIC_EXTI1_IRQ, CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+2));
 }
 
-static Thread *tp = NULL;
-
 /** NAP interrupt service routine.
  * Reads the IRQ register from NAP to determine what inside the NAP needs to be
  * serviced, and then calls the appropriate service routine.
@@ -72,10 +74,7 @@ void exti1_isr(void)
   exti_reset_request(EXTI1);
 
   /* Wake up processing thread */
-  if (tp != NULL) {
-    chSchReadyI(tp);
-    tp = NULL;
-  }
+  chBSemSignalI(&nap_exti_sem);
 
   chSysUnlockFromIsr();
   CH_IRQ_EPILOGUE();
@@ -83,6 +82,10 @@ void exti1_isr(void)
 
 static void handle_nap_exti(void)
 {
+  /* XXX Including ch.h in nap_common.h for an extern declaration causes
+   * serious breakage. */
+  extern BinarySemaphore timing_strobe_sem;
+
   u32 irq = nap_irq_rd_blocking();
 
   if (irq & NAP_IRQ_ACQ_DONE)
@@ -90,6 +93,9 @@ static void handle_nap_exti(void)
 
   if (irq & NAP_IRQ_ACQ_LOAD_DONE)
     acq_service_load_done();
+
+  if (irq & NAP_IRQ_TIMING_STROBE)
+    chBSemReset(&timing_strobe_sem, TRUE);
 
   if (irq & NAP_IRQ_CW_DONE)
     cw_service_irq();
@@ -126,19 +132,17 @@ static msg_t nap_exti_thread(void *arg)
 
   while (TRUE) {
     /* Waiting for the IRQ to happen.*/
-    chSysLock();
+    chBSemWait(&nap_exti_sem);
+
     /* We need a level (not edge) sensitive interrupt -
      * if there is another interrupt pending on the Swift
      * NAP then the IRQ line will stay high. Therefore if
      * the line is still high, don't suspend the thread.
      */
-    if (!(GPIOA_IDR & GPIO1)) {
-      tp = chThdSelf();
-      chSchGoSleepS(THD_STATE_SUSPENDED);
+    while (GPIOA_IDR & GPIO1) {
+      handle_nap_exti();
     }
-    chSysUnlock();
 
-    handle_nap_exti();
   }
   return 0;
 }
@@ -166,7 +170,7 @@ void wait_for_nap_exti(void)
  *
  * \return 32 bit value from NAP's IRQ register.
  */
-u32 nap_irq_rd_blocking(void)
+static u32 nap_irq_rd_blocking(void)
 {
   u8 temp[4] = { 0, 0, 0, 0 };
 
