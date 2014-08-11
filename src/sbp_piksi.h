@@ -52,8 +52,8 @@
 
 #define MSG_M25_FLASH_WRITE_STATUS  0xF3  /**< Host   -> Piksi */
 
-#define MSG_RESET_FILTERS           0x22  /**< Piksi  -> Host  */
-#define MSG_INIT_BASE               0x23  /**< Piksi  -> Host  */
+#define MSG_RESET_FILTERS           0x22  /**< Host   -> Piksi */
+#define MSG_INIT_BASE               0x23  /**< Host   -> Piksi */
 
 #define MSG_SETTINGS                0xA0  /**< Host  <-> Piksi */
 #define MSG_SETTINGS_SAVE           0xA1  /**< Host   -> Piksi */
