@@ -118,6 +118,10 @@ void usart_rx_dma_setup(usart_rx_dma_state* s, u32 usart,
     nvicEnableVector(dma_irq_lookup[1][stream],
         CORTEX_PRIORITY_MASK(USART_DMA_ISR_PRIORITY));
 
+  /* These reads clear error flags before enabling DMA */
+  (void)USART_SR(usart);
+  (void)USART_DR(usart);
+
   /* Enable the DMA channel. */
   DMA_SCR(dma, stream) |= DMA_SxCR_EN;
 }
