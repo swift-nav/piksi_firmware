@@ -21,7 +21,7 @@
 /** \defgroup msgs Piksi Message Types
  * Swift Binary Protocol Message Types for Piksi defined messages.
  *
- * These messages are in the implimentation defined range (`0x0000-0x00FF`).
+ * These messages are in the implementation defined range (`0x0000-0x00FF`).
  * \{ */
 
 #define MSG_PRINT                   0x10  /**< Piksi  -> Host  */
@@ -52,8 +52,8 @@
 
 #define MSG_M25_FLASH_WRITE_STATUS  0xF3  /**< Host   -> Piksi */
 
-#define MSG_RESET_FILTERS           0x22  /**< Piksi  -> Host  */
-#define MSG_INIT_BASE               0x23  /**< Piksi  -> Host  */
+#define MSG_RESET_FILTERS           0x22  /**< Host   -> Piksi */
+#define MSG_INIT_BASE               0x23  /**< Host   -> Piksi */
 
 #define MSG_SETTINGS                0xA0  /**< Host  <-> Piksi */
 #define MSG_SETTINGS_SAVE           0xA1  /**< Host   -> Piksi */
