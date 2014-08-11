@@ -201,8 +201,6 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     log_obs_latency(latency_ms);
   }
 
-  static u8 obss_i = 0;
-
   /* Verify sequence integrity */
   if (count == 0) {
     prev_t = t;
@@ -223,24 +221,49 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   chMtxLock(&base_obs_lock);
 
   if (count == 0) {
-    obss_i = 0;
-    base_obss.n = obs_in_msg;
+    base_obss.n = 0; //obs_in_msg;
     base_obss.t = t;
-  } else {
-    base_obss.n += obs_in_msg;
   }
   msg_obs_content_t *obs = (msg_obs_content_t *)(msg + sizeof(msg_obs_header_t));
-  for (u8 i=0; i<obs_in_msg; i++, obss_i++) {
-    unpack_obs_content(&obs[i],
-      &base_obss.nm[obss_i].raw_pseudorange,
-      &base_obss.nm[obss_i].carrier_phase,
-      &base_obss.nm[obss_i].snr,
-      &base_obss.nm[obss_i].prn);
+  for (u8 i=0; i<obs_in_msg; i++) {
+    if (ephemeris_good(es[obs[i].prn], t)) {
+      unpack_obs_content(&obs[i],
+        &base_obss.nm[base_obss.n].raw_pseudorange,
+        &base_obss.nm[base_obss.n].carrier_phase,
+        &base_obss.nm[base_obss.n].snr,
+        &base_obss.nm[base_obss.n].prn);
+      double clock_err;
+      double clock_rate_err;
+      calc_sat_pos(&base_obss.nm[base_obss.n].sat_pos[0],
+                   &base_obss.nm[base_obss.n].sat_vel[0],
+                   &clock_err, &clock_rate_err, &es[obs[i].prn], t); //TODO get the clock stuff right.
+      base_obss.n++;
+    }
   }
 
-  /* Ensure observations sorted by PRN. */
-  qsort(base_obss.nm, base_obss.n,
-        sizeof(navigation_measurement_t), nav_meas_cmp);
+  /* If we can, and all the obs have been received, calculate the receiver position. */
+  if (count == total - 1) {
+    /* Ensure observations sorted by PRN. */
+    qsort(base_obss.nm, base_obss.n,
+          sizeof(navigation_measurement_t), nav_meas_cmp);
+
+    if (count >= 4) {
+      gnss_solution soln;
+      dops_t dops;
+      calc_PVT(count, base_obss.nm, &soln, &dops);
+      memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
+      for (u8 i=0; i < count; i++) {
+        double dx = base_obss.nm[i].sat_pos[0] - soln.pos_ecef[0];
+        double dy = base_obss.nm[i].sat_pos[1] - soln.pos_ecef[1];
+        double dz = base_obss.nm[i].sat_pos[2] - soln.pos_ecef[2];
+        base_obss.sat_dists[i] = sqrt(dx * dx + dy * dy + dz * dz);
+      }
+      base_obss.has_pos = soln.valid;
+    }
+    else {
+      base_obss.has_pos = 0;
+    }
+  }
 
   /* Unlock mutex. */
   chMtxUnlock();
@@ -393,7 +416,19 @@ static msg_t solution_thread(void *arg)
              * process a low-latency differential solution. */
 
             /* Hook in low-latency filter here. */
-            if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY) {
+            if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
+                base_obss.has_pos) {
+              //TODO  lock the ephemerides for this operation
+              sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
+              u8 num_sdiffs = make_propogated_sdiffs(base_obss.n, base_obss.nm,
+                                      n_ready_tdcp, nav_meas_tdcp,
+                                      base_obss.sat_dists, base_obss.pos_ecef,
+                                      sdiffs);
+              double prop_baseline[3];
+              //TODO get a version that knows whether the baseline is using the integer ambs
+              u8 num_sds_used;
+              dgnss_fixed_baseline2(num_sdiffs, sdiffs,
+                  position_solution.pos_ecef, &num_sds_used, prop_baseline);
               /*solution_send_baseline(t, n_sds, b, position_solution.pos_ecef);*/
             }
 
