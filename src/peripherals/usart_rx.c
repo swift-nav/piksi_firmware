@@ -206,6 +206,7 @@ u32 usart_n_read_dma(usart_rx_dma_state* s)
  * \param s The USART DMA state structure.
  * \param data Pointer to a buffer where the received data will be stored.
  * \param len The number of bytes to attempt to read.
+ * \param timeout Return with if this time passes with no reception.
  * \return The number of bytes successfully read from the DMA receive buffer.
  */
 u32 usart_read_dma_timeout(usart_rx_dma_state* s, u8 data[], u32 len, u32 timeout)
@@ -234,6 +235,13 @@ u32 usart_read_dma_timeout(usart_rx_dma_state* s, u8 data[], u32 len, u32 timeou
   return n;
 }
 
+/** Read bytes from the USART RX DMA buffer.
+ *
+ * \param s The USART DMA state structure.
+ * \param data Pointer to a buffer where the received data will be stored.
+ * \param len The number of bytes to attempt to read.
+ * \return The number of bytes successfully read from the DMA receive buffer.
+ */
 u32 usart_read_dma(usart_rx_dma_state* s, u8 data[], u32 len)
 {
   return usart_read_dma_timeout(s, data, len, 0);

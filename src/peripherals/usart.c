@@ -235,6 +235,21 @@ void usarts_disable()
   usart_disable(USART3);
 }
 
+/** Claim this USART for exclusive use by the calling module.
+ * This prevents the USART from being used by other modules, and inhibits
+ * the standard protocols.  This allows modem (or other) drivers to claim
+ * the USART and prevent SBP or other protocol driver from interfering with
+ * communications.
+ *
+ * The same module may nest claims to the port.  The port must be released
+ * as many times as it was claimed before it will be available for
+ * for another module.
+ *
+ * \see ::usart_release
+ * \param s The USART DMA state structure.
+ * \param module A pointer to identify the calling module.  This is compared
+ *               by value of the pointer.  The pointer target is unused.
+ */
 bool usart_claim(usart_dma_state* s, const void *module)
 {
   chSysLock();
@@ -252,6 +267,10 @@ bool usart_claim(usart_dma_state* s, const void *module)
   return false;
 }
 
+/** Release claimed USART.
+ * \see ::usart_claim
+ * \param s The USART DMA state structure.
+ */
 void usart_release(usart_dma_state* s)
 {
   if (s->claim_nest)

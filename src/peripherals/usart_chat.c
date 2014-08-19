@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 Swift Navigation Inc.
- * Contact: Fergus Noble <fergus@swift-nav.com>
+ * Contact: Gareth McMullin <gareth@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
