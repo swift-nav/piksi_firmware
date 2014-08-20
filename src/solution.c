@@ -279,7 +279,7 @@ void tim5_isr()
   CH_IRQ_EPILOGUE();
 }
 
-static WORKING_AREA_CCM(wa_solution_thread, 4000);
+static WORKING_AREA_CCM(wa_solution_thread, 5000);
 static msg_t solution_thread(void *arg)
 {
   (void)arg;
@@ -499,7 +499,7 @@ static bool init_done = false;
 static bool init_known_base = false;
 static bool reset_iar = false;
 
-void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
+void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
 {
   (void)n_sds; (void)sds;
 
@@ -521,7 +521,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
     if (n_sds > 4) {
       /* Initialize filters. */
       printf("Initializing DGNSS filters\n");
-      dgnss_init(n_sds, sds, position_solution.pos_ecef, dt);
+      dgnss_init(n_sds, sds, position_solution.pos_ecef);
       init_done = 1;
     }
   } else {
@@ -530,7 +530,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
       reset_iar = false;
     }
     /* Update filters. */
-    dgnss_update(n_sds, sds, position_solution.pos_ecef, dt);
+    dgnss_update(n_sds, sds, position_solution.pos_ecef);
     /* If we are in time matched mode then calculate and output the baseline
      * for this observation. */
     if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED) {
@@ -549,10 +549,6 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, double dt)
       case FILTER_FLOAT:
         dgnss_new_float_baseline(n_sds, sds,
                                  position_solution.pos_ecef, &num_used, b);
-        solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
-        break;
-      case FILTER_OLD_FLOAT:
-        dgnss_float_baseline(&num_used, b);
         solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
         break;
       }
@@ -590,7 +586,7 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
-        process_matched_obs(n_sds, &obss->t, sds, 1.0 / soln_freq);
+        process_matched_obs(n_sds, &obss->t, sds);
         chPoolFree(&obs_buff_pool, obss);
         chMtxUnlock();
         break;
@@ -685,7 +681,6 @@ void solution_setup()
 
   static const char const *dgnss_filter_enum[] = {
     "Float",
-    "Old Float",
     "Fixed",
     NULL
   };
@@ -706,12 +701,6 @@ void solution_setup()
   SETTING("float_kf", "code_var", dgnss_settings.code_var_kf, TYPE_FLOAT);
   SETTING("float_kf", "amb_init_var", dgnss_settings.amb_init_var, TYPE_FLOAT);
   SETTING("float_kf", "new_amb_var", dgnss_settings.new_int_var, TYPE_FLOAT);
-
-  SETTING("old_kf", "pos_trans_var", dgnss_settings.pos_trans_var, TYPE_FLOAT);
-  SETTING("old_kf", "vel_trans_var", dgnss_settings.vel_trans_var, TYPE_FLOAT);
-  SETTING("old_kf", "int_trans_var", dgnss_settings.int_trans_var, TYPE_FLOAT);
-  SETTING("old_kf", "pos_init_var", dgnss_settings.pos_init_var, TYPE_FLOAT);
-  SETTING("old_kf", "vel_init_var", dgnss_settings.vel_init_var, TYPE_FLOAT);
 
   SETTING("sbp", "obs_msg_max_size", msg_obs_max_size, TYPE_INT);
 
