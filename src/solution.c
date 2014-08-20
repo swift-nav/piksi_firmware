@@ -556,7 +556,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
   }
 }
 
-static WORKING_AREA_CCM(wa_time_matched_obs_thread, 10000);
+static WORKING_AREA(wa_time_matched_obs_thread, 20000);
 static msg_t time_matched_obs_thread(void *arg)
 {
   (void)arg;
