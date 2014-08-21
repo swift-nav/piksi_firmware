@@ -59,6 +59,11 @@
 #define MSG_SETTINGS_SAVE           0xA1  /**< Host   -> Piksi */
 #define MSG_SETTINGS_READ_BY_INDEX  0xA2  /**< Host   -> Piksi */
 
+#define MSG_FILEIO_READ             0xA8  /**< Host  <-> Piksi */
+#define MSG_FILEIO_READ_DIR         0xA9  /**< Host  <-> Piksi */
+#define MSG_FILEIO_REMOVE           0xAC  /**< Host   -> Piksi */
+#define MSG_FILEIO_WRITE            0xAD  /**< Host  <-> Piksi */
+
 #define MSG_SIMULATION_ENABLED      0xAA  /**< Host  <-> Piksi */
 
 #define MSG_OBS_HDR                 0x40  /**< Piksi  -> Host  */

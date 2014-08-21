@@ -226,6 +226,17 @@ class SerialLink:
     else:
       return None
 
+  def wait_message(self, msg_type, timeout=None):
+    ev = threading.Event()
+    d = {'data': None}
+    def cb(data):
+      d['data'] = data
+      ev.set()
+    self.add_callback(msg_type, cb)
+    ev.wait(timeout)
+    self.rm_callback(msg_type, cb)
+    return d['data']
+
 def default_print_callback(data):
   sys.stdout.write(data)
 
