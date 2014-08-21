@@ -25,6 +25,7 @@
 
 const char NMEA_MODULE[] = "nmea";
 
+static struct nmea_dispatcher *nmea_dispatchers_head;
 /** \addtogroup io
  * \{ */
 
@@ -56,6 +57,9 @@ void nmea_output(char *s)
   }
 
   __asm__("CPSIE i;");  /* Re-enable interrupts. */
+
+  for (struct nmea_dispatcher *d = nmea_dispatchers_head; d; d = d->next)
+    d->send(s);
 }
 
 /** Calculate the checksum of an NMEA sentence.
@@ -201,6 +205,19 @@ void nmea_gpgsv(u8 n_used, navigation_measurement_t *nav_meas,
     nmea_output(buf);
   }
 
+}
+
+/** Assemble a NMEA GPGSV message and send it out NMEA USARTs.
+ * NMEA GPGSV message contains GPS satellites in view.
+ *
+ * \param n_used   Number of satellites currently being tracked.
+ * \param nav_meas Pointer to navigation_measurement struct.
+ * \param soln     Pointer to gnss_solution struct.
+ */
+void _nmea_dispatcher_register(struct nmea_dispatcher *d)
+{
+  d->next = nmea_dispatchers_head;
+  nmea_dispatchers_head = d;
 }
 
 /** \} */
