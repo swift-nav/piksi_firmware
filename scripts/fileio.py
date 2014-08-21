@@ -20,6 +20,19 @@ class FileIO(object):
     self.link = link
 
   def read(self, filename):
+    """
+    Read the contents of a file.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the file to read.
+
+    Returns
+    -------
+    out : str
+        Contents of the file.
+    """
     chunksize = 255 - 6 - len(filename)
     buf = ''
     while True:
@@ -36,6 +49,19 @@ class FileIO(object):
         return buf
 
   def readdir(self, dirname='.'):
+    """
+    List the files in a directory.
+
+    Parameters
+    ----------
+    dirname : str (optional)
+        Name of the directory to list. Defaults to the root directory.
+
+    Returns
+    -------
+    out : [str]
+        List of file names.
+    """
     files = []
     while True:
       msg = struct.pack("<I", len(files)) + dirname + '\0'
@@ -51,9 +77,39 @@ class FileIO(object):
         return files
 
   def remove(self, filename):
+    """
+    Delete a file.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the file to delete.
+    """
     self.link.send_message(ids.FILEIO_REMOVE, filename + '\0')
 
   def write(self, filename, data, offset=0, trunc=True):
+    """
+    Write to a file.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the file to write to.
+    data : str
+        Data to write
+    offset : int (optional)
+        Offset into the file at which to start writing in bytes.
+    trunc : bool (optional)
+        Overwite the file, i.e. delete any existing file before writing. If
+        this option is not specified and the existing file is longer than the
+        current write then the contents of the file beyond the write will
+        remain. If offset is non-zero then this flag is ignored.
+
+    Returns
+    -------
+    out : str
+        Contents of the file.
+    """
     if trunc and offset == 0:
       self.remove(filename)
     chunksize = 255 - len(filename) - 5
@@ -69,7 +125,16 @@ class FileIO(object):
         raise Exception("Reply FILEIO_WRITE doesn't match request")
       offset += len(chunk)
 
-def hd(data):
+def hexdump(data):
+  """
+  Print a hex dump.
+
+  Parameters
+  ----------
+  data : indexable
+      Data to display dump of, can be anything that supports length and index
+      operations.
+  """
   ret = ''
   ofs = 0
   while data:
@@ -86,14 +151,65 @@ def hd(data):
     ret += s
   return ret
 
+def print_dir_listing(files):
+  """
+  Print a directory listing.
+
+  Parameters
+  ----------
+  files : [str]
+      List of file names in the directory.
+  """
+  for f in files:
+    print f
+
+
 if __name__ == "__main__":
-  f = FileIO(serial_link.SerialLink())
+  import argparse
+  parser = argparse.ArgumentParser(description='Swift Nav File I/O Utility.')
+  parser.add_argument('-r', '--read', nargs=1,
+                     help='read a file')
+  parser.add_argument('-l', '--list', default=None, nargs=1,
+                     help='list a directory')
+  parser.add_argument('-d', '--delete', nargs=1,
+                     help='delete a file')
+  parser.add_argument('-p', '--port',
+                     default=[serial_link.DEFAULT_PORT], nargs=1,
+                     help='specify the serial port to use.')
+  parser.add_argument("-b", "--baud",
+                     default=[serial_link.DEFAULT_BAUD], nargs=1,
+                     help="specify the baud rate to use.")
+  parser.add_argument("-v", "--verbose",
+                     help="print extra debugging information.",
+                     action="store_true")
+  parser.add_argument("-x", "--hex",
+                     help="output in hex dump format.",
+                     action="store_true")
+  parser.add_argument("-f", "--ftdi",
+                     help="use pylibftdi instead of pyserial.",
+                     action="store_true")
+  args = parser.parse_args()
+  serial_port = args.port[0]
+  baud = args.baud[0]
+  link = serial_link.SerialLink(serial_port, baud, use_ftdi=args.ftdi,
+                                print_unhandled=args.verbose)
+
+  f = FileIO(link)
+
   try:
-    if len(sys.argv) > 1:
-      data = f.read(sys.argv[1])
-      print hd(data)
+    if args.read:
+      data = f.read(args.read[0])
+      if args.hex:
+        print hexdump(data)
+      else:
+        print data
+    elif args.delete:
+      f.remove(args.delete[0])
+    elif args.list is not None:
+      print_dir_listing(f.readdir(args.list[0]))
     else:
-      print f.readdir()
+      print "No command given, listing root directory:"
+      print_dir_listing(f.readdir())
   except KeyboardInterrupt:
     pass
 

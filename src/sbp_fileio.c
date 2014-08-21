@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2012-2014 Swift Navigation Inc.
- * Contact: Fergus Noble <fergus@swift-nav.com>
+ * Copyright (C) 2014 Swift Navigation Inc.
+ * Contact: Gareth McMullin <gareth@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -22,6 +22,9 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 
+/** Setup file IO
+ * Registers relevant SBP callbacks for file IO operations.
+ */
 void sbp_fileio_setup(void)
 {
   static sbp_msg_callbacks_node_t read_node;
@@ -50,6 +53,13 @@ void sbp_fileio_setup(void)
   );
 }
 
+/** File read callback.
+ * Responds to a MSG_FILEIO_READ message.
+ *
+ * Reads a certain length (up to 255 bytes) from a given offset. Returns the
+ * data in a MSG_FILEIO_READ message where the message length field indicates
+ * how many bytes were succesfully read.
+ */
 static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id;
@@ -72,6 +82,17 @@ static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   sbp_send_msg(MSG_FILEIO_READ, len, buf);
 }
 
+/** Directory listing callback.
+ * Responds to a MSG_FILEIO_READ_DIR message.
+ *
+ * The offset parameter can be used to skip the first n elements of the file
+ * list.
+ *
+ * Returns a MSG_FILEIO_READ_DIR message containing the directory
+ * listings as a NULL delimited list. The listing is chunked over multiple SBP
+ * packets and the end of the list is identified by an entry containing just
+ * the character 0xFF.
+ */
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id;
@@ -104,6 +125,9 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   sbp_send_msg(MSG_FILEIO_READ_DIR, len, buf);
 }
 
+/* Remove file callback.
+ * Responds to a MSG_FILEIO_REMOVE message.
+ */
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id;
@@ -117,6 +141,12 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   cfs_remove((char*)msg);
 }
 
+/* Write to file callback.
+ * Responds to a MSG_FILEIO_WRITE message.
+ *
+ * Writes a certain length (up to 255 bytes) at a given offset. Returns a copy
+ * of the original MSG_FILEIO_WRITE message to check integrity of the write.
+ */
 static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id;
