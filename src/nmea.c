@@ -34,6 +34,8 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
  * \{ */
 
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
+ * The message is also sent to all dispatchers registered with
+ * ::nmea_dispatcher_register.
  * \param s The NMEA sentence to output.
  */
 void nmea_output(char *s)
@@ -207,18 +209,13 @@ void nmea_gpgsv(u8 n_used, navigation_measurement_t *nav_meas,
 
 }
 
-/** Assemble a NMEA GPGSV message and send it out NMEA USARTs.
- * NMEA GPGSV message contains GPS satellites in view.
- *
- * \param n_used   Number of satellites currently being tracked.
- * \param nav_meas Pointer to navigation_measurement struct.
- * \param soln     Pointer to gnss_solution struct.
- */
+/** \cond */
 void _nmea_dispatcher_register(struct nmea_dispatcher *d)
 {
   d->next = nmea_dispatchers_head;
   nmea_dispatchers_head = d;
 }
+/** \endcond */
 
 /** \} */
 
