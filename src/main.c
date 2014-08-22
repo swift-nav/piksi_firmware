@@ -35,6 +35,8 @@
 #include "settings.h"
 #include "sbp_fileio.h"
 
+extern void ext_setup(void);
+
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
 #endif
@@ -241,6 +243,7 @@ int main(void)
   simulator_setup();
 
   sbp_fileio_setup();
+  ext_setup();
 
   if (serial_number < 0) {
     READ_ONLY_PARAMETER("system_info", "serial_number", "(unknown)", TYPE_STRING);

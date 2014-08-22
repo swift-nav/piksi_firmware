@@ -25,6 +25,7 @@
 
 const char NMEA_MODULE[] = "nmea";
 
+static struct nmea_dispatcher *nmea_dispatchers_head;
 /** \addtogroup io
  * \{ */
 
@@ -33,6 +34,8 @@ const char NMEA_MODULE[] = "nmea";
  * \{ */
 
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
+ * The message is also sent to all dispatchers registered with
+ * ::nmea_dispatcher_register.
  * \param s The NMEA sentence to output.
  */
 void nmea_output(char *s)
@@ -56,6 +59,9 @@ void nmea_output(char *s)
   }
 
   __asm__("CPSIE i;");  /* Re-enable interrupts. */
+
+  for (struct nmea_dispatcher *d = nmea_dispatchers_head; d; d = d->next)
+    d->send(s);
 }
 
 /** Calculate the checksum of an NMEA sentence.
@@ -202,6 +208,14 @@ void nmea_gpgsv(u8 n_used, navigation_measurement_t *nav_meas,
   }
 
 }
+
+/** \cond */
+void _nmea_dispatcher_register(struct nmea_dispatcher *d)
+{
+  d->next = nmea_dispatchers_head;
+  nmea_dispatchers_head = d;
+}
+/** \endcond */
 
 /** \} */
 

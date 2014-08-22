@@ -253,6 +253,7 @@ ULIBS =
 #
 # End of user defines
 ##############################################################################
-
+.DEFAULT_GOAL = all
+include $(SWIFTNAV_ROOT)/ext/Makefile.include
 include $(SWIFTNAV_ROOT)/ChibiOS_rules.mk
 
