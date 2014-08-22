@@ -19,6 +19,16 @@
 
 #include "track.h"
 
+#define NMEA_GGA_FIX_INVALID 0
+#define NMEA_GGA_FIX_GPS     1
+#define NMEA_GGA_FIX_DGPS    2
+#define NMEA_GGA_FIX_PPS     3
+#define NMEA_GGA_FIX_RTK     4
+#define NMEA_GGA_FIX_FLOAT   5
+#define NMEA_GGA_FIX_EST     6
+#define NMEA_GGA_FIX_MANUAL  7
+#define NMEA_GGA_FIX_SIM     8
+
 void nmea_gpgga(double pos_llh[3], gps_time_t *gps_t, u8 n_used, u8 fix_type,
                 double hdop);
 void nmea_gpgsa(tracking_channel_t *chans, dops_t *dops);

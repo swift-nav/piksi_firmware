@@ -91,9 +91,11 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 }
 
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
-                        u8 n, navigation_measurement_t *nm)
+                        u8 n, navigation_measurement_t *nm,
+                        u8 fix_mode)
 {
-  nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used, 1, dops->hdop);
+  nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
+             fix_mode, dops->hdop);
 
   DO_EVERY(10,
     nmea_gpgsv(n, nm, soln);
@@ -338,7 +340,8 @@ static msg_t solution_thread(void *arg)
           /* Output solution. */
           solution_send_sbp(&position_solution, &dops);
           solution_send_nmea(&position_solution, &dops,
-                             n_ready_tdcp, nav_meas_tdcp);
+                             n_ready_tdcp, nav_meas_tdcp,
+                             NMEA_GGA_FIX_GPS);
         }
 
         /* If we have a recent set of observations from the base station, do a
@@ -464,6 +467,12 @@ static msg_t solution_thread(void *arg)
         /* Then we send fake messages. */
         solution_send_sbp(simulation_current_gnss_solution(),
                           simulation_current_dops_solution());
+        solution_send_nmea(simulation_current_gnss_solution(),
+                           simulation_current_dops_solution(),
+                           simulation_current_num_sats(),
+                           simulation_current_navigation_measurements(),
+                           NMEA_GGA_FIX_SIM);
+
       }
 
       double expected_tow = \
