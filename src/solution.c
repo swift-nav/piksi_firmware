@@ -16,6 +16,7 @@
 
 #include <libswiftnav/sbp_utils.h>
 #include <libswiftnav/pvt.h>
+#include <libswiftnav/constants.h>
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/single_diff.h>
@@ -51,6 +52,26 @@ u32 obs_output_divisor = 2;
 
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
+
+bool_t base_pos_known = false;
+double known_base_ecef[3];
+
+void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void) context; (void) len; (void) msg; (void) sender_id;
+
+  double llh_degrees[3];
+  double llh[3];
+  memcpy(llh_degrees, msg, 3*sizeof(double));
+
+  llh[0] = llh_degrees[0] * D2R;
+  llh[1] = llh_degrees[1] * D2R;
+  llh[2] = llh_degrees[2];
+
+  wgsllh2ecef(llh, known_base_ecef);
+
+  base_pos_known = true;
+}
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -726,6 +747,13 @@ void solution_setup()
 
   chThdCreateStatic(wa_time_matched_obs_thread, sizeof(wa_time_matched_obs_thread),
                     LOWPRIO, time_matched_obs_thread, NULL);
+
+  static sbp_msg_callbacks_node_t base_pos_node;
+  sbp_register_cbk(
+    MSG_BASE_POS,
+    &base_pos_callback,
+    &base_pos_node
+  );
 
   static sbp_msg_callbacks_node_t obs_old_node;
   sbp_register_cbk(
