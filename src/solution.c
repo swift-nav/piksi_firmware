@@ -23,6 +23,7 @@
 #include <libswiftnav/dgnss_management.h>
 #include <libswiftnav/ambiguity_test.h>
 #include <libswiftnav/stupid_filter.h>
+#include <libswiftnav/linear_algebra.h>
 
 #include <libopencm3/stm32/f4/timer.h>
 #include <libopencm3/stm32/f4/rcc.h>
@@ -46,6 +47,8 @@ Mailbox obs_mailbox;
 
 dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_TIME_MATCHED;
 dgnss_filter_t dgnss_filter = FILTER_FIXED;
+
+systime_t last_dgnss;
 
 double soln_freq = 10.0;
 u32 obs_output_divisor = 2;
@@ -115,8 +118,10 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm,
                         u8 fix_mode)
 {
-  nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
-             fix_mode, dops->hdop);
+  if (chTimeElapsedSince(last_dgnss) > DGNSS_TIMEOUT) {
+    nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
+               fix_mode, dops->hdop);
+  }
 
   DO_EVERY(10,
     nmea_gpgsv(n, nm, soln);
@@ -136,6 +141,17 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
   sbp_baseline_ned_t sbp_ned;
   sbp_make_baseline_ned(&sbp_ned, t, n_sats, b_ned, flags);
   sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
+
+  if (base_pos_known) {
+    last_dgnss = chTimeNow();
+    double pseudo_absolute_ecef[3];
+    double pseudo_absolute_llh[3];
+    vector_add(3, known_base_ecef, b_ecef, pseudo_absolute_ecef);
+    wgsecef2llh(pseudo_absolute_ecef, pseudo_absolute_llh);
+    u8 fix_mode = (flags & 1) ? NMEA_GGA_FIX_RTK : NMEA_GGA_FIX_FLOAT;
+    /* TODO: Don't fake DOP!! */
+    nmea_gpgga(pseudo_absolute_llh, t, n_sats, fix_mode, 1.5);
+  }
 }
 
 extern ephemeris_t es[MAX_SATS];
@@ -492,7 +508,7 @@ static msg_t solution_thread(void *arg)
                            simulation_current_dops_solution(),
                            simulation_current_num_sats(),
                            simulation_current_navigation_measurements(),
-                           NMEA_GGA_FIX_SIM);
+                           NMEA_GGA_FIX_GPS);
 
       }
 
@@ -565,23 +581,24 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
      * for this observation. */
     if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED) {
       double b[3];
-      u8 num_used;
+      u8 num_used, flags;
       switch (dgnss_filter) {
+      default:
       case FILTER_FIXED:
         /* Calculate least squares solution using ambiguities from IAR. */
         dgnss_fixed_baseline2(n_sds, sds, position_solution.pos_ecef,
                               &num_used, b);
         msg_iar_state_t iar_state = { .num_hyps = dgnss_iar_num_hyps() };
         sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
-        u8 flags = (dgnss_iar_resolved()) ? 1 : 0;
-        solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
+        flags = (dgnss_iar_resolved()) ? 1 : 0;
         break;
       case FILTER_FLOAT:
         dgnss_new_float_baseline(n_sds, sds,
                                  position_solution.pos_ecef, &num_used, b);
-        solution_send_baseline(t, num_used, b, position_solution.pos_ecef, 0);
+        flags = 0;
         break;
       }
+      solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
     }
   }
 }
@@ -694,6 +711,9 @@ void solution_setup()
   timer_set_period(TIM5, 65472000); /* 1 second. */
   timer_enable_counter(TIM5);
   timer_enable_irq(TIM5, TIM_DIER_UIE);
+
+  /* Set time of last differential solution in the past. */
+  last_dgnss = chTimeNow() - DGNSS_TIMEOUT;
 
   SETTING("solution", "soln_freq", soln_freq, TYPE_FLOAT);
   SETTING("solution", "output_every_n_obs", obs_output_divisor, TYPE_INT);
