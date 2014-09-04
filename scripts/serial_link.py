@@ -72,6 +72,7 @@ class ListenerThread (threading.Thread):
     self.link = link
     self.wants_to_stop = False
     self.print_unhandled = print_unhandled
+    self.daemon = True
 
   def stop(self):
     self.wants_to_stop = True
@@ -99,6 +100,7 @@ class ListenerThread (threading.Thread):
       except Exception, err:
         import traceback
         print traceback.format_exc()
+        return
 
 def list_ports(self=None):
   import serial.tools.list_ports
@@ -226,6 +228,17 @@ class SerialLink:
       return self.callbacks[msg_type]
     else:
       return None
+
+  def wait_message(self, msg_type, timeout=None):
+    ev = threading.Event()
+    d = {'data': None}
+    def cb(data):
+      d['data'] = data
+      ev.set()
+    self.add_callback(msg_type, cb)
+    ev.wait(timeout)
+    self.rm_callback(msg_type, cb)
+    return d['data']
 
 def default_print_callback(data):
   sys.stdout.write(data)

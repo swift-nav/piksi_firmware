@@ -26,6 +26,15 @@
 #include "simulator.h"
 #include "system_monitor.h"
 
+
+/* Time between sending system monitor and heartbeat messages in milliseconds */
+uint32_t heartbeat_period_milliseconds = 1000;
+
+/* Base station mode settings. */
+/* TODO: Relocate to a different file? */
+bool_t base_station_mode = false;
+double base_llh[3];
+
 /* Global CPU time accumulator, used to measure thread CPU usage. */
 u64 g_ctime = 0;
 
@@ -97,13 +106,17 @@ static msg_t system_monitor_thread(void *arg)
   chRegSetThreadName("system monitor");
 
   while (TRUE) {
-    chThdSleepMilliseconds(1000);
+    chThdSleepMilliseconds(heartbeat_period_milliseconds);
 
-    DO_EVERY(2,
-        u32 status_flags = 0;
-        sbp_send_msg(SBP_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
-        send_thread_states();
-    );
+    u32 status_flags = 0;
+    sbp_send_msg(SBP_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
+
+    /* If we are in base station mode then broadcast our known location. */
+    if (base_station_mode) {
+      sbp_send_msg(MSG_BASE_POS, sizeof(msg_base_pos_t), (u8 *)&base_llh);
+    }
+
+    send_thread_states();
 
     u32 err = nap_error_rd_blocking();
     if (err)
@@ -119,6 +132,13 @@ void system_monitor_setup()
   SCS_DEMCR |= 0x01000000;
   DWT_CYCCNT = 0; /* Reset the counter. */
   DWT_CTRL |= 1 ; /* Enable the counter. */
+
+  SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
+
+  SETTING("base_station_mode", "enable", base_station_mode, TYPE_BOOL);
+  SETTING("base_station_mode", "surveyed lat", base_llh[0], TYPE_FLOAT);
+  SETTING("base_station_mode", "surveyed lon", base_llh[1], TYPE_FLOAT);
+  SETTING("base_station_mode", "surveyed alt", base_llh[2], TYPE_FLOAT);
 
   chThdCreateStatic(
       wa_system_monitor_thread,

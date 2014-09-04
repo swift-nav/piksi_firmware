@@ -61,12 +61,9 @@ bool all_uarts_enabled = false;
  * Functions to setup and use STM32F4 USART peripherals with DMA.
  * \{ */
 
-usart_rx_dma_state ftdi_rx_state;
-usart_tx_dma_state ftdi_tx_state;
-usart_rx_dma_state uarta_rx_state;
-usart_tx_dma_state uarta_tx_state;
-usart_rx_dma_state uartb_rx_state;
-usart_tx_dma_state uartb_tx_state;
+usart_dma_state ftdi_state;
+usart_dma_state uarta_state;
+usart_dma_state uartb_state;
 
 /** Set up USART parameters for particular USART.
  * \param usart USART to set up parameters for.
@@ -178,9 +175,11 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
   usart_set_parameters(USART3, uartb_baud);
 
   /* FTDI (USART6) TX - DMA2, stream 6, channel 5. */
-  usart_tx_dma_setup(&ftdi_tx_state, USART6, DMA2, 6, 5);
+  usart_tx_dma_setup(&ftdi_state.tx, USART6, DMA2, 6, 5);
   /* FTDI (USART6) RX - DMA2, stream 1, channel 5. */
-  usart_rx_dma_setup(&ftdi_rx_state, USART6, DMA2, 1, 5);
+  usart_rx_dma_setup(&ftdi_state.rx, USART6, DMA2, 1, 5);
+  chBSemInit(&ftdi_state.claimed, FALSE);
+  ftdi_state.configured = true;
 
   if (do_preconfigure_hooks) {
 
@@ -197,14 +196,18 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
   }
 
   /* UARTA (USART1) TX - DMA2, stream 7, channel 4. */
-  usart_tx_dma_setup(&uarta_tx_state, USART1, DMA2, 7, 4);
+  usart_tx_dma_setup(&uarta_state.tx, USART1, DMA2, 7, 4);
   /* UARTA (USART1) RX - DMA2, stream 2, channel 4. */
-  usart_rx_dma_setup(&uarta_rx_state, USART1, DMA2, 2, 4);
+  usart_rx_dma_setup(&uarta_state.rx, USART1, DMA2, 2, 4);
+  chBSemInit(&uarta_state.claimed, FALSE);
+  uarta_state.configured = true;
 
   /* UARTB (USART3) TX - DMA1, stream 3, channel 4. */
-  usart_tx_dma_setup(&uartb_tx_state, USART3, DMA1, 3, 4);
+  usart_tx_dma_setup(&uartb_state.tx, USART3, DMA1, 3, 4);
   /* UARTB (USART3) RX - DMA1, stream 1, channel 4. */
-  usart_rx_dma_setup(&uartb_rx_state, USART3, DMA1, 1, 4);
+  usart_rx_dma_setup(&uartb_state.rx, USART3, DMA1, 1, 4);
+  chBSemInit(&uartb_state.claimed, FALSE);
+  uartb_state.configured = true;
 
   all_uarts_enabled = true;
 
@@ -219,17 +222,61 @@ void usarts_disable()
   if (!all_uarts_enabled)
     return;
 
-  usart_tx_dma_disable(&ftdi_tx_state);
-  usart_rx_dma_disable(&ftdi_rx_state);
+  usart_tx_dma_disable(&ftdi_state.tx);
+  usart_rx_dma_disable(&ftdi_state.rx);
   usart_disable(USART6);
 
-  usart_tx_dma_disable(&uarta_tx_state);
-  usart_rx_dma_disable(&uarta_rx_state);
+  usart_tx_dma_disable(&uarta_state.tx);
+  usart_rx_dma_disable(&uarta_state.rx);
   usart_disable(USART1);
 
-  usart_tx_dma_disable(&uartb_tx_state);
-  usart_rx_dma_disable(&uartb_rx_state);
+  usart_tx_dma_disable(&uartb_state.tx);
+  usart_rx_dma_disable(&uartb_state.rx);
   usart_disable(USART3);
+}
+
+/** Claim this USART for exclusive use by the calling module.
+ * This prevents the USART from being used by other modules, and inhibits
+ * the standard protocols.  This allows modem (or other) drivers to claim
+ * the USART and prevent SBP or other protocol driver from interfering with
+ * communications.
+ *
+ * The same module may nest claims to the port.  The port must be released
+ * as many times as it was claimed before it will be available for
+ * for another module.
+ *
+ * \see ::usart_release
+ * \param s The USART DMA state structure.
+ * \param module A pointer to identify the calling module.  This is compared
+ *               by value of the pointer.  The pointer target is unused.
+ */
+bool usart_claim(usart_dma_state* s, const void *module)
+{
+  chSysLock();
+  if (s->configured && (chBSemWaitTimeoutS(&s->claimed, 0) == RDY_OK)) {
+    s->claimed_by = module;
+    s->claim_nest = 0;
+    chSysUnlock();
+    return true;
+  } else if (s->claimed_by == module) {
+    s->claim_nest++;
+    chSysUnlock();
+    return true;
+  }
+  chSysUnlock();
+  return false;
+}
+
+/** Release claimed USART.
+ * \see ::usart_claim
+ * \param s The USART DMA state structure.
+ */
+void usart_release(usart_dma_state* s)
+{
+  if (s->claim_nest)
+    s->claim_nest--;
+  else
+    chBSemSignal(&s->claimed);
 }
 
 /** DMA 2 Stream 6 Interrupt Service Routine. */
@@ -237,7 +284,7 @@ void dma2_stream6_isr(void)
 {
   CH_IRQ_PROLOGUE();
   chSysLockFromIsr();
-  usart_tx_dma_isr(&ftdi_tx_state);
+  usart_tx_dma_isr(&ftdi_state.tx);
   chSysUnlockFromIsr();
   CH_IRQ_EPILOGUE();
 }
@@ -246,7 +293,7 @@ void dma2_stream1_isr(void)
 {
   CH_IRQ_PROLOGUE();
   chSysLockFromIsr();
-  usart_rx_dma_isr(&ftdi_rx_state);
+  usart_rx_dma_isr(&ftdi_state.rx);
   chSysUnlockFromIsr();
   CH_IRQ_EPILOGUE();
 }
@@ -255,7 +302,7 @@ void dma2_stream7_isr(void)
 {
   CH_IRQ_PROLOGUE();
   chSysLockFromIsr();
-  usart_tx_dma_isr(&uarta_tx_state);
+  usart_tx_dma_isr(&uarta_state.tx);
   chSysUnlockFromIsr();
   CH_IRQ_EPILOGUE();
 }
@@ -264,7 +311,7 @@ void dma2_stream2_isr(void)
 {
   CH_IRQ_PROLOGUE();
   chSysLockFromIsr();
-  usart_rx_dma_isr(&uarta_rx_state);
+  usart_rx_dma_isr(&uarta_state.rx);
   chSysUnlockFromIsr();
   CH_IRQ_EPILOGUE();
 }
@@ -273,7 +320,7 @@ void dma1_stream3_isr(void)
 {
   CH_IRQ_PROLOGUE();
   chSysLockFromIsr();
-  usart_tx_dma_isr(&uartb_tx_state);
+  usart_tx_dma_isr(&uartb_state.tx);
   chSysUnlockFromIsr();
   CH_IRQ_EPILOGUE();
 }
@@ -282,7 +329,7 @@ void dma1_stream1_isr(void)
 {
   CH_IRQ_PROLOGUE();
   chSysLockFromIsr();
-  usart_rx_dma_isr(&uartb_rx_state);
+  usart_rx_dma_isr(&uartb_state.rx);
   chSysUnlockFromIsr();
   CH_IRQ_EPILOGUE();
 }

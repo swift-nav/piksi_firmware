@@ -24,6 +24,10 @@
 #include "nap_common.h"
 #include "nap_exti.h"
 
+#include <ch.h>
+
+BinarySemaphore timing_strobe_sem;
+
 /** \addtogroup board
  * \{ */
 
@@ -88,6 +92,8 @@ void nap_setup()
    * channels, etc) from configuration flash.
    */
   nap_conf_rd_parameters();
+
+  chBSemInit(&timing_strobe_sem, TRUE);
 }
 
 /** Check if NAP configuration is finished.
@@ -277,13 +283,17 @@ void nap_timing_strobe(u32 falling_edge_count)
 
   /* TODO: need to wait until the timing strobe has finished but also don't
    * want to spin in a busy loop. */
-  while ((u32)nap_timing_count() < falling_edge_count) ;
 
   /* Add a little bit of delay before the next
    * timing strobe.
    */
   for (u32 i = 0; i < 50; i++)
     __asm__("nop");
+}
+
+bool nap_timing_strobe_wait(u32 timeout)
+{
+  return chBSemWaitTimeout(&timing_strobe_sem, timeout) == RDY_RESET;
 }
 
 /** Read NAP's error register.

@@ -40,8 +40,9 @@ void nap_conf_rd_parameters(void)
   /* Define parameters that need to be read from FPGA configuration flash.
    * Pointers in the array should be in the same order they're stored in the
    * configuration flash. */
-  u8 * nap_parameters[2] = {
-    &nap_acq_n_taps,
+  u8 * nap_parameters[] = {
+    &nap_acq_fft_index_bits,
+    &nap_acq_downsample_stages,
     &nap_track_n_channels
   };
 

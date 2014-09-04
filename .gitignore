@@ -12,6 +12,7 @@ docs/html
 *.map
 *.pyc
 *.csv
+*.obs
 scripts/pyinstaller/build
 scripts/pyinstaller/dist
 build/

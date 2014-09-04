@@ -52,12 +52,17 @@
 
 #define MSG_M25_FLASH_WRITE_STATUS  0xF3  /**< Host   -> Piksi */
 
-#define MSG_RESET_FILTERS           0x22  /**< Piksi  -> Host  */
-#define MSG_INIT_BASE               0x23  /**< Piksi  -> Host  */
+#define MSG_RESET_FILTERS           0x22  /**< Host   -> Piksi */
+#define MSG_INIT_BASE               0x23  /**< Host   -> Piksi */
 
 #define MSG_SETTINGS                0xA0  /**< Host  <-> Piksi */
 #define MSG_SETTINGS_SAVE           0xA1  /**< Host   -> Piksi */
 #define MSG_SETTINGS_READ_BY_INDEX  0xA2  /**< Host   -> Piksi */
+
+#define MSG_FILEIO_READ             0xA8  /**< Host  <-> Piksi */
+#define MSG_FILEIO_READ_DIR         0xA9  /**< Host  <-> Piksi */
+#define MSG_FILEIO_REMOVE           0xAC  /**< Host   -> Piksi */
+#define MSG_FILEIO_WRITE            0xAD  /**< Host  <-> Piksi */
 
 #define MSG_SIMULATION_ENABLED      0xAA  /**< Host  <-> Piksi */
 
@@ -69,13 +74,32 @@ typedef struct __attribute__((packed)) {
 } msg_obs_hdr_t;
 
 #define MSG_OBS                     0x41  /**< Piksi  -> Host  */
-#define MSG_NEW_OBS                 0x42  /**< Piksi  -> Host  */
+#define MSG_OLD_OBS                 0x42  /**< Piksi  -> Host  */
+#define MSG_PACKED_OBS              0x43  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
-  double P;      /**< Pseudorange (m) */
-  double L;      /**< Carrier-phase (cycles) */
-  float snr;     /**< Signal-to-Noise ratio */
-  u8 prn;        /**< Satellite number. */
-} msg_obs_t;
+  struct __attribute__((packed)) {
+    u32 tow;  /**< milliseconds since start of week. */
+    u16 wn;   /**< GPS Week Numer. */
+  } t;        /**< Compcated millisecond-accurate GPS time. */
+  u8 seq;     /**< First nibble is the size of the sequence (n), second
+                   nibble is the zero-indexed counter (ith packet of n) */
+} msg_obs_header_t;
+
+#define MSG_BASE_POS                0x44
+typedef struct __attribute__((packed)) {
+  double pos_llh[3];
+} msg_base_pos_t;
+
+typedef struct __attribute__((packed)) {
+  u32 P;     /**< Pseudorange (cm) */
+  struct __attribute__((packed)) carrier {
+    s32 Li;  /**< Carrier phase (integer seconds) */
+    u8 Lf;   /**< Carrier phase (scaled fractional seconds) */
+  } L;       /**< Fixed point carrier phase (seconds) */
+  u8 snr;    /**< Signal-to-Noise ratio (cn0 * 4 for 0.25 precision and
+                  0-64 range) */
+  u8 prn;    /**< Satellite number. */
+} msg_obs_content_t;
 
 #define MSG_TRACKING_STATE        0x16  /**< Piksi  -> Host  */
 #define MSG_IAR_STATE             0x19  /**< Piksi  -> Host  */
@@ -92,11 +116,21 @@ typedef struct __attribute__((packed)) {
 
 #define MSG_UART_STATE            0x18  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
+  s32 avg;
+  s32 min;
+  s32 max;
+  s32 current;
+} latency_t;
+
+typedef struct __attribute__((packed)) {
   struct __attribute__((packed)) {
+    float tx_throughput;
+    float rx_throughput;
     u16 crc_error_count;
     u8 tx_buffer_level;
     u8 rx_buffer_level;
   } uarts[3];
+  latency_t obs_latency;
 } msg_uart_state_t;
 
 #define MSG_ACQ_RESULT            0x15  /**< Piksi  -> Host  */
@@ -106,6 +140,32 @@ typedef struct __attribute__((packed)) {
   float cf;  /* Carr freq of best point. */
   u8 prn;    /* PRN searched for. */
 } acq_result_msg_t;
+
+#define MSG_OBS_HEADER_SEQ_SHIFT 4u
+#define MSG_OBS_HEADER_SEQ_MASK ((1 << 4u) - 1)
+#define MSG_OBS_HEADER_MAX_SIZE MSG_OBS_HEADER_SEQ_MASK
+#define MSG_OBS_TOW_MULTIPLIER ((double)1000.0)
+
+#define MSG_OBS_P_MULTIPLIER ((double)1e2)
+#define MSG_OBS_SNR_MULTIPLIER ((float)4)
+#define MSG_OSB_LF_MULTIPLIER ((double)(1<<8))
+
+void unpack_obs_header(msg_obs_header_t *msg,
+  gps_time_t* t, u8* total, u8* count);
+
+void pack_obs_header(gps_time_t *t, u8 total, u8 count,
+  msg_obs_header_t *msg);
+
+void unpack_obs_content(msg_obs_content_t *msg,
+  double *P, double *L, double *snr, u8 *prn);
+
+void pack_obs_content(double P, double L, double snr, u8 prn,
+  msg_obs_content_t *msg);
+
+/** Value specifying the size of the SBP framing */
+#define SBP_FRAMING_SIZE_BYTES 8
+/** Value defining maximum SBP packet size */
+#define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
 
 /** \} */
 
