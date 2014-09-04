@@ -20,7 +20,7 @@ extern const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3;
 extern const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3;
 extern const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3;
 
-void init(u8 check_fpga_auth);
+void init(void);
 
 #endif
 

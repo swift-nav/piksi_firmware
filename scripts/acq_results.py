@@ -25,8 +25,7 @@ class AcqResults():
   def __init__(self, link):
     self.acqs = []
     self.link = link
-    # Not an official msg type
-    self.link.add_callback(0xA0, self._receive_acq_result)
+    self.link.add_callback(ids.ACQ_RESULT, self._receive_acq_result)
     self.max_corr = 0
 
   def __str__(self):
@@ -34,9 +33,9 @@ class AcqResults():
     tmp += "Last %d acquisitions:\n" % len(self.acqs[-N_PRINT:])
     for a in self.acqs[-N_PRINT:]:
       tmp += "SV %2d, SNR: %3.2f\n" % (a['SV'], a['SNR'])
-    tmp += "Max Correlation :  %d\n" % self.max_corr
-    tmp += "Mean Correlation : %d\n" % self.mean_corr()
-    tmp += "Acq's Received :   %d\n" % len(self.acqs)
+#    tmp += "Max Correlation :  %d\n" % self.max_corr
+#    tmp += "Mean Correlation : %d\n" % self.mean_corr()
+#    tmp += "Acq's Received :   %d\n" % len(self.acqs)
     return tmp
 
   def mean_corr(self):
@@ -46,7 +45,10 @@ class AcqResults():
       return float(sum([a['MC'] for a in self.acqs]))/len(self.acqs)
 
   def max_snr(self):
-    return max([a['SNR'] for a in self.acqs] + [0]) # + [0] otherwise error
+    try:
+      return max([a['SNR'] for a in self.acqs])
+    except ValueError:
+      return 0
 
   def _receive_acq_result(self, data):
     while N_RECORD > 0 and len(self.acqs) >= N_RECORD:
@@ -55,18 +57,15 @@ class AcqResults():
     self.acqs.append({})
     a = self.acqs[-1]
 
-    a['SV'] = struct.unpack('B', data[0])[0]        # SV of acq
-    a['SNR'] = struct.unpack('f', data[1:5])[0]     # SNR of best point
-    a['CP'] = struct.unpack('f', data[5:9])[0]      # Code phase of best point
-    a['CF'] = struct.unpack('f', data[9:13])[0]     # Carr freq of best point
-    a['BC_I'] = struct.unpack('<i', data[13:17])[0] # Best point I correlation
-    a['BC_Q'] = struct.unpack('<i', data[17:21])[0] # Best point Q correlation
-    a['MC'] = struct.unpack('<I', data[21:25])[0]   # Mean correlation of acq
+    a['SNR'] = struct.unpack('f', data[0:4])[0]     # SNR of best point
+    a['CP'] = struct.unpack('f', data[4:8])[0]      # Code phase of best point
+    a['CF'] = struct.unpack('f', data[8:12])[0]     # Carr freq of best point
+    a['SV'] = struct.unpack('B', data[12])[0]        # SV of acq
 
-    if abs(a['BC_I']) > self.max_corr:
-      self.max_corr = abs(a['BC_I'])
-    if abs(a['BC_Q']) > self.max_corr:
-      self.max_corr = abs(a['BC_Q'])
+#    if abs(a['BC_I']) > self.max_corr:
+#      self.max_corr = abs(a['BC_I'])
+#    if abs(a['BC_Q']) > self.max_corr:
+#      self.max_corr = abs(a['BC_Q'])
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Acquisition Monitor')
@@ -102,9 +101,9 @@ if __name__ == "__main__":
 
   # Wait for ctrl+C before exiting
   try:
-    while(1):
+    while True:
       print acq_results
-      time.sleep(1)
+      time.sleep(0.1)
   except KeyboardInterrupt:
     pass
 
