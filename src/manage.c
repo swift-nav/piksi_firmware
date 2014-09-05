@@ -224,6 +224,8 @@ void manage_acq()
    * different PRN.
    */
   acq_get_results(&cp, &cf, &snr);
+  /* Send result of an acquisition to the host. */
+  acq_send_result(prn, snr, cp, cf);
   if (snr < ACQ_THRESHOLD) {
     /* Didn't find the satellite :( */
     acq_prn_param[prn].state = ACQ_PRN_TRIED;

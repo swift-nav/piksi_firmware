@@ -19,6 +19,7 @@
 #include "board/nap/acq_channel.h"
 #include "acq.h"
 #include "sbp_piksi.h"
+#include "sbp.h"
 
 /** \defgroup acq Acquisition
  * Do acquisition searches via interrupt driven scheduling of SwiftNAP
