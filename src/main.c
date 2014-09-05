@@ -212,7 +212,10 @@ int main(void)
   settings_setup();
   usarts_setup();
 
-  /* Check NAP authentication status. */
+  /* Check NAP authentication status. This must be done after the NAP,
+   * USARTs, and SBP subsystems are set up, so that SBP messages and
+   * be sent and received (it can't go in init() or nap_setup()).
+   */
   u8 nhs = nap_hash_status();
   if (nhs != NAP_HASH_MATCH) {
     led_on(LED_GREEN);
