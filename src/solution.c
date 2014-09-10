@@ -544,9 +544,10 @@ static msg_t solution_thread(void *arg)
               double prop_baseline[3];
               //TODO get a version that knows whether the baseline is using the integer ambs
               u8 num_sds_used;
-              dgnss_fixed_baseline2(num_sdiffs, sdiffs,
-                  position_solution.pos_ecef, &num_sds_used, prop_baseline);
-              /*solution_send_baseline(t, n_sds, b, position_solution.pos_ecef);*/
+              dgnss_low_latency_baseline(num_sdiffs, sdiffs,
+                      position_solution.pos_ecef, &num_sds_used, prop_baseline);
+              // solution_send_baseline(t, num_sds_used, prop_baseline,
+              //                        position_solution.pos_ecef);
             }
 
           }
