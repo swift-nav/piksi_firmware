@@ -544,10 +544,17 @@ static msg_t solution_thread(void *arg)
               double prop_baseline[3];
               //TODO get a version that knows whether the baseline is using the integer ambs
               u8 num_sds_used;
-              dgnss_low_latency_baseline(num_sdiffs, sdiffs,
+              printf("starting low-latency solution\n");
+              s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
                       position_solution.pos_ecef, &num_sds_used, prop_baseline);
-              // solution_send_baseline(t, num_sds_used, prop_baseline,
-              //                        position_solution.pos_ecef);
+              printf("finished low-latency solution\nstarting sending low-latency solution\n");
+              if (ll_err_code != -1) {
+                solution_send_baseline(&position_solution.time,
+                                       num_sds_used, prop_baseline,
+                                       position_solution.pos_ecef,
+                                       (ll_err_code == 1) ? 1 : 0);
+              }
+              printf("finished sending low-latency solution\n");
             }
 
           }
