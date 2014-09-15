@@ -174,7 +174,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   static s16 prev_count = 0;
   static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
   static u16 old_num_base_obss = 0;
-  /* Using two extras so we don't need to overwrite the old set 
+  /* Using two extras so we don't need to overwrite the old set
    *  when we end up with a bad set. */
   static obss_t base_obss_raw = {.has_pos = 0};
 
@@ -282,23 +282,24 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         // printf("\tSOLUTION VALID (ret_code = %d)\n", ret_code);
         if (base_obss.has_pos) {
           // printf("\t\tHAS OLD POS\n");
+          //TODO replace this lame "filter" with a real KF on the observations.
           // double dx = soln.pos_ecef[0] - base_obss.pos_ecef[0];
           // double dy = soln.pos_ecef[1] - base_obss.pos_ecef[1];
           // double dz = soln.pos_ecef[2] - base_obss.pos_ecef[2];
           // double rec_delta = sqrt(dx * dx + dy * dy + dz * dz);
-          // printf("\t\t\trec_pos_err = %f\n", rec_delta);
+          // printf("\t\t\trec pos err  = %f\n", rec_delta);
 
-          base_obss_raw.pos_ecef[0] = 0.99 * base_obss.pos_ecef[0] 
-                                    + 0.01 * soln.pos_ecef[0];
-          base_obss_raw.pos_ecef[1] = 0.99 * base_obss.pos_ecef[1]
-                                    + 0.01 * soln.pos_ecef[1];
-          base_obss_raw.pos_ecef[2] = 0.99 * base_obss.pos_ecef[2]
-                                    + 0.01 * soln.pos_ecef[2];
+          base_obss_raw.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
+                                    + 0.00005 * soln.pos_ecef[0];
+          base_obss_raw.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
+                                    + 0.00005 * soln.pos_ecef[1];
+          base_obss_raw.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
+                                    + 0.00005 * soln.pos_ecef[2];
           // dx = base_obss_raw.pos_ecef[0] - base_obss.pos_ecef[0];
           // dy = base_obss_raw.pos_ecef[1] - base_obss.pos_ecef[1];
           // dz = base_obss_raw.pos_ecef[2] - base_obss.pos_ecef[2];
           // rec_delta = sqrt(dx * dx + dy * dy + dz * dz);
-          // printf("\t\t\trec_moved   = %f\n", rec_delta);
+          // printf("\t\t\trec est moved = %f\n\n", rec_delta);
         }
         else {
           // printf("\t\tDOESN'T HAVE OLD POS\n");
@@ -327,9 +328,9 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
           base_obss_raw.sat_dists[i] = sqrt(dx * dx + dy * dy + dz * dz);
         }
 
-        // u8 i, j, n = 0;
         (void) old_num_base_obss; //potentially used here for online corrections
         /* Loop over base_obss_raw.nm and base_obss.nm and check if a PRN is present in both. */
+        // u8 i, j, n = 0;
         // double first_pseudorange_err;
         // double first_carr_phase_err;
         // // printf("\t\tcomparing %u old to %u new\n", old_num_base_obss, base_obss_raw.n);
@@ -352,10 +353,10 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         //       first_carr_phase_err = carrier_phase_err;
         //     }
 
-        //     printf("\t\t\t(prn %u) psuedorange_err      = %f\n", base_obss_raw.nm[i].prn,
-        //                     pseudorange_err);
-        //     printf("\t\t\t(prn %u) carrier_phase_err    = %f\n", base_obss_raw.nm[i].prn,
-        //                     carrier_phase_err);
+        //     // printf("\t\t\t(prn %u) psuedorange_err      = %f\n", base_obss_raw.nm[i].prn,
+        //     //                 pseudorange_err);
+        //     // printf("\t\t\t(prn %u) carrier_phase_err    = %f\n", base_obss_raw.nm[i].prn,
+        //     //                 carrier_phase_err);
         //     printf("\t\t\t(prn %u) sd_psuedorange_err   = %f\n", base_obss_raw.nm[i].prn,
         //                     pseudorange_err - first_pseudorange_err);
         //     printf("\t\t\t(prn %u) sd_carrier_phase_err = %f\n", base_obss_raw.nm[i].prn,
@@ -376,12 +377,12 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       // else {
       //   printf("HAS NO RECEIVER POS\n");
       // }
-      
+
 
       /* Unlock mutex. */
       chMtxUnlock();
     }
-    
+
   }
 
 
@@ -485,6 +486,7 @@ static msg_t solution_thread(void *arg)
     }
 
     if (n_ready >= 4) {
+      printf("\n\t\tI AM RUNNING0.1\n");
       /* Got enough sats/ephemerides, do a solution. */
       /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
        * more intelligent with the solution time.
@@ -506,10 +508,12 @@ static msg_t solution_thread(void *arg)
 
       dops_t dops;
       s8 ret;
+      printf("\n\t\tI AM RUNNING1\n");
       if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp,
                           &position_solution, &dops)) == 0) {
 
         /* Update global position solution state. */
+        printf("\n\t\tI AM RUNNING2\n");
         position_updated();
         set_time_fine(nav_tc, position_solution.time);
 
@@ -521,45 +525,6 @@ static msg_t solution_thread(void *arg)
                              NMEA_GGA_FIX_GPS);
         }
 
-        /* If we have a recent set of observations from the base station, do a
-         * differential solution. */
-        double pdt;
-        chMtxLock(&base_obs_lock);
-        if (base_obss.n > 0) {
-          if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
-                < MAX_AGE_OF_DIFFERENTIAL) {
-
-            /* Propagate base station observations to the current time and
-             * process a low-latency differential solution. */
-
-            /* Hook in low-latency filter here. */
-            if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
-                base_obss.has_pos) {
-              //TODO  lock the ephemerides for this operation
-              sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
-              u8 num_sdiffs = make_propogated_sdiffs(base_obss.n, base_obss.nm,
-                                      n_ready_tdcp, nav_meas_tdcp,
-                                      base_obss.sat_dists, base_obss.pos_ecef,
-                                      sdiffs);
-              double prop_baseline[3];
-              //TODO get a version that knows whether the baseline is using the integer ambs
-              u8 num_sds_used;
-              printf("starting low-latency solution\n");
-              s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
-                      position_solution.pos_ecef, &num_sds_used, prop_baseline);
-              printf("finished low-latency solution\nstarting sending low-latency solution\n");
-              if (ll_err_code != -1) {
-                solution_send_baseline(&position_solution.time,
-                                       num_sds_used, prop_baseline,
-                                       position_solution.pos_ecef,
-                                       (ll_err_code == 1) ? 1 : 0);
-              }
-              printf("finished sending low-latency solution\n");
-            }
-
-          }
-        }
-        chMtxUnlock();
 
         /* Calculate the time of the nearest solution epoch, were we expected
          * to be and calculate how far we were away from it. */
@@ -574,6 +539,7 @@ static msg_t solution_thread(void *arg)
         double t_check = expected_tow * (soln_freq / obs_output_divisor);
         if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
             fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+          printf("\n\t\tI AM RUNNING3\n");
           /* Propagate observation to desired time. */
           for (u8 i=0; i<n_ready_tdcp; i++) {
             nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
@@ -585,6 +551,51 @@ static msg_t solution_thread(void *arg)
           gps_time_t new_obs_time;
           new_obs_time.wn = position_solution.time.wn;
           new_obs_time.tow = expected_tow;
+
+
+          /* If we have a recent set of observations from the base station, do a
+           * differential solution. */
+          double pdt;
+          chMtxLock(&base_obs_lock);
+          static u32 low_lat_counter = 0;
+          if (base_obss.n > 0) {
+            printf("\n\t\tI AM RUNNING4\n");
+            if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
+                  < MAX_AGE_OF_DIFFERENTIAL) {
+              printf("\n\t\tI AM RUNNING5\n");
+
+              /* Propagate base station observations to the current time and
+               * process a low-latency differential solution. */
+
+              /* Hook in low-latency filter here. */
+              low_lat_counter++;
+              if ((low_lat_counter > 100 || dgnss_soln_mode == SOLN_MODE_LOW_LATENCY) &&
+                  base_obss.has_pos) {
+                //TODO  lock the ephemerides for this operation
+                sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
+                u8 num_sdiffs = make_propogated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
+                                        base_obss.n, base_obss.nm,
+                                        base_obss.sat_dists, base_obss.pos_ecef,
+                                        sdiffs);
+                double prop_baseline[3];
+                //TODO get a version that knows whether the baseline is using the integer ambs
+                u8 num_sds_used;
+                printf("starting low-latency solution\n");
+                s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
+                        position_solution.pos_ecef, &num_sds_used, prop_baseline);
+                printf("finished low-latency solution\nstarting sending low-latency solution\n");
+                if (ll_err_code != -1) {
+                  solution_send_baseline(&position_solution.time,
+                                         num_sds_used, prop_baseline,
+                                         position_solution.pos_ecef,
+                                         (ll_err_code == 1) ? 1 : 0);
+                }
+                printf("finished sending low-latency solution\n");
+              }
+
+            }
+          }
+          chMtxUnlock();
 
           if (!simulation_enabled()) {
             send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
