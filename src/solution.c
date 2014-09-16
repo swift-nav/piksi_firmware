@@ -486,7 +486,6 @@ static msg_t solution_thread(void *arg)
     }
 
     if (n_ready >= 4) {
-      printf("\n\t\tI AM RUNNING0.1\n");
       /* Got enough sats/ephemerides, do a solution. */
       /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
        * more intelligent with the solution time.
@@ -508,12 +507,10 @@ static msg_t solution_thread(void *arg)
 
       dops_t dops;
       s8 ret;
-      printf("\n\t\tI AM RUNNING1\n");
       if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp,
                           &position_solution, &dops)) == 0) {
 
         /* Update global position solution state. */
-        printf("\n\t\tI AM RUNNING2\n");
         position_updated();
         set_time_fine(nav_tc, position_solution.time);
 
@@ -539,7 +536,6 @@ static msg_t solution_thread(void *arg)
         double t_check = expected_tow * (soln_freq / obs_output_divisor);
         if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
             fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
-          printf("\n\t\tI AM RUNNING3\n");
           /* Propagate observation to desired time. */
           for (u8 i=0; i<n_ready_tdcp; i++) {
             nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
@@ -559,10 +555,8 @@ static msg_t solution_thread(void *arg)
           chMtxLock(&base_obs_lock);
           static u32 low_lat_counter = 0;
           if (base_obss.n > 0) {
-            printf("\n\t\tI AM RUNNING4\n");
             if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
                   < MAX_AGE_OF_DIFFERENTIAL) {
-              printf("\n\t\tI AM RUNNING5\n");
 
               /* Propagate base station observations to the current time and
                * process a low-latency differential solution. */
