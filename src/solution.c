@@ -522,6 +522,47 @@ static msg_t solution_thread(void *arg)
                              NMEA_GGA_FIX_GPS);
         }
 
+        /* If we have a recent set of observations from the base station, do a
+         * differential solution. */
+        double pdt;
+        chMtxLock(&base_obs_lock);
+        static u32 low_lat_counter = 0;
+        if (base_obss.n > 0) {
+          if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
+                < MAX_AGE_OF_DIFFERENTIAL) {
+
+            /* Propagate base station observations to the current time and
+             * process a low-latency differential solution. */
+
+            /* Hook in low-latency filter here. */
+            low_lat_counter++;
+            if ((low_lat_counter > 100 || dgnss_soln_mode == SOLN_MODE_LOW_LATENCY) &&
+                base_obss.has_pos) {
+              //TODO  lock the ephemerides for this operation
+              sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
+              u8 num_sdiffs = make_propogated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
+                                      base_obss.n, base_obss.nm,
+                                      base_obss.sat_dists, base_obss.pos_ecef,
+                                      sdiffs);
+              double prop_baseline[3];
+              //TODO get a version that knows whether the baseline is using the integer ambs
+              u8 num_sds_used;
+              printf("starting low-latency solution\n");
+              s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
+                      position_solution.pos_ecef, &num_sds_used, prop_baseline);
+              printf("finished low-latency solution\nstarting sending low-latency solution\n");
+              if (ll_err_code != -1) {
+                solution_send_baseline(&position_solution.time,
+                                       num_sds_used, prop_baseline,
+                                       position_solution.pos_ecef,
+                                       (ll_err_code == 1) ? 1 : 0);
+              }
+              printf("finished sending low-latency solution\n");
+            }
+
+          }
+        }
+        chMtxUnlock();
 
         /* Calculate the time of the nearest solution epoch, were we expected
          * to be and calculate how far we were away from it. */
@@ -547,49 +588,6 @@ static msg_t solution_thread(void *arg)
           gps_time_t new_obs_time;
           new_obs_time.wn = position_solution.time.wn;
           new_obs_time.tow = expected_tow;
-
-
-          /* If we have a recent set of observations from the base station, do a
-           * differential solution. */
-          double pdt;
-          chMtxLock(&base_obs_lock);
-          static u32 low_lat_counter = 0;
-          if (base_obss.n > 0) {
-            if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
-                  < MAX_AGE_OF_DIFFERENTIAL) {
-
-              /* Propagate base station observations to the current time and
-               * process a low-latency differential solution. */
-
-              /* Hook in low-latency filter here. */
-              low_lat_counter++;
-              if ((low_lat_counter > 100 || dgnss_soln_mode == SOLN_MODE_LOW_LATENCY) &&
-                  base_obss.has_pos) {
-                //TODO  lock the ephemerides for this operation
-                sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
-                u8 num_sdiffs = make_propogated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
-                                        base_obss.n, base_obss.nm,
-                                        base_obss.sat_dists, base_obss.pos_ecef,
-                                        sdiffs);
-                double prop_baseline[3];
-                //TODO get a version that knows whether the baseline is using the integer ambs
-                u8 num_sds_used;
-                printf("starting low-latency solution\n");
-                s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
-                        position_solution.pos_ecef, &num_sds_used, prop_baseline);
-                printf("finished low-latency solution\nstarting sending low-latency solution\n");
-                if (ll_err_code != -1) {
-                  solution_send_baseline(&position_solution.time,
-                                         num_sds_used, prop_baseline,
-                                         position_solution.pos_ecef,
-                                         (ll_err_code == 1) ? 1 : 0);
-                }
-                printf("finished sending low-latency solution\n");
-              }
-
-            }
-          }
-          chMtxUnlock();
 
           if (!simulation_enabled()) {
             send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
