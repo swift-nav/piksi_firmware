@@ -102,7 +102,10 @@ class ListenerThread (threading.Thread):
 
 def list_ports(self=None):
   import serial.tools.list_ports
-  return serial.tools.list_ports.comports()
+  ports = serial.tools.list_ports.comports()
+  # Remove ports matching "ttyS*" (non-virtual serial ports on Linux).
+  ports = filter(lambda x: x[1][0:4] != "ttyS", ports)
+  return ports
 
 class SerialLink:
 
