@@ -17,7 +17,6 @@ import sys
 
 import sbp_piksi as ids
 
-
 DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 1000000
 
@@ -81,7 +80,8 @@ class ListenerThread (threading.Thread):
     while not self.wants_to_stop:
       try:
         mt, ms, md = self.link.get_message()
-        if self.wants_to_stop: #will throw away last message here even if it is valid
+        if self.wants_to_stop:
+          # Will throw away last message even if it is valid.
           if self.link.ser:
             self.link.ser.close()
           break
@@ -99,7 +99,6 @@ class ListenerThread (threading.Thread):
       except Exception, err:
         import traceback
         print traceback.format_exc()
-        return
 
 def list_ports(self=None):
   import serial.tools.list_ports
