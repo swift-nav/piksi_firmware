@@ -105,7 +105,10 @@ def list_ports(self=None):
   ports = serial.tools.list_ports.comports()
   # Remove ports matching "ttyS*" (non-virtual serial ports on Linux).
   ports = filter(lambda x: x[1][0:4] != "ttyS", ports)
-  return ports
+  if not any(ports):
+    return None
+  else:
+    return ports
 
 class SerialLink:
 
