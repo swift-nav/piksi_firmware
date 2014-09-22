@@ -144,13 +144,6 @@ if __name__ == "__main__":
   piksi_flash.stop()
   piksi_bootloader.stop()
 
-  # Wait for ctrl+C until we exit
-  try:
-    while(1):
-      time.sleep(0.5)
-  except KeyboardInterrupt:
-    pass
-
   # Clean up and exit
   link.close()
   sys.exit()
