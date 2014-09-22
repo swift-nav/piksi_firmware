@@ -88,7 +88,7 @@ from observation_view import ObservationView
 from system_monitor_view import SystemMonitorView
 from simulator_view import SimulatorView
 from settings_view import SettingsView
-from one_click_update import OneClickUpdate
+from firmware_update_view import FirmwareUpdateView
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -105,6 +105,7 @@ class SwiftConsole(HasTraits):
   system_monitor_view = Instance(SystemMonitorView)
   simulator_view = Instance(SimulatorView)
   settings_view = Instance(SettingsView)
+  firmware_update_view = Instance(FirmwareUpdateView)
 
   view = View(
     VSplit(
@@ -120,6 +121,7 @@ class SwiftConsole(HasTraits):
         ),
         Item('simulator_view', style='custom', label='Simulator'),
         Item('settings_view', style='custom', label='Settings'),
+        Item('firmware_update_view', style='custom', label='Firmware Update'),
         Item('system_monitor_view', style='custom', label='System Monitor'),
         Item(
           'python_console_env', style='custom',
@@ -137,7 +139,7 @@ class SwiftConsole(HasTraits):
     ),
     icon = icon,
     resizable = True,
-    width = 900,
+    width = 950,
     height = 600,
     title = 'Piksi Console, Version: ' + CONSOLE_VERSION
   )
@@ -178,20 +180,18 @@ class SwiftConsole(HasTraits):
       self.observation_view = ObservationView(self.link,
                                               name='Rover', relay=False)
       self.observation_view_base = ObservationView(self.link,
-                                                   name='Base', relay=True)
+                                              name='Base', relay=True)
       self.system_monitor_view = SystemMonitorView(self.link)
       self.simulator_view = SimulatorView(self.link)
       self.settings_view = SettingsView(self.link)
 
-      if update:
-        self.ocu = OneClickUpdate(self.link, self.console_output)
-        settings_read_finished_functions.append(self.ocu.start)
+      self.firmware_update_view = \
+        FirmwareUpdateView(self.link, self.console_output, prompt=update)
+      settings_read_finished_functions.append(self.firmware_update_view.start)
 
       self.settings_view = \
           SettingsView(self.link, settings_read_finished_functions)
-
-      if update:
-        self.ocu.point_to_settings(self.settings_view.settings)
+      self.firmware_update_view.point_to_settings(self.settings_view.settings)
 
       self.python_console_env = {
           'send_message': self.link.send_message,

@@ -9,6 +9,12 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
+# TODO: have update button blank out and not be clickable if firmware files
+#       haven't been downloaded yet
+# TODO: have Firmware Update tab blink if new firmware is available
+# TODO: add self.python_console_cmds and update python console with them
+# TODO: change self.write to print?
+
 from urllib2 import urlopen, URLError
 from json import load as jsonload
 from time import sleep
@@ -18,8 +24,8 @@ from pkg_resources import parse_version
 
 from threading import Thread
 
-from traits.api import HasTraits, Event, String
-from traitsui.api import View, Handler, Action, Item, TextEditor
+from traits.api import HasTraits, Event, String, Button
+from traitsui.api import View, Handler, Action, Item, TextEditor, VGroup
 from pyface.api import GUI
 
 from version import VERSION as CONSOLE_VERSION
@@ -41,6 +47,11 @@ icon = ImageResource('icon',
 
 INDEX_URL = 'http://download.swift-nav.com/index.json'
 
+update_button = Action(name = "Update", action = "set_execute_callback_true", \
+                             show_label=False)
+close_button = Action(name = "Close", action = "set_execute_callback_false", \
+                             show_label=False)
+
 # Handler methods that can be associated with buttons.
 def set_execute_callback_true(self, info):
   info.object.execute_callback = True
@@ -49,11 +60,6 @@ def set_execute_callback_true(self, info):
 def set_execute_callback_false(self, info):
   info.object.execute_callback = False
   info.object.handler_executed = True
-
-update_button = Action(name = "Update", action = "set_execute_callback_true", \
-                             show_label=False)
-close_button = Action(name = "Close", action = "set_execute_callback_false", \
-                             show_label=False)
 
 class UpdateHandler(Handler):
 
@@ -99,8 +105,6 @@ class UpdatePrompt(HasTraits):
       buttons=actions,
       title=title,
       handler=UpdateHandler(actions),
-      height=250,
-      width=450,
       icon = icon,
       resizable=True,
     )
@@ -119,14 +123,39 @@ class UpdatePrompt(HasTraits):
     while not self.closed:
       sleep(0.1)
 
+class FirmwareUpdateView(HasTraits):
 
-class OneClickUpdate():
+  piksi_stm_vers = String('Waiting for Piksi device info...')
+  newest_stm_vers = String('Waiting for newest firmware info...')
+  piksi_nap_vers = String('Waiting for Piksi device info...')
+  newest_nap_vers = String('Waiting for newest firmware info...')
+  update_firmware = Button(label='Update Piksi Firmware')
 
-  def __init__(self, link, output):
+  traits_vew = View(
+    VGroup(
+      Item('piksi_stm_vers', label='Piksi STM Firmware Version'),
+      Item('newest_stm_vers', label='Newest STM Firmware Version'),
+      Item('piksi_nap_vers', label='Piksi NAP Firmware Version'),
+      Item('newest_nap_vers', label='Newest NAP Firmware Version'),
+      Item('update_firmware')
+    )
+  )
+
+  def __init__(self, link, output, prompt=True):
     self.link = link
     self.thread = None
     self.output = output
     self.settings = {}
+    self.nap_ihx = None
+    self.stm_ihx = None
+    self.prompt = prompt
+
+  def _update_firmware_fired(self):
+    # Make sure we have firmware files.
+    if self.nap_ihx and self.stm_ihx:
+      GUI.invoke_later(self.manage_firmware_updates)
+    else:
+      self.write("No firmware files have been downloaded yet!")
 
   # Instead of inheriting Thread so start can be called multiple times.
   # Expectation is that OneClickUpdate.start is passed to SettingsView to
@@ -135,8 +164,20 @@ class OneClickUpdate():
   #
   # Returns without any action taken on any calls after the first call.
   def start(self):
+
+    # Make sure settings contains Piksi firmware version strings.
+    try:
+      self.piksi_stm_vers = \
+        self.settings['system_info']['firmware_version'].value
+      self.piksi_nap_vers = \
+        self.settings['system_info']['nap_version'].value
+    except KeyError:
+      self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n")
+      return
+
     if self.thread:
       return
+
     self.thread = Thread(target=self.run)
     self.thread.start()
 
@@ -154,13 +195,12 @@ class OneClickUpdate():
     fw_update_prompt = \
         UpdatePrompt(
                      title='Firmware Update',
-                     actions=[update_button, close_button],
-                     update_callback=self.manage_firmware_updates,
+                     actions=[close_button]
                     )
 
     console_outdated_prompt = \
         UpdatePrompt(
-                     title="Console Outdated",
+                     title="Piksi Console Outdated",
                      actions=[close_button],
                     )
 
@@ -176,38 +216,28 @@ class OneClickUpdate():
 
     # Make sure index contains all keys we are interested in.
     try:
-      index['piksi_v2.3.1']['stm_fw']['version']
+      self.newest_stm_vers = index['piksi_v2.3.1']['stm_fw']['version']
+      self.newest_nap_vers = index['piksi_v2.3.1']['nap_fw']['version']
       index['piksi_v2.3.1']['stm_fw']['url']
-      index['piksi_v2.3.1']['nap_fw']['version']
       index['piksi_v2.3.1']['nap_fw']['url']
       index['piksi_v2.3.1']['console']['version']
     except KeyError:
       self.write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
       return
 
-    # Make sure settings contains Piksi firmware version strings.
-    try:
-      self.settings['system_info']['firmware_version'].value
-      self.settings['system_info']['nap_version'].value
-    except:
-      self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
-      return
-
     # Assign text to UpdatePrompt's
     fw_update_prompt.text = \
-        "Local STM Version :\n\t%s\n" % \
-            self.settings['system_info']['firmware_version'].value + \
+        "New Piksi firmware available.\n" + \
+        "Please use the Firmware Update tab to update.\n\n" + \
         "Newest STM Version :\n\t%s\n\n" % \
             index['piksi_v2.3.1']['stm_fw']['version'] + \
-        "Local SwiftNAP Version :\n\t%s\n" % \
-            self.settings['system_info']['nap_version'].value + \
         "Newest SwiftNAP Version :\n\t%s\n\n" % \
             index['piksi_v2.3.1']['nap_fw']['version']
 
     console_outdated_prompt.text = \
-        "Your Console is out of date and may be incompatible\n" + \
-        "with current firmware. We highly recommend upgrading\n" + \
-        "to ensure proper behavior.\n\n" + \
+        "Your Piksi Console is out of date and may be incompatible\n" + \
+        "with current firmware. We highly recommend upgrading to\n" + \
+        "ensure proper behavior.\n\n" + \
         "Please visit http://download.swift-nav.com to\n" + \
         "download the newest version.\n\n" + \
         "Local Console Version :\n\t" + \
@@ -215,18 +245,19 @@ class OneClickUpdate():
         "\nNewest Console Version :\n\t" + \
             index['piksi_v2.3.1']['console']['version'] + "\n"
 
-    # Does local version match latest from website?
-    local_fw_version = parse_version(
+    # Do local versions match latest from website?
+    local_stm_version = parse_version(
         self.settings['system_info']['firmware_version'].value)
-    remote_fw_version = parse_version(
+    remote_stm_version = parse_version(
         index['piksi_v2.3.1']['stm_fw']['version'])
-    self.stm_fw_outdated = remote_fw_version > local_fw_version
 
     local_nap_version = parse_version(
         self.settings['system_info']['nap_version'].value)
     remote_nap_version = parse_version(
         index['piksi_v2.3.1']['nap_fw']['version'])
-    self.nap_fw_outdated = remote_nap_version > local_nap_version
+
+    self.fw_outdated = remote_nap_version > local_nap_version or \
+                       remote_stm_version > local_stm_version
 
     local_console_version = parse_version(CONSOLE_VERSION)
     remote_console_version = parse_version(
@@ -234,38 +265,30 @@ class OneClickUpdate():
     self.console_outdated = remote_console_version > local_console_version
 
     # Get firmware files from Swift Nav's website.
-    self.nap_ihx = None
-    if self.nap_fw_outdated:
-      try:
-        f = urlopen(index['piksi_v2.3.1']['nap_fw']['url'])
-        self.nap_ihx = IntelHex(f)
-        f.close()
-      except URLError:
-        self.write("\nError: Failed to download latest Piksi SwiftNAP firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['nap_fw']['url'])
+    try:
+      f = urlopen(index['piksi_v2.3.1']['nap_fw']['url'])
+      self.nap_ihx = IntelHex(f)
+      f.close()
+    except URLError:
+      self.write("\nError: Failed to download latest Piksi SwiftNAP firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['nap_fw']['url'])
 
-    self.stm_ihx = None
-    if self.stm_fw_outdated:
-      try:
-        f = urlopen(index['piksi_v2.3.1']['stm_fw']['url'])
-        self.stm_ihx = IntelHex(f)
-        f.close()
-      except URLError:
-        self.write("\nError: Failed to download latest Piksi STM firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['stm_fw']['url'])
+    try:
+      f = urlopen(index['piksi_v2.3.1']['stm_fw']['url'])
+      self.stm_ihx = IntelHex(f)
+      f.close()
+    except URLError:
+      self.write("\nError: Failed to download latest Piksi STM firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['stm_fw']['url'])
 
-    # Prompt user to update firmware(s). Only update if firmware was
-    # successfully downloaded. If both are out of date, only allow
-    # update if we successfully downloaded both files.
-    if (self.stm_fw_outdated and self.stm_ihx and not self.nap_fw_outdated) or \
-        (self.nap_fw_outdated and self.nap_ihx and not self.stm_fw_outdated) or \
-         (self.stm_fw_outdated and self.stm_ihx and \
-           self.nap_fw_outdated and self.nap_ihx):
+    # Prompt user to update firmware. Only allow update if we successfully
+    # downloaded both files.
+    if self.prompt and self.fw_outdated and self.stm_ihx and self.nap_ihx:
       fw_update_prompt.run()
 
     # For timing aesthetics between windows popping up.
     sleep(0.5)
 
     # Check if console is out of date and notify user if so.
-    if self.console_outdated:
+    if self.prompt and self.console_outdated:
       console_outdated_prompt.run()
 
   # Executed in GUI thread, called from Handler.
@@ -273,22 +296,19 @@ class OneClickUpdate():
 
     self.write("\n")
 
-    # Flash NAP if outdated.
-    if self.nap_fw_outdated:
-      self.write("Updating SwiftNAP firmware...\n")
-      self.update_firmware(self.nap_ihx, "M25")
+    # Flash NAP.
+    self.write("Updating SwiftNAP firmware...\n")
+    self.update_flash(self.nap_ihx, "M25")
 
-    # Flash STM if outdated.
-    if self.stm_fw_outdated:
-      self.write("Updating STM firmware...\n")
-      self.update_firmware(self.stm_ihx, "STM")
+    # Flash STM.
+    self.write("Updating STM firmware...\n")
+    self.update_flash(self.stm_ihx, "STM")
 
-    # Piksi needs to jump to application if we updated either firmware.
-    if self.nap_fw_outdated or self.stm_fw_outdated:
-      self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
-      self.write("Firmware updates finished.\n")
+    # Piksi needs to jump to application after updating firmware.
+    self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
+    self.write("Firmware updates finished.\n")
 
-  def update_firmware(self, ihx, flash_type):
+  def update_flash(self, ihx, flash_type):
 
     # Reset device if the application is running to put into bootloader mode.
     self.link.send_message(ids.RESET, '')
