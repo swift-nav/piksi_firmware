@@ -125,26 +125,39 @@ if __name__ == "__main__":
     piksi_bootloader.wait_for_handshake()
   except KeyboardInterrupt:
     # Clean up and exit
+    piksi_bootloader.stop()
     link.close()
     sys.exit()
   piksi_bootloader.reply_handshake()
   print "received."
   print "Piksi Onboard Bootloader Version:", piksi_bootloader.version
 
-  if args.stm:
-    piksi_flash = flash.Flash(link, flash_type="STM")
-  elif args.m25:
-    piksi_flash = flash.Flash(link, flash_type="M25")
+  # Catch all other errors and exit cleanly.
+  try:
+    if args.stm:
+      piksi_flash = flash.Flash(link, flash_type="STM")
+    elif args.m25:
+      piksi_flash = flash.Flash(link, flash_type="M25")
 
-  piksi_flash.write_ihx(ihx, sys.stdout, mod_print = 0x10)
+    piksi_flash.write_ihx(ihx, sys.stdout, mod_print = 0x10)
 
-  print "Bootloader jumping to application"
-  piksi_bootloader.jump_to_app()
+    print "Bootloader jumping to application"
+    piksi_bootloader.jump_to_app()
 
-  piksi_flash.stop()
-  piksi_bootloader.stop()
-
-  # Clean up and exit
-  link.close()
-  sys.exit()
+    piksi_flash.stop()
+    piksi_bootloader.stop()
+  except:
+    import traceback
+    traceback.print_exc()
+  finally:
+    # Clean up and exit
+    if not piksi_bootloader.stopped:
+      piksi_bootloader.stop()
+    try:
+      if not piksi_flash.stopped:
+        piksi_flash.stop()
+    except NameError:
+      pass
+    link.close()
+    sys.exit()
 
