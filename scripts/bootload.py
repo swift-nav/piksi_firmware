@@ -95,7 +95,7 @@ if __name__ == "__main__":
     sys.exit(2)
   ihx = IntelHex(args.file)
 
-  # Create serial link with device
+  # Create serial link with device.
   print "Waiting for device to be plugged in ...",
   sys.stdout.flush()
   found_device = False
@@ -105,26 +105,28 @@ if __name__ == "__main__":
                                     print_unhandled = False)
       found_device = True
     except KeyboardInterrupt:
-      # Clean up and exit
+      # Clean up and exit.
       link.close()
       sys.exit()
     except:
-      # Couldn't find device
+      # Couldn't find device.
       time.sleep(0.01)
   print "link successfully created."
-  link.add_callback(ids.PRINT, serial_link.default_print_callback)
 
-  # Reset device if the payload is running
+  # Reset device if the payload is running.
   link.send_message(ids.RESET, '')
 
-  # Tell Bootloader we want to change flash data
+  # Add print callback.
+  link.add_callback(ids.PRINT, serial_link.default_print_callback)
+
+  # Tell Bootloader we want to write to the flash.
   piksi_bootloader = Bootloader(link)
   print "Waiting for bootloader handshake message from Piksi ...",
   sys.stdout.flush()
   try:
     piksi_bootloader.wait_for_handshake()
   except KeyboardInterrupt:
-    # Clean up and exit
+    # Clean up and exit.
     piksi_bootloader.stop()
     link.close()
     sys.exit()
@@ -150,7 +152,7 @@ if __name__ == "__main__":
     import traceback
     traceback.print_exc()
   finally:
-    # Clean up and exit
+    # Clean up and exit.
     if not piksi_bootloader.stopped:
       piksi_bootloader.stop()
     try:
