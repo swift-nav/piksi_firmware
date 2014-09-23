@@ -17,7 +17,7 @@ import sys
 import time
 import struct
 
-N_RECORD = 0 # Number of results to keep in memory, 0 = no limit
+N_RECORD = 0 # Number of results to keep in memory, 0 = no limit.
 N_PRINT = 32
 
 class AcqResults():
@@ -29,13 +29,9 @@ class AcqResults():
     self.max_corr = 0
 
   def __str__(self):
-    tmp = ""
-    tmp += "Last %d acquisitions:\n" % len(self.acqs[-N_PRINT:])
+    tmp = "Last %d acquisitions:\n" % len(self.acqs[-N_PRINT:])
     for a in self.acqs[-N_PRINT:]:
       tmp += "SV %2d, SNR: %3.2f\n" % (a['SV'], a['SNR'])
-#    tmp += "Max Correlation :  %d\n" % self.max_corr
-#    tmp += "Mean Correlation : %d\n" % self.mean_corr()
-#    tmp += "Acq's Received :   %d\n" % len(self.acqs)
     return tmp
 
   def mean_corr(self):
@@ -57,15 +53,10 @@ class AcqResults():
     self.acqs.append({})
     a = self.acqs[-1]
 
-    a['SNR'] = struct.unpack('f', data[0:4])[0]     # SNR of best point
-    a['CP'] = struct.unpack('f', data[4:8])[0]      # Code phase of best point
-    a['CF'] = struct.unpack('f', data[8:12])[0]     # Carr freq of best point
-    a['SV'] = struct.unpack('B', data[12])[0]        # SV of acq
-
-#    if abs(a['BC_I']) > self.max_corr:
-#      self.max_corr = abs(a['BC_I'])
-#    if abs(a['BC_Q']) > self.max_corr:
-#      self.max_corr = abs(a['BC_Q'])
+    a['SNR'] = struct.unpack('f', data[0:4])[0] # SNR of best point.
+    a['CP'] = struct.unpack('f', data[4:8])[0]  # Code phase of best point.
+    a['CF'] = struct.unpack('f', data[8:12])[0] # Carr freq of best point.
+    a['SV'] = struct.unpack('B', data[12])[0]   # SV of acq.
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Acquisition Monitor')
@@ -86,16 +77,14 @@ if __name__ == "__main__":
       link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi)
       found_device = True
     except KeyboardInterrupt:
-      # Clean up and exit
+      # Clean up and exit.
       link.close()
       sys.exit()
     except:
-      # Couldn't find device
+      # Couldn't find device.
       time.sleep(0.01)
   print "link with device successfully created."
   link.add_callback(ids.PRINT, serial_link.default_print_callback)
-  #link.add_callback(ids.PRINT, lambda x: None)
-  #link.add_callback(ids.BOOTLOADER_HANDSHAKE, lambda x: None)
 
   acq_results = AcqResults(link)
 
