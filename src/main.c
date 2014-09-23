@@ -212,21 +212,7 @@ int main(void)
   settings_setup();
   usarts_setup();
 
-  /* Check NAP authentication status. This must be done after the NAP,
-   * USARTs, and SBP subsystems are set up, so that SBP messages and
-   * be sent and received (it can't go in init() or nap_setup()).
-   */
-  u8 nhs = nap_hash_status();
-  if (nhs != NAP_HASH_MATCH) {
-    led_on(LED_GREEN);
-    led_off(LED_RED);
-    while (1)
-      DO_EVERY(10000000,
-        printf("NAP Verification Failed\n");
-        led_toggle(LED_GREEN);
-        led_toggle(LED_RED);
-      );
-  }
+  check_nap_auth();
 
   static char nap_version_string[64] = {0};
   nap_conf_rd_version_string(nap_version_string);

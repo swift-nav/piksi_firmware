@@ -99,6 +99,27 @@ void init(void)
   stm_unique_id_callback_register();
 }
 
+/* Check NAP authentication status. Block and print error message
+ * if authentication has failed. This must be done after the NAP,
+ * USARTs, and SBP subsystems are set up, so that SBP messages and
+ * be sent and received (it can't go in init() or nap_setup()).
+ */
+void check_nap_hash_status(void)
+{
+  u8 nhs = nap_hash_status();
+  if (nhs != NAP_HASH_MATCH) {
+    led_on(LED_GREEN);
+    led_off(LED_RED);
+    while (1)
+      DO_EVERY(10000000,
+        printf("NAP Verification Failed\n");
+        led_toggle(LED_GREEN);
+        led_toggle(LED_RED);
+      );
+  }
+}
+
+
 /** Our own basic implementation of sbrk().
  * This overrides the version provided by newlib/libnosys which now checks that
  * the heap_end pointer doesn't grow pass the stack pointer. Thats great except
