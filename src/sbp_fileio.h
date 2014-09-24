@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2014 Swift Navigation Inc.
+ * Copyright (C) 2012-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -10,18 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_INIT_H
-#define SWIFTNAV_INIT_H
+#ifndef SWIFTNAV_SBP_FILEIO_H
+#define SWIFTNAV_SBP_FILEIO_H
 
-#include <libopencm3/stm32/f4/rcc.h>
-#include <libswiftnav/common.h>
-
-extern const clock_scale_t hse_16_368MHz_in_65_472MHz_out_3v3;
-extern const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3;
-extern const clock_scale_t hse_16_368MHz_in_120_203MHz_out_3v3;
-
-void init(void);
-void check_nap_auth(void);
+void sbp_fileio_setup(void);
 
 #endif
 

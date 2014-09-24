@@ -56,6 +56,8 @@ sbp_state_t uarta_sbp_state;
 sbp_state_t uartb_sbp_state;
 sbp_state_t ftdi_sbp_state;
 
+static const char SBP_MODULE[] = "sbp";
+
 static WORKING_AREA_CCM(wa_sbp_thread, 4096);
 static msg_t sbp_thread(void *arg)
 {
@@ -72,12 +74,12 @@ static msg_t sbp_thread(void *arg)
     sbp_process_messages();
 
     DO_EVERY(100,
-      uart_state_msg.uarts[0].tx_throughput = usart_tx_throughput(&uarta_tx_state);
-      uart_state_msg.uarts[0].rx_throughput = usart_rx_throughput(&uarta_rx_state);
-      uart_state_msg.uarts[1].tx_throughput = usart_tx_throughput(&uartb_tx_state);
-      uart_state_msg.uarts[1].rx_throughput = usart_rx_throughput(&uartb_rx_state);
-      uart_state_msg.uarts[2].tx_throughput = usart_tx_throughput(&ftdi_tx_state);
-      uart_state_msg.uarts[2].rx_throughput = usart_rx_throughput(&ftdi_rx_state);
+      uart_state_msg.uarts[0].tx_throughput = usart_tx_throughput(&uarta_state.tx);
+      uart_state_msg.uarts[0].rx_throughput = usart_rx_throughput(&uarta_state.rx);
+      uart_state_msg.uarts[1].tx_throughput = usart_tx_throughput(&uartb_state.tx);
+      uart_state_msg.uarts[1].rx_throughput = usart_rx_throughput(&uartb_state.rx);
+      uart_state_msg.uarts[2].tx_throughput = usart_tx_throughput(&ftdi_state.tx);
+      uart_state_msg.uarts[2].rx_throughput = usart_rx_throughput(&ftdi_state.rx);
 
       if (latency_count > 0) {
         uart_state_msg.obs_latency.avg = (s32) (latency_accum_ms / latency_count);
@@ -156,17 +158,17 @@ static inline u32 use_usart(usart_settings_t *us, u16 msg_type)
 u32 uarta_write(u8 *buff, u32 n, void *context)
 {
   (void)context;
-  return usart_write_dma(&uarta_tx_state, buff, n);
+  return usart_write_dma(&uarta_state.tx, buff, n);
 }
 u32 uartb_write(u8 *buff, u32 n, void *context)
 {
   (void)context;
-  return usart_write_dma(&uartb_tx_state, buff, n);
+  return usart_write_dma(&uartb_state.tx, buff, n);
 }
 u32 ftdi_write(u8 *buff, u32 n, void *context)
 {
   (void)context;
-  return usart_write_dma(&ftdi_tx_state, buff, n);
+  return usart_write_dma(&ftdi_state.tx, buff, n);
 }
 
 /** Send a SBP message out over all applicable USARTs
@@ -192,31 +194,37 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
   /* Don't relayed messages (sender_id 0) on the A and B UARTs. (Only FTDI USB) */
   if (sender_id != 0) {
 
-    if (use_usart(&uarta_usart, msg_type))
+    if (use_usart(&uarta_usart, msg_type) && usart_claim(&uarta_state, SBP_MODULE)) {
       ret |= sbp_send_message(&uarta_sbp_state, msg_type, sender_id,
                               len, buff, &uarta_write);
+      usart_release(&uarta_state);
+    }
 
     uart_state_msg.uarts[0].tx_buffer_level =
       MAX(uart_state_msg.uarts[0].tx_buffer_level,
-        255 - (255 * usart_tx_n_free(&uarta_tx_state)) / (USART_TX_BUFFER_LEN-1));
+        255 - (255 * usart_tx_n_free(&uarta_state.tx)) / (USART_TX_BUFFER_LEN-1));
 
-    if (use_usart(&uartb_usart, msg_type))
+    if (use_usart(&uartb_usart, msg_type) && usart_claim(&uartb_state, SBP_MODULE)) {
       ret |= sbp_send_message(&uartb_sbp_state, msg_type, sender_id,
                               len, buff, &uartb_write);
+      usart_release(&uartb_state);
+    }
 
     uart_state_msg.uarts[1].tx_buffer_level =
       MAX(uart_state_msg.uarts[1].tx_buffer_level,
-        255 - (255 * usart_tx_n_free(&uartb_tx_state)) / (USART_TX_BUFFER_LEN-1));
+        255 - (255 * usart_tx_n_free(&uartb_state.tx)) / (USART_TX_BUFFER_LEN-1));
 
   }
 
-  if (use_usart(&ftdi_usart, msg_type))
+  if (use_usart(&ftdi_usart, msg_type) && usart_claim(&ftdi_state, SBP_MODULE)) {
     ret |= sbp_send_message(&ftdi_sbp_state, msg_type, sender_id,
                             len, buff, &ftdi_write);
+    usart_release(&ftdi_state);
+  }
 
   uart_state_msg.uarts[2].tx_buffer_level =
     MAX(uart_state_msg.uarts[2].tx_buffer_level,
-      255 - (255 * usart_tx_n_free(&ftdi_tx_state)) / (USART_TX_BUFFER_LEN-1));
+      255 - (255 * usart_tx_n_free(&ftdi_state.tx)) / (USART_TX_BUFFER_LEN-1));
 
   if (ret != 3*len) {
     /* Return error if any sbp_send_message failed. */
@@ -231,17 +239,17 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
 u32 uarta_read(u8 *buff, u32 n, void *context)
 {
   (void)context;
-  return usart_read_dma(&uarta_rx_state, buff, n);
+  return usart_read_dma(&uarta_state.rx, buff, n);
 }
 u32 uartb_read(u8 *buff, u32 n, void *context)
 {
   (void)context;
-  return usart_read_dma(&uartb_rx_state, buff, n);
+  return usart_read_dma(&uartb_state.rx, buff, n);
 }
 u32 ftdi_read(u8 *buff, u32 n, void *context)
 {
   (void)context;
-  return usart_read_dma(&ftdi_rx_state, buff, n);
+  return usart_read_dma(&ftdi_state.rx, buff, n);
 }
 
 /** Process SBP messages received through the USARTs.
@@ -254,32 +262,41 @@ void sbp_process_messages()
 
   uart_state_msg.uarts[0].rx_buffer_level =
     MAX(uart_state_msg.uarts[0].rx_buffer_level,
-      (255 * usart_n_read_dma(&uarta_rx_state)) / USART_RX_BUFFER_LEN);
+      (255 * usart_n_read_dma(&uarta_state.rx)) / USART_RX_BUFFER_LEN);
 
-  while (usart_n_read_dma(&uarta_rx_state) > 0) {
-    ret = sbp_process(&uarta_sbp_state, &uarta_read);
-    if (ret == SBP_CRC_ERROR)
-      uart_state_msg.uarts[0].crc_error_count++;
+  if (usart_claim(&uarta_state, SBP_MODULE)) {
+    while (usart_n_read_dma(&uarta_state.rx) > 0) {
+      ret = sbp_process(&uarta_sbp_state, &uarta_read);
+      if (ret == SBP_CRC_ERROR)
+        uart_state_msg.uarts[0].crc_error_count++;
+    }
+    usart_release(&uarta_state);
   }
 
   uart_state_msg.uarts[1].rx_buffer_level =
     MAX(uart_state_msg.uarts[1].rx_buffer_level,
-      (255 * usart_n_read_dma(&uartb_rx_state)) / USART_RX_BUFFER_LEN);
+      (255 * usart_n_read_dma(&uartb_state.rx)) / USART_RX_BUFFER_LEN);
 
-  while (usart_n_read_dma(&uartb_rx_state) > 0) {
-    ret = sbp_process(&uartb_sbp_state, &uartb_read);
-    if (ret == SBP_CRC_ERROR)
-      uart_state_msg.uarts[1].crc_error_count++;
+  if (usart_claim(&uartb_state, SBP_MODULE)) {
+    while (usart_n_read_dma(&uartb_state.rx) > 0) {
+      ret = sbp_process(&uartb_sbp_state, &uartb_read);
+      if (ret == SBP_CRC_ERROR)
+        uart_state_msg.uarts[1].crc_error_count++;
+    }
+    usart_release(&uartb_state);
   }
 
   uart_state_msg.uarts[2].rx_buffer_level =
     MAX(uart_state_msg.uarts[2].rx_buffer_level,
-      (255 * usart_n_read_dma(&ftdi_rx_state)) / USART_RX_BUFFER_LEN);
+      (255 * usart_n_read_dma(&ftdi_state.rx)) / USART_RX_BUFFER_LEN);
 
-  while (usart_n_read_dma(&ftdi_rx_state) > 0) {
-    ret = sbp_process(&ftdi_sbp_state, &ftdi_read);
-    if (ret == SBP_CRC_ERROR)
-      uart_state_msg.uarts[2].crc_error_count++;
+  if (usart_claim(&ftdi_state, SBP_MODULE)) {
+    while (usart_n_read_dma(&ftdi_state.rx) > 0) {
+      ret = sbp_process(&ftdi_sbp_state, &ftdi_read);
+      if (ret == SBP_CRC_ERROR)
+        uart_state_msg.uarts[2].crc_error_count++;
+    }
+    usart_release(&ftdi_state);
   }
 }
 
@@ -294,7 +311,7 @@ int _write(int file, char *ptr, int len)
 
   case 22:
     if (len > 255) len = 255;   /* Send maximum of 255 chars at a time */
-    usart_write_dma(&ftdi_tx_state, (u8 *)ptr, len);
+    usart_write_dma(&ftdi_state.tx, (u8 *)ptr, len);
     return len;
 
   default:

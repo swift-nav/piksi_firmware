@@ -35,8 +35,8 @@
 
 #define MSG_RESET                   0xB2  /**< Host   -> Piksi */
 
-#define MSG_CW_START                0xC1  /**< Host   -> Piksi */
 #define MSG_CW_RESULTS              0xC0  /**< Piksi  -> Host  */
+#define MSG_CW_START                0xC1  /**< Host   -> Piksi */
 
 #define MSG_NAP_DEVICE_DNA          0xDD  /**< Host  <-> Piksi */
 
@@ -45,10 +45,10 @@
 #define MSG_FLASH_READ              0xE1  /**< Host  <-> Piksi */
 #define MSG_FLASH_ERASE             0xE2  /**< Host   -> Piksi */
 
-#define MSG_STM_UNIQUE_ID           0xE5  /**< Host  <-> Piksi */
-
 #define MSG_STM_FLASH_LOCK_SECTOR   0xE3  /**< Host   -> Piksi */
 #define MSG_STM_FLASH_UNLOCK_SECTOR 0xE4  /**< Host   -> Piksi */
+
+#define MSG_STM_UNIQUE_ID           0xE5  /**< Host  <-> Piksi */
 
 #define MSG_M25_FLASH_WRITE_STATUS  0xF3  /**< Host   -> Piksi */
 
@@ -58,6 +58,11 @@
 #define MSG_SETTINGS                0xA0  /**< Host  <-> Piksi */
 #define MSG_SETTINGS_SAVE           0xA1  /**< Host   -> Piksi */
 #define MSG_SETTINGS_READ_BY_INDEX  0xA2  /**< Host   -> Piksi */
+
+#define MSG_FILEIO_READ             0xA8  /**< Host  <-> Piksi */
+#define MSG_FILEIO_READ_DIR         0xA9  /**< Host  <-> Piksi */
+#define MSG_FILEIO_REMOVE           0xAC  /**< Host   -> Piksi */
+#define MSG_FILEIO_WRITE            0xAD  /**< Host  <-> Piksi */
 
 #define MSG_SIMULATION_ENABLED      0xAA  /**< Host  <-> Piksi */
 
@@ -79,6 +84,11 @@ typedef struct __attribute__((packed)) {
   u8 seq;     /**< First nibble is the size of the sequence (n), second
                    nibble is the zero-indexed counter (ith packet of n) */
 } msg_obs_header_t;
+
+#define MSG_BASE_POS                0x44
+typedef struct __attribute__((packed)) {
+  double pos_llh[3];
+} msg_base_pos_t;
 
 typedef struct __attribute__((packed)) {
   u32 P;     /**< Pseudorange (cm) */
@@ -122,6 +132,14 @@ typedef struct __attribute__((packed)) {
   } uarts[3];
   latency_t obs_latency;
 } msg_uart_state_t;
+
+#define MSG_ACQ_RESULT            0x15  /**< Piksi  -> Host  */
+typedef struct __attribute__((packed)) {
+  float snr; /* SNR of best point. */
+  float cp;  /* Code phase of best point. */
+  float cf;  /* Carr freq of best point. */
+  u8 prn;    /* PRN searched for. */
+} acq_result_msg_t;
 
 #define MSG_OBS_HEADER_SEQ_SHIFT 4u
 #define MSG_OBS_HEADER_SEQ_MASK ((1 << 4u) - 1)

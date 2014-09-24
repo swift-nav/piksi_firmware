@@ -14,8 +14,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <libopencm3/cm3/nvic.h>
-#include <libopencm3/stm32/exti.h>
 
 #include "board/nap/track_channel.h"
 #include "sbp.h"
@@ -108,9 +106,16 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].snr_above_threshold_count = 0;
   tracking_channel[channel].snr_below_threshold_count = 0;
 
+  /* PLL parameters obtained through numerical optimization were:
+   *   pll_pgain = 242.6, pll_igain = 8.9, pll_freq_igain 29.3
+   * The I and P gains correspond approximately too the (25, 0.7, 1) parameters
+   * we are currently using.
+   */
+
   aided_tl_init(&(tracking_channel[channel].tl_state), 1e3,
                 code_phase_rate-1.023e6, 1, 0.7, 1,
-                carrier_freq);
+                carrier_freq, 25, 0.7, 1,
+                29.3);
 
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;

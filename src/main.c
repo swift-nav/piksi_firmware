@@ -33,6 +33,9 @@
 #include "system_monitor.h"
 #include "simulator.h"
 #include "settings.h"
+#include "sbp_fileio.h"
+
+extern void ext_setup(void);
 
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
@@ -209,18 +212,7 @@ int main(void)
   settings_setup();
   usarts_setup();
 
-  /* Check NAP authentication status. */
-  u8 nhs = nap_hash_status();
-  if (nhs != NAP_HASH_MATCH) {
-    led_on(LED_GREEN);
-    led_off(LED_RED);
-    while (1)
-      DO_EVERY(10000000,
-        printf("NAP Verification Failed\n");
-        led_toggle(LED_GREEN);
-        led_toggle(LED_RED);
-      );
-  }
+  check_nap_auth();
 
   static char nap_version_string[64] = {0};
   nap_conf_rd_version_string(nap_version_string);
@@ -250,6 +242,9 @@ int main(void)
   solution_setup();
 
   simulator_setup();
+
+  sbp_fileio_setup();
+  ext_setup();
 
   if (serial_number < 0) {
     READ_ONLY_PARAMETER("system_info", "serial_number", "(unknown)", TYPE_STRING);

@@ -102,6 +102,7 @@ CSRC = $(PORTSRC) \
        $(SWIFTNAV_ROOT)/src/peripherals/usart.o \
        $(SWIFTNAV_ROOT)/src/peripherals/usart_tx.o \
        $(SWIFTNAV_ROOT)/src/peripherals/usart_rx.o \
+       $(SWIFTNAV_ROOT)/src/peripherals/usart_chat.o \
        $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee.o \
        $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee-arch.o \
        $(SWIFTNAV_ROOT)/src/minIni/minIni.o \
@@ -109,6 +110,7 @@ CSRC = $(PORTSRC) \
        $(SWIFTNAV_ROOT)/src/init.o \
        $(SWIFTNAV_ROOT)/src/sbp.o \
        $(SWIFTNAV_ROOT)/src/sbp_piksi.o \
+       $(SWIFTNAV_ROOT)/src/sbp_fileio.o \
        $(SWIFTNAV_ROOT)/src/error.o \
        $(SWIFTNAV_ROOT)/src/cw.o \
        $(SWIFTNAV_ROOT)/src/track.o \
@@ -251,6 +253,7 @@ ULIBS =
 #
 # End of user defines
 ##############################################################################
-
+.DEFAULT_GOAL = all
+include $(SWIFTNAV_ROOT)/ext/Makefile.include
 include $(SWIFTNAV_ROOT)/ChibiOS_rules.mk
 

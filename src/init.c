@@ -14,7 +14,6 @@
 
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
-#include <libopencm3/cm3/scb.h>
 #include <libswiftnav/sbp.h>
 
 #include "main.h"
@@ -42,6 +41,7 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
   .apb2_frequency = 32736000,
 };
 
+#define AIRCR_SYSRESETREQ			(1 << 2)
 /** Resets the device back into the bootloader. */
 void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -52,9 +52,9 @@ void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    */
   __asm__("DSB;");
   /* Keep priority group unchanged. */
-  SCB_AIRCR = SCB_AIRCR_VECTKEY |
-              SCB_AIRCR_PRIGROUP_MASK |
-              SCB_AIRCR_SYSRESETREQ;
+  SCB_AIRCR = AIRCR_VECTKEY |
+              AIRCR_PRIGROUP_MASK |
+              AIRCR_SYSRESETREQ;
   __asm__("DSB;");
   /* Wait until reset. */
   while(1);
@@ -98,6 +98,27 @@ void init(void)
 
   stm_unique_id_callback_register();
 }
+
+/* Check NAP authentication status. Block and print error message
+ * if authentication has failed. This must be done after the NAP,
+ * USARTs, and SBP subsystems are set up, so that SBP messages and
+ * be sent and received (it can't go in init() or nap_setup()).
+ */
+void check_nap_auth(void)
+{
+  u8 nhs = nap_hash_status();
+  if (nhs != NAP_HASH_MATCH) {
+    led_on(LED_GREEN);
+    led_off(LED_RED);
+    while (1)
+      DO_EVERY(10000000,
+        printf("NAP Verification Failed\n");
+        led_toggle(LED_GREEN);
+        led_toggle(LED_RED);
+      );
+  }
+}
+
 
 /** Our own basic implementation of sbrk().
  * This overrides the version provided by newlib/libnosys which now checks that
