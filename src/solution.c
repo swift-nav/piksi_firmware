@@ -240,20 +240,8 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       calc_sat_pos(&base_obss_raw.nm[base_obss_raw.n].sat_pos[0],
                    &base_obss_raw.nm[base_obss_raw.n].sat_vel[0],
                    &clock_err, &clock_rate_err, &es[obs[i].prn], t);
-      // printf("sat_altitude/1e6 = %f\n", sqrt(
-      //   base_obss_raw.nm[base_obss_raw.n].sat_pos[0] *
-      //   base_obss_raw.nm[base_obss_raw.n].sat_pos[0] +
-      //   base_obss_raw.nm[base_obss_raw.n].sat_pos[1] *
-      //   base_obss_raw.nm[base_obss_raw.n].sat_pos[1] +
-      //   base_obss_raw.nm[base_obss_raw.n].sat_pos[2] *
-      //   base_obss_raw.nm[base_obss_raw.n].sat_pos[2])/1e6
-      //   );
       base_obss_raw.nm[base_obss_raw.n].pseudorange =
             base_obss_raw.nm[base_obss_raw.n].raw_pseudorange + clock_err * GPS_C;
-      // printf("    psuedorange = %f\n", base_obss_raw.nm[base_obss_raw.n].pseudorange);
-      // printf("raw_psuedorange = %f\n", base_obss_raw.nm[base_obss_raw.n].raw_pseudorange);
-      // printf("clock_err * GPS_C = %f\n", clock_err * GPS_C);
-      // printf("base_obss_raw.n = %u\n", base_obss_raw.n);
       base_obss_raw.nm[base_obss_raw.n].tot = t;
       //set the time
       base_obss_raw.n++;
@@ -265,10 +253,6 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     /* Ensure observations sorted by PRN. */
     qsort(base_obss_raw.nm, base_obss_raw.n,
           sizeof(navigation_measurement_t), nav_meas_cmp);
-    // printf("OBS_CALLBACK\n\tdone unpacking obs content, finalizing\n");
-    // printf("\tcount = %u\n", count);
-    // printf("\ttotal = %u\n", total);
-    // printf("\tbase_obss_raw.n = %u\n", base_obss_raw.n);
     if (base_obss_raw.n >= 4) {
       gnss_solution soln;
       dops_t dops;
@@ -279,48 +263,32 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       chMtxLock(&base_obs_lock);
 
       if (soln.valid) {
-        // printf("\tSOLUTION VALID (ret_code = %d)\n", ret_code);
         if (base_obss.has_pos) {
-          // printf("\t\tHAS OLD POS\n");
-          //TODO replace this lame "filter" with a real KF on the observations.
-          // double dx = soln.pos_ecef[0] - base_obss.pos_ecef[0];
-          // double dy = soln.pos_ecef[1] - base_obss.pos_ecef[1];
-          // double dz = soln.pos_ecef[2] - base_obss.pos_ecef[2];
-          // double rec_delta = sqrt(dx * dx + dy * dy + dz * dz);
-          // printf("\t\t\trec pos err  = %f\n", rec_delta);
-
+          /* TODO Implement a real filter for base position (potentially in
+             observation space), so we can do away with this terrible excuse
+             for smoothing. */
           base_obss_raw.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
                                     + 0.00005 * soln.pos_ecef[0];
           base_obss_raw.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
                                     + 0.00005 * soln.pos_ecef[1];
           base_obss_raw.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
                                     + 0.00005 * soln.pos_ecef[2];
-          // dx = base_obss_raw.pos_ecef[0] - base_obss.pos_ecef[0];
-          // dy = base_obss_raw.pos_ecef[1] - base_obss.pos_ecef[1];
-          // dz = base_obss_raw.pos_ecef[2] - base_obss.pos_ecef[2];
-          // rec_delta = sqrt(dx * dx + dy * dy + dz * dz);
-          // printf("\t\t\trec est moved = %f\n\n", rec_delta);
         }
         else {
-          // printf("\t\tDOESN'T HAVE OLD POS\n");
           memcpy(base_obss_raw.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
         }
         base_obss_raw.has_pos = 1;
       }
       else {
-        // printf("\tSOLUTION INVALID (ret_code = %d)\n", ret_code);
         if (base_obss.has_pos) {
-          // printf("\t\tHAS OLD POS\n");
           memcpy(base_obss_raw.pos_ecef, base_obss.pos_ecef, 3 * sizeof(double));
           base_obss_raw.has_pos = 1;
         }
         else {
-          // printf("\t\tDOESN'T HAVE OLD POS\n");
           base_obss_raw.has_pos = 0;
         }
       }
       if (base_obss_raw.has_pos) {
-        // printf("\tHAS SOME RECEIVER POS\n");
         for (u8 i=0; i < base_obss_raw.n; i++) {
           double dx = base_obss_raw.nm[i].sat_pos[0] - base_obss_raw.pos_ecef[0];
           double dy = base_obss_raw.nm[i].sat_pos[1] - base_obss_raw.pos_ecef[1];
@@ -330,62 +298,9 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
         (void) old_num_base_obss; //potentially used here for online corrections
         /* Loop over base_obss_raw.nm and base_obss.nm and check if a PRN is present in both. */
-        // u8 i, j, n = 0;
-        // double first_pseudorange_err;
-        // double first_carr_phase_err;
-        // // printf("\t\tcomparing %u old to %u new\n", old_num_base_obss, base_obss_raw.n);
-        // for (i=0, j=0; i<base_obss_raw.n && j<old_num_base_obss; i++, j++) {
-        //   if (base_obss_raw.nm[i].prn < base_obss.nm[j].prn)
-        //     j--;
-        //   else if (base_obss_raw.nm[i].prn > base_obss.nm[j].prn)
-        //     i--;
-        //   else {
-        //     double dist_diff = base_obss.sat_dists[j] - base_obss_raw.sat_dists[i];
-        //     double pseudorange_err = base_obss_raw.nm[i].pseudorange - base_obss.nm[j].pseudorange
-        //                                                     + dist_diff;
-        //     double carrier_phase_err = base_obss_raw.nm[i].carrier_phase - base_obss.nm[j].carrier_phase
-        //                                                     - dist_diff / GPS_L1_LAMBDA;
-        //     double pseudorange_diff = base_obss_raw.nm[i].pseudorange - base_obss.nm[j].pseudorange;
-        //     double carrier_phase_diff = base_obss_raw.nm[i].carrier_phase - base_obss.nm[j].carrier_phase;
-
-        //     if (n == 0) {
-        //       first_pseudorange_err = pseudorange_err;
-        //       first_carr_phase_err = carrier_phase_err;
-        //     }
-        //     (void) first_pseudorange_err;
-        //     (void) first_carr_phase_err;
-
-        //     printf("   base_obss (prn %u) psuedorange_adj     = %f\n", base_obss_raw.nm[i].prn,
-        //                         pseudorange_diff);
-        //     printf("             (prn %u) carrier_phase_adj   = %f\n", base_obss_raw.nm[i].prn,
-        //                         carrier_phase_diff);
-        //     printf("             (prn %u) dist_diff           = %f\n", base_obss_raw.nm[i].prn,
-        //                         dist_diff);
-        //     // printf("\t\t\t(prn %u) psuedorange_err      = %f\n", base_obss_raw.nm[i].prn,
-        //     //                 pseudorange_err);
-        //     // printf("\t\t\t(prn %u) carrier_phase_err    = %f\n", base_obss_raw.nm[i].prn,
-        //     //                 carrier_phase_err);
-        //     // printf("\t\t\t(prn %u) sd_psuedorange_err   = %f\n", base_obss_raw.nm[i].prn,
-        //     //                 pseudorange_err - first_pseudorange_err);
-        //     printf("             (prn %u) sd_carrier_phase_err = %f\n", base_obss_raw.nm[i].prn,
-        //                     carrier_phase_err - first_carr_phase_err);
-        //     // printf("\t\t\t(prn %u) psuedorange_diff     = %f\n", base_obss_raw.nm[i].prn,
-        //     //                 pseudorange_diff);
-        //     // printf("\t\t\t(prn %u) carrier_phase_diff   = %f\n", base_obss_raw.nm[i].prn,
-        //     //                 carrier_phase_diff);
-        //     // printf("\t\t\t(prn %u) dist_diff            = %f\n\n", base_obss_raw.nm[i].prn,
-        //     //                 dist_diff);
-        //     n++;
-        //   }
-        // }
-        // printf("\t\tcopying obss over from raw\n\n");
         memcpy(&base_obss, &base_obss_raw, sizeof(obss_t));
         old_num_base_obss = base_obss_raw.n;
       }
-      // else {
-      //   printf("HAS NO RECEIVER POS\n");
-      // }
-
 
       /* Unlock mutex. */
       chMtxUnlock();
@@ -554,22 +469,15 @@ static msg_t solution_thread(void *arg)
                                       es, position_solution.time,
                                       sdiffs);
               double prop_baseline[3];
-              //TODO get a version that knows whether the baseline is using the integer ambs
               u8 num_sds_used;
-              // printf("starting low-latency solution\n");
               s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
                       position_solution.pos_ecef, &num_sds_used, prop_baseline);
-              // printf("finished low-latency solution\n");
               if (ll_err_code != -1) {
-                // printf("starting sending low-latency solution\n");
+                //TODO send whether the baseline is using the integer ambs
                 solution_send_baseline(&position_solution.time,
                                        num_sds_used, prop_baseline,
                                        position_solution.pos_ecef,
                                        (ll_err_code == 1) ? 1 : 0);
-                // printf("finished sending low-latency solution\n");
-              }
-              else {
-                // printf("could't compute low-latency solution\n");
               }
             }
 
