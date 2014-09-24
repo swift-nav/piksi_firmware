@@ -104,7 +104,7 @@ void init(void)
  * USARTs, and SBP subsystems are set up, so that SBP messages and
  * be sent and received (it can't go in init() or nap_setup()).
  */
-void check_nap_hash_status(void)
+void check_nap_auth(void)
 {
   u8 nhs = nap_hash_status();
   if (nhs != NAP_HASH_MATCH) {
