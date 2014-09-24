@@ -27,10 +27,7 @@
 
 int main(void)
 {
-  /* Don't check FPGA authentication hash status, purpose of this test is to
-   * read the FPGA DNA and then program the authentication hash into the flash.
-   */
-  init(0);
+  init();
 
   led_on(LED_GREEN);
   led_on(LED_RED);

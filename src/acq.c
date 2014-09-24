@@ -18,6 +18,8 @@
 
 #include "board/nap/acq_channel.h"
 #include "acq.h"
+#include "sbp_piksi.h"
+#include "sbp.h"
 
 /** \defgroup acq Acquisition
  * Do acquisition searches via interrupt driven scheduling of SwiftNAP
@@ -32,6 +34,27 @@ void acq_set_prn(u8 prn)
   nap_acq_code_wr_blocking(prn);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT)
     printf("acq: Timeout waiting for code load!\n");
+}
+
+/** Send results of an acquisition to the host.
+ *
+ * \param prn  PRN (0-31) of the acquisition
+ * \param snr Signal to noise ratio of best point from acquisition.
+ * \param cp  Code phase of best point.
+ * \param cf  Carrier frequency of best point.
+ */
+void acq_send_result(u8 prn, float snr, float cp, float cf)
+{
+  acq_result_msg_t acq_result_msg;
+
+  acq_result_msg.prn = prn;
+  acq_result_msg.snr = snr;
+  acq_result_msg.cp = cp;
+  acq_result_msg.cf = cf;
+
+  sbp_send_msg(MSG_ACQ_RESULT,
+               sizeof(acq_result_msg_t),
+               (u8 *)&acq_result_msg);
 }
 
 /** Schedule a load of samples into the acquisition channel's sample ram.

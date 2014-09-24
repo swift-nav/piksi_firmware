@@ -75,6 +75,9 @@ if __name__ == "__main__":
   parser.add_argument('-s', '--stm',
                       help='write the file to the STM flash.',
                       action="store_true")
+  parser.add_argument('-e', '--erase',
+                      help='erase sectors 1-11 of the STM flash.',
+                      action="store_true")
   parser.add_argument('-p', '--port',
                       default=[serial_link.DEFAULT_PORT], nargs=1,
                       help='specify the serial port to use.')
@@ -93,26 +96,25 @@ if __name__ == "__main__":
   elif not args.stm and not args.m25:
     parser.error("One of -s or -m options must be chosen")
     sys.exit(2)
+  if args.erase and not args.stm:
+    parser.error("The -e option requires the -s option to also be chosen")
   ihx = IntelHex(args.file)
 
   # Create serial link with device
   print "Waiting for device to be plugged in ...",
   sys.stdout.flush()
-  found_device = False
-  while not found_device:
+  link = None
+  while not link:
     try:
       link = serial_link.SerialLink(serial_port, baud=baud, use_ftdi=args.ftdi,
                                     print_unhandled = False)
-      found_device = True
     except KeyboardInterrupt:
-      # Clean up and exit
-      link.close()
+      if link:
+        link.close()
       sys.exit()
     except:
-      # Couldn't find device
       time.sleep(0.01)
   print "link successfully created."
-  link.add_callback(ids.PRINT, serial_link.default_print_callback)
 
   # Reset device if the payload is running
   link.send_message(ids.RESET, '')
@@ -131,25 +133,32 @@ if __name__ == "__main__":
   print "received."
   print "Piksi Onboard Bootloader Version:", piksi_bootloader.version
 
-  if args.stm:
-    piksi_flash = flash.Flash(link, flash_type="STM")
-  elif args.m25:
-    piksi_flash = flash.Flash(link, flash_type="M25")
+  try:
 
-  piksi_flash.write_ihx(ihx, sys.stdout, mod_print = 0x10)
+    if args.stm:
+      piksi_flash = flash.Flash(link, flash_type="STM")
+    elif args.m25:
+      piksi_flash = flash.Flash(link, flash_type="M25")
+
+    if args.erase:
+      for s in range(1,12):
+        print "\rErasing STM Sector", s,
+        sys.stdout.flush()
+        piksi_flash.erase_sector(s)
+      print
+
+    piksi_flash.write_ihx(ihx, sys.stdout, mod_print = 0x10)
+
+  except KeyboardInterrupt:
+    print
+    link.close()
+    sys.exit()
 
   print "Bootloader jumping to application"
   piksi_bootloader.jump_to_app()
 
   piksi_flash.stop()
   piksi_bootloader.stop()
-
-  # Wait for ctrl+C until we exit
-  try:
-    while(1):
-      time.sleep(0.5)
-  except KeyboardInterrupt:
-    pass
 
   # Clean up and exit
   link.close()
