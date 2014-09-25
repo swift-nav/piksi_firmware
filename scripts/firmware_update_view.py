@@ -13,7 +13,6 @@
 #       haven't been downloaded yet
 # TODO: have Firmware Update tab blink if new firmware is available
 # TODO: add self.python_console_cmds and update python console with them
-# TODO: change self.write to print?
 
 from urllib2 import urlopen, URLError
 from json import load as jsonload
@@ -149,13 +148,15 @@ class FirmwareUpdateView(HasTraits):
     self.nap_ihx = None
     self.stm_ihx = None
     self.prompt = prompt
+    self.updating = False
 
   def _update_firmware_fired(self):
     # Make sure we have firmware files.
-    if self.nap_ihx and self.stm_ihx:
-      GUI.invoke_later(self.manage_firmware_updates)
-    else:
-      self.write("No firmware files have been downloaded yet!")
+    if not self.updating:
+      if self.nap_ihx and self.stm_ihx:
+        GUI.invoke_later(self.manage_firmware_updates)
+      else:
+        print "No firmware files have been downloaded yet!"
 
   # Instead of inheriting Thread so start can be called multiple times.
   # Expectation is that OneClickUpdate.start is passed to SettingsView to
@@ -172,7 +173,7 @@ class FirmwareUpdateView(HasTraits):
       self.piksi_nap_vers = \
         self.settings['system_info']['nap_version'].value
     except KeyError:
-      self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n")
+      print "\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n"
       return
 
     if self.thread:
@@ -183,10 +184,6 @@ class FirmwareUpdateView(HasTraits):
 
   def point_to_settings(self, settings):
     self.settings = settings
-
-  def write(self, text):
-    GUI.invoke_later(self.output.write, text)
-    GUI.process_events()
 
   # Executed in it's own thread.
   def run(self):
@@ -211,7 +208,7 @@ class FirmwareUpdateView(HasTraits):
       index = jsonload(f)
       f.close()
     except URLError:
-      self.write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n\n" % INDEX_URL)
+      print "\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n\n" % INDEX_URL
       return
 
     # Make sure index contains all keys we are interested in.
@@ -222,7 +219,7 @@ class FirmwareUpdateView(HasTraits):
       index['piksi_v2.3.1']['nap_fw']['url']
       index['piksi_v2.3.1']['console']['version']
     except KeyError:
-      self.write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
+      print "\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n\n" % INDEX_URL
       return
 
     # Assign text to UpdatePrompt's
@@ -270,14 +267,14 @@ class FirmwareUpdateView(HasTraits):
       self.nap_ihx = IntelHex(f)
       f.close()
     except URLError:
-      self.write("\nError: Failed to download latest Piksi SwiftNAP firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['nap_fw']['url'])
+      print "\nError: Failed to download latest Piksi SwiftNAP firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['nap_fw']['url']
 
     try:
       f = urlopen(index['piksi_v2.3.1']['stm_fw']['url'])
       self.stm_ihx = IntelHex(f)
       f.close()
     except URLError:
-      self.write("\nError: Failed to download latest Piksi STM firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['stm_fw']['url'])
+      print "\nError: Failed to download latest Piksi STM firmware from Swift Navigation's website (%s). Please visit our website to check that you're running the latest firmware.\n" % index['piksi_v2.3.1']['stm_fw']['url']
 
     # Prompt user to update firmware. Only allow update if we successfully
     # downloaded both files.
@@ -293,34 +290,37 @@ class FirmwareUpdateView(HasTraits):
 
   # Executed in GUI thread, called from Handler.
   def manage_firmware_updates(self):
+    self.updating = True
 
-    self.write("\n")
+    print "\n"
 
     # Flash NAP.
-    self.write("Updating SwiftNAP firmware...\n")
-    self.update_flash(self.nap_ihx, "M25")
+    print "Updating SwiftNAP firmware...\n"
+    #self.update_flash(self.nap_ihx, "M25")
 
     # Flash STM.
-    self.write("Updating STM firmware...\n")
+    print "Updating STM firmware...\n"
     self.update_flash(self.stm_ihx, "STM")
 
     # Piksi needs to jump to application after updating firmware.
     self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
-    self.write("Firmware updates finished.\n")
+    print "Firmware updates finished.\n"
+
+    self.updating = False
 
   def update_flash(self, ihx, flash_type):
 
     # Reset device if the application is running to put into bootloader mode.
     self.link.send_message(ids.RESET, '')
 
-    self.write("\n")
+    print "\n"
 
     piksi_bootloader = bootload.Bootloader(self.link)
-    self.write("Waiting for bootloader handshake message from Piksi ...\n")
+    print "Waiting for bootloader handshake message from Piksi ...\n"
     piksi_bootloader.wait_for_handshake()
     piksi_bootloader.reply_handshake()
-    self.write("received bootloader handshake message.\n")
-    self.write("Piksi Onboard Bootloader Version: " + piksi_bootloader.version + "\n")
+    print "received bootloader handshake message.\n"
+    print "Piksi Onboard Bootloader Version: " + piksi_bootloader.version + "\n"
 
     piksi_flash = flash.Flash(self.link, flash_type)
     piksi_flash.write_ihx(ihx, self.output, mod_print = 0x10)
@@ -328,5 +328,5 @@ class FirmwareUpdateView(HasTraits):
 
     piksi_bootloader.stop()
 
-    self.write("\n")
+    print "\n"
 
