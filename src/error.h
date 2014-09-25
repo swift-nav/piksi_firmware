@@ -13,7 +13,13 @@
 #ifndef SWIFTNAV_ERROR_H
 #define SWIFTNAV_ERROR_H
 
-void screaming_death(const char *msg);
+/* Two macros ensures any macro passed will
+ * be expanded before being stringified */
+#define STRINGIZE_DETAIL(x) #x
+#define STRINGIZE(x) STRINGIZE_DETAIL(x)
+
+#define screaming_death(x) _screaming_death(__FILE__ ":" STRINGIZE(__LINE__), (x))
+void _screaming_death(const char *pos, const char *msg);
 
 #endif  /* SWIFTNAV_ERROR_H */
 
