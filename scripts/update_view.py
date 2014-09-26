@@ -301,7 +301,7 @@ class UpdateView(HasTraits):
 
     # Flash NAP.
     print "Updating SwiftNAP firmware...\n"
-    #self.update_flash(self.nap_ihx, "M25")
+    self.update_flash(self.nap_ihx, "M25")
 
     # Flash STM.
     print "Updating STM firmware...\n"
