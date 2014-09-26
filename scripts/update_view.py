@@ -141,10 +141,8 @@ class UpdateView(HasTraits):
     )
   )
 
-  def __init__(self, link, output, prompt=True):
+  def __init__(self, link, prompt=True):
     self.link = link
-    self.thread = None
-    self.output = output
     self.settings = {}
     self.nap_ihx = None
     self.stm_ihx = None
@@ -163,15 +161,23 @@ class UpdateView(HasTraits):
       else:
         print "No firmware files have been downloaded yet!"
 
-  # Instead of inheriting Thread so start can be called multiple times.
+  # Instantiate an instance variable thread instead of inheriting Thread 
+  # so start can be called multiple times.
   # Expectation is that OneClickUpdate.start is passed to SettingsView to
   # be called after settings are read out, which can happen multiple times.
-  # Executed in GUI thread.
-  #
-  # Returns without any action taken on any calls after the first call.
+  # This method is executed in GUI thread.
   def start(self):
 
-    # Make sure settings contains Piksi firmware version strings.
+    try:
+      if self.thread.is_alive():
+        return
+    except AttributeError:
+      pass
+
+    self.thread = Thread(target=self.run)
+    self.thread.start()
+
+  def update_piksi_fw_vers(self):
     try:
       self.piksi_stm_vers = \
         self.settings['system_info']['firmware_version'].value
@@ -179,13 +185,6 @@ class UpdateView(HasTraits):
         self.settings['system_info']['nap_version'].value
     except KeyError:
       print "\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n"
-      return
-
-    if self.thread:
-      return
-
-    self.thread = Thread(target=self.run)
-    self.thread.start()
 
   def point_to_settings(self, settings):
     self.settings = settings
@@ -205,6 +204,8 @@ class UpdateView(HasTraits):
                      title="Piksi Console Outdated",
                      actions=[close_button],
                     )
+
+    self.update_piksi_fw_vers()
 
     # Get index that contains file URLs and latest
     # version strings from Swift Nav's website.
@@ -318,8 +319,6 @@ class UpdateView(HasTraits):
     # Reset device if the application is running to put into bootloader mode.
     self.link.send_message(ids.RESET, '')
 
-    print "\n"
-
     piksi_bootloader = bootload.Bootloader(self.link)
     print "Waiting for bootloader handshake message from Piksi ...\n"
     piksi_bootloader.wait_for_handshake()
@@ -328,10 +327,8 @@ class UpdateView(HasTraits):
     print "Piksi Onboard Bootloader Version: " + piksi_bootloader.version + "\n"
 
     piksi_flash = flash.Flash(self.link, flash_type)
-    piksi_flash.write_ihx(ihx, self.output, mod_print = 0x10)
+    piksi_flash.write_ihx(ihx, sys.stdout, mod_print = 0x10)
     piksi_flash.stop()
 
     piksi_bootloader.stop()
-
-    print "\n"
 

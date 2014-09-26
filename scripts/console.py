@@ -183,10 +183,8 @@ class SwiftConsole(HasTraits):
                                               name='Base', relay=True)
       self.system_monitor_view = SystemMonitorView(self.link)
       self.simulator_view = SimulatorView(self.link)
-      self.settings_view = SettingsView(self.link)
 
-      self.update_view = \
-        UpdateView(self.link, self.console_output, prompt=update)
+      self.update_view = UpdateView(self.link, prompt=update)
       settings_read_finished_functions.append(self.update_view.start)
 
       self.settings_view = \
