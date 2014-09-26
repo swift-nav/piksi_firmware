@@ -88,7 +88,7 @@ from observation_view import ObservationView
 from system_monitor_view import SystemMonitorView
 from simulator_view import SimulatorView
 from settings_view import SettingsView
-from firmware_update_view import FirmwareUpdateView
+from update_view import UpdateView
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -105,7 +105,7 @@ class SwiftConsole(HasTraits):
   system_monitor_view = Instance(SystemMonitorView)
   simulator_view = Instance(SimulatorView)
   settings_view = Instance(SettingsView)
-  firmware_update_view = Instance(FirmwareUpdateView)
+  update_view = Instance(UpdateView)
 
   view = View(
     VSplit(
@@ -121,7 +121,7 @@ class SwiftConsole(HasTraits):
         ),
         Item('simulator_view', style='custom', label='Simulator'),
         Item('settings_view', style='custom', label='Settings'),
-        Item('firmware_update_view', style='custom', label='Firmware Update'),
+        Item('update_view', style='custom', label='Firmware Update'),
         Item('system_monitor_view', style='custom', label='System Monitor'),
         Item(
           'python_console_env', style='custom',
@@ -185,13 +185,13 @@ class SwiftConsole(HasTraits):
       self.simulator_view = SimulatorView(self.link)
       self.settings_view = SettingsView(self.link)
 
-      self.firmware_update_view = \
-        FirmwareUpdateView(self.link, self.console_output, prompt=update)
-      settings_read_finished_functions.append(self.firmware_update_view.start)
+      self.update_view = \
+        UpdateView(self.link, self.console_output, prompt=update)
+      settings_read_finished_functions.append(self.update_view.start)
 
       self.settings_view = \
           SettingsView(self.link, settings_read_finished_functions)
-      self.firmware_update_view.point_to_settings(self.settings_view.settings)
+      self.update_view.point_to_settings(self.settings_view.settings)
 
       self.python_console_env = {
           'send_message': self.link.send_message,
@@ -203,7 +203,7 @@ class SwiftConsole(HasTraits):
       self.python_console_env.update(self.baseline_view.python_console_cmds)
       self.python_console_env.update(self.observation_view.python_console_cmds)
       self.python_console_env.update(self.system_monitor_view.python_console_cmds)
-      self.python_console_env.update(self.firmware_update_view.python_console_cmds)
+      self.python_console_env.update(self.update_view.python_console_cmds)
     except:
       import traceback
       traceback.print_exc()

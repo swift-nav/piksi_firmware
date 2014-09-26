@@ -14,7 +14,6 @@
 # TODO: have Firmware Update tab blink if new firmware is available
 # TODO: allow user to specify path to firmware file. save firmware file
 #       locally. give user a button to control downloading the firmware.
-# TODO: add self.python_console_cmds and update python console with them
 
 from urllib2 import urlopen, URLError
 from json import load as jsonload
@@ -124,7 +123,7 @@ class UpdatePrompt(HasTraits):
     while not self.closed:
       sleep(0.1)
 
-class FirmwareUpdateView(HasTraits):
+class UpdateView(HasTraits):
 
   piksi_stm_vers = String('Waiting for Piksi device info...')
   newest_stm_vers = String('Waiting for newest firmware info...')
