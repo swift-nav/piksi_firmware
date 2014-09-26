@@ -12,6 +12,8 @@
 # TODO: have update button blank out and not be clickable if firmware files
 #       haven't been downloaded yet
 # TODO: have Firmware Update tab blink if new firmware is available
+# TODO: allow user to specify path to firmware file. save firmware file
+#       locally. give user a button to control downloading the firmware.
 # TODO: add self.python_console_cmds and update python console with them
 
 from urllib2 import urlopen, URLError
@@ -149,6 +151,10 @@ class FirmwareUpdateView(HasTraits):
     self.stm_ihx = None
     self.prompt = prompt
     self.updating = False
+    self.python_console_cmds = {
+      'update': self
+    }
+
 
   def _update_firmware_fired(self):
     # Make sure we have firmware files.
