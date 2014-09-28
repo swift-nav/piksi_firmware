@@ -60,8 +60,8 @@ function piksi_splash_linux () {
 function sys_dependencies_apt () {
     # Install system and python library dependencies using an
     # apt-based installer.
-    log_info 'Checking system dependencies for Linux...'
-    log_info 'Please enter your password for ...'
+    log_info "Checking system dependencies for Linux..."
+    log_info "Please enter your password for ..."
     sudo apt-get update
     sudo apt-get -y install \
         git \
@@ -101,7 +101,7 @@ function sys_dependencies_apt () {
         --allow-unverified PIL \
         --allow-external intelhex \
         --allow-unverified intelhex
-    log_info 'Setting up ARM GCC toolchain...'
+    log_info "Setting up ARM GCC toolchain..."
     sudo add-apt-repository -y ppa:terry.guo/gcc-arm-embedded
     sudo apt-get -y update
     sudo apt-get -y install gcc-arm-none-eabi
@@ -111,10 +111,10 @@ function build () {
     # Pulls down git submodules and builds the project, assuming that
     # all other system, ARM GCC, and python dependencies have been
     # installed.
-    log_info 'Initializing Git submodules for ChibiOS, libopencm3, and libswiftnav...'
+    log_info "Initializing Git submodules for ChibiOS, libopencm3, and libswiftnav..."
     git submodule init
     git submodule update
-    log_info 'Building piksi_firmware...'
+    log_info "Building piksi_firmware..."
     make clean
     make
 }
@@ -157,7 +157,7 @@ function swig_install_osx () {
     # depenencies, so install brew 2.x if needed.
     log_info "Installing swig 2.0.12..."
     brew update
-    brew uninstall swig
+    brew info swig | grep -qE '^Not installed' && brew uninstall swig
     pushd `pwd`
     cd `brew --prefix`
     git checkout 89eafbe /usr/local/Library/Formula/swig.rb
@@ -183,55 +183,60 @@ function uuid_hack_osx () {
     if [[ $OSX_MINOR_VERSION > 6 ]]; then
         if [ -f /usr/local/include/uuid/uuid.h ]; then
             log_info "HACK: Checking for uuid.h..."
-            log_info 'Moving /usr/local/include/uuid/uuid.h (see setup.sh) ...'
+            log_info "Moving /usr/local/include/uuid/uuid.h (see setup.sh) ..."
             mv /usr/local/include/uuid/uuid.h /usr/local/include/uuid/uuid.bak
         fi
     fi
 }
 
+function safe_brew_install () {
+    formula=$1
+    brew info $formula | grep -qE '^Not installed' && brew install $formula &
+}
+
 function sys_dependencies_osx () {
     # Installs system dependencies for OS X. Requires that XCode and
     # Homebrew be installed and will exit otherwise.
-    log_info 'Checking system dependencies for OS X...'
+    log_info "Checking system dependencies for OS X..."
     # TODO (Buro): Check using xcode-select -p
     if [ ! -x "/usr/bin/python" ]; then
-        log_error 'Please install Xcode developer tools and try again:'
-        log_error '   /usr/bin/xcode-select --install'
+        log_error "Please install Xcode developer tools and try again:"
+        log_error "   /usr/bin/xcode-select --install"
         exit 1
     fi
     if [ ! -x "/usr/local/bin/brew" ]; then
-        log_error 'Could not find homebrew.'
-        log_error 'Please install homebrew and try again. See homebrew_install() in this file.'
+        log_error "Could not find homebrew."
+        log_error "Please install homebrew and try again. See homebrew_install() in this file."
     fi
-    brew install cmake \
-        qt \
-        pyqt \
-        libftdi \
-        wget \
-        pyside
+    safe_brew_install cmake
+    safe_brew_install qt
+    safe_brew_install pyqt
+    safe_brew_install libftdi
+    safe_brew_install pyside
     # Execute some hacks
     swig_install_osx
     freetype_hask_osx
     uuid_hack_osx
-    log_info 'Done with system dependencies for OS X...'
+    log_info "Done with system dependencies for OS X..."
 }
 
 function python_setup_osx () {
     # Sets up python development environment using a virtualenv. This
     # is tailored to the particular idiosyncrasies of Enthought's
     # python installation on OSX.
-    log_info 'Setting up Python project build environment...'
+    log_info "Setting up Python project build environment..."
+    exit 1
     # Cleanup any existing files that may be here.
     find . -name \*.pyc -delete
     # Install an up-to-date pip.
-    log_info 'Installing pip and virtualenv...'
+    log_info "Installing pip and virtualenv..."
     sudo easy_install 'pip>=1.5.6' virtualenv
     sudo pip install pip --upgrade
     sudo pip install virtualenv --upgrade
-    log_info 'Create up Python a virtualenv named dev...'
     # Pip and virtualenv are having issues with safe dependency
     # resolution, so install numpy and cython first. Add this back
     # later:
+    # log_info "Create up Python a virtualenv named dev..."
     # virtualenv dev
     # source ./dev/bin/activate
     pip install numpy==1.9.0 cython==0.21 distribute==0.7.3
@@ -257,7 +262,7 @@ function python_setup_osx () {
 
 function install_arm_osx () {
     # Installs ARM GCC toolchain for OS X.
-    log_info 'Setting up ARM GCC toolchain...'
+    log_info "Setting up ARM GCC toolchain..."
     wget https://launchpad.net/gcc-arm-embedded/4.7/4.7-2013-q1-update/+download/gcc-arm-none-eabi-4_7-2013q1-20130313-mac.tar.bz2
     tar -xf gcc-arm-none-eabi-4_7-2013q1-20130313-mac.tar.bz2
     mv gcc-arm-none-eabi-4_7-2013q1 ~/gcc-arm-none-eabi
@@ -268,7 +273,7 @@ function install_arm_osx () {
 
 function build_osx () {
     build
-    log_info 'Importing piksi_firmware virtualenv dev into $PATH...'
+    log_info "Importing piksi_firmware virtualenv dev into $PATH..."
     # source ./dev/bin/activate
 }
 
@@ -290,10 +295,10 @@ function run_all_platforms {
         install_arm_osx
         build_osx
     else
-        log_error 'This script does not support this platform. Please contact mookerji@swiftnav.com'
+        log_error "This script does not support this platform. Please contact mookerji@swiftnav.com"
         exit 1
     fi
-    log_info 'Done!.'
+    log_info "Done!."
 }
 
 set -e
