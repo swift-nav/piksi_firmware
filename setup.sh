@@ -239,13 +239,13 @@ function python_setup_osx () {
     # log_info "Create up Python a virtualenv named dev..."
     # virtualenv dev
     # source ./dev/bin/activate
-    pip install numpy==1.9.0 cython==0.21 distribute==0.7.3
-    pip install chaco==4.4.1 enable==4.4.1 \
+    sudo pip install numpy==1.9.0 cython==0.21 distribute==0.7.3
+    sudo pip install chaco==4.4.1 enable==4.4.1 \
         --allow-unverified enable \
         --allow-unverified PIL \
         --allow-external intelhex \
         --allow-unverified intelhex
-    pip install \
+    sudo pip install \
         traits==4.5.0 \
         traitsui==4.4.0 \
         pyface==4.4.0 \
