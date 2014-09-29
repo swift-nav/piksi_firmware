@@ -93,12 +93,18 @@ class ListenerThread (threading.Thread):
           else:
             for cb in cbs:
               try:
-                cb(md, sender=ms)
-              except TypeError:
-                cb(md)
-      except Exception, err:
+                try:
+                  cb(md, sender=ms)
+                except TypeError:
+                  cb(md)
+              except struct.error:
+                # Handle struct unpacking error without exiting thread.
+                import traceback
+                print traceback.format_exc()
+      except:
         import traceback
         print traceback.format_exc()
+        return
 
 def list_ports(self=None):
   import serial.tools.list_ports
