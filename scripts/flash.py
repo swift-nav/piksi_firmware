@@ -227,8 +227,11 @@ class Flash():
 
     # Write data to flash and validate
     start_time = time.time()
-    for start, end in ihx_addrs:
-      for addr in range(start, end, ADDRS_PER_OP):
+    # STM's lowest address is used by bootloader to check that the application
+    # is valid, so program from high to low to ensure this address is programmed
+    # last.
+    for start, end in reversed(ihx_addrs):
+      for addr in reversed(range(start, end, ADDRS_PER_OP)):
         self.status = self.flash_type + " Flash: Programming address" + \
                                         " 0x%08X" % addr
         if stream:
