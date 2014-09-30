@@ -96,9 +96,8 @@ if __name__ == "__main__":
   ihx = IntelHex(args.file)
 
   # Create serial link with device.
-  print "Waiting for device to be plugged in ...",
-  sys.stdout.flush()
   found_device = False
+  wait_count = -1
   while not found_device:
     try:
       link = serial_link.SerialLink(serial_port, baud=baud, use_ftdi=args.ftdi,
@@ -108,15 +107,28 @@ if __name__ == "__main__":
       # Clean up and exit.
       link.close()
       sys.exit()
-    except:
-      # Couldn't find device.
+    except OSError:
+      # No device with name serial_port found.
+      print ' ' + chr(3), # Clear line.
+      print "\rWaiting for device '%s' to be plugged in " % serial_port,
+      for i in range(wait_count-33, 0, -33):
+        sys.stdout.write('.')
+      wait_count = (wait_count + 1) % 132
+      sys.stdout.flush()
       time.sleep(0.01)
-  print "link successfully created."
+    except:
+      import traceback
+      traceback.print_exc()
+      sys.exit()
+  if wait_count >= 0:
+    print
+  print "Link successfully created with device: '%s'." % serial_port
 
   # Reset device if the payload is running.
   link.send_message(ids.RESET, '')
 
   # Add print callback.
+  time.sleep(0.2)
   link.add_callback(ids.PRINT, serial_link.default_print_callback)
 
   # Tell Bootloader we want to write to the flash.
