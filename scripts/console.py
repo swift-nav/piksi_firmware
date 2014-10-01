@@ -139,7 +139,7 @@ class SwiftConsole(HasTraits):
     ),
     icon = icon,
     resizable = True,
-    width = 950,
+    width = 1200,
     height = 600,
     title = 'Piksi Console, Version: ' + CONSOLE_VERSION
   )
@@ -189,7 +189,7 @@ class SwiftConsole(HasTraits):
 
       self.settings_view = \
           SettingsView(self.link, settings_read_finished_functions)
-      self.update_view.point_to_settings(self.settings_view.settings)
+      self.update_view.settings = self.settings_view.settings
 
       self.python_console_env = {
           'send_message': self.link.send_message,
