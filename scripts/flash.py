@@ -27,6 +27,9 @@ M25_SR_BP0  = 1 << 2
 M25_SR_WEL  = 1 << 1
 M25_SR_WIP  = 1 << 0
 
+STM_RESTRICTED_SECTORS = [0]
+M25_RESTRICTED_SECTORS = [15]
+
 def stm_addr_sector_map(addr):
   if   addr >= 0x08000000 and addr < 0x08004000:
     return 0
@@ -53,12 +56,12 @@ def stm_addr_sector_map(addr):
   elif addr >= 0x080E0000 and addr < 0x08100000:
     return 11
   else:
-    raise IndexError("Attempted to access flash memory at (%s) outside of range." % hex(addr))
+    raise IndexError("Attempted to access flash memory at (%s) outside of range (wrong firmware file?)." % hex(addr))
     return None
 
 def m25_addr_sector_map(addr):
   if addr < 0 or addr > 0xFFFFF:
-    raise IndexError("Attempted to access flash memory at (%s) outside of range." % hex(addr))
+    raise IndexError("Attempted to access flash memory at (%s) outside of range (wrong firmware file?)." % hex(addr))
   return addr >> 16
 
 def ihx_ranges(ihx):
@@ -137,12 +140,14 @@ class Flash():
           new.instancemethod(_stm_lock_sector, self, Flash)
       self.__dict__['unlock_sector'] = \
           new.instancemethod(_stm_unlock_sector, self, Flash)
+      self.restricted_sectors = STM_RESTRICTED_SECTORS
     elif self.flash_type == "M25":
       self.flash_type_byte = 1
       self.addr_sector_map = m25_addr_sector_map
       # Add M25-specific functions.
       self.__dict__['write_status'] = \
           new.instancemethod(_m25_write_status, self, Flash)
+      self.restricted_sectors = M25_RESTRICTED_SECTORS
     else:
       raise ValueError("flash_type must be \"STM\" or \"M25\"")
 
@@ -159,6 +164,10 @@ class Flash():
     return self.status
 
   def erase_sector(self, sector):
+    if sector in self.restricted_sectors:
+      text = 'Attempting to erase %s flash restricted sector %d' % \
+             (self.flash_type, sector)
+      raise Warning(text)
     msg_buf = struct.pack("BB", self.flash_type_byte, sector)
     self._waiting_for_callback = True
     self.link.send_message(ids.FLASH_ERASE, msg_buf)
