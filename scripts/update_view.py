@@ -11,7 +11,11 @@
 
 # TODO: have update button blank out and not be clickable if firmware files
 #       haven't been downloaded yet
+# TODO: blank out update, choose firmware updates.
 # TODO: have Firmware Update tab blink if new firmware is available
+# TODO: add button to wipe flash upon update (default on)
+# TODO: ability to flash piksi if firmware is borked - prompt user to reset?
+# TODO: remove automatic download, just prompt user to press download button
 
 from urllib2 import urlopen, URLError
 from urlparse import urlparse
@@ -23,7 +27,8 @@ from pkg_resources import parse_version
 from threading import Thread
 
 from traits.api import HasTraits, Event, String, Button, Instance
-from traitsui.api import View, Handler, Action, Item, TextEditor, VGroup, UItem
+from traitsui.api import View, Handler, Action, Item, TextEditor, VGroup, \
+                         UItem, InstanceEditor
 from pyface.api import GUI, FileDialog, OK
 
 from version import VERSION as CONSOLE_VERSION
@@ -31,6 +36,8 @@ import bootload
 import sbp_piksi as ids
 import flash
 import callback_prompt as prompt
+
+from output_stream import OutputStream
 
 import sys, os
 from pyface.image_resource import ImageResource
@@ -126,6 +133,8 @@ class UpdateView(HasTraits):
   stm_fw = Instance(IntelHexFileDialog)
   nap_fw = Instance(IntelHexFileDialog)
 
+  stream = Instance(OutputStream)
+
   view = View(
     VGroup(
       Item('piksi_stm_vers', label='Piksi STM Firmware Version'),
@@ -135,6 +144,12 @@ class UpdateView(HasTraits):
       Item('stm_fw', style='custom', label='STM Firmware File'),
       Item('nap_fw', style='custom', label='NAP Firmware File'),
       UItem('update_firmware'),
+      Item(
+        'stream',
+        style='custom',
+        editor=InstanceEditor(),
+        label='Update Status',
+      ),
     )
   )
 
@@ -148,6 +163,11 @@ class UpdateView(HasTraits):
     }
     self.stm_fw = IntelHexFileDialog('STM')
     self.nap_fw = IntelHexFileDialog('M25')
+    self.stream = OutputStream()
+
+  def write(self, text):
+    self.stream.write(text)
+    self.stream.flush()
 
   def _update_firmware_fired(self):
     if not self.updating:
@@ -155,9 +175,9 @@ class UpdateView(HasTraits):
         GUI.invoke_later(self.manage_firmware_updates)
       else:
         # TODO: change this for a warning window
-        print "No firmware files have been chosen yet!"
+        self.write("No firmware files have been chosen yet!")
     else:
-      print "Already updating firmware"
+      self.write("Already updating firmware")
 
   def _download_firmware(self):
     self.nap_fw.ihx = None
@@ -227,7 +247,7 @@ class UpdateView(HasTraits):
       self.piksi_nap_vers = \
         self.settings['system_info']['nap_version'].value
     except KeyError:
-      print "\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n"
+      self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n")
       return
 
     # Get index that contains file URLs and latest
@@ -237,7 +257,7 @@ class UpdateView(HasTraits):
       self.index = jsonload(f)
       f.close()
     except URLError:
-      print "\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n\n" % INDEX_URL
+      self.write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n\n" % INDEX_URL)
       return
 
     # Make sure index contains all keys we are interested in.
@@ -248,7 +268,7 @@ class UpdateView(HasTraits):
       self.index['piksi_v2.3.1']['nap_fw']['url']
       self.index['piksi_v2.3.1']['console']['version']
     except KeyError:
-      print "\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n\n" % INDEX_URL
+      self.write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
       return
 
     # Assign text to CallbackPrompt's
@@ -309,19 +329,19 @@ class UpdateView(HasTraits):
   def manage_firmware_updates(self):
     self.updating = True
 
-    print "\n"
+    self.write("\n")
 
     # Flash NAP.
-    print "Updating SwiftNAP firmware...\n"
+    self.write("Updating SwiftNAP firmware...\n")
     self.update_flash(self.nap_fw.ihx, "M25")
 
     # Flash STM.
-    print "Updating STM firmware...\n"
+    self.write("Updating STM firmware...\n")
     self.update_flash(self.stm_fw.ihx, "STM")
 
     # Piksi needs to jump to application after updating firmware.
     self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
-    print "Firmware updates finished.\n"
+    self.write("Firmware updates finished.\n")
 
     self.updating = False
 
@@ -331,14 +351,14 @@ class UpdateView(HasTraits):
     self.link.send_message(ids.RESET, '')
 
     piksi_bootloader = bootload.Bootloader(self.link)
-    print "Waiting for bootloader handshake message from Piksi ...\n"
+    self.write("Waiting for bootloader handshake message from Piksi ...\n")
     piksi_bootloader.wait_for_handshake()
     piksi_bootloader.reply_handshake()
-    print "received bootloader handshake message.\n"
-    print "Piksi Onboard Bootloader Version: " + piksi_bootloader.version + "\n"
+    self.write("received bootloader handshake message.\n")
+    self.write("Piksi Onboard Bootloader Version: " + piksi_bootloader.version + "\n")
 
     piksi_flash = flash.Flash(self.link, flash_type)
-    piksi_flash.write_ihx(ihx, sys.stdout, mod_print = 0x10)
+    piksi_flash.write_ihx(ihx, self.stream, mod_print = 0x10)
     piksi_flash.stop()
 
     piksi_bootloader.stop()
