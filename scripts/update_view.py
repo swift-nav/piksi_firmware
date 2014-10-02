@@ -28,7 +28,7 @@ from threading import Thread
 
 from traits.api import HasTraits, Event, String, Button, Instance
 from traitsui.api import View, Handler, Action, Item, TextEditor, VGroup, \
-                         UItem, InstanceEditor
+                         UItem, InstanceEditor, VSplit, HSplit, HGroup
 from pyface.api import GUI, FileDialog, OK
 
 from version import VERSION as CONSOLE_VERSION
@@ -128,7 +128,7 @@ class UpdateView(HasTraits):
   piksi_nap_vers = String('Waiting for Piksi to send settings...')
   newest_nap_vers = String('Waiting for newest firmware info...')
   update_firmware = Button(label='Update Piksi Firmware')
-  download_firmware = Button(label='Download Latest Piksi Firmware')
+  #download_firmware = Button(label='Download Newest Firmware Files')
 
   stm_fw = Instance(IntelHexFileDialog)
   nap_fw = Instance(IntelHexFileDialog)
@@ -137,12 +137,19 @@ class UpdateView(HasTraits):
 
   view = View(
     VGroup(
-      Item('piksi_stm_vers', label='Piksi STM Firmware Version'),
-      Item('newest_stm_vers', label='Newest STM Firmware Version'),
-      Item('piksi_nap_vers', label='Piksi NAP Firmware Version'),
-      Item('newest_nap_vers', label='Newest NAP Firmware Version'),
-      Item('stm_fw', style='custom', label='STM Firmware File'),
-      Item('nap_fw', style='custom', label='NAP Firmware File'),
+      HGroup(
+        VGroup(
+          Item('piksi_stm_vers', label='Piksi STM Firmware Version'),
+          Item('newest_stm_vers', label='Newest STM Firmware Version'),
+          Item('piksi_nap_vers', label='Piksi NAP Firmware Version'),
+          Item('newest_nap_vers', label='Newest NAP Firmware Version'),
+        ),
+        VGroup(
+          Item('stm_fw', style='custom', label='STM Firmware File'),
+          Item('nap_fw', style='custom', label='NAP Firmware File'),
+        ),
+      ),
+      #UItem('download_firmware'),
       UItem('update_firmware'),
       Item(
         'stream',
