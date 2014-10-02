@@ -173,8 +173,8 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   static s16 prev_count = 0;
   static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
-  /* Using two extras so we don't need to overwrite the old set
-   *  when we end up with a bad set. */
+  /* Using an extra obss_t so we don't need to overwrite the old set (used for 
+   * low latency) when we end up with a bad new set. */
   static obss_t base_obss_raw = {.has_pos = 0};
 
   /* Sender ID of zero means that the messages are relayed observations,
@@ -239,7 +239,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       calc_sat_pos(&base_obss_raw.nm[base_obss_raw.n].sat_pos[0],
                    &base_obss_raw.nm[base_obss_raw.n].sat_vel[0],
                    &clock_err, &clock_rate_err, &es[obs[i].prn], t);
-      /* \TODO Make a function to apply some of these corrections.
+      /* TODO Make a function to apply some of these corrections.
        *       They are used in a couple places. */
       base_obss_raw.nm[base_obss_raw.n].pseudorange =
             base_obss_raw.nm[base_obss_raw.n].raw_pseudorange + clock_err * GPS_C;
@@ -255,7 +255,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     qsort(base_obss_raw.nm, base_obss_raw.n,
           sizeof(navigation_measurement_t), nav_meas_cmp);
     if (base_obss_raw.n >= 4) {
-      /* \TODO Maybe we should put the following base position stuff into its
+      /* TODO Maybe we should put the following base position stuff into its
        *       own subsystem. */
       if (base_pos_known) {
         memcpy(base_obss_raw.pos_ecef, known_base_ecef, 3 * sizeof(double));
@@ -464,7 +464,7 @@ static msg_t solution_thread(void *arg)
             /* Hook in low-latency filter here. */
             if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
                 base_obss.has_pos) {
-              /* \TODO  lock the ephemerides for this operation */
+              /* TODO lock the ephemerides for this operation */
               sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
               u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                       base_obss.n, base_obss.nm,
@@ -476,7 +476,6 @@ static msg_t solution_thread(void *arg)
               s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
                       position_solution.pos_ecef, &num_sds_used, prop_baseline);
               if (ll_err_code != -1) {
-                /* \TODO send whether the baseline is using the integer ambs */
                 solution_send_baseline(&position_solution.time,
                                        num_sds_used, prop_baseline,
                                        position_solution.pos_ecef,
