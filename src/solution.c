@@ -173,7 +173,6 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   static s16 prev_count = 0;
   static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
-  static u16 old_num_base_obss = 0;
   /* Using two extras so we don't need to overwrite the old set
    *  when we end up with a bad set. */
   static obss_t base_obss_raw = {.has_pos = 0};
@@ -224,7 +223,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
 
   if (count == 0) {
-    base_obss_raw.n = 0; //obs_in_msg;
+    base_obss_raw.n = 0;
     base_obss_raw.t = t;
   }
   msg_obs_content_t *obs = (msg_obs_content_t *)(msg + sizeof(msg_obs_header_t));
@@ -240,10 +239,12 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       calc_sat_pos(&base_obss_raw.nm[base_obss_raw.n].sat_pos[0],
                    &base_obss_raw.nm[base_obss_raw.n].sat_vel[0],
                    &clock_err, &clock_rate_err, &es[obs[i].prn], t);
+      /* \TODO Make a function to apply some of these corrections.
+       *       They are used in a couple places. */
       base_obss_raw.nm[base_obss_raw.n].pseudorange =
             base_obss_raw.nm[base_obss_raw.n].raw_pseudorange + clock_err * GPS_C;
       base_obss_raw.nm[base_obss_raw.n].tot = t;
-      //set the time
+      /* set the time */
       base_obss_raw.n++;
     }
   }
@@ -254,52 +255,56 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     qsort(base_obss_raw.nm, base_obss_raw.n,
           sizeof(navigation_measurement_t), nav_meas_cmp);
     if (base_obss_raw.n >= 4) {
-      gnss_solution soln;
-      dops_t dops;
-
-      calc_PVT(base_obss_raw.n, base_obss_raw.nm, &soln, &dops);
-
-      /* Lock mutex before modifying base_obss. */
-      chMtxLock(&base_obs_lock);
-
-      if (soln.valid) {
-        if (base_obss.has_pos) {
-          /* TODO Implement a real filter for base position (potentially in
-             observation space), so we can do away with this terrible excuse
-             for smoothing. */
-          base_obss_raw.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
-                                    + 0.00005 * soln.pos_ecef[0];
-          base_obss_raw.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
-                                    + 0.00005 * soln.pos_ecef[1];
-          base_obss_raw.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
-                                    + 0.00005 * soln.pos_ecef[2];
-        }
-        else {
-          memcpy(base_obss_raw.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
-        }
+      /* \TODO Maybe we should put the following base position stuff into its
+       *       own subsystem. */
+      if (base_pos_known) {
+        memcpy(base_obss_raw.pos_ecef, known_base_ecef, 3 * sizeof(double));
         base_obss_raw.has_pos = 1;
-      }
-      else {
-        if (base_obss.has_pos) {
-          memcpy(base_obss_raw.pos_ecef, base_obss.pos_ecef, 3 * sizeof(double));
+      } else {
+        gnss_solution soln;
+        dops_t dops;
+
+        calc_PVT(base_obss_raw.n, base_obss_raw.nm, &soln, &dops);
+
+        /* Lock mutex before modifying base_obss. */
+        chMtxLock(&base_obs_lock);
+
+        if (soln.valid) {
+          if (base_obss.has_pos) {
+            /* TODO Implement a real filter for base position (potentially in
+               observation space), so we can do away with this terrible excuse
+               for smoothing. */
+            base_obss_raw.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
+                                      + 0.00005 * soln.pos_ecef[0];
+            base_obss_raw.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
+                                      + 0.00005 * soln.pos_ecef[1];
+            base_obss_raw.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
+                                      + 0.00005 * soln.pos_ecef[2];
+          } else {
+            memcpy(base_obss_raw.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
+          }
           base_obss_raw.has_pos = 1;
-        }
-        else {
-          base_obss_raw.has_pos = 0;
+        } else {
+          if (base_obss.has_pos) {
+            memcpy(base_obss_raw.pos_ecef, base_obss.pos_ecef, 3 * sizeof(double));
+            base_obss_raw.has_pos = 1;
+          } else {
+            base_obss_raw.has_pos = 0;
+          }
         }
       }
+
       if (base_obss_raw.has_pos) {
         for (u8 i=0; i < base_obss_raw.n; i++) {
-          double dx = base_obss_raw.nm[i].sat_pos[0] - base_obss_raw.pos_ecef[0];
-          double dy = base_obss_raw.nm[i].sat_pos[1] - base_obss_raw.pos_ecef[1];
-          double dz = base_obss_raw.nm[i].sat_pos[2] - base_obss_raw.pos_ecef[2];
-          base_obss_raw.sat_dists[i] = sqrt(dx * dx + dy * dy + dz * dz);
+          double dx[3];
+          vector_subtract(3, base_obss_raw.nm[i].sat_pos, base_obss_raw.pos_ecef,
+                          dx);
+          base_obss_raw.sat_dists[i] = vector_norm(3, dx);
         }
 
-        (void) old_num_base_obss; //potentially used here for online corrections
+        /* potentially use old obss here for online corrections */
         /* Loop over base_obss_raw.nm and base_obss.nm and check if a PRN is present in both. */
         memcpy(&base_obss, &base_obss_raw, sizeof(obss_t));
-        old_num_base_obss = base_obss_raw.n;
       }
 
       /* Unlock mutex. */
@@ -449,7 +454,6 @@ static msg_t solution_thread(void *arg)
          * differential solution. */
         double pdt;
         chMtxLock(&base_obs_lock);
-        static u32 low_lat_counter = 0;
         if (base_obss.n > 0) {
           if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
                 < MAX_AGE_OF_DIFFERENTIAL) {
@@ -458,12 +462,11 @@ static msg_t solution_thread(void *arg)
              * process a low-latency differential solution. */
 
             /* Hook in low-latency filter here. */
-            low_lat_counter++;
-            if ((low_lat_counter > 100 || dgnss_soln_mode == SOLN_MODE_LOW_LATENCY) &&
+            if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
                 base_obss.has_pos) {
-              //TODO  lock the ephemerides for this operation
+              /* \TODO  lock the ephemerides for this operation */
               sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
-              u8 num_sdiffs = make_propogated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
+              u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                       base_obss.n, base_obss.nm,
                                       base_obss.sat_dists, base_obss.pos_ecef,
                                       es, position_solution.time,
@@ -473,7 +476,7 @@ static msg_t solution_thread(void *arg)
               s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
                       position_solution.pos_ecef, &num_sds_used, prop_baseline);
               if (ll_err_code != -1) {
-                //TODO send whether the baseline is using the integer ambs
+                /* \TODO send whether the baseline is using the integer ambs */
                 solution_send_baseline(&position_solution.time,
                                        num_sds_used, prop_baseline,
                                        position_solution.pos_ecef,
