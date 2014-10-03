@@ -81,6 +81,9 @@ if __name__ == "__main__":
   parser.add_argument('-s', '--stm',
                       help='write the file to the STM flash.',
                       action="store_true")
+  parser.add_argument('-e', '--erase',
+                      help='erase sectors 1-11 of the STM flash.',
+                      action="store_true")
   parser.add_argument('-p', '--port',
                       default=[serial_link.DEFAULT_PORT], nargs=1,
                       help='specify the serial port to use.')
@@ -99,19 +102,21 @@ if __name__ == "__main__":
   elif not args.stm and not args.m25:
     parser.error("One of -s or -m options must be chosen")
     sys.exit(2)
+  if args.erase and not args.stm:
+    parser.error("The -e option requires the -s option to also be chosen")
   ihx = IntelHex(args.file)
 
   # Create serial link with device.
   found_device = False
+  link = None
   wait_count = -1
-  while not found_device:
+  while not link:
     try:
       link = serial_link.SerialLink(serial_port, baud=baud, use_ftdi=args.ftdi,
                                     print_unhandled = False)
-      found_device = True
     except KeyboardInterrupt:
-      # Clean up and exit.
-      link.close()
+      if link:
+        link.close()
       sys.exit()
     except OSError:
       # No device with name serial_port found.
@@ -158,6 +163,13 @@ if __name__ == "__main__":
       piksi_flash = flash.Flash(link, flash_type="STM")
     elif args.m25:
       piksi_flash = flash.Flash(link, flash_type="M25")
+
+    if args.erase:
+      for s in range(1,12):
+        print "\rErasing STM Sector", s,
+        sys.stdout.flush()
+        piksi_flash.erase_sector(s)
+      print
 
     piksi_flash.write_ihx(ihx, sys.stdout, mod_print = 0x10)
 

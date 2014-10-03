@@ -105,6 +105,7 @@ echo "============================================="
 #mkdir -p "$TMP_TEMPLATE"/.background
 #cp -a "$RES"/background.png "$TMP_TEMPLATE"/.background
 
+mkdir -p "$TMP_TEMPLATE"
 cp -a "$RES"/VolumeIcon.icns "$TMP_TEMPLATE"/.VolumeIcon.icns
 
 #cp -a "$RES"/DS_Store "$TMP_TEMPLATE"/.DS_Store

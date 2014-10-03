@@ -118,7 +118,7 @@ void nmea_gpgga(double pos_llh[3], gps_time_t *gps_t, u8 n_used, u8 fix_type,
   u8 n = sprintf(buf,
                  "$GPGGA,%02d%02d%06.3f,"
                  "%02d%010.7f,%c,%03d%010.7f,%c,"
-                 "%01d,%02d,%.1f,%1.f,M,,M,,",
+                 "%01d,%02d,%.1f,%.2f,M,,M,,",
                  t.tm_hour, t.tm_min, t.tm_sec + frac_s,
                  lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
                  fix_type, n_used, hdop, pos_llh[2]

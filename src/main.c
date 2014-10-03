@@ -208,10 +208,11 @@ int main(void)
   chSysInit();
 
   /* Piksi hardware initialization. */
-  init(1);
+  init();
   settings_setup();
   usarts_setup();
 
+  check_nap_auth();
 
   static char nap_version_string[64] = {0};
   nap_conf_rd_version_string(nap_version_string);

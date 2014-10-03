@@ -88,9 +88,6 @@ void nap_setup()
   /* Set up the NAP interrupt line. */
   nap_exti_setup();
 
-  /* Set up NAP callback functions. */
-  nap_callbacks_setup();
-
   /* Get NAP parameters (number of acquisition taps, number of tracking
    * channels, etc) from configuration flash.
    */
@@ -183,7 +180,7 @@ void nap_callbacks_setup(void)
   static sbp_msg_callbacks_node_t nap_dna_node;
 
   sbp_register_cbk(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback,
-                        &nap_dna_node);
+                   &nap_dna_node);
 }
 
 /** Do an SPI transfer to/from one of the NAP's internal registers.

@@ -48,7 +48,7 @@ u32 fallback_write(u8 *buff, u32 n, void *context)
  *
  * \param msg A pointer to an array of chars containing the error message.
  */
-void screaming_death(const char *msg)
+void _screaming_death(const char *pos, const char *msg)
 {
   __asm__("CPSID if;");           /* Disable all interrupts and faults */
   DMA2_S7CR = 0;                  /* Disable USART TX DMA */
@@ -56,8 +56,11 @@ void screaming_death(const char *msg)
 
   #define SPEAKING_MSG_N 76       /* Maximum length of error message */
 
-  static char err_msg[SPEAKING_MSG_N] = "Error: ";
+  static char err_msg[SPEAKING_MSG_N] = "Error (";
+  const char spacer[] = "): ";
 
+  memcpy(err_msg+strlen(err_msg), pos, strlen(pos));
+  memcpy(err_msg+strlen(err_msg), spacer, strlen(spacer));
   memcpy(err_msg+strlen(err_msg), msg, strlen(msg));
   u8 len = strlen(err_msg);
   err_msg[len++] = '\n';
@@ -67,11 +70,13 @@ void screaming_death(const char *msg)
   sbp_state_init(&sbp_state);
 
   /* Continuously send error message */
+  #define APPROX_ONE_SEC 33000000
   while (1) {
     sbp_send_message(&sbp_state, MSG_PRINT, 0, len, (u8*)err_msg, &fallback_write);
     led_toggle(LED_RED);
-    for (u32 d = 0; d < 5000000; d++)
+    for (u32 d = 0; d < 5*APPROX_ONE_SEC; d++) {
       __asm__("nop");
+    }
   }
 }
 

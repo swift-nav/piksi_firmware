@@ -579,7 +579,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
     dgnss_update(n_sds, sds, position_solution.pos_ecef);
     /* If we are in time matched mode then calculate and output the baseline
      * for this observation. */
-    if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED) {
+    if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED && n_sds >= 4) {
       double b[3];
       u8 num_used, flags;
       switch (dgnss_filter) {
