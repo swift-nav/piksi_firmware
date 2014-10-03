@@ -106,21 +106,6 @@ class IntelHexFileDialog(HasTraits):
     else:
       self.filename = 'Error while selecting file'
 
-# Save file at URL to current directory.
-def _download_url_file(url):
-  url = url.encode('ascii')
-  urlpath = urlparse(url).path
-  filename = os.path.split(urlpath)[1]
-
-  url_file = urlopen(url)
-  lines = url_file.readlines()
-  with open(filename, 'w') as f:
-    for line in lines:
-      f.write(line)
-  url_file.close()
-
-  return filename
-
 class UpdateView(HasTraits):
 
   piksi_stm_vers = String('Waiting for Piksi to send settings...')
@@ -174,28 +159,49 @@ class UpdateView(HasTraits):
 
   def write(self, text):
     self.stream.write(text)
+    self.stream.write('\n')
     self.stream.flush()
 
   def _update_firmware_fired(self):
+    self.write('\n')
     if not self.updating:
       if self.nap_fw.ihx and self.stm_fw.ihx:
         GUI.invoke_later(self.manage_firmware_updates)
       else:
-        # TODO: change this for a warning window
         self.write("No firmware files have been chosen yet!")
     else:
       self.write("Already updating firmware")
+
+  # Save file at URL to current directory.
+  def _download_file_from_url(self, url):
+    url = url.encode('ascii')
+    urlpath = urlparse(url).path
+    filename = os.path.split(urlpath)[1]
+
+    self.write('Downloading file from %s' % url)
+
+    url_file = urlopen(url)
+    lines = url_file.readlines()
+    with open(filename, 'w') as f:
+      for line in lines:
+        f.write(line)
+    url_file.close()
+
+    self.write('Saved file to %s' % os.path.abspath(filename))
+
+    return filename
 
   def _download_firmware(self):
     self.nap_fw.ihx = None
     self.nap_fw.filename = 'Downloading latest firmware...'
     self.stm_fw.ihx = None
     self.stm_fw.filename = 'Downloading latest firmware...'
+    self.write('Downloading latest firmware...')
 
     # Get firmware files from Swift Nav's website, save to disk, and load.
     try:
       url = self.index['piksi_v2.3.1']['nap_fw']['url']
-      filepath = _download_url_file(url)
+      filepath = self._download_file_from_url(url)
       self.nap_fw.load_ihx(filepath)
     except AttributeError:
       self.nap_fw.filename = "Error downloading firmware: index file not downloaded yet"
@@ -206,7 +212,7 @@ class UpdateView(HasTraits):
 
     try:
       url = self.index['piksi_v2.3.1']['stm_fw']['url']
-      filepath = _download_url_file(url)
+      filepath = self._download_file_from_url(url)
       self.stm_fw.load_ihx(filepath)
     except AttributeError:
       self.stm_fw.filename = "Error downloading firmware: index file not downloaded yet"
@@ -214,6 +220,16 @@ class UpdateView(HasTraits):
       self.stm_fw.filename = "Error downloading firmware: URL not present in index"
     except URLError:
       self.stm_fw.filename = "Error: Failed to download latest STM firmware from Swift Navigation's website"
+
+  def _download_firmware_fired(self):
+    try:
+      if self._download_firmware_thread.is_alive():
+        return
+    except AttributeError:
+      pass
+
+    self._download_firmware_thread = Thread(target=self._download_firmware)
+    self._download_firmware_thread.start()
 
   # Instantiate an instance variable thread instead of inheriting Thread 
   # so start can be called multiple times.
@@ -336,19 +352,17 @@ class UpdateView(HasTraits):
   def manage_firmware_updates(self):
     self.updating = True
 
-    self.write("\n")
-
     # Flash NAP.
-    self.write("Updating SwiftNAP firmware...\n")
+    self.write("Updating SwiftNAP firmware...")
     self.update_flash(self.nap_fw.ihx, "M25")
 
     # Flash STM.
-    self.write("Updating STM firmware...\n")
+    self.write("Updating STM firmware...")
     self.update_flash(self.stm_fw.ihx, "STM")
 
     # Piksi needs to jump to application after updating firmware.
     self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
-    self.write("Firmware updates finished.\n")
+    self.write("Firmware updates finished.")
 
     self.updating = False
 
@@ -358,11 +372,11 @@ class UpdateView(HasTraits):
     self.link.send_message(ids.RESET, '')
 
     piksi_bootloader = bootload.Bootloader(self.link)
-    self.write("Waiting for bootloader handshake message from Piksi ...\n")
+    self.write("Waiting for bootloader handshake message from Piksi ...")
     piksi_bootloader.wait_for_handshake()
     piksi_bootloader.reply_handshake()
-    self.write("received bootloader handshake message.\n")
-    self.write("Piksi Onboard Bootloader Version: " + piksi_bootloader.version + "\n")
+    self.write("received bootloader handshake message.")
+    self.write("Piksi Onboard Bootloader Version: " + piksi_bootloader.version)
 
     piksi_flash = flash.Flash(self.link, flash_type)
     piksi_flash.write_ihx(ihx, self.stream, mod_print = 0x10)
