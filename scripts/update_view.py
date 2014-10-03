@@ -9,13 +9,8 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-# TODO: have update button blank out and not be clickable if firmware files
-#       haven't been downloaded yet
-# TODO: blank out update, choose firmware updates.
-# TODO: have Firmware Update tab blink if new firmware is available
-# TODO: add button to wipe flash upon update (default on)
+# TODO: add checkbox to wipe flash upon update (default on)
 # TODO: ability to flash piksi if firmware is borked - prompt user to reset?
-# TODO: remove automatic download, just prompt user to press download button
 
 from urllib2 import urlopen, URLError
 from urlparse import urlparse
@@ -26,7 +21,7 @@ from pkg_resources import parse_version
 
 from threading import Thread
 
-from traits.api import HasTraits, Event, String, Button, Instance
+from traits.api import HasTraits, Event, String, Button, Instance, Int, Bool, on_trait_change
 from traitsui.api import View, Handler, Action, Item, TextEditor, VGroup, \
                          UItem, InstanceEditor, VSplit, HSplit, HGroup
 from pyface.api import GUI, FileDialog, OK
@@ -57,10 +52,10 @@ class IntelHexFileDialog(HasTraits):
 
   file_wildcard = String("Intel HEX File (*.hex)|*.hex|All files|*")
 
-  filename = String('Please choose a file')
+  status = String('Please choose a file')
   choose_fw = Button(label='Choose Firmware File')
   view = View(
-               UItem('filename'),
+               UItem('status'),
                UItem('choose_fw')
              )
 
@@ -70,13 +65,16 @@ class IntelHexFileDialog(HasTraits):
     self._flash_type = flash_type
     self.ihx = None
 
+  def set_status(self, status):
+    self.ihx = None
+    self.status = status
+
   def load_ihx(self, filepath):
     try:
       self.ihx = IntelHex(filepath)
-      self.filename = os.path.split(filepath)[1]
+      self.status = os.path.split(filepath)[1]
     except HexRecordError:
-      self.ihx = None
-      self.filename = 'Error: File is not a valid Intel HEX File'
+      self.set_status('Error: File is not a valid Intel HEX File')
 
     # Check that address ranges are valid for self._flash_type.
     ihx_addrs = flash.ihx_ranges(self.ihx)
@@ -84,27 +82,24 @@ class IntelHexFileDialog(HasTraits):
       try:
         sectors = flash.sectors_used(ihx_addrs, flash.m25_addr_sector_map)
       except IndexError:
-        self.filename = 'Error: HEX File contains restricted address ' + \
-                        '(STM Firmware File Chosen?)'
-        self.ihx = None
+        self.set_status('Error: HEX File contains restricted address ' + \
+                        '(STM Firmware File Chosen?)')
     elif self._flash_type == "STM":
       try:
         sectors = flash.sectors_used(ihx_addrs, flash.stm_addr_sector_map)
       except:
-        self.filename = 'Error: HEX File contains restricted address ' + \
-                        '(NAP Firmware File Chosen?)'
-        self.ihx = None
+        self.set_status('Error: HEX File contains restricted address ' + \
+                        '(NAP Firmware File Chosen?)')
 
   def _choose_fw_fired(self):
     dialog = FileDialog(label='Choose Firmware File',
                         action='open', wildcard=self.file_wildcard)
     dialog.open()
     if dialog.return_code == OK:
-      self.filename = dialog.filename
       filepath = os.path.join(dialog.directory, dialog.filename)
       self.load_ihx(filepath)
     else:
-      self.filename = 'Error while selecting file'
+      self.set_status('Error while selecting file')
 
 class UpdateView(HasTraits):
 
@@ -112,11 +107,18 @@ class UpdateView(HasTraits):
   newest_stm_vers = String('Waiting for Newest Firmware info...')
   piksi_nap_vers = String('Waiting for Piksi to send settings...')
   newest_nap_vers = String('Waiting for Newest Firmware info...')
+
   update_firmware = Button(label='Update Piksi Firmware')
+  updating = Bool(False)
+  update_en = Bool(False)
+
   download_firmware = Button(label='Download Newest Firmware Files')
+  downloading = Bool(False)
+  download_fw_en = Bool(True)
 
   stm_fw = Instance(IntelHexFileDialog)
   nap_fw = Instance(IntelHexFileDialog)
+  choose_en = Bool(True)
 
   stream = Instance(OutputStream)
 
@@ -130,12 +132,12 @@ class UpdateView(HasTraits):
           Item('newest_nap_vers', label='Newest NAP Firmware Version'),
         ),
         VGroup(
-          Item('stm_fw', style='custom', label='STM Firmware File'),
-          Item('nap_fw', style='custom', label='NAP Firmware File'),
+          Item('stm_fw', style='custom', label='STM Firmware File', enabled_when='choose_en'),
+          Item('nap_fw', style='custom', label='NAP Firmware File', enabled_when='choose_en'),
         ),
       ),
-      UItem('download_firmware'),
-      UItem('update_firmware'),
+      UItem('download_firmware', enabled_when='download_fw_en'),
+      UItem('update_firmware', enabled_when='update_en'),
       Item(
         'stream',
         style='custom',
@@ -149,28 +151,46 @@ class UpdateView(HasTraits):
     self.link = link
     self.settings = {}
     self.prompt = prompt
-    self.updating = False
     self.python_console_cmds = {
       'update': self
+
     }
     self.stm_fw = IntelHexFileDialog('STM')
+    self.stm_fw.on_trait_change(self._manage_enables, 'status')
     self.nap_fw = IntelHexFileDialog('M25')
+    self.nap_fw.on_trait_change(self._manage_enables, 'status')
     self.stream = OutputStream()
 
-  def write(self, text):
+  def _manage_enables(self):
+    if self.updating == True or self.downloading == True:
+      self.update_en = False
+    else:
+      if self.stm_fw.ihx != None and self.nap_fw.ihx != None:
+        self.update_en = True
+      else:
+        self.update_en = False
+
+    if self.updating == True or self.downloading == True:
+      self.download_fw_en = False
+      self.choose_en = False
+    else:
+      self.download_fw_en = True
+      self.choose_en = True
+
+  def _updating_changed(self):
+    self._manage_enables()
+
+  def _downloading_changed(self):
+    self._manage_enables()
+
+  def _write(self, text):
     self.stream.write(text)
     self.stream.write('\n')
     self.stream.flush()
 
   def _update_firmware_fired(self):
-    self.write('')
-    if not self.updating:
-      if self.nap_fw.ihx and self.stm_fw.ihx:
-        GUI.invoke_later(self.manage_firmware_updates)
-      else:
-        self.write("No firmware files have been chosen yet!")
-    else:
-      self.write("Already updating firmware")
+    self._write('')
+    GUI.invoke_later(self.manage_firmware_updates)
 
   # Save file at URL to current directory.
   def _download_file_from_url(self, url):
@@ -178,25 +198,26 @@ class UpdateView(HasTraits):
     urlpath = urlparse(url).path
     filename = os.path.split(urlpath)[1]
 
-    self.write('Downloading file from %s' % url)
+    self._write('Downloading file from %s' % url)
 
-    url_file = urlopen(url)
+    url_file = urlopen(url, timeout=120)
     lines = url_file.readlines()
     with open(filename, 'w') as f:
       for line in lines:
         f.write(line)
     url_file.close()
 
-    self.write('Saved file to %s' % os.path.abspath(filename))
+    self._write('Saved file to %s' % os.path.abspath(filename))
 
     return filename
 
   def _download_firmware(self):
-    self.nap_fw.ihx = None
-    self.nap_fw.filename = 'Downloading Newest Firmware...'
-    self.stm_fw.ihx = None
-    self.stm_fw.filename = 'Downloading Newest Firmware...'
-    self.write('Downloading Newest Firmware...')
+    self.downloading = True
+
+    status = 'Downloading Newest Firmware...'
+    self.nap_fw.set_status(status)
+    self.stm_fw.set_status(status)
+    self._write(status)
 
     # Get firmware files from Swift Nav's website, save to disk, and load.
     try:
@@ -204,22 +225,24 @@ class UpdateView(HasTraits):
       filepath = self._download_file_from_url(url)
       self.nap_fw.load_ihx(filepath)
     except AttributeError:
-      self.nap_fw.filename = "Error downloading firmware: index file not downloaded yet"
+      self.nap_fw.set_status("Error downloading firmware: index file not downloaded yet")
     except KeyError:
-      self.nap_fw.filename = "Error downloading firmware: URL not present in index"
+      self.nap_fw.set_status("Error downloading firmware: URL not present in index")
     except URLError:
-      self.nap_fw.filename = "Error: Failed to download latest NAP firmware from Swift Navigation's website"
+      self.nap_fw.set_status("Error: Failed to download latest NAP firmware from Swift Navigation's website")
 
     try:
       url = self.index['piksi_v2.3.1']['stm_fw']['url']
       filepath = self._download_file_from_url(url)
       self.stm_fw.load_ihx(filepath)
     except AttributeError:
-      self.stm_fw.filename = "Error downloading firmware: index file not downloaded yet"
+      self.stm_fw.set_status("Error downloading firmware: index file not downloaded yet")
     except KeyError:
-      self.stm_fw.filename = "Error downloading firmware: URL not present in index"
+      self.stm_fw.set_status("Error downloading firmware: URL not present in index")
     except URLError:
-      self.stm_fw.filename = "Error: Failed to download latest STM firmware from Swift Navigation's website"
+      self.stm_fw.set_status("Error: Failed to download latest STM firmware from Swift Navigation's website")
+
+    self.downloading = False
 
   def _download_firmware_fired(self):
     try:
@@ -228,7 +251,7 @@ class UpdateView(HasTraits):
     except AttributeError:
       pass
 
-    self.write('')
+    self._write('')
 
     self._download_firmware_thread = Thread(target=self._download_firmware)
     self._download_firmware_thread.start()
@@ -272,17 +295,17 @@ class UpdateView(HasTraits):
       self.piksi_nap_vers = \
         self.settings['system_info']['nap_version'].value
     except KeyError:
-      self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n")
+      self._write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n")
       return
 
     # Get index that contains file URLs and latest
     # version strings from Swift Nav's website.
     try:
-      f = urlopen(INDEX_URL)
+      f = urlopen(INDEX_URL, timeout=120)
       self.index = jsonload(f)
       f.close()
     except URLError:
-      self.write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n" % INDEX_URL)
+      self._write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n" % INDEX_URL)
       return
 
     # Make sure index contains all keys we are interested in.
@@ -293,7 +316,7 @@ class UpdateView(HasTraits):
       self.index['piksi_v2.3.1']['nap_fw']['url']
       self.index['piksi_v2.3.1']['console']['version']
     except KeyError:
-      self.write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n" % INDEX_URL)
+      self._write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n" % INDEX_URL)
       return
 
     # Assign text to CallbackPrompt's
@@ -355,19 +378,19 @@ class UpdateView(HasTraits):
     self.updating = True
 
     # Flash NAP.
-    self.write("Updating SwiftNAP firmware...")
+    self._write("Updating SwiftNAP firmware...")
     self.update_flash(self.nap_fw.ihx, "M25")
-    self.write("")
+    self._write("")
 
     # Flash STM.
-    self.write("Updating STM firmware...")
+    self._write("Updating STM firmware...")
     self.update_flash(self.stm_fw.ihx, "STM")
-    self.write("")
+    self._write("")
 
     # Must tell Piksi to jump to application after updating firmware.
     self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
-    self.write("Firmware updates finished.")
-    self.write("")
+    self._write("Firmware updates finished.")
+    self._write("")
 
     self.updating = False
 
@@ -377,11 +400,11 @@ class UpdateView(HasTraits):
     self.link.send_message(ids.RESET, '')
 
     piksi_bootloader = bootload.Bootloader(self.link)
-    self.write("Waiting for bootloader handshake message from Piksi ...")
+    self._write("Waiting for bootloader handshake message from Piksi ...")
     piksi_bootloader.wait_for_handshake()
     piksi_bootloader.reply_handshake()
-    self.write("received bootloader handshake message.")
-    self.write("Piksi Onboard Bootloader Version: " + piksi_bootloader.version)
+    self._write("received bootloader handshake message.")
+    self._write("Piksi Onboard Bootloader Version: " + piksi_bootloader.version)
 
     piksi_flash = flash.Flash(self.link, flash_type)
     piksi_flash.write_ihx(ihx, self.stream, mod_print = 0x10)
