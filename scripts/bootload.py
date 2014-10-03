@@ -107,7 +107,6 @@ if __name__ == "__main__":
   ihx = IntelHex(args.file)
 
   # Create serial link with device.
-  found_device = False
   link = None
   wait_count = -1
   while not link:
