@@ -185,7 +185,7 @@ class SwiftConsole(HasTraits):
       self.simulator_view = SimulatorView(self.link)
 
       self.update_view = UpdateView(self.link, prompt=update)
-      settings_read_finished_functions.append(self.update_view.start)
+      settings_read_finished_functions.append(self.update_view.compare_versions)
 
       self.settings_view = \
           SettingsView(self.link, settings_read_finished_functions)

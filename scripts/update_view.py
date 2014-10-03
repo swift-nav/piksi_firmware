@@ -161,11 +161,13 @@ class UpdateView(HasTraits):
       'update': self
 
     }
+    self.index = None
     self.stm_fw = IntelHexFileDialog('STM')
     self.stm_fw.on_trait_change(self._manage_enables, 'status')
     self.nap_fw = IntelHexFileDialog('M25')
     self.nap_fw.on_trait_change(self._manage_enables, 'status')
     self.stream = OutputStream()
+    self.get_latest_version_info()
 
   def _manage_enables(self):
     if self.updating == True or self.downloading == True:
@@ -277,23 +279,11 @@ class UpdateView(HasTraits):
     self._download_firmware_thread = Thread(target=self._download_firmware)
     self._download_firmware_thread.start()
 
-  # Instantiate an instance variable thread instead of inheriting Thread 
-  # so start can be called multiple times.
-  # Expectation is that OneClickUpdate.start is passed to SettingsView to
-  # be called after settings are read out, which can happen multiple times.
-  def start(self):
+  def compare_versions(self):
 
-    try:
-      if self._check_for_updates_thread.is_alive():
-        return
-    except AttributeError:
-      pass
-
-    self._check_for_updates_thread = Thread(target=self.check_for_updates)
-    self._check_for_updates_thread.start()
-
-  # Executed in it's own thread.
-  def check_for_updates(self):
+    if self.index == None:
+      self._write("Error: No website index to use to compare versions with local firmware")
+      return
     
     # Check that settings received from Piksi contain FW versions.
     try:
@@ -305,26 +295,35 @@ class UpdateView(HasTraits):
       self._write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n")
       return
 
-    # Get index that contains file URLs and latest
-    # version strings from Swift Nav's website.
-    try:
-      f = urlopen(INDEX_URL, timeout=120)
-      self.index = jsonload(f)
-      f.close()
-    except URLError:
-      self._write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n" % INDEX_URL)
-      return
+    # Check if console is out of date and notify user if so.
+    if self.prompt:
+      local_console_version = parse_version(CONSOLE_VERSION)
+      remote_console_version = parse_version(
+          self.index['piksi_v2.3.1']['console']['version'])
+      self.console_outdated = remote_console_version > local_console_version
 
-    # Make sure index contains all keys we are interested in.
-    try:
-      self.newest_stm_vers = self.index['piksi_v2.3.1']['stm_fw']['version']
-      self.newest_nap_vers = self.index['piksi_v2.3.1']['nap_fw']['version']
-      self.index['piksi_v2.3.1']['stm_fw']['url']
-      self.index['piksi_v2.3.1']['nap_fw']['url']
-      self.index['piksi_v2.3.1']['console']['version']
-    except KeyError:
-      self._write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n" % INDEX_URL)
-      return
+      if self.console_outdated:
+        console_outdated_prompt = \
+            prompt.CallbackPrompt(
+                                  title="Piksi Console Outdated",
+                                  actions=[prompt.close_button],
+                                 )
+
+        console_outdated_prompt.text = \
+            "Your Piksi Console is out of date and may be incompatible\n" + \
+            "with current firmware. We highly recommend upgrading to\n" + \
+            "ensure proper behavior.\n\n" + \
+            "Please visit http://download.swift-nav.com to\n" + \
+            "download the newest version.\n\n" + \
+            "Local Console Version :\n\t" + \
+                CONSOLE_VERSION + \
+            "\nNewest Console Version :\n\t" + \
+                self.index['piksi_v2.3.1']['console']['version'] + "\n"
+
+        console_outdated_prompt.run()
+
+    # For timing aesthetics between windows popping up.
+    sleep(0.5)
 
     # Check if firmware is out of date and notify user if so.
     if self.prompt:
@@ -358,35 +357,39 @@ class UpdateView(HasTraits):
 
         fw_update_prompt.run()
 
-    # For timing aesthetics between windows popping up.
-    sleep(0.5)
+  def get_latest_version_info(self):
 
-    # Check if console is out of date and notify user if so.
-    if self.prompt:
-      local_console_version = parse_version(CONSOLE_VERSION)
-      remote_console_version = parse_version(
-          self.index['piksi_v2.3.1']['console']['version'])
-      self.console_outdated = remote_console_version > local_console_version
+    try:
+      if self._get_latest_version_info_thread.is_alive():
+        return
+    except AttributeError:
+      pass
 
-      if self.console_outdated:
-        console_outdated_prompt = \
-            prompt.CallbackPrompt(
-                                  title="Piksi Console Outdated",
-                                  actions=[prompt.close_button],
-                                 )
+    self._get_latest_version_info_thread = Thread(target=self._get_latest_version_info)
+    self._get_latest_version_info_thread.start()
 
-        console_outdated_prompt.text = \
-            "Your Piksi Console is out of date and may be incompatible\n" + \
-            "with current firmware. We highly recommend upgrading to\n" + \
-            "ensure proper behavior.\n\n" + \
-            "Please visit http://download.swift-nav.com to\n" + \
-            "download the newest version.\n\n" + \
-            "Local Console Version :\n\t" + \
-                CONSOLE_VERSION + \
-            "\nNewest Console Version :\n\t" + \
-                self.index['piksi_v2.3.1']['console']['version'] + "\n"
+  def _get_latest_version_info(self):
 
-        console_outdated_prompt.run()
+    # Get index that contains file URLs and latest
+    # version strings from Swift Nav's website.
+    try:
+      f = urlopen(INDEX_URL, timeout=120)
+      self.index = jsonload(f)
+      f.close()
+    except URLError:
+      self._write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n" % INDEX_URL)
+      return
+
+    # Make sure index contains all keys we are interested in.
+    try:
+      self.newest_stm_vers = self.index['piksi_v2.3.1']['stm_fw']['version']
+      self.newest_nap_vers = self.index['piksi_v2.3.1']['nap_fw']['version']
+      self.index['piksi_v2.3.1']['stm_fw']['url']
+      self.index['piksi_v2.3.1']['nap_fw']['url']
+      self.index['piksi_v2.3.1']['console']['version']
+    except KeyError:
+      self._write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n" % INDEX_URL)
+      return
 
   # Executed in GUI thread, called from Handler.
   def manage_firmware_updates(self):
