@@ -109,11 +109,11 @@ class IntelHexFileDialog(HasTraits):
 class UpdateView(HasTraits):
 
   piksi_stm_vers = String('Waiting for Piksi to send settings...')
-  newest_stm_vers = String('Waiting for newest firmware info...')
+  newest_stm_vers = String('Waiting for Newest Firmware info...')
   piksi_nap_vers = String('Waiting for Piksi to send settings...')
-  newest_nap_vers = String('Waiting for newest firmware info...')
+  newest_nap_vers = String('Waiting for Newest Firmware info...')
   update_firmware = Button(label='Update Piksi Firmware')
-  #download_firmware = Button(label='Download Newest Firmware Files')
+  download_firmware = Button(label='Download Newest Firmware Files')
 
   stm_fw = Instance(IntelHexFileDialog)
   nap_fw = Instance(IntelHexFileDialog)
@@ -134,7 +134,7 @@ class UpdateView(HasTraits):
           Item('nap_fw', style='custom', label='NAP Firmware File'),
         ),
       ),
-      #UItem('download_firmware'),
+      UItem('download_firmware'),
       UItem('update_firmware'),
       Item(
         'stream',
@@ -163,7 +163,7 @@ class UpdateView(HasTraits):
     self.stream.flush()
 
   def _update_firmware_fired(self):
-    self.write('\n')
+    self.write('')
     if not self.updating:
       if self.nap_fw.ihx and self.stm_fw.ihx:
         GUI.invoke_later(self.manage_firmware_updates)
@@ -193,10 +193,10 @@ class UpdateView(HasTraits):
 
   def _download_firmware(self):
     self.nap_fw.ihx = None
-    self.nap_fw.filename = 'Downloading latest firmware...'
+    self.nap_fw.filename = 'Downloading Newest Firmware...'
     self.stm_fw.ihx = None
-    self.stm_fw.filename = 'Downloading latest firmware...'
-    self.write('Downloading latest firmware...')
+    self.stm_fw.filename = 'Downloading Newest Firmware...'
+    self.write('Downloading Newest Firmware...')
 
     # Get firmware files from Swift Nav's website, save to disk, and load.
     try:
@@ -227,6 +227,8 @@ class UpdateView(HasTraits):
         return
     except AttributeError:
       pass
+
+    self.write('')
 
     self._download_firmware_thread = Thread(target=self._download_firmware)
     self._download_firmware_thread.start()
@@ -270,7 +272,7 @@ class UpdateView(HasTraits):
       self.piksi_nap_vers = \
         self.settings['system_info']['nap_version'].value
     except KeyError:
-      self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n\n")
+      self.write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n")
       return
 
     # Get index that contains file URLs and latest
@@ -280,7 +282,7 @@ class UpdateView(HasTraits):
       self.index = jsonload(f)
       f.close()
     except URLError:
-      self.write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n\n" % INDEX_URL)
+      self.write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n" % INDEX_URL)
       return
 
     # Make sure index contains all keys we are interested in.
@@ -291,7 +293,7 @@ class UpdateView(HasTraits):
       self.index['piksi_v2.3.1']['nap_fw']['url']
       self.index['piksi_v2.3.1']['console']['version']
     except KeyError:
-      self.write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n\n" % INDEX_URL)
+      self.write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n" % INDEX_URL)
       return
 
     # Assign text to CallbackPrompt's
@@ -355,14 +357,17 @@ class UpdateView(HasTraits):
     # Flash NAP.
     self.write("Updating SwiftNAP firmware...")
     self.update_flash(self.nap_fw.ihx, "M25")
+    self.write("")
 
     # Flash STM.
     self.write("Updating STM firmware...")
     self.update_flash(self.stm_fw.ihx, "STM")
+    self.write("")
 
-    # Piksi needs to jump to application after updating firmware.
+    # Must tell Piksi to jump to application after updating firmware.
     self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
     self.write("Firmware updates finished.")
+    self.write("")
 
     self.updating = False
 
