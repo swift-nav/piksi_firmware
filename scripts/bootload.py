@@ -49,12 +49,12 @@ class Bootloader():
     self.handshake_received = True
 
   def wait_for_handshake(self, timeout=None):
-    if timeout:
+    if timeout is not None:
       t0 = time.time()
     self.handshake_received = False
     while not self.handshake_received:
       time.sleep(0.1)
-      if timeout:
+      if timeout is not None:
         if time.time()-timeout > t0:
           return False
     return True
