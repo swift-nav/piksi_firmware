@@ -9,7 +9,6 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-# TODO: add checkbox to wipe flash upon update (default on)
 # TODO: ability to flash piksi if firmware is borked - prompt user to reset?
 
 from urllib2 import urlopen, URLError
@@ -21,9 +20,11 @@ from pkg_resources import parse_version
 
 from threading import Thread
 
-from traits.api import HasTraits, Event, String, Button, Instance, Int, Bool, on_trait_change
+from traits.api import HasTraits, Event, String, Button, Instance, Int, Bool, \
+                       on_trait_change
 from traitsui.api import View, Handler, Action, Item, TextEditor, VGroup, \
-                         UItem, InstanceEditor, VSplit, HSplit, HGroup
+                         UItem, InstanceEditor, VSplit, HSplit, HGroup, \
+                         BooleanEditor
 from pyface.api import GUI, FileDialog, OK
 
 from version import VERSION as CONSOLE_VERSION
@@ -108,6 +109,8 @@ class UpdateView(HasTraits):
   piksi_nap_vers = String('Waiting for Piksi to send settings...')
   newest_nap_vers = String('Waiting for Newest Firmware info...')
 
+  erase_stm = Bool(True)
+
   update_firmware = Button(label='Update Piksi Firmware')
   updating = Bool(False)
   update_en = Bool(False)
@@ -130,6 +133,7 @@ class UpdateView(HasTraits):
           Item('newest_stm_vers', label='Newest STM Firmware Version'),
           Item('piksi_nap_vers', label='Piksi NAP Firmware Version'),
           Item('newest_nap_vers', label='Newest NAP Firmware Version'),
+          Item('erase_stm', label='Erase Entire STM flash'),
         ),
         VGroup(
           Item('stm_fw', style='custom', label='STM Firmware File', enabled_when='choose_en'),
@@ -377,14 +381,20 @@ class UpdateView(HasTraits):
   def manage_firmware_updates(self):
     self.updating = True
 
-    # Flash NAP.
-    self._write("Updating SwiftNAP firmware...")
-    self.update_flash(self.nap_fw.ihx, "M25")
-    self._write("")
+    # Erase STM if so directed.
+    if self.erase_stm:
+      self._write("Erasing STM flash...")
+      self.erase_flash("STM")
+      self._write("")
 
     # Flash STM.
     self._write("Updating STM firmware...")
     self.update_flash(self.stm_fw.ihx, "STM")
+    self._write("")
+
+    # Flash NAP.
+    self._write("Updating SwiftNAP firmware...")
+    self.update_flash(self.nap_fw.ihx, "M25")
     self._write("")
 
     # Must tell Piksi to jump to application after updating firmware.
@@ -394,21 +404,44 @@ class UpdateView(HasTraits):
 
     self.updating = False
 
+  def erase_flash(self, flash_type):
+
+    # Reset device if the application is running to put into bootloader mode.
+    self.link.send_message(ids.RESET, '')
+
+    pk_boot = bootload.Bootloader(self.link)
+    self._write("Waiting for bootloader handshake message from Piksi ...")
+    pk_boot.wait_for_handshake()
+    pk_boot.reply_handshake()
+    self._write("received bootloader handshake message.")
+    self._write("Piksi Onboard Bootloader Version: " + pk_boot.version)
+
+    pk_flash = flash.Flash(self.link, flash_type)
+
+    sectors_to_erase = \
+        set(range(pk_flash.n_sectors)).difference(set(pk_flash.restricted_sectors))
+    for s in sorted(sectors_to_erase):
+      self._write('Erasing %s sector %d' % (pk_flash.flash_type,s))
+      pk_flash.erase_sector(s)
+
+    pk_flash.stop()
+    pk_boot.stop()
+
   def update_flash(self, ihx, flash_type):
 
     # Reset device if the application is running to put into bootloader mode.
     self.link.send_message(ids.RESET, '')
 
-    piksi_bootloader = bootload.Bootloader(self.link)
+    pk_boot = bootload.Bootloader(self.link)
     self._write("Waiting for bootloader handshake message from Piksi ...")
-    piksi_bootloader.wait_for_handshake()
-    piksi_bootloader.reply_handshake()
+    pk_boot.wait_for_handshake()
+    pk_boot.reply_handshake()
     self._write("received bootloader handshake message.")
-    self._write("Piksi Onboard Bootloader Version: " + piksi_bootloader.version)
+    self._write("Piksi Onboard Bootloader Version: " + pk_boot.version)
 
-    piksi_flash = flash.Flash(self.link, flash_type)
-    piksi_flash.write_ihx(ihx, self.stream, mod_print = 0x10)
-    piksi_flash.stop()
+    pk_flash = flash.Flash(self.link, flash_type)
+    pk_flash.write_ihx(ihx, self.stream, mod_print = 0x10)
+    pk_flash.stop()
 
-    piksi_bootloader.stop()
+    pk_boot.stop()
 

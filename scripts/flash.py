@@ -28,7 +28,10 @@ M25_SR_WEL  = 1 << 1
 M25_SR_WIP  = 1 << 0
 
 STM_RESTRICTED_SECTORS = [0]
+STM_N_SECTORS = 12
+
 M25_RESTRICTED_SECTORS = [15]
+M25_N_SECTORS = 16
 
 def stm_addr_sector_map(addr):
   if   addr >= 0x08000000 and addr < 0x08004000:
@@ -140,6 +143,7 @@ class Flash():
           new.instancemethod(_stm_lock_sector, self, Flash)
       self.__dict__['unlock_sector'] = \
           new.instancemethod(_stm_unlock_sector, self, Flash)
+      self.n_sectors = STM_N_SECTORS
       self.restricted_sectors = STM_RESTRICTED_SECTORS
     elif self.flash_type == "M25":
       self.flash_type_byte = 1
@@ -147,6 +151,7 @@ class Flash():
       # Add M25-specific functions.
       self.__dict__['write_status'] = \
           new.instancemethod(_m25_write_status, self, Flash)
+      self.n_sectors = M25_N_SECTORS
       self.restricted_sectors = M25_RESTRICTED_SECTORS
     else:
       raise ValueError("flash_type must be \"STM\" or \"M25\"")
