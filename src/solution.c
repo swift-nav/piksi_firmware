@@ -616,11 +616,6 @@ static msg_t solution_thread(void *arg)
         send_observations(simulation_current_num_sats(),
           &simulation_current_gnss_solution()->time,
           simulation_current_navigation_measurements());
-
-        if (simulation_enabled_for(SIMULATION_MODE_RTK)) {
-          msg_iar_state_t iar_state = { .num_hyps = 1 };
-          sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
-        }
       }
     }
   }
@@ -674,8 +669,6 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
         /* Calculate least squares solution using ambiguities from IAR. */
         dgnss_fixed_baseline2(n_sds, sds, position_solution.pos_ecef,
                               &num_used, b);
-        msg_iar_state_t iar_state = { .num_hyps = dgnss_iar_num_hyps() };
-        sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
         flags = (dgnss_iar_resolved()) ? 1 : 0;
         break;
       case FILTER_FLOAT:

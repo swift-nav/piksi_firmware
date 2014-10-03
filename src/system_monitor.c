@@ -16,6 +16,7 @@
 #include <ch.h>
 
 #include <libswiftnav/sbp_messages.h>
+#include <libswiftnav/dgnss_management.h>
 
 #include "board/nap/nap_common.h"
 #include "board/leds.h"
@@ -25,6 +26,7 @@
 #include "manage.h"
 #include "simulator.h"
 #include "system_monitor.h"
+
 
 
 /* Time between sending system monitor and heartbeat messages in milliseconds */
@@ -115,6 +117,14 @@ static msg_t system_monitor_thread(void *arg)
     if (base_station_mode) {
       sbp_send_msg(MSG_BASE_POS, sizeof(msg_base_pos_t), (u8 *)&base_llh);
     }
+
+    msg_iar_state_t iar_state;
+    if (simulation_enabled_for(SIMULATION_MODE_RTK)) {
+      iar_state.num_hyps = 1;
+    } else {
+      iar_state.num_hyps = dgnss_iar_num_hyps();
+    }
+    sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
 
     send_thread_states();
 
