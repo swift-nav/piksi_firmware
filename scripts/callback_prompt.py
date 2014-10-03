@@ -122,5 +122,6 @@ class CallbackPrompt(HasTraits):
 
   def kill(self):
     self.handler_executed = True
-    self.close = 1
+    if not self.closed:
+      self.close = 1
 
