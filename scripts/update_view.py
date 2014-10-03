@@ -9,8 +9,6 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-# TODO: ability to flash piksi if firmware is borked - prompt user to reset?
-
 from urllib2 import urlopen, URLError
 from urlparse import urlparse
 from json import load as jsonload
@@ -105,9 +103,11 @@ class IntelHexFileDialog(HasTraits):
 class UpdateView(HasTraits):
 
   piksi_stm_vers = String('Waiting for Piksi to send settings...')
-  newest_stm_vers = String('Waiting for Newest Firmware info...')
+  newest_stm_vers = String('Downloading Newest Firmware info...')
   piksi_nap_vers = String('Waiting for Piksi to send settings...')
-  newest_nap_vers = String('Waiting for Newest Firmware info...')
+  newest_nap_vers = String('Downloading Newest Firmware info...')
+  local_console_vers = String(CONSOLE_VERSION)
+  newest_console_vers = String('Downloading Newest Console info...')
 
   erase_stm = Bool(True)
 
@@ -133,13 +133,15 @@ class UpdateView(HasTraits):
           Item('newest_stm_vers', label='Newest STM Firmware Version'),
           Item('piksi_nap_vers', label='Piksi NAP Firmware Version'),
           Item('newest_nap_vers', label='Newest NAP Firmware Version'),
-          Item('erase_stm', label='Erase Entire STM flash'),
+          Item('local_console_vers', label='Local Piksi Console Version'),
+          Item('newest_console_vers', label='Newest Piksi Console Version'),
         ),
         VGroup(
           Item('stm_fw', style='custom', label='STM Firmware File', \
                enabled_when='choose_en'),
           Item('nap_fw', style='custom', label='NAP Firmware File', \
                enabled_when='choose_en'),
+          Item('erase_stm', label='Erase Entire STM flash'),
         ),
       ),
       UItem('download_firmware', enabled_when='download_fw_en'),
@@ -207,7 +209,6 @@ class UpdateView(HasTraits):
 
     self._firmware_update_thread = Thread(target=self.manage_firmware_updates)
     self._firmware_update_thread.start()
-
 
   # Save file at URL to current directory.
   def _download_file_from_url(self, url):
@@ -386,7 +387,7 @@ class UpdateView(HasTraits):
       self.newest_nap_vers = self.index['piksi_v2.3.1']['nap_fw']['version']
       self.index['piksi_v2.3.1']['stm_fw']['url']
       self.index['piksi_v2.3.1']['nap_fw']['url']
-      self.index['piksi_v2.3.1']['console']['version']
+      self.newest_console_vers = self.index['piksi_v2.3.1']['console']['version']
     except KeyError:
       self._write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n" % INDEX_URL)
       return
