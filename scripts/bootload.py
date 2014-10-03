@@ -69,10 +69,6 @@ WAIT_TIME = 0.01
 
 # Prints repeating " ..."
 def pretty_wait_print():
-  # Initialize 'static' attribute count.
-  if "count" not in pretty_wait_print.__dict__:
-    pretty_wait_print.count = -1
-
   SECS_4_3 = int((4.0/3)/WAIT_TIME)
   SECS_1_3 = int((1.0/3)/WAIT_TIME)
 
@@ -83,6 +79,8 @@ def pretty_wait_print():
   sys.stdout.flush()
 
   pretty_wait_print.count = (pretty_wait_print.count + 1) % (SECS_4_3-1)
+
+pretty_wait_print.count = -1
 
 if __name__ == "__main__":
   import argparse
