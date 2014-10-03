@@ -195,8 +195,17 @@ class UpdateView(HasTraits):
     self.stream.flush()
 
   def _update_firmware_fired(self):
+    try:
+      if self._firmware_update_thread.is_alive():
+        return
+    except AttributeError:
+      pass
+
     self._write('')
-    GUI.invoke_later(self.manage_firmware_updates)
+
+    self._firmware_update_thread = Thread(target=self.manage_firmware_updates)
+    self._firmware_update_thread.start()
+
 
   # Save file at URL to current directory.
   def _download_file_from_url(self, url):
@@ -231,13 +240,13 @@ class UpdateView(HasTraits):
       filepath = self._download_file_from_url(url)
       self.nap_fw.load_ihx(filepath)
     except AttributeError:
-      self.nap_fw.set_status("Error downloading firmware: index file not downloaded yet")
+      self.stm_fw.set_status("Error downloading firmware")
       self._write("Error downloading firmware: index file not downloaded yet")
     except KeyError:
-      self.nap_fw.set_status("Error downloading firmware: URL not present in index")
+      self.stm_fw.set_status("Error downloading firmware")
       self._write("Error downloading firmware: URL not present in index")
     except URLError:
-      self.nap_fw.set_status("Error: Failed to download latest NAP firmware from Swift Navigation's website")
+      self.stm_fw.set_status("Error downloading firmware")
       self._write("Error: Failed to download latest NAP firmware from Swift Navigation's website")
 
     try:
@@ -245,13 +254,13 @@ class UpdateView(HasTraits):
       filepath = self._download_file_from_url(url)
       self.stm_fw.load_ihx(filepath)
     except AttributeError:
-      self.stm_fw.set_status("Error downloading firmware: index file not downloaded yet")
+      self.stm_fw.set_status("Error downloading firmware")
       self._write("Error downloading firmware: index file not downloaded yet")
     except KeyError:
-      self.stm_fw.set_status("Error downloading firmware: URL not present in index")
+      self.stm_fw.set_status("Error downloading firmware")
       self._write("Error downloading firmware: URL not present in index")
     except URLError:
-      self.stm_fw.set_status("Error: Failed to download latest STM firmware from Swift Navigation's website")
+      self.stm_fw.set_status("Error downloading firmware")
       self._write("Error: Failed to download latest STM firmware from Swift Navigation's website")
 
     self.downloading = False
@@ -272,17 +281,16 @@ class UpdateView(HasTraits):
   # so start can be called multiple times.
   # Expectation is that OneClickUpdate.start is passed to SettingsView to
   # be called after settings are read out, which can happen multiple times.
-  # This method is executed in GUI thread.
   def start(self):
 
     try:
-      if self.update_thread.is_alive():
+      if self._check_for_updates_thread.is_alive():
         return
     except AttributeError:
       pass
 
-    self.update_thread = Thread(target=self.check_for_updates)
-    self.update_thread.start()
+    self._check_for_updates_thread = Thread(target=self.check_for_updates)
+    self._check_for_updates_thread.start()
 
   # Executed in it's own thread.
   def check_for_updates(self):
@@ -317,7 +325,7 @@ class UpdateView(HasTraits):
     except KeyError:
       self._write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n" % INDEX_URL)
       return
-    
+
     # Check if firmware is out of date and notify user if so.
     if self.prompt:
       local_stm_version = parse_version(
@@ -409,42 +417,61 @@ class UpdateView(HasTraits):
 
   def erase_flash(self, flash_type):
 
-    # Reset device if the application is running to put into bootloader mode.
-    self.link.send_message(ids.RESET, '')
-
-    pk_boot = bootload.Bootloader(self.link)
-    self._write("Waiting for bootloader handshake message from Piksi ...")
-    pk_boot.wait_for_handshake()
-    pk_boot.reply_handshake()
-    self._write("received bootloader handshake message.")
-    self._write("Piksi Onboard Bootloader Version: " + pk_boot.version)
-
-    pk_flash = flash.Flash(self.link, flash_type)
+    self.create_flash(flash_type)
 
     sectors_to_erase = \
-        set(range(pk_flash.n_sectors)).difference(set(pk_flash.restricted_sectors))
+        set(range(self.pk_flash.n_sectors)).difference(set(self.pk_flash.restricted_sectors))
     for s in sorted(sectors_to_erase):
-      self._write('Erasing %s sector %d' % (pk_flash.flash_type,s))
-      pk_flash.erase_sector(s)
+      self._write('Erasing %s sector %d' % (self.pk_flash.flash_type,s))
+      self.pk_flash.erase_sector(s)
 
-    pk_flash.stop()
-    pk_boot.stop()
+    self.stop_flash()
 
   def update_flash(self, ihx, flash_type):
 
+    self.create_flash(flash_type)
+    
+    self.pk_flash.write_ihx(ihx, self.stream, mod_print = 0x10)
+
+    self.stop_flash()
+
+  def create_flash(self, flash_type):
+
     # Reset device if the application is running to put into bootloader mode.
     self.link.send_message(ids.RESET, '')
 
-    pk_boot = bootload.Bootloader(self.link)
+    self.pk_boot = bootload.Bootloader(self.link)
+
     self._write("Waiting for bootloader handshake message from Piksi ...")
-    pk_boot.wait_for_handshake()
-    pk_boot.reply_handshake()
+    reset_prompt = None
+    handshake_received = self.pk_boot.wait_for_handshake(2)
+
+    # Prompt user to reset Piksi if necessary, for instance if firmware
+    # is hosed and they're trying to update.
+    if not handshake_received:
+      reset_prompt = \
+        prompt.CallbackPrompt(
+                              title="Please Reset Piksi",
+                              actions=[prompt.close_button],
+                             )
+
+      reset_prompt.text = \
+            "You must press the reset button on your Piksi in order\n" + \
+            "to update your firmware.\n\n" + \
+            "Please press it now.\n\n"
+
+      reset_prompt.run(block=False)
+
+      self.pk_boot.wait_for_handshake()
+      reset_prompt.kill()
+      reset_prompt.wait()
+      
+    self.pk_boot.reply_handshake()
     self._write("received bootloader handshake message.")
-    self._write("Piksi Onboard Bootloader Version: " + pk_boot.version)
+    self._write("Piksi Onboard Bootloader Version: " + self.pk_boot.version)
 
-    pk_flash = flash.Flash(self.link, flash_type)
-    pk_flash.write_ihx(ihx, self.stream, mod_print = 0x10)
-    pk_flash.stop()
+    self.pk_flash = flash.Flash(self.link, flash_type)
 
-    pk_boot.stop()
-
+  def stop_flash(self):
+    self.pk_flash.stop()
+    self.pk_boot.stop()

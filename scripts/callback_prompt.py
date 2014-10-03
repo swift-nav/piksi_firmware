@@ -13,6 +13,7 @@ from traits.api import HasTraits, Event, String, Button, Instance
 from traitsui.api import View, Handler, Action, Item, TextEditor, VGroup, UItem
 from pyface.api import GUI
 
+from threading import Thread
 from time import sleep
 
 update_button = Action(name = "Update", action = "set_execute_callback_true", \
@@ -91,8 +92,20 @@ class CallbackPrompt(HasTraits):
       resizable=True,
     )
 
-  def run(self):
+  def run(self, block=True):
+    try:
+      if self.thread.is_alive():
+        return
+    except AttributeError:
+      pass
 
+    self.thread = Thread(target=self._run)
+    self.thread.start()
+
+    if block:
+      self.wait()
+
+  def _run(self):
     GUI.invoke_later(self.edit_traits, self.view)
     while not self.handler_executed:
       sleep(0.1)
@@ -102,6 +115,12 @@ class CallbackPrompt(HasTraits):
 
     if not self.closed:
       self.close = 1
+
+  def wait(self):
     while not self.closed:
       sleep(0.1)
+
+  def kill(self):
+    self.handler_executed = True
+    self.close = 1
 

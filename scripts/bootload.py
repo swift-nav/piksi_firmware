@@ -48,10 +48,16 @@ class Bootloader():
       self.version = data[:]
     self.handshake_received = True
 
-  def wait_for_handshake(self):
+  def wait_for_handshake(self, timeout=None):
+    if timeout:
+      t0 = time.time()
     self.handshake_received = False
     while not self.handshake_received:
       time.sleep(0.1)
+      if timeout:
+        if time.time()-timeout > t0:
+          return False
+    return True
 
   def reply_handshake(self):
     self.link.send_message(ids.BOOTLOADER_HANDSHAKE, '\x00')
