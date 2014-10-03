@@ -447,11 +447,11 @@ class UpdateView(HasTraits):
 
     self._write("Waiting for bootloader handshake message from Piksi ...")
     reset_prompt = None
-    handshake_received = self.pk_boot.wait_for_handshake(2)
+    handshake_received = self.pk_boot.wait_for_handshake(1)
 
-    # Prompt user to reset Piksi if necessary, for instance if firmware
-    # is hosed and they're trying to update.
-    if not handshake_received:
+    # Prompt user to reset Piksi if we don't receive the handshake message
+    # within a reasonable amount of tiime (firmware might be corrupted).
+    while not handshake_received:
       reset_prompt = \
         prompt.CallbackPrompt(
                               title="Please Reset Piksi",
@@ -465,7 +465,9 @@ class UpdateView(HasTraits):
 
       reset_prompt.run(block=False)
 
-      self.pk_boot.wait_for_handshake()
+      while not reset_prompt.closed and not handshake_received:
+        handshake_received = self.pk_boot.wait_for_handshake(1)
+
       reset_prompt.kill()
       reset_prompt.wait()
       
