@@ -65,6 +65,23 @@ class Bootloader():
   def jump_to_app(self):
     self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
 
+WAIT_TIME = 0.01
+
+# Prints repeating " ..."
+def pretty_wait_print():
+  SECS_4_3 = int((4.0/3)/WAIT_TIME)
+  SECS_1_3 = int((1.0/3)/WAIT_TIME)
+
+  print ' ' + chr(3), # Clear line.
+  print "\rWaiting for device '%s' to be plugged in " % serial_port,
+  for i in range(pretty_wait_print.count-SECS_1_3, 0, -SECS_1_3):
+    sys.stdout.write('.')
+  sys.stdout.flush()
+
+  pretty_wait_print.count = (pretty_wait_print.count + 1) % (SECS_4_3-1)
+
+pretty_wait_print.count = -1
+
 if __name__ == "__main__":
   import argparse
   import thread
@@ -108,7 +125,6 @@ if __name__ == "__main__":
 
   # Create serial link with device.
   link = None
-  wait_count = -1
   while not link:
     try:
       link = serial_link.SerialLink(serial_port, baud=baud, use_ftdi=args.ftdi,
@@ -119,18 +135,13 @@ if __name__ == "__main__":
       sys.exit()
     except OSError:
       # No device with name serial_port found.
-      print ' ' + chr(3), # Clear line.
-      print "\rWaiting for device '%s' to be plugged in " % serial_port,
-      for i in range(wait_count-33, 0, -33):
-        sys.stdout.write('.')
-      wait_count = (wait_count + 1) % 132
-      sys.stdout.flush()
-      time.sleep(0.01)
+      pretty_wait_print()
+      time.sleep(WAIT_TIME)
     except:
       import traceback
       traceback.print_exc()
       sys.exit()
-  if wait_count >= 0:
+  if pretty_wait_print.count >= 0:
     print
   print "Link successfully created with device: '%s'." % serial_port
 
