@@ -10,13 +10,15 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool
-from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor
+from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, UItem
 from traitsui.tabular_adapter import TabularAdapter
 from chaco.api import ArrayPlotData, Plot
 from chaco.tools.api import ZoomTool, PanTool
 from enable.api import ComponentEditor
 from enable.savage.trait_defs.ui.svg_button import SVGButton
 from pyface.api import GUI
+
+from simulator_view import SimulatorView
 
 import struct
 import math
@@ -45,6 +47,8 @@ class SolutionView(HasTraits):
 
   plot = Instance(Plot)
   plot_data = Instance(ArrayPlotData)
+
+  simulator_view = Instance(SimulatorView)
 
   running = Bool(True)
   position_centered = Bool(False)
@@ -85,7 +89,8 @@ class SolutionView(HasTraits):
           'plot',
           show_label = False,
           editor = ComponentEditor(bgcolor = (0.8,0.8,0.8)),
-        )
+        ),
+        UItem('simulator_view', style='custom', label='Simulator'),
       )
     )
   )
@@ -253,7 +258,10 @@ class SolutionView(HasTraits):
     self.week = None
     self.nsec = 0
 
+    self.simulator_view = SimulatorView(self.link)
+
     self.python_console_cmds = {
-      'solution': self
+      'solution': self,
+      'simulator': self.simulator_view
     }
 

@@ -86,7 +86,6 @@ from solution_view import SolutionView
 from baseline_view import BaselineView
 from observation_view import ObservationView
 from system_monitor_view import SystemMonitorView
-from simulator_view import SimulatorView
 from settings_view import SettingsView
 from update_view import UpdateView
 
@@ -97,13 +96,11 @@ class SwiftConsole(HasTraits):
   a = Int
   b = Int
   tracking_view = Instance(TrackingView)
-  almanac_view = Instance(AlmanacView)
   solution_view = Instance(SolutionView)
   baseline_view = Instance(BaselineView)
   observation_view = Instance(ObservationView)
   observation_view_base = Instance(ObservationView)
   system_monitor_view = Instance(SystemMonitorView)
-  simulator_view = Instance(SimulatorView)
   settings_view = Instance(SettingsView)
   update_view = Instance(UpdateView)
 
@@ -111,7 +108,6 @@ class SwiftConsole(HasTraits):
     VSplit(
       Tabbed(
         Item('tracking_view', style='custom', label='Tracking'),
-        Item('almanac_view', style='custom', label='Almanac'),
         Item('solution_view', style='custom', label='Solution'),
         Item('baseline_view', style='custom', label='Baseline'),
         VSplit(
@@ -119,7 +115,6 @@ class SwiftConsole(HasTraits):
           Item('observation_view_base', style='custom', show_label=False),
           label='Observations',
         ),
-        Item('simulator_view', style='custom', label='Simulator'),
         Item('settings_view', style='custom', label='Settings'),
         Item('update_view', style='custom', label='Firmware Update'),
         Item('system_monitor_view', style='custom', label='System Monitor'),
@@ -139,7 +134,7 @@ class SwiftConsole(HasTraits):
     ),
     icon = icon,
     resizable = True,
-    width = 1200,
+    width = 1000,
     height = 600,
     title = 'Piksi Console, Version: ' + CONSOLE_VERSION
   )
@@ -174,7 +169,6 @@ class SwiftConsole(HasTraits):
       settings_read_finished_functions = []
 
       self.tracking_view = TrackingView(self.link)
-      self.almanac_view = AlmanacView(self.link)
       self.solution_view = SolutionView(self.link)
       self.baseline_view = BaselineView(self.link)
       self.observation_view = ObservationView(self.link,
@@ -182,7 +176,6 @@ class SwiftConsole(HasTraits):
       self.observation_view_base = ObservationView(self.link,
                                               name='Base', relay=True)
       self.system_monitor_view = SystemMonitorView(self.link)
-      self.simulator_view = SimulatorView(self.link)
 
       self.update_view = UpdateView(self.link, prompt=update)
       settings_read_finished_functions.append(self.update_view.compare_versions)
@@ -196,7 +189,6 @@ class SwiftConsole(HasTraits):
           'link': self.link,
       }
       self.python_console_env.update(self.tracking_view.python_console_cmds)
-      self.python_console_env.update(self.almanac_view.python_console_cmds)
       self.python_console_env.update(self.solution_view.python_console_cmds)
       self.python_console_env.update(self.baseline_view.python_console_cmds)
       self.python_console_env.update(self.observation_view.python_console_cmds)
