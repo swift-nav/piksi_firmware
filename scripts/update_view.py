@@ -110,6 +110,7 @@ class UpdateView(HasTraits):
   newest_console_vers = String('Downloading Newest Console info...')
 
   erase_stm = Bool(True)
+  erase_en = Bool(True)
 
   update_firmware = Button(label='Update Piksi Firmware')
   updating = Bool(False)
@@ -121,7 +122,6 @@ class UpdateView(HasTraits):
 
   stm_fw = Instance(IntelHexFileDialog)
   nap_fw = Instance(IntelHexFileDialog)
-  choose_en = Bool(True)
 
   stream = Instance(OutputStream)
 
@@ -138,10 +138,11 @@ class UpdateView(HasTraits):
         ),
         VGroup(
           Item('stm_fw', style='custom', label='STM Firmware File', \
-               enabled_when='choose_en'),
+               enabled_when='download_fw_en'),
           Item('nap_fw', style='custom', label='NAP Firmware File', \
-               enabled_when='choose_en'),
-          Item('erase_stm', label='Erase Entire STM flash'),
+               enabled_when='download_fw_en'),
+          Item('erase_stm', label='Erase Entire STM flash', \
+               enabled_when='erase_en'),
         ),
       ),
       UItem('download_firmware', enabled_when='download_fw_en'),
@@ -182,10 +183,13 @@ class UpdateView(HasTraits):
 
     if self.updating == True or self.downloading == True:
       self.download_fw_en = False
-      self.choose_en = False
     else:
       self.download_fw_en = True
-      self.choose_en = True
+
+    if self.updating == True:
+      self.erase_en = False
+    else:
+      self.erase_en = True
 
   def _updating_changed(self):
     self._manage_enables()
