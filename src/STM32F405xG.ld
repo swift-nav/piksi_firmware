@@ -26,10 +26,10 @@ __process_stack_size__  = 0x1000;
 
 MEMORY
 {
-    flash : org = 0x08004000, len = 496K
+    flash         : org = 0x08004000, len = 496K
     coffee_fs_rom : org = 0x08080000, len = 512K
-    ram : org = 0x20000000, len = 128k
-    ccmram : org = 0x10000000, len = 64k
+    ram           : org = 0x20000000, len = 128k
+    ccmram        : org = 0x10000000, len = 64k
 }
 
 __ram_start__           = ORIGIN(ram);
