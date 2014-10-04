@@ -454,7 +454,7 @@ static msg_t solution_thread(void *arg)
          * differential solution. */
         double pdt;
         chMtxLock(&base_obs_lock);
-        if (base_obss.n > 0) {
+        if (base_obss.n > 0 && !simulation_enabled()) {
           if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
                 < MAX_AGE_OF_DIFFERENTIAL) {
 
@@ -660,7 +660,8 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
     dgnss_update(n_sds, sds, position_solution.pos_ecef);
     /* If we are in time matched mode then calculate and output the baseline
      * for this observation. */
-    if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED && n_sds >= 4) {
+    if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED &&
+        !simulation_enabled() && n_sds >= 4) {
       double b[3];
       u8 num_used, flags;
       switch (dgnss_filter) {
