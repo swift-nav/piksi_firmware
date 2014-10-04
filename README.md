@@ -1,3 +1,4 @@
+
 piksi_firmware
 ==============
 
@@ -21,7 +22,7 @@ Remember to run `git submodule update` after pulling in the latest changes to
 ensure all the submodules are in sync.
 
 Installation
-=========================
+============
 
 To install these development tools for your platform, run the setup
 script via `bash setup.sh`. The Vagrant file is currently used for
