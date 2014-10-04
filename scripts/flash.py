@@ -27,6 +27,12 @@ M25_SR_BP0  = 1 << 2
 M25_SR_WEL  = 1 << 1
 M25_SR_WIP  = 1 << 0
 
+STM_RESTRICTED_SECTORS = [0]
+STM_N_SECTORS = 12
+
+M25_RESTRICTED_SECTORS = [15]
+M25_N_SECTORS = 16
+
 def stm_addr_sector_map(addr):
   if   addr >= 0x08000000 and addr < 0x08004000:
     return 0
@@ -53,12 +59,12 @@ def stm_addr_sector_map(addr):
   elif addr >= 0x080E0000 and addr < 0x08100000:
     return 11
   else:
-    raise IndexError("Attempted to access flash memory at (%s) outside of range." % hex(addr))
+    raise IndexError("Attempted to access flash memory at (%s) outside of range (wrong firmware file?)." % hex(addr))
     return None
 
 def m25_addr_sector_map(addr):
   if addr < 0 or addr > 0xFFFFF:
-    raise IndexError("Attempted to access flash memory at (%s) outside of range." % hex(addr))
+    raise IndexError("Attempted to access flash memory at (%s) outside of range (wrong firmware file?)." % hex(addr))
   return addr >> 16
 
 def ihx_ranges(ihx):
@@ -137,12 +143,16 @@ class Flash():
           new.instancemethod(_stm_lock_sector, self, Flash)
       self.__dict__['unlock_sector'] = \
           new.instancemethod(_stm_unlock_sector, self, Flash)
+      self.n_sectors = STM_N_SECTORS
+      self.restricted_sectors = STM_RESTRICTED_SECTORS
     elif self.flash_type == "M25":
       self.flash_type_byte = 1
       self.addr_sector_map = m25_addr_sector_map
       # Add M25-specific functions.
       self.__dict__['write_status'] = \
           new.instancemethod(_m25_write_status, self, Flash)
+      self.n_sectors = M25_N_SECTORS
+      self.restricted_sectors = M25_RESTRICTED_SECTORS
     else:
       raise ValueError("flash_type must be \"STM\" or \"M25\"")
 
@@ -159,6 +169,10 @@ class Flash():
     return self.status
 
   def erase_sector(self, sector):
+    if sector in self.restricted_sectors:
+      text = 'Attempting to erase %s flash restricted sector %d' % \
+             (self.flash_type, sector)
+      raise Warning(text)
     msg_buf = struct.pack("BB", self.flash_type_byte, sector)
     self._waiting_for_callback = True
     self.link.send_message(ids.FLASH_ERASE, msg_buf)
@@ -227,8 +241,11 @@ class Flash():
 
     # Write data to flash and validate
     start_time = time.time()
-    for start, end in ihx_addrs:
-      for addr in range(start, end, ADDRS_PER_OP):
+    # STM's lowest address is used by bootloader to check that the application
+    # is valid, so program from high to low to ensure this address is programmed
+    # last.
+    for start, end in reversed(ihx_addrs):
+      for addr in reversed(range(start, end, ADDRS_PER_OP)):
         self.status = self.flash_type + " Flash: Programming address" + \
                                         " 0x%08X" % addr
         if stream:
