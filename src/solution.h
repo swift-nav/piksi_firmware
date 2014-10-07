@@ -20,10 +20,12 @@
 #include <libswiftnav/gpstime.h>
 
 typedef struct {
-  void *next; /* Used by memory pool implementation. */
   gps_time_t t;
+  double pos_ecef[3];
+  u8 has_pos;
   u8 n;
   navigation_measurement_t nm[MAX_CHANNELS];
+  double sat_dists[MAX_CHANNELS];
 } obss_t;
 
 typedef enum {
