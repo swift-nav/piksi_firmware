@@ -219,9 +219,9 @@ class BaselineView(HasTraits):
 
     if self.position_centered:
       d = (self.plot.index_range.high - self.plot.index_range.low) / 2.
-      self.plot.index_range.set_bounds(soln.n - d, soln.n + d)
+      self.plot.index_range.set_bounds(soln.e - d, soln.e + d)
       d = (self.plot.value_range.high - self.plot.value_range.low) / 2.
-      self.plot.value_range.set_bounds(soln.e - d, soln.e + d)
+      self.plot.value_range.set_bounds(soln.n - d, soln.n + d)
 
     self.table = table
 

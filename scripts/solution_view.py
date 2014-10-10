@@ -176,9 +176,9 @@ class SolutionView(HasTraits):
 
     if self.position_centered:
       d = (self.plot.index_range.high - self.plot.index_range.low) / 2.
-      self.plot.index_range.set_bounds(soln.pos_llh[0] - d, soln.pos_llh[0] + d)
+      self.plot.index_range.set_bounds(soln.lon - d, soln.lon + d)
       d = (self.plot.value_range.high - self.plot.value_range.low) / 2.
-      self.plot.value_range.set_bounds(soln.pos_llh[1] - d, soln.pos_llh[1] + d)
+      self.plot.value_range.set_bounds(soln.lat - d, soln.lat + d)
 
   def dops_callback(self, data):
     dops = sbp_messages.Dops(data)
