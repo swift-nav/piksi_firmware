@@ -45,7 +45,7 @@ else:
 icon = ImageResource('icon',
          search_path=['images', os.path.join(basedir, 'images')])
 
-INDEX_URL = 'http://download.swift-nav.com/index.json'
+INDEX_URL = 'http://downloads.swiftnav.com/index.json'
 
 class IntelHexFileDialog(HasTraits):
 
@@ -209,8 +209,6 @@ class UpdateView(HasTraits):
     except AttributeError:
       pass
 
-    self._write('')
-
     self._firmware_update_thread = Thread(target=self.manage_firmware_updates)
     self._firmware_update_thread.start()
 
@@ -234,6 +232,14 @@ class UpdateView(HasTraits):
     return filename
 
   def _download_firmware(self):
+
+    self._write('')
+    
+    # Check that we received the index file from the website.
+    if self.index == None:
+      self._write("Error: No website index to get firmware URLs from")
+      return
+     
     self.downloading = True
 
     status = 'Downloading Newest Firmware...'
@@ -279,17 +285,21 @@ class UpdateView(HasTraits):
     except AttributeError:
       pass
 
-    self._write('')
-
     self._download_firmware_thread = Thread(target=self._download_firmware)
     self._download_firmware_thread.start()
 
   def compare_versions(self):
+    try:
+      if self._compare_versions_thread.is_alive():
+        return
+    except AttributeError:
+      pass
 
-    if self.index == None:
-      self._write("Error: No website index to use to compare versions with local firmware")
-      return
-    
+    self._compare_versions_thread = Thread(target=self._compare_versions)
+    self._compare_versions_thread.start()
+
+  def _compare_versions(self):
+
     # Check that settings received from Piksi contain FW versions.
     try:
       self.piksi_stm_vers = \
@@ -298,6 +308,11 @@ class UpdateView(HasTraits):
         self.settings['system_info']['nap_version'].value
     except KeyError:
       self._write("\nError: Settings received from Piksi don't contain firmware version keys. Please contact Swift Navigation.\n")
+      return
+
+    # Check that we received the index file from the website.
+    if self.index == None:
+      self._write("Error: No website index to use to compare versions with local firmware")
       return
 
     # Check if console is out of date and notify user if so.
@@ -318,7 +333,7 @@ class UpdateView(HasTraits):
             "Your Piksi Console is out of date and may be incompatible\n" + \
             "with current firmware. We highly recommend upgrading to\n" + \
             "ensure proper behavior.\n\n" + \
-            "Please visit http://download.swift-nav.com to\n" + \
+            "Please visit http://downloads.swiftnav.com to\n" + \
             "download the newest version.\n\n" + \
             "Local Console Version :\n\t" + \
                 CONSOLE_VERSION + \
@@ -399,6 +414,8 @@ class UpdateView(HasTraits):
   # Executed in GUI thread, called from Handler.
   def manage_firmware_updates(self):
     self.updating = True
+
+    self._write('')
 
     # Erase STM if so directed.
     if self.erase_stm:
