@@ -61,8 +61,10 @@ function sys_dependencies_apt () {
     # Install system and python library dependencies using an
     # apt-based installer.
     log_info "Checking system dependencies for Linux..."
-    log_info "Please enter your password for ..."
+    log_info "Please enter your password for apt-get..."
+    log_info "Updating..."
     sudo apt-get update
+    log_info "Installing base dependencies..."
     sudo apt-get -y install \
         git \
         build-essential \
@@ -72,7 +74,8 @@ function sys_dependencies_apt () {
         cmake \
         swig \
         wget \
-        cmake=2.8.7-0ubuntu5
+        cmake > /dev/null 2>&1
+    log_info "Installing base python dependencies..."
     sudo pip install 'pip>=1.5.6' 'setuptools>=5.3'
     sudo apt-get -y install \
         libicu-dev \
@@ -90,6 +93,7 @@ function sys_dependencies_apt () {
     find . -name \*.pyc -delete
     # TODO (Buro): Tested with a vagrant Ubuntu: perhaps move to a
     # virtual env?
+    log_info "Installing swiftnav python dependencies..."
     sudo pip install \
         traits \
         traitsui \
@@ -104,7 +108,7 @@ function sys_dependencies_apt () {
     log_info "Setting up ARM GCC toolchain..."
     sudo add-apt-repository -y ppa:terry.guo/gcc-arm-embedded
     sudo apt-get -y update
-    sudo apt-get -y install gcc-arm-none-eabi
+    sudo apt-get -y -qq install gcc-arm-none-eabi
 }
 
 function build () {
@@ -130,7 +134,7 @@ function piksi_splash_osx () {
            MM   ,M9  '7MM     MM  ,MP'  ,pP\"Ybd   '7MM
            MMmmdM9     MM     MM ;Y     8I    '\"    MM
            MM          MM     MM;Mm     'YMMMa.     MM
-           MM          MM     MM  Mb.  L.    I8      MM
+           MM          MM     MM  Mb.  L.    I8     MM
          .JMML.      .JMML. .JMML. YA.  M9mmmP'   .JMML.
 
          Welcome to piksi_firmware development installer!
@@ -156,6 +160,7 @@ function swig_install_osx () {
     # Homebrew's default swig 3.x plays poorly with some of our python
     # depenencies, so install brew 2.x if needed.
     log_info "Installing swig 2.0.12..."
+    # Handle brew 3.0
     brew update
     brew info swig | grep -qE '^Not installed' && brew uninstall swig
     pushd `pwd`
@@ -280,7 +285,7 @@ function build_osx () {
 ####################################################################
 ## Entry points
 
-function run_all_platforms {
+function run_all_platforms () {
     if [ ! -e ./setup.sh ] ; then
         log_error "Error: setup.sh should be run from piksi_firmware toplevel." >&2
         exit 1
@@ -301,5 +306,27 @@ function run_all_platforms {
     log_info "Done!."
 }
 
-set -e
-run_all_platforms
+set -e -u
+
+while getopts ":x:" opt; do
+    case $opt in
+        x)
+            if [[ "$OPTARG" == "install" ]]; then
+                run_all_platforms
+            elif [[ "$OPTARG" == "info" ]]; then
+                log_info "piksi_firmware development installer"
+            else
+                echo "Invalid option: -x $OPTARG" >&2
+                exit 1
+            fi
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            exit 1
+            ;;
+        :)
+            echo "Option -$OPTARG requires an argument." >&2
+            exit 1
+            ;;
+    esac
+done
