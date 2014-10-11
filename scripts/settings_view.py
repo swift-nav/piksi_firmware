@@ -48,13 +48,13 @@ class Setting(SettingBase):
     ),
   )
 
-  def __init__(self, name, section, value, link, ordering):
+  def __init__(self, name, section, value, ordering, settings):
     self.name = name
     self.section = section
     self.full_name = "%s.%s" % (section, name)
     self.value = value
-    self.link = link
     self.ordering = ordering
+    self.settings = settings
 
   def _value_changed(self, name, old, new):
     if (old != new and
@@ -62,8 +62,7 @@ class Setting(SettingBase):
         new is not Undefined):
       if type(self.value) == unicode:
         self.value = self.value.encode('ascii', 'replace')
-      self.link.send_message(ids.SETTINGS,
-          '%s\0%s\0%s\0' % (self.section, self.name, self.value))
+      self.settings.set(self.section, self.name, self.value)
 
 class EnumSetting(Setting):
   values = List()
@@ -77,9 +76,9 @@ class EnumSetting(Setting):
     ),
   )
 
-  def __init__(self, name, section, value, link, ordering, values):
+  def __init__(self, name, section, value, ordering, values, **kwargs):
     self.values = values
-    Setting.__init__(self, name, section, value, link, ordering)
+    Setting.__init__(self, name, section, value, ordering, **kwargs)
 
 class SectionHeading(SettingBase):
   value = Constant('')
@@ -183,19 +182,22 @@ class SettingsView(HasTraits):
     if format_type is None:
       # Plain old setting, no format information
       self.settings[section][setting] = Setting(setting, section, value,
-                                                link=self.link,
-                                                ordering=self.ordering_counter
-        )
+                                                ordering=self.ordering_counter,
+                                                settings=self
+                                               )
     else:
       if setting_type == 'enum':
         enum_values = setting_format.split(',')
         self.settings[section][setting] = EnumSetting(setting, section, value,
-                                                      link=self.link,
                                                       ordering=self.ordering_counter,
-                                                      values=enum_values)
+                                                      values=enum_values,
+                                                      settings=self
+                                                     )
       else:
         # Unknown type, just treat is as a string
-        self.settings[section][setting] = Setting(setting, section, value, link=self.link)
+        self.settings[section][setting] = Setting(setting, section, value,
+                                                  settings=self
+                                                 )
 
     self.enumindex += 1
     self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
@@ -208,6 +210,10 @@ class SettingsView(HasTraits):
 
   def piksi_startup_callback(self, data):
     self._settings_read_button_fired()
+
+  def set(self, section, name, value):
+      self.link.send_message(ids.SETTINGS,
+          '%s\0%s\0%s\0' % (section, name, value))
 
   def __init__(self, link, read_finished_functions=[]):
     super(SettingsView, self).__init__()
