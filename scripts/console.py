@@ -194,6 +194,7 @@ class SwiftConsole(HasTraits):
       self.python_console_env.update(self.observation_view.python_console_cmds)
       self.python_console_env.update(self.system_monitor_view.python_console_cmds)
       self.python_console_env.update(self.update_view.python_console_cmds)
+      self.python_console_env.update(self.settings_view.python_console_cmds)
     except:
       import traceback
       traceback.print_exc()
