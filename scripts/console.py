@@ -212,7 +212,7 @@ class PortChooser(HasTraits):
     buttons = ['OK', 'Cancel'],
     close_result=False,
     icon = icon,
-    width = 200,
+    width = 250,
     title = 'Select serial device',
   )
 
