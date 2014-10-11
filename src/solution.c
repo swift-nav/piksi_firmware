@@ -266,9 +266,6 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
         calc_PVT(base_obss_raw.n, base_obss_raw.nm, &soln, &dops);
 
-        /* Lock mutex before modifying base_obss. */
-        chMtxLock(&base_obs_lock);
-
         if (soln.valid) {
           if (base_obss.has_pos) {
             /* TODO Implement a real filter for base position (potentially in
@@ -304,13 +301,16 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
         /* potentially use old obss here for online corrections */
         /* Loop over base_obss_raw.nm and base_obss.nm and check if a PRN is present in both. */
+
+        /* Lock mutex before modifying base_obss, note we didn't need to lock
+         * it before reading in THIS context as this is the only thread that
+         * writes to base_obss. */
+        chMtxLock(&base_obs_lock);
+        /* Update base_obss with complete new observation set. */
         memcpy(&base_obss, &base_obss_raw, sizeof(obss_t));
+        chMtxUnlock();
       }
-
-      /* Unlock mutex. */
-      chMtxUnlock();
     }
-
   }
 
 
@@ -701,8 +701,8 @@ static msg_t time_matched_obs_thread(void *arg)
      * looking for one that matches in time. */
     while (chMBFetch(&obs_mailbox, (msg_t *)&obss, TIME_IMMEDIATE)
             == RDY_OK) {
-      chMtxLock(&base_obs_lock);
 
+      chMtxLock(&base_obs_lock);
       double dt = gpsdifftime(obss->t, base_obss.t);
 
       if (fabs(dt) < TIME_MATCH_THRESHOLD) {
@@ -713,34 +713,35 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
+        chMtxUnlock();
         process_matched_obs(n_sds, &obss->t, sds);
         chPoolFree(&obs_buff_pool, obss);
-        chMtxUnlock();
-        break;
-      } else if (dt > 0) {
-        /* Time of base obs before time of local obs, we must not have a local
-         * observation matching this base observation, break and wait for a new
-         * base observation. */
-
-        /* In practice this should basically never happen so lets make a note
-         * if it does. */
-        printf("Obs Matching: t_base < t_rover (%f)\n", dt);
-
-        /* Return the buffer to the mailbox so we can try it again later. */
-        msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
-        if (ret != RDY_OK) {
-          /* Something went wrong with returning it to the buffer, better just
-           * free it and carry on. */
-          printf("Obs Matching: mailbox full, discarding observation!\n");
-          chPoolFree(&obs_buff_pool, obss);
-        }
-        chMtxUnlock();
         break;
       } else {
-        /* Time of base obs later than time of local obs,
-         * keep moving through the mailbox. */
-        chPoolFree(&obs_buff_pool, obss);
         chMtxUnlock();
+        if (dt > 0) {
+          /* Time of base obs before time of local obs, we must not have a local
+           * observation matching this base observation, break and wait for a new
+           * base observation. */
+
+          /* In practice this should basically never happen so lets make a note
+           * if it does. */
+          printf("Obs Matching: t_base < t_rover (%f)\n", dt);
+
+          /* Return the buffer to the mailbox so we can try it again later. */
+          msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
+          if (ret != RDY_OK) {
+            /* Something went wrong with returning it to the buffer, better just
+             * free it and carry on. */
+            printf("Obs Matching: mailbox full, discarding observation!\n");
+            chPoolFree(&obs_buff_pool, obss);
+          }
+          break;
+        } else {
+          /* Time of base obs later than time of local obs,
+           * keep moving through the mailbox. */
+          chPoolFree(&obs_buff_pool, obss);
+        }
       }
     }
 
