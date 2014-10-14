@@ -30,15 +30,13 @@ class SimulatorView(HasTraits):
   settings_table = List()
 
   traits_view = View(
-    HSplit(
-      VGroup(
-        Item('simulator_enable_button', show_label=False),
-        Item('simulator_disable_button', show_label=False),
-      ),
-    )
+    HGroup(
+      Item('simulator_enable_button', show_label=False),
+      Item('simulator_disable_button', show_label=False),
+    ),
   )
 
-  ##Simulator buttons
+  # Simulator buttons.
   def _simulator_enable_button_fired(self):
     print "Requesting piksi to enter simulation mode"
     data = struct.pack("<B", 1)
@@ -49,7 +47,7 @@ class SimulatorView(HasTraits):
     data = struct.pack("<B", 0)
     self.link.send_message(ids.SIMULATION_ENABLED, data)
 
-  ##Callbacks for receiving messages
+  # Callbacks for receiving messages.
 
   def simulation_enabled_message_callback(self, data):
     self.link.send_message(ids.SIMULATION_SETTINGS, '');
@@ -60,7 +58,7 @@ class SimulatorView(HasTraits):
     self.link = link
     self.link.add_callback(ids.SIMULATION_ENABLED, self.simulation_enabled_message_callback)
 
-    #On startup, we request the current simulation mode and settings
+    # On startup, we request the current simulation mode and settings.
     self.link.send_message(ids.SIMULATION_ENABLED, '');
 
     self.python_console_cmds = {

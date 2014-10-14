@@ -1,14 +1,21 @@
 Piksi Firmware Release Notes
 ============================
 
-Even numbered versions are stable releases, odd numbered versions
-indicate development builds.
-
 Contents
 --------
 
+ * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.11 <a name="v0.11"></a>
+-----
+
+ * Add ‘low latency mode’ which provides very low latency baseline outputs
+   irrespective of the radio communications delay with a small accuracy penalty
+ * Fix a stack overflow bug that occurs when the number of satellites in common
+   falls below 5
+ * Improve the robustness of the firmware update procedure
 
 v0.10 <a name="v0.10"></a>
 -----

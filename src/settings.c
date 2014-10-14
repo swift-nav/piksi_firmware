@@ -34,9 +34,9 @@ static int float_to_string(const void *priv, char *str, int slen, const void *bl
 
   switch (blen) {
   case 4:
-    return snprintf(str, slen, "%g", (double)*(float*)blob);
+    return snprintf(str, slen, "%.12g", (double)*(float*)blob);
   case 8:
-    return snprintf(str, slen, "%g", *(double*)blob);
+    return snprintf(str, slen, "%.12g", *(double*)blob);
   }
   return -1;
 }
@@ -47,9 +47,9 @@ static bool float_from_string(const void *priv, void *blob, int blen, const char
 
   switch (blen) {
   case 4:
-    return sscanf(str, "%f", (float*)blob) == 1;
+    return sscanf(str, "%g", (float*)blob) == 1;
   case 8:
-    return sscanf(str, "%lf", (double*)blob) == 1;
+    return sscanf(str, "%lg", (double*)blob) == 1;
   }
   return false;
 }

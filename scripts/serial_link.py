@@ -97,14 +97,19 @@ class ListenerThread (threading.Thread):
                 cb(md, sender=ms)
               except TypeError:
                 cb(md)
-      except Exception, err:
+      except:
         import traceback
         print traceback.format_exc()
-        return
 
 def list_ports(self=None):
   import serial.tools.list_ports
-  return serial.tools.list_ports.comports()
+  ports = serial.tools.list_ports.comports()
+  # Remove ports matching "ttyS*" (non-virtual serial ports on Linux).
+  ports = filter(lambda x: x[1][0:4] != "ttyS", ports)
+  if not any(ports):
+    return None
+  else:
+    return ports
 
 class SerialLink:
 

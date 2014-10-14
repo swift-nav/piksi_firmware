@@ -173,6 +173,9 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   static s16 prev_count = 0;
   static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
+  /* Using an extra obss_t so we don't need to overwrite the old set (used for 
+   * low latency) when we end up with a bad new set. */
+  static obss_t base_obss_raw = {.has_pos = 0};
 
   /* Sender ID of zero means that the messages are relayed observations,
    * ignore them. */
@@ -201,8 +204,6 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     log_obs_latency(latency_ms);
   }
 
-  static u8 obss_i = 0;
-
   /* Verify sequence integrity */
   if (count == 0) {
     prev_t = t;
@@ -219,31 +220,99 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   u8 obs_in_msg = (len - sizeof(msg_obs_header_t)) / sizeof(msg_obs_content_t);
 
-  /* Lock mutex before modifying base_obss. */
-  chMtxLock(&base_obs_lock);
+
 
   if (count == 0) {
-    obss_i = 0;
-    base_obss.n = obs_in_msg;
-    base_obss.t = t;
-  } else {
-    base_obss.n += obs_in_msg;
+    base_obss_raw.n = 0;
+    base_obss_raw.t = t;
   }
   msg_obs_content_t *obs = (msg_obs_content_t *)(msg + sizeof(msg_obs_header_t));
-  for (u8 i=0; i<obs_in_msg; i++, obss_i++) {
-    unpack_obs_content(&obs[i],
-      &base_obss.nm[obss_i].raw_pseudorange,
-      &base_obss.nm[obss_i].carrier_phase,
-      &base_obss.nm[obss_i].snr,
-      &base_obss.nm[obss_i].prn);
+  for (u8 i=0; i<obs_in_msg; i++) {
+    if (ephemeris_good(es[obs[i].prn], t)) {
+      unpack_obs_content(&obs[i],
+        &base_obss_raw.nm[base_obss_raw.n].raw_pseudorange,
+        &base_obss_raw.nm[base_obss_raw.n].carrier_phase,
+        &base_obss_raw.nm[base_obss_raw.n].snr,
+        &base_obss_raw.nm[base_obss_raw.n].prn);
+      double clock_err;
+      double clock_rate_err;
+      calc_sat_pos(&base_obss_raw.nm[base_obss_raw.n].sat_pos[0],
+                   &base_obss_raw.nm[base_obss_raw.n].sat_vel[0],
+                   &clock_err, &clock_rate_err, &es[obs[i].prn], t);
+      /* TODO Make a function to apply some of these corrections.
+       *       They are used in a couple places. */
+      base_obss_raw.nm[base_obss_raw.n].pseudorange =
+            base_obss_raw.nm[base_obss_raw.n].raw_pseudorange + clock_err * GPS_C;
+      base_obss_raw.nm[base_obss_raw.n].tot = t;
+      /* set the time */
+      base_obss_raw.n++;
+    }
   }
 
-  /* Ensure observations sorted by PRN. */
-  qsort(base_obss.nm, base_obss.n,
-        sizeof(navigation_measurement_t), nav_meas_cmp);
+  /* If we can, and all the obs have been received, calculate the receiver position. */
+  if (count == total - 1) {
+    /* Ensure observations sorted by PRN. */
+    qsort(base_obss_raw.nm, base_obss_raw.n,
+          sizeof(navigation_measurement_t), nav_meas_cmp);
+    if (base_obss_raw.n >= 4) {
+      /* TODO Maybe we should put the following base position stuff into its
+       *       own subsystem. */
+      if (base_pos_known) {
+        memcpy(base_obss_raw.pos_ecef, known_base_ecef, 3 * sizeof(double));
+        base_obss_raw.has_pos = 1;
+      } else {
+        gnss_solution soln;
+        dops_t dops;
 
-  /* Unlock mutex. */
-  chMtxUnlock();
+        calc_PVT(base_obss_raw.n, base_obss_raw.nm, &soln, &dops);
+
+        /* Lock mutex before modifying base_obss. */
+        chMtxLock(&base_obs_lock);
+
+        if (soln.valid) {
+          if (base_obss.has_pos) {
+            /* TODO Implement a real filter for base position (potentially in
+               observation space), so we can do away with this terrible excuse
+               for smoothing. */
+            base_obss_raw.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
+                                      + 0.00005 * soln.pos_ecef[0];
+            base_obss_raw.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
+                                      + 0.00005 * soln.pos_ecef[1];
+            base_obss_raw.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
+                                      + 0.00005 * soln.pos_ecef[2];
+          } else {
+            memcpy(base_obss_raw.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
+          }
+          base_obss_raw.has_pos = 1;
+        } else {
+          if (base_obss.has_pos) {
+            memcpy(base_obss_raw.pos_ecef, base_obss.pos_ecef, 3 * sizeof(double));
+            base_obss_raw.has_pos = 1;
+          } else {
+            base_obss_raw.has_pos = 0;
+          }
+        }
+      }
+
+      if (base_obss_raw.has_pos) {
+        for (u8 i=0; i < base_obss_raw.n; i++) {
+          double dx[3];
+          vector_subtract(3, base_obss_raw.nm[i].sat_pos, base_obss_raw.pos_ecef,
+                          dx);
+          base_obss_raw.sat_dists[i] = vector_norm(3, dx);
+        }
+
+        /* potentially use old obss here for online corrections */
+        /* Loop over base_obss_raw.nm and base_obss.nm and check if a PRN is present in both. */
+        memcpy(&base_obss, &base_obss_raw, sizeof(obss_t));
+      }
+
+      /* Unlock mutex. */
+      chMtxUnlock();
+    }
+
+  }
+
 
   if (count == total - 1) {
     /* Signal that a complete base observation has been received. */
@@ -318,7 +387,7 @@ void tim5_isr()
   CH_IRQ_EPILOGUE();
 }
 
-static WORKING_AREA_CCM(wa_solution_thread, 5000);
+static WORKING_AREA_CCM(wa_solution_thread, 10000);
 static msg_t solution_thread(void *arg)
 {
   (void)arg;
@@ -385,7 +454,7 @@ static msg_t solution_thread(void *arg)
          * differential solution. */
         double pdt;
         chMtxLock(&base_obs_lock);
-        if (base_obss.n > 0) {
+        if (base_obss.n > 0 && !simulation_enabled()) {
           if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
                 < MAX_AGE_OF_DIFFERENTIAL) {
 
@@ -393,8 +462,25 @@ static msg_t solution_thread(void *arg)
              * process a low-latency differential solution. */
 
             /* Hook in low-latency filter here. */
-            if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY) {
-              /*solution_send_baseline(t, n_sds, b, position_solution.pos_ecef);*/
+            if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
+                base_obss.has_pos) {
+              /* TODO lock the ephemerides for this operation */
+              sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
+              u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
+                                      base_obss.n, base_obss.nm,
+                                      base_obss.sat_dists, base_obss.pos_ecef,
+                                      es, position_solution.time,
+                                      sdiffs);
+              double prop_baseline[3];
+              u8 num_sds_used;
+              s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
+                      position_solution.pos_ecef, &num_sds_used, prop_baseline);
+              if (ll_err_code != -1) {
+                solution_send_baseline(&position_solution.time,
+                                       num_sds_used, prop_baseline,
+                                       position_solution.pos_ecef,
+                                       (ll_err_code == 1) ? 1 : 0);
+              }
             }
 
           }
@@ -530,11 +616,6 @@ static msg_t solution_thread(void *arg)
         send_observations(simulation_current_num_sats(),
           &simulation_current_gnss_solution()->time,
           simulation_current_navigation_measurements());
-
-        if (simulation_enabled_for(SIMULATION_MODE_RTK)) {
-          msg_iar_state_t iar_state = { .num_hyps = 1 };
-          sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
-        }
       }
     }
   }
@@ -579,7 +660,8 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
     dgnss_update(n_sds, sds, position_solution.pos_ecef);
     /* If we are in time matched mode then calculate and output the baseline
      * for this observation. */
-    if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED) {
+    if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED &&
+        !simulation_enabled() && n_sds >= 4) {
       double b[3];
       u8 num_used, flags;
       switch (dgnss_filter) {
@@ -588,8 +670,6 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
         /* Calculate least squares solution using ambiguities from IAR. */
         dgnss_fixed_baseline2(n_sds, sds, position_solution.pos_ecef,
                               &num_used, b);
-        msg_iar_state_t iar_state = { .num_hyps = dgnss_iar_num_hyps() };
-        sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
         flags = (dgnss_iar_resolved()) ? 1 : 0;
         break;
       case FILTER_FLOAT:
