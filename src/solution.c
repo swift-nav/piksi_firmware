@@ -160,21 +160,24 @@ obss_t base_obss;
 // TODO COUNTER do we need to initialize these?
 u16 lock_counters[MAX_SATS];
 
-// Checks to see if any lock_counters have incremented or re-randomized.
-// If so, drop those sats from the filter.
-void check_lock_counters_and_drop_sats()
+/* Checks to see if any lock_counters have incremented or re-randomized.
+ * Return those prns so that they can be dropped.
+ *
+ * \param sats_to_drop returns list of prns to drop
+ * \return number of sats to drop
+ */
+u8 check_lock_counters(u8 *sats_to_drop)
 {
-  u8 dropped_sats[MAX_SATS];
   u8 num_sats_to_drop = 0;
   for (u8 i = 0; i<base_obss.n; i++) {
     u8 prn = base_obss.nm[i].lock_counter;
     u16 new_count = base_obss.nm[i].lock_counter;
     if (new_count != lock_counters[prn]) {
-      dropped_sats[num_sats_to_drop++] = prn;
+      sats_to_drop[num_sats_to_drop++] = prn;
       lock_counters[prn] = new_count;
     }
   }
-  dgnss_drop_sats(num_sats_to_drop, dropped_sats);
+  return num_sats_to_drop;
 }
 
 void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -656,10 +659,16 @@ static bool init_done = false;
 static bool init_known_base = false;
 static bool reset_iar = false;
 
-void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
+void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds,
+                         u8 num_sats_to_drop, u8 *sats_to_drop)
 {
-  (void)n_sds; (void)sds;
-
+  if (num_sats_to_drop > 0) {
+    /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
+     * sats_to_drop is computed using the lock_counter array.
+     * Dropping an sdiff will cause dgnss_update to drop that sat from our filters.
+     * */
+    n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
+  }
   if (init_known_base) {
     if (n_sds > 4) {
       /* Calculate ambiguities from known baseline. */
@@ -743,9 +752,9 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
-        // TODO COUNTER move these out of mutex?
-        check_lock_counters_and_drop_sats();
-        process_matched_obs(n_sds, &obss->t, sds);
+        u8 sats_to_drop[MAX_SATS];
+        u8 num_sats_to_drop = check_lock_counters(sats_to_drop);
+        process_matched_obs(n_sds, &obss->t, sds, num_sats_to_drop, sats_to_drop);
         /* TODO: If we can move this unlock up between the call to single_diff()
          * and process_matched_obs() then we can significantly reduce the amount
          * of time this lock is held. Currently holding this lock so long is
