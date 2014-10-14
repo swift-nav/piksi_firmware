@@ -101,6 +101,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].state = TRACKING_RUNNING;
   tracking_channel[channel].prn = prn;
   tracking_channel[channel].update_count = 0;
+  tracking_channel[channel].lock_counter += 1; // TODO COUNTER DONE
+
   /* Use -1 to indicate an uninitialised value. */
   tracking_channel[channel].TOW_ms = -1;
   tracking_channel[channel].snr_above_threshold_count = 0;
@@ -310,6 +312,8 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   if (chan->nav_msg.inverted) {
     meas->carrier_phase += 0.5;
   }
+  // TODO COUNTER DONE
+  meas->lock_counter = chan->lock_counter;
 }
 
 /** Calculate a tracking channel's current SNR.

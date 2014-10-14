@@ -98,6 +98,8 @@ typedef struct __attribute__((packed)) {
   } L;       /**< Fixed point carrier phase (seconds) */
   u8 snr;    /**< Signal-to-Noise ratio (cn0 * 4 for 0.25 precision and
                   0-64 range) */
+  /** Lock counter. Increments on new lock. */
+  u16 lock_counter;
   u8 prn;    /**< Satellite number. */
 } msg_obs_content_t;
 
@@ -157,9 +159,9 @@ void pack_obs_header(gps_time_t *t, u8 total, u8 count,
   msg_obs_header_t *msg);
 
 void unpack_obs_content(msg_obs_content_t *msg,
-  double *P, double *L, double *snr, u8 *prn);
+  double *P, double *L, double *snr, u16 *lock_counter, u8 *prn);
 
-void pack_obs_content(double P, double L, double snr, u8 prn,
+void pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
   msg_obs_content_t *msg);
 
 /** Value specifying the size of the SBP framing */

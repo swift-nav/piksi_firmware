@@ -157,6 +157,25 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
 extern ephemeris_t es[MAX_SATS];
 
 obss_t base_obss;
+// TODO COUNTER do we need to initialize these?
+u16 lock_counters[MAX_SATS];
+
+// Checks to see if any lock_counters have incremented or re-randomized.
+// If so, drop those sats from the filter.
+void check_lock_counters_and_drop_sats()
+{
+  u8 dropped_sats[MAX_SATS];
+  u8 num_sats_to_drop = 0;
+  for (u8 i = 0; i<base_obss.n; i++) {
+    u8 prn = base_obss.nm[i].lock_counter;
+    u16 new_count = base_obss.nm[i].lock_counter;
+    if (new_count != lock_counters[prn]) {
+      dropped_sats[num_sats_to_drop++] = prn;
+      lock_counters[prn] = new_count;
+    }
+  }
+  dgnss_drop_sats(num_sats_to_drop, dropped_sats);
+}
 
 void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -233,6 +252,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_raw.nm[base_obss_raw.n].raw_pseudorange,
         &base_obss_raw.nm[base_obss_raw.n].carrier_phase,
         &base_obss_raw.nm[base_obss_raw.n].snr,
+        &base_obss_raw.nm[base_obss_raw.n].lock_counter,
         &base_obss_raw.nm[base_obss_raw.n].prn);
       double clock_err;
       double clock_rate_err;
@@ -320,6 +340,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 }
 
+// TODO COUNTER DONE send thing
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 {
   static u8 buff[256];
@@ -355,6 +376,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
       pack_obs_content(m[obs_i].raw_pseudorange,
         m[obs_i].carrier_phase,
         m[obs_i].snr,
+        m[obs_i].lock_counter,
         m[obs_i].prn,
         &obs[i]);
     }
@@ -364,7 +386,6 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
       buff);
 
   }
-
 }
 
 static BinarySemaphore solution_wakeup_sem;
@@ -428,10 +449,12 @@ static msg_t solution_thread(void *arg)
       static u8 n_ready_old = 0;
       u64 nav_tc = nap_timing_count();
       static navigation_measurement_t nav_meas[MAX_CHANNELS];
+      // TODO COUNTER DONE copy counter from channel meas to nav_meas
       calc_navigation_measurement(n_ready, meas, nav_meas,
                                   (double)((u32)nav_tc)/SAMPLE_FREQ, es);
 
       static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
+      // TODO COUNTER DONE (memcpy). check to see if tdcp_doppler calls memcpy/thread value
       u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
                                      nav_meas_old, nav_meas_tdcp);
 
@@ -720,6 +743,8 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
+        // TODO COUNTER move these out of mutex?
+        check_lock_counters_and_drop_sats();
         process_matched_obs(n_sds, &obss->t, sds);
         /* TODO: If we can move this unlock up between the call to single_diff()
          * and process_matched_obs() then we can significantly reduce the amount
