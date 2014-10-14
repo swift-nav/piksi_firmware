@@ -367,7 +367,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 
 }
 
-static Thread *tp = NULL;
+static BSEMAPHORE_DECL(solution_wakeup_sem, true);
 #define tim5_isr Vector108
 #define NVIC_TIM5_IRQ 50
 void tim5_isr()
@@ -376,15 +376,24 @@ void tim5_isr()
   chSysLockFromIsr();
 
   /* Wake up processing thread */
-  if (tp != NULL) {
-    chSchReadyI(tp);
-    tp = NULL;
-  }
+  chBSemSignalI(&solution_wakeup_sem);
 
   timer_clear_flag(TIM5, TIM_SR_UIF);
 
   chSysUnlockFromIsr();
   CH_IRQ_EPILOGUE();
+}
+
+static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
+{
+  __asm__("CPSID i;");
+  TIM_ARR(timer_peripheral) = period;
+  uint32_t tmp = TIM_CNT(timer_peripheral);
+  if (tmp > period) {
+    TIM_CNT(timer_peripheral) = period;
+    printf("TIM counter = %lu, period = %lu\n", tmp, period);
+  }
+  __asm__("CPSIE i;");
 }
 
 static WORKING_AREA_CCM(wa_solution_thread, 10000);
@@ -397,10 +406,7 @@ static msg_t solution_thread(void *arg)
 
   while (TRUE) {
     /* Waiting for the timer IRQ fire.*/
-    chSysLock();
-    tp = chThdSelf();
-    chSchGoSleepS(THD_STATE_SUSPENDED);
-    chSysUnlock();
+    chBSemWait(&solution_wakeup_sem);
 
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
@@ -555,7 +561,7 @@ static msg_t solution_thread(void *arg)
 
         /* Reset timer period with the count that we will estimate will being
          * us up to the next solution time. */
-        timer_set_period(TIM5, round(65472000 * dt));
+        timer_set_period_check(TIM5, round(65472000 * dt));
 
       } else {
         /* An error occurred with calc_PVT! */
@@ -582,7 +588,7 @@ static msg_t solution_thread(void *arg)
     if (simulation_enabled()) {
 
       /* Set the timer period appropriately. */
-      timer_set_period(TIM5, round(65472000 * (1.0/soln_freq)));
+      timer_set_period_check(TIM5, round(65472000 * (1.0/soln_freq)));
 
       simulation_step();
 
