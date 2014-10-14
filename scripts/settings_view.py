@@ -22,6 +22,8 @@ import numpy as np
 import datetime
 
 import sbp_piksi as ids
+from fileio import FileIO
+import callback_prompt as prompt
 
 def u16_to_str(i):
   return chr(i & 0xff) + chr(i >> 8)
@@ -118,6 +120,12 @@ class SettingsView(HasTraits):
     width=16, height=16
   )
 
+  factory_default_button = SVGButton(
+    label='Reset to Defaults', tooltip='Reset to Factory Defaults',
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'fontawesome', 'exclamation-triangle.svg'),
+    width=16, height=16
+  )
+
   settings_list = List(SettingBase)
   selected_setting = Instance(SettingBase)
 
@@ -136,13 +144,13 @@ class SettingsView(HasTraits):
         HGroup(
           Item('settings_read_button', show_label=False),
           Item('settings_save_button', show_label=False),
+          Item('factory_default_button', show_label=False),
         ),
         Item('selected_setting', style='custom', show_label=False),
       ),
     )
   )
 
-  # Simulator buttons.
   def _settings_read_button_fired(self):
     self.settings.clear()
     self.enumindex = 0
@@ -151,6 +159,23 @@ class SettingsView(HasTraits):
 
   def _settings_save_button_fired(self):
     self.link.send_message(ids.SETTINGS_SAVE, "")
+
+  def _factory_default_button_fired(self):
+    confirm_prompt = prompt.CallbackPrompt(
+                          title="Reset to Factory Defaults?",
+                          actions=[prompt.close_button, prompt.reset_button],
+                          callback=self.reset_factory_defaults
+                         )
+    confirm_prompt.text = "This will erase all settings and then reset the device.\n" \
+                        + "Are you sure you want to reset to factory defaults?"
+    confirm_prompt.run(block=False)
+
+  def reset_factory_defaults(self):
+    # Delete settings file
+    fio = FileIO(self.link)
+    fio.remove('config')
+    # Reset the Piksi
+    self.link.send_message(ids.RESET, '')
 
   ##Callbacks for receiving messages
 
