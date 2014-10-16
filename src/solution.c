@@ -713,8 +713,13 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
-        chMtxUnlock();
         process_matched_obs(n_sds, &obss->t, sds);
+        /* TODO: If we can move this unlock up between the call to single_diff()
+         * and process_matched_obs() then we can significantly reduce the amount
+         * of time this lock is held. Currently holding this lock so long is
+         * causing the solution thread to exceed its timing deadline under heavy
+         * load (non a critical issue but should be fixed). */
+        chMtxUnlock();
         chPoolFree(&obs_buff_pool, obss);
         break;
       } else {
