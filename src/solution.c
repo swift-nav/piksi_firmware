@@ -667,6 +667,11 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds,
      * sats_to_drop is computed using the lock_counter array.
      * Dropping an sdiff will cause dgnss_update to drop that sat from our filters.
      * */
+    printf("DROPPING %i SATS: ", num_sats_to_drop);
+    for (u8 i = 0; i < num_sats_to_drop; i++) {
+      printf("%i, ", sats_to_drop[i]);
+    }
+    printf("\n");
     n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
   }
   if (init_known_base) {

@@ -300,7 +300,9 @@ void manage_track_setup()
 {
   rng_setup();
   for (u8 i=0; i<nap_track_n_channels; i++) {
-    tracking_channel[i].lock_counter = random_int();
+    int r = random_int();
+    printf("random number %i: %i\n", i, r);
+    tracking_channel[i].lock_counter = r;
   }
   chThdCreateStatic(
       wa_manage_track_thread,
