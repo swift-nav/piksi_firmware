@@ -1,3 +1,4 @@
+#include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/f4/rng.h>
 #include "random.h"
 
@@ -5,6 +6,7 @@
 // https://raw.githubusercontent.com/libopencm3/libopencm3-examples/058298fd78c23639a1a135871e6c363c9d6153f6/examples/stm32/f4/stm32f4-discovery/random/random.c
 void rng_setup(void)
 {
+  rcc_periph_clock_enable(RCC_RNG);
   /* Enable interupt */
   /* Set the IE bit in the RNG_CR register. */
   RNG_CR |= RNG_CR_IE;
