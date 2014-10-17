@@ -298,6 +298,7 @@ static msg_t manage_track_thread(void *arg)
 void manage_track_setup()
 {
   initialize_lock_counters();
+
   chThdCreateStatic(
       wa_manage_track_thread,
       sizeof(wa_manage_track_thread),

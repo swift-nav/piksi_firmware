@@ -157,7 +157,6 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
 extern ephemeris_t es[MAX_SATS];
 
 obss_t base_obss;
-// TODO COUNTER do we need to initialize these?
 u16 lock_counters[MAX_SATS];
 
 /* Checks to see if any lock_counters have incremented or re-randomized.
@@ -343,7 +342,6 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 }
 
-// TODO COUNTER DONE send thing
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 {
   static u8 buff[256];
@@ -452,12 +450,10 @@ static msg_t solution_thread(void *arg)
       static u8 n_ready_old = 0;
       u64 nav_tc = nap_timing_count();
       static navigation_measurement_t nav_meas[MAX_CHANNELS];
-      // TODO COUNTER DONE copy counter from channel meas to nav_meas
       calc_navigation_measurement(n_ready, meas, nav_meas,
                                   (double)((u32)nav_tc)/SAMPLE_FREQ, es);
 
       static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
-      // TODO COUNTER DONE (memcpy). check to see if tdcp_doppler calls memcpy/thread value
       u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
                                      nav_meas_old, nav_meas_tdcp);
 
@@ -667,11 +663,6 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds,
      * sats_to_drop is computed using the lock_counter array.
      * Dropping an sdiff will cause dgnss_update to drop that sat from our filters.
      * */
-    printf("DROPPING %i SATS: ", num_sats_to_drop);
-    for (u8 i = 0; i < num_sats_to_drop; i++) {
-      printf("%i, ", sats_to_drop[i]);
-    }
-    printf("\n");
     n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
   }
   if (init_known_base) {

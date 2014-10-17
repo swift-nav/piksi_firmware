@@ -55,9 +55,7 @@ static u16 tracking_lock_counters[MAX_SATS];
 void initialize_lock_counters(void) {
   rng_setup();
   for (u8 i=0; i < MAX_SATS; i++) {
-    int r = random_int();
-    printf("PRN %u, lock counter init %i\n", i, r);
-    tracking_lock_counters[i] = r;
+    tracking_lock_counters[i] = random_int();
   }
 }
 
@@ -121,8 +119,6 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].prn = prn;
   tracking_channel[channel].update_count = 0;
   tracking_channel[channel].lock_counter = ++tracking_lock_counters[prn];
-  printf("channel %u, prn %u has new lock counter %u\n", channel, prn,
-    tracking_channel[channel].lock_counter);
 
   /* Use -1 to indicate an uninitialised value. */
   tracking_channel[channel].TOW_ms = -1;
@@ -333,7 +329,6 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   if (chan->nav_msg.inverted) {
     meas->carrier_phase += 0.5;
   }
-  // TODO COUNTER DONE
   meas->lock_counter = chan->lock_counter;
 }
 
