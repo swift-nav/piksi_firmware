@@ -97,6 +97,10 @@ class ListenerThread (threading.Thread):
                 cb(md, sender=ms)
               except TypeError:
                 cb(md)
+      except IOError:
+        import traceback
+        print traceback.format_exc()
+        return
       except:
         import traceback
         print traceback.format_exc()
