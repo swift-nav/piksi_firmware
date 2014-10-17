@@ -142,7 +142,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     total = seq >> 4
     count = seq & ((1 << 4) - 1)
 
-    obs_fmt = '<IiBBB'
+    obs_fmt = '<IiBBHB'
     obs_size = struct.calcsize(obs_fmt)
     n_obs = (len(data) - hdr_size) / obs_size
     obs_data = data[hdr_size:]
@@ -170,7 +170,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     # Save this packet
     # See sbp_piksi.h for format
     for i in range(n_obs):
-      P, Li, Lf, snr, prn = struct.unpack(obs_fmt, obs_data[:obs_size])
+      P, Li, Lf, snr, lock, prn = struct.unpack(obs_fmt, obs_data[:obs_size])
       obs_data = obs_data[obs_size:]
       self.obs[prn] = (
         float(P) / 1e2,
