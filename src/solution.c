@@ -170,7 +170,7 @@ u8 check_lock_counters(u8 *sats_to_drop)
 {
   u8 num_sats_to_drop = 0;
   for (u8 i = 0; i<base_obss.n; i++) {
-    u8 prn = base_obss.nm[i].lock_counter;
+    u8 prn = base_obss.nm[i].prn;
     u16 new_count = base_obss.nm[i].lock_counter;
     if (new_count != lock_counters[prn]) {
       sats_to_drop[num_sats_to_drop++] = prn;

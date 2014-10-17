@@ -73,6 +73,8 @@ typedef struct {
 /* TODO: NAP_MAX_N_TRACK_CHANNELS is a duplicate of MAX_CHANNELS */
 extern tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
 
+void initialize_lock_counters(void);
+
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sample_count);
 

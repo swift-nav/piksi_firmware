@@ -19,8 +19,10 @@
 #include "sbp.h"
 #include "track.h"
 #include "simulator.h"
+#include "peripherals/random.h"
 
 #include <libswiftnav/constants.h>
+
 
 u8 n_rollovers = 20;
 
@@ -41,6 +43,23 @@ u8 n_rollovers = 20;
  * and TRACKING_DISABLED = 0.
  */
 tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
+
+/* PRN lock counter
+ * A map of PRN to an initially random number that increments each time that
+ * PRN begins being tracked.
+ */
+static u16 tracking_lock_counters[MAX_SATS];
+
+/* Initialize the lock counters to random numbers
+ */
+void initialize_lock_counters(void) {
+  rng_setup();
+  for (u8 i=0; i < MAX_SATS; i++) {
+    int r = random_int();
+    printf("PRN %u, lock counter init %i\n", i, r);
+    tracking_lock_counters[i] = r;
+  }
+}
 
 /** Calculate the future code phase after N samples.
  * Calculate the expected code phase in N samples time with carrier aiding.
@@ -101,7 +120,9 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].state = TRACKING_RUNNING;
   tracking_channel[channel].prn = prn;
   tracking_channel[channel].update_count = 0;
-  tracking_channel[channel].lock_counter += 1; // TODO COUNTER DONE
+  tracking_channel[channel].lock_counter = ++tracking_lock_counters[prn];
+  printf("channel %u, prn %u has new lock counter %u\n", channel, prn,
+    tracking_channel[channel].lock_counter);
 
   /* Use -1 to indicate an uninitialised value. */
   tracking_channel[channel].TOW_ms = -1;

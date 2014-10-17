@@ -32,7 +32,6 @@
 #include "sbp.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
-#include "peripherals/random.h"
 
 /** \defgroup manage Manage
  * Manage acquisition and tracking.
@@ -298,12 +297,7 @@ static msg_t manage_track_thread(void *arg)
 
 void manage_track_setup()
 {
-  rng_setup();
-  for (u8 i=0; i<nap_track_n_channels; i++) {
-    int r = random_int();
-    printf("random number %i: %i\n", i, r);
-    tracking_channel[i].lock_counter = r;
-  }
+  initialize_lock_counters();
   chThdCreateStatic(
       wa_manage_track_thread,
       sizeof(wa_manage_track_thread),
