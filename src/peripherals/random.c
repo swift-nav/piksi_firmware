@@ -2,8 +2,9 @@
 #include <libopencm3/stm32/f4/rng.h>
 #include "random.h"
 
-// These two methods copied from:
-// https://raw.githubusercontent.com/libopencm3/libopencm3-examples/058298fd78c23639a1a135871e6c363c9d6153f6/examples/stm32/f4/stm32f4-discovery/random/random.c
+/* These two methods copied from:
+ * https://raw.githubusercontent.com/libopencm3/libopencm3-examples/058298fd78c23639a1a135871e6c363c9d6153f6/examples/stm32/f4/stm32f4-discovery/random/random.c
+ */
 void rng_setup(void)
 {
   rcc_periph_clock_enable(RCC_RNG);
