@@ -178,7 +178,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
         float(snr) / 4)
 
     if (count == total - 1):
-      self.t = datetime.datetime(1980, 1, 5) + \
+      self.t = datetime.datetime(1980, 1, 6) + \
                datetime.timedelta(weeks=self.gps_week) + \
                datetime.timedelta(seconds=self.gps_tow)
 
@@ -198,7 +198,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     tow, wn = struct.unpack("<dH", data[:hdr_size])
     self.gps_tow = tow
     self.gps_week = wn
-    self.t = datetime.datetime(1980, 1, 5) + \
+    self.t = datetime.datetime(1980, 1, 6) + \
              datetime.timedelta(weeks=self.gps_week) + \
              datetime.timedelta(seconds=self.gps_tow)
 
