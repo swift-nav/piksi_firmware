@@ -98,8 +98,8 @@ class ListenerThread (threading.Thread):
               except TypeError:
                 cb(md)
       except IOError:
-        import traceback
-        print traceback.format_exc()
+        # Piksi was disconnected
+        print "ERROR: Piksi disconnected!"
         return
       except:
         import traceback
@@ -167,11 +167,7 @@ class SerialLink:
         return (None, None, None)
 
       # Sync with magic start bytes
-      try:
-        magic = self.ser.read(1)
-      except OSError:
-        print "Error: Piksi not connected"
-        sys.exit(1)
+      magic = self.ser.read(1)
       if magic:
         if ord(magic) == SBP_PREAMBLE:
           break
