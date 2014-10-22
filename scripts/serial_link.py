@@ -97,7 +97,7 @@ class ListenerThread (threading.Thread):
                 cb(md, sender=ms)
               except TypeError:
                 cb(md)
-      except IOError:
+      except (IOError, OSError):
         # Piksi was disconnected
         print "ERROR: Piksi disconnected!"
         return
