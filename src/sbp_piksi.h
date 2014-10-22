@@ -75,7 +75,7 @@ typedef struct __attribute__((packed)) {
 
 #define MSG_OBS                     0x41  /**< Piksi  -> Host  */
 #define MSG_OLD_OBS                 0x42  /**< Piksi  -> Host  */
-#define MSG_PACKED_OBS              0x43  /**< Piksi  -> Host  */
+#define MSG_PACKED_OBS              0x44  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
   struct __attribute__((packed)) {
     u32 tow;  /**< milliseconds since start of week. */
