@@ -98,8 +98,7 @@ typedef struct __attribute__((packed)) {
   } L;       /**< Fixed point carrier phase (seconds) */
   u8 snr;    /**< Signal-to-Noise ratio (cn0 * 4 for 0.25 precision and
                   0-64 range) */
-  /** Lock counter. Increments on new lock. */
-  u16 lock_counter;
+  u16 lock_counter; /**< Lock counter. Increments on new lock. */
   u8 prn;    /**< Satellite number. */
 } msg_obs_content_t;
 

@@ -1,5 +1,19 @@
+/*
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Contact: Scott Kovach <scott@swift-nav.com>
+ *
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
+ *
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/f4/rng.h>
+
+#include "libswiftnav/common.h"
 #include "random.h"
 
 /* These two methods copied from:
@@ -17,11 +31,12 @@ void rng_setup(void)
    * */
   RNG_CR |= RNG_CR_RNGEN;
 }
-uint32_t random_int(void)
+
+u32 random_int(void)
 {
-  static uint32_t last_value;
-  static uint32_t new_value;
-  uint32_t error_bits = 0;
+  static u32 last_value;
+  static u32 new_value;
+  u32 error_bits = 0;
   error_bits = RNG_SR_SEIS | RNG_SR_CEIS;
   while (new_value == last_value) {
     /* Check for error flags and if data is ready. */
@@ -33,4 +48,3 @@ uint32_t random_int(void)
   last_value = new_value;
   return new_value;
 }
-

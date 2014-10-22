@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011-2014 Swift Navigation Inc.
- * Contact: Scott Kovach <fergus@swift-nav.com>
+ * Contact: Scott Kovach <scott@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -13,7 +13,9 @@
 #ifndef SWIFTNAV_RANDOM_H
 #define SWIFTNAV_RANDOM_H
 
+#include "libswiftnav/common.h"
+
 void rng_setup(void);
-uint32_t random_int(void);
+u32 random_int(void);
 
 #endif

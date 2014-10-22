@@ -655,16 +655,8 @@ static bool init_done = false;
 static bool init_known_base = false;
 static bool reset_iar = false;
 
-void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds,
-                         u8 num_sats_to_drop, u8 *sats_to_drop)
+void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
 {
-  if (num_sats_to_drop > 0) {
-    /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
-     * sats_to_drop is computed using the lock_counter array.
-     * Dropping an sdiff will cause dgnss_update to drop that sat from our filters.
-     * */
-    n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
-  }
   if (init_known_base) {
     if (n_sds > 4) {
       /* Calculate ambiguities from known baseline. */
@@ -750,7 +742,12 @@ static msg_t time_matched_obs_thread(void *arg)
         );
         u8 sats_to_drop[MAX_SATS];
         u8 num_sats_to_drop = check_lock_counters(sats_to_drop);
-        process_matched_obs(n_sds, &obss->t, sds, num_sats_to_drop, sats_to_drop);
+        if (num_sats_to_drop > 0) {
+          /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
+           * Dropping an sdiff will cause dgnss_update to drop that sat from our filters. */
+          n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
+        }
+        process_matched_obs(n_sds, &obss->t, sds);
         /* TODO: If we can move this unlock up between the call to single_diff()
          * and process_matched_obs() then we can significantly reduce the amount
          * of time this lock is held. Currently holding this lock so long is
