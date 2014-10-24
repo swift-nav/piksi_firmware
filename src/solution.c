@@ -203,7 +203,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   if (sender_id == 0)
     return;
 
-  /* Relay observations using sender_if = 0. */
+  /* Relay observations using sender_id = 0. */
   sbp_send_msg_(MSG_PACKED_OBS, len, msg, 0);
 
   gps_time_t t;
