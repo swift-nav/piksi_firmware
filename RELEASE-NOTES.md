@@ -4,9 +4,30 @@ Piksi Firmware Release Notes
 Contents
 --------
 
+ * [v0.12](#v0.12)
  * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.12 <a name="v0.12"></a>
+-----
+
+ * Fixes a bug where a "disorder in the sdiffs" message is displayed and the
+   RTK solution output stops
+ * Fixes an issue where Piksi would stop outputting observations and solutions
+   for a period of several minutes before resuming
+ * Adds a "lock count" field to the observation message format, allowing the
+   remote receiver to detect when a satellite has been reinitialized. This
+   fixes a problem where the RTK solution would become large and erronious when
+   one receiver is restarted or satellites are rapidly lost and re-gained
+ * Fixes issue where console would freeze on start-up
+ * Increases the precision of settings values, fixing an issue where the base
+   station position would lose precision if the settings were saved and the
+   Piksi was then reset
+ * Added a "Reset to factory defaults" button to the console
+ * Fixes the center on solution button in the console
+ * Fixes the start date in RINEX file headers
+ * Improves handling of the Piksi being unplugged in the console
 
 v0.11 <a name="v0.11"></a>
 -----
