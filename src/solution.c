@@ -695,14 +695,18 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
       default:
       case FILTER_FIXED:
         /* Calculate least squares solution using ambiguities from IAR. */
-        dgnss_fixed_baseline2(n_sds, sds, position_solution.pos_ecef,
-                              &num_used, b);
-        flags = (dgnss_iar_resolved()) ? 1 : 0;
+        flags = dgnss_fixed_baseline2(n_sds, sds, position_solution.pos_ecef,
+                                      &num_used, b);
+        if (flags == 0) {
+          /* Fixed baseline could not be calculated. */
+          dgnss_new_float_baseline(n_sds, sds,
+              position_solution.pos_ecef, &num_used, b);
+        }
         break;
       case FILTER_FLOAT:
-        dgnss_new_float_baseline(n_sds, sds,
-                                 position_solution.pos_ecef, &num_used, b);
         flags = 0;
+        dgnss_new_float_baseline(n_sds, sds,
+            position_solution.pos_ecef, &num_used, b);
         break;
       }
       solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
