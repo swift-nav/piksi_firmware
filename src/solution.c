@@ -157,6 +157,27 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
 extern ephemeris_t es[MAX_SATS];
 
 obss_t base_obss;
+u16 lock_counters[MAX_SATS];
+
+/* Checks to see if any lock_counters have incremented or re-randomized.
+ * Return those prns so that they can be dropped.
+ *
+ * \param sats_to_drop returns list of prns to drop
+ * \return number of sats to drop
+ */
+u8 check_lock_counters(u8 *sats_to_drop)
+{
+  u8 num_sats_to_drop = 0;
+  for (u8 i = 0; i<base_obss.n; i++) {
+    u8 prn = base_obss.nm[i].prn;
+    u16 new_count = base_obss.nm[i].lock_counter;
+    if (new_count != lock_counters[prn]) {
+      sats_to_drop[num_sats_to_drop++] = prn;
+      lock_counters[prn] = new_count;
+    }
+  }
+  return num_sats_to_drop;
+}
 
 void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -233,6 +254,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_raw.nm[base_obss_raw.n].raw_pseudorange,
         &base_obss_raw.nm[base_obss_raw.n].carrier_phase,
         &base_obss_raw.nm[base_obss_raw.n].snr,
+        &base_obss_raw.nm[base_obss_raw.n].lock_counter,
         &base_obss_raw.nm[base_obss_raw.n].prn);
       double clock_err;
       double clock_rate_err;
@@ -355,6 +377,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
       pack_obs_content(m[obs_i].raw_pseudorange,
         m[obs_i].carrier_phase,
         m[obs_i].snr,
+        m[obs_i].lock_counter,
         m[obs_i].prn,
         &obs[i]);
     }
@@ -364,7 +387,6 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
       buff);
 
   }
-
 }
 
 static BinarySemaphore solution_wakeup_sem;
@@ -635,8 +657,6 @@ static bool reset_iar = false;
 
 void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
 {
-  (void)n_sds; (void)sds;
-
   if (init_known_base) {
     if (n_sds > 4) {
       /* Calculate ambiguities from known baseline. */
@@ -720,6 +740,13 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
+        u8 sats_to_drop[MAX_SATS];
+        u8 num_sats_to_drop = check_lock_counters(sats_to_drop);
+        if (num_sats_to_drop > 0) {
+          /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
+           * Dropping an sdiff will cause dgnss_update to drop that sat from our filters. */
+          n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
+        }
         process_matched_obs(n_sds, &obss->t, sds);
         /* TODO: If we can move this unlock up between the call to single_diff()
          * and process_matched_obs() then we can significantly reduce the amount
