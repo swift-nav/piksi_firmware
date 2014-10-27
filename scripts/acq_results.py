@@ -16,9 +16,12 @@ import argparse
 import sys
 import time
 import struct
+from numpy import mean
 
 N_RECORD = 0 # Number of results to keep in memory, 0 = no limit.
 N_PRINT = 32
+
+SNR_THRESHOLD = 25
 
 class AcqResults():
 
@@ -31,19 +34,30 @@ class AcqResults():
   def __str__(self):
     tmp = "Last %d acquisitions:\n" % len(self.acqs[-N_PRINT:])
     for a in self.acqs[-N_PRINT:]:
-      tmp += "SV %2d, SNR: %3.2f\n" % (a['SV'], a['SNR'])
+      tmp += "PRN %2d, SNR: %3.2f\n" % (a['PRN'], a['SNR'])
+    tmp += "Max SNR         : %3.2f\n" % (self.max_snr())
+    tmp += "Mean of max SNRs: %3.2f\n" % (self.mean_max_snrs(SNR_THRESHOLD))
     return tmp
 
-  def mean_corr(self):
-    if len(self.acqs) == 0:
-      return 0
-    else:
-      return float(sum([a['MC'] for a in self.acqs]))/len(self.acqs)
-
+  # Return the maximum SNR received.
   def max_snr(self):
     try:
       return max([a['SNR'] for a in self.acqs])
-    except ValueError:
+    except ValueError, KeyError:
+      return 0
+
+  # Return the mean of the max SNR (above snr_threshold) of each PRN.
+  def mean_max_snrs(self, snr_threshold):
+    snrs = []
+    # Get the max SNR for each PRN.
+    for prn in set([a['PRN'] for a in self.acqs]):
+      acqs_prn = filter(lambda x: x['PRN'] == prn, self.acqs)
+      acqs_prn_max_snr = max([a['SNR'] for a in acqs_prn])
+      if acqs_prn_max_snr >= snr_threshold:
+        snrs += [max([a['SNR'] for a in acqs_prn])]
+    if snrs:
+      return mean(snrs)
+    else:
       return 0
 
   def _receive_acq_result(self, data):
@@ -53,10 +67,10 @@ class AcqResults():
     self.acqs.append({})
     a = self.acqs[-1]
 
-    a['SNR'] = struct.unpack('f', data[0:4])[0] # SNR of best point.
-    a['CP'] = struct.unpack('f', data[4:8])[0]  # Code phase of best point.
-    a['CF'] = struct.unpack('f', data[8:12])[0] # Carr freq of best point.
-    a['SV'] = struct.unpack('B', data[12])[0]   # SV of acq.
+    a['SNR'] = struct.unpack('f', data[0:4])[0]  # SNR of best point.
+    a['CP'] = struct.unpack('f', data[4:8])[0]   # Code phase of best point.
+    a['CF'] = struct.unpack('f', data[8:12])[0]  # Carr freq of best point.
+    a['PRN'] = struct.unpack('B', data[12])[0]   # PRN of acq.
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Acquisition Monitor')
@@ -81,14 +95,14 @@ if __name__ == "__main__":
       link.close()
       sys.exit()
     except:
-      # Couldn't find device.
+      # Couldn't find device
       time.sleep(0.01)
   print "link with device successfully created."
   link.add_callback(ids.PRINT, serial_link.default_print_callback)
 
   acq_results = AcqResults(link)
 
-  # Wait for ctrl+C before exiting
+  # Wait for ctrl+C before exiting.
   try:
     while True:
       print acq_results
@@ -96,6 +110,6 @@ if __name__ == "__main__":
   except KeyboardInterrupt:
     pass
 
-  # Clean up and exit
+  # Clean up and exit.
   link.close()
   sys.exit()
