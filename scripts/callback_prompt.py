@@ -18,6 +18,8 @@ from time import sleep
 
 update_button = Action(name = "Update", action = "set_execute_callback_true", \
                              show_label=False)
+reset_button = Action(name = "Reset", action = "set_execute_callback_true", \
+                             show_label=False)
 close_button = Action(name = "Close", action = "set_execute_callback_false", \
                              show_label=False)
 

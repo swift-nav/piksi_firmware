@@ -41,15 +41,16 @@ void pack_obs_header(gps_time_t *t, u8 total, u8 count, msg_obs_header_t *msg)
 }
 
 void unpack_obs_content(msg_obs_content_t *msg, double *P, double *L,
-                        double *snr, u8 *prn)
+                        double *snr, u16 *lock_counter, u8 *prn)
 {
   *P   = ((double)msg->P) / MSG_OBS_P_MULTIPLIER;
   *L   = ((double)msg->L.Li) + (((double)msg->L.Lf) / MSG_OSB_LF_MULTIPLIER);
   *snr = ((double)msg->snr) / MSG_OBS_SNR_MULTIPLIER;
+  *lock_counter = ((u16)msg->lock_counter);
   *prn = msg->prn;
 }
 
-void pack_obs_content(double P, double L, double snr, u8 prn,
+void pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
                       msg_obs_content_t *msg)
 {
 
@@ -74,6 +75,8 @@ void pack_obs_content(double P, double L, double snr, u8 prn,
   }
 
   msg->snr = (u8) round(snr * MSG_OBS_SNR_MULTIPLIER);
+
+  msg->lock_counter = lock_counter;
 
   msg->prn = prn;
 }

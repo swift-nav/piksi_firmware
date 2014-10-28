@@ -44,6 +44,7 @@
 acq_prn_t acq_prn_param[32];
 almanac_t almanac[32];
 
+
 sbp_msg_callbacks_node_t almanac_callback_node;
 void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -296,6 +297,8 @@ static msg_t manage_track_thread(void *arg)
 
 void manage_track_setup()
 {
+  initialize_lock_counters();
+
   chThdCreateStatic(
       wa_manage_track_thread,
       sizeof(wa_manage_track_thread),

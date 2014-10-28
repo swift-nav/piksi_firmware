@@ -17,3 +17,4 @@ scripts/pyinstaller/build
 scripts/pyinstaller/dist
 build/
 testing_crap/
+scripts/RELEASE-VERSION

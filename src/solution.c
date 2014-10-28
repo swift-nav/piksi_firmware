@@ -157,6 +157,27 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
 extern ephemeris_t es[MAX_SATS];
 
 obss_t base_obss;
+u16 lock_counters[MAX_SATS];
+
+/* Checks to see if any lock_counters have incremented or re-randomized.
+ * Return those prns so that they can be dropped.
+ *
+ * \param sats_to_drop returns list of prns to drop
+ * \return number of sats to drop
+ */
+u8 check_lock_counters(u8 *sats_to_drop)
+{
+  u8 num_sats_to_drop = 0;
+  for (u8 i = 0; i<base_obss.n; i++) {
+    u8 prn = base_obss.nm[i].prn;
+    u16 new_count = base_obss.nm[i].lock_counter;
+    if (new_count != lock_counters[prn]) {
+      sats_to_drop[num_sats_to_drop++] = prn;
+      lock_counters[prn] = new_count;
+    }
+  }
+  return num_sats_to_drop;
+}
 
 void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -182,7 +203,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   if (sender_id == 0)
     return;
 
-  /* Relay observations using sender_if = 0. */
+  /* Relay observations using sender_id = 0. */
   sbp_send_msg_(MSG_PACKED_OBS, len, msg, 0);
 
   gps_time_t t;
@@ -233,6 +254,7 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_raw.nm[base_obss_raw.n].raw_pseudorange,
         &base_obss_raw.nm[base_obss_raw.n].carrier_phase,
         &base_obss_raw.nm[base_obss_raw.n].snr,
+        &base_obss_raw.nm[base_obss_raw.n].lock_counter,
         &base_obss_raw.nm[base_obss_raw.n].prn);
       double clock_err;
       double clock_rate_err;
@@ -265,9 +287,6 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         dops_t dops;
 
         calc_PVT(base_obss_raw.n, base_obss_raw.nm, &soln, &dops);
-
-        /* Lock mutex before modifying base_obss. */
-        chMtxLock(&base_obs_lock);
 
         if (soln.valid) {
           if (base_obss.has_pos) {
@@ -304,13 +323,16 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
         /* potentially use old obss here for online corrections */
         /* Loop over base_obss_raw.nm and base_obss.nm and check if a PRN is present in both. */
+
+        /* Lock mutex before modifying base_obss, note we didn't need to lock
+         * it before reading in THIS context as this is the only thread that
+         * writes to base_obss. */
+        chMtxLock(&base_obs_lock);
+        /* Update base_obss with complete new observation set. */
         memcpy(&base_obss, &base_obss_raw, sizeof(obss_t));
+        chMtxUnlock();
       }
-
-      /* Unlock mutex. */
-      chMtxUnlock();
     }
-
   }
 
 
@@ -355,6 +377,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
       pack_obs_content(m[obs_i].raw_pseudorange,
         m[obs_i].carrier_phase,
         m[obs_i].snr,
+        m[obs_i].lock_counter,
         m[obs_i].prn,
         &obs[i]);
     }
@@ -364,10 +387,9 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
       buff);
 
   }
-
 }
 
-static Thread *tp = NULL;
+static BinarySemaphore solution_wakeup_sem;
 #define tim5_isr Vector108
 #define NVIC_TIM5_IRQ 50
 void tim5_isr()
@@ -376,15 +398,25 @@ void tim5_isr()
   chSysLockFromIsr();
 
   /* Wake up processing thread */
-  if (tp != NULL) {
-    chSchReadyI(tp);
-    tp = NULL;
-  }
+  chBSemSignalI(&solution_wakeup_sem);
 
   timer_clear_flag(TIM5, TIM_SR_UIF);
 
   chSysUnlockFromIsr();
   CH_IRQ_EPILOGUE();
+}
+
+static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
+{
+  __asm__("CPSID i;");
+  TIM_ARR(timer_peripheral) = period;
+  uint32_t tmp = TIM_CNT(timer_peripheral);
+  if (tmp > period) {
+    TIM_CNT(timer_peripheral) = period;
+    printf("WARNING: Solution thread missed deadline, "
+           "TIM counter = %lu, period = %lu\n", tmp, period);
+  }
+  __asm__("CPSIE i;");
 }
 
 static WORKING_AREA_CCM(wa_solution_thread, 10000);
@@ -397,10 +429,7 @@ static msg_t solution_thread(void *arg)
 
   while (TRUE) {
     /* Waiting for the timer IRQ fire.*/
-    chSysLock();
-    tp = chThdSelf();
-    chSchGoSleepS(THD_STATE_SUSPENDED);
-    chSysUnlock();
+    chBSemWait(&solution_wakeup_sem);
 
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
@@ -555,7 +584,7 @@ static msg_t solution_thread(void *arg)
 
         /* Reset timer period with the count that we will estimate will being
          * us up to the next solution time. */
-        timer_set_period(TIM5, round(65472000 * dt));
+        timer_set_period_check(TIM5, round(65472000 * dt));
 
       } else {
         /* An error occurred with calc_PVT! */
@@ -582,7 +611,7 @@ static msg_t solution_thread(void *arg)
     if (simulation_enabled()) {
 
       /* Set the timer period appropriately. */
-      timer_set_period(TIM5, round(65472000 * (1.0/soln_freq)));
+      timer_set_period_check(TIM5, round(65472000 * (1.0/soln_freq)));
 
       simulation_step();
 
@@ -628,8 +657,6 @@ static bool reset_iar = false;
 
 void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
 {
-  (void)n_sds; (void)sds;
-
   if (init_known_base) {
     if (n_sds > 4) {
       /* Calculate ambiguities from known baseline. */
@@ -668,14 +695,18 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
       default:
       case FILTER_FIXED:
         /* Calculate least squares solution using ambiguities from IAR. */
-        dgnss_fixed_baseline2(n_sds, sds, position_solution.pos_ecef,
-                              &num_used, b);
-        flags = (dgnss_iar_resolved()) ? 1 : 0;
+        flags = dgnss_fixed_baseline2(n_sds, sds, position_solution.pos_ecef,
+                                      &num_used, b);
+        if (flags == 0) {
+          /* Fixed baseline could not be calculated. */
+          dgnss_new_float_baseline(n_sds, sds,
+              position_solution.pos_ecef, &num_used, b);
+        }
         break;
       case FILTER_FLOAT:
-        dgnss_new_float_baseline(n_sds, sds,
-                                 position_solution.pos_ecef, &num_used, b);
         flags = 0;
+        dgnss_new_float_baseline(n_sds, sds,
+            position_solution.pos_ecef, &num_used, b);
         break;
       }
       solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
@@ -701,8 +732,8 @@ static msg_t time_matched_obs_thread(void *arg)
      * looking for one that matches in time. */
     while (chMBFetch(&obs_mailbox, (msg_t *)&obss, TIME_IMMEDIATE)
             == RDY_OK) {
-      chMtxLock(&base_obs_lock);
 
+      chMtxLock(&base_obs_lock);
       double dt = gpsdifftime(obss->t, base_obss.t);
 
       if (fabs(dt) < TIME_MATCH_THRESHOLD) {
@@ -713,34 +744,47 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
-        process_matched_obs(n_sds, &obss->t, sds);
-        chPoolFree(&obs_buff_pool, obss);
-        chMtxUnlock();
-        break;
-      } else if (dt > 0) {
-        /* Time of base obs before time of local obs, we must not have a local
-         * observation matching this base observation, break and wait for a new
-         * base observation. */
-
-        /* In practice this should basically never happen so lets make a note
-         * if it does. */
-        printf("Obs Matching: t_base < t_rover (%f)\n", dt);
-
-        /* Return the buffer to the mailbox so we can try it again later. */
-        msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
-        if (ret != RDY_OK) {
-          /* Something went wrong with returning it to the buffer, better just
-           * free it and carry on. */
-          printf("Obs Matching: mailbox full, discarding observation!\n");
-          chPoolFree(&obs_buff_pool, obss);
+        u8 sats_to_drop[MAX_SATS];
+        u8 num_sats_to_drop = check_lock_counters(sats_to_drop);
+        if (num_sats_to_drop > 0) {
+          /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
+           * Dropping an sdiff will cause dgnss_update to drop that sat from our filters. */
+          n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
         }
+        process_matched_obs(n_sds, &obss->t, sds);
+        /* TODO: If we can move this unlock up between the call to single_diff()
+         * and process_matched_obs() then we can significantly reduce the amount
+         * of time this lock is held. Currently holding this lock so long is
+         * causing the solution thread to exceed its timing deadline under heavy
+         * load (non a critical issue but should be fixed). */
         chMtxUnlock();
+        chPoolFree(&obs_buff_pool, obss);
         break;
       } else {
-        /* Time of base obs later than time of local obs,
-         * keep moving through the mailbox. */
-        chPoolFree(&obs_buff_pool, obss);
         chMtxUnlock();
+        if (dt > 0) {
+          /* Time of base obs before time of local obs, we must not have a local
+           * observation matching this base observation, break and wait for a new
+           * base observation. */
+
+          /* In practice this should basically never happen so lets make a note
+           * if it does. */
+          printf("Obs Matching: t_base < t_rover (%f)\n", dt);
+
+          /* Return the buffer to the mailbox so we can try it again later. */
+          msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
+          if (ret != RDY_OK) {
+            /* Something went wrong with returning it to the buffer, better just
+             * free it and carry on. */
+            printf("Obs Matching: mailbox full, discarding observation!\n");
+            chPoolFree(&obs_buff_pool, obss);
+          }
+          break;
+        } else {
+          /* Time of base obs later than time of local obs,
+           * keep moving through the mailbox. */
+          chPoolFree(&obs_buff_pool, obss);
+        }
       }
     }
 
@@ -780,18 +824,6 @@ void init_base_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
 void solution_setup()
 {
-  /* Enable TIM5 clock. */
-  rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM5EN);
-  nvicEnableVector(NVIC_TIM5_IRQ,
-      CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+1));
-  timer_reset(TIM5);
-  timer_set_mode(TIM5, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
-  timer_set_prescaler(TIM5, 0);
-  timer_disable_preload(TIM5);
-  timer_set_period(TIM5, 65472000); /* 1 second. */
-  timer_enable_counter(TIM5);
-  timer_enable_irq(TIM5, TIM_DIER_UIE);
-
   /* Set time of last differential solution in the past. */
   last_dgnss = chTimeNow() - DGNSS_TIMEOUT;
 
@@ -842,8 +874,22 @@ void solution_setup()
   static obss_t obs_buff[OBS_N_BUFF] _CCM;
   chPoolLoadArray(&obs_buff_pool, obs_buff, OBS_N_BUFF);
 
+  /* Initialise solution thread wakeup semaphore */
+  chBSemInit(&solution_wakeup_sem, TRUE);
+  /* Start solution thread */
   chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread),
                     HIGHPRIO-1, solution_thread, NULL);
+  /* Enable TIM5 clock. */
+  rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM5EN);
+  nvicEnableVector(NVIC_TIM5_IRQ,
+      CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+1));
+  timer_reset(TIM5);
+  timer_set_mode(TIM5, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
+  timer_set_prescaler(TIM5, 0);
+  timer_disable_preload(TIM5);
+  timer_set_period(TIM5, 65472000); /* 1 second. */
+  timer_enable_counter(TIM5);
+  timer_enable_irq(TIM5, TIM_DIER_UIE);
 
   chThdCreateStatic(wa_time_matched_obs_thread, sizeof(wa_time_matched_obs_thread),
                     LOWPRIO, time_matched_obs_thread, NULL);

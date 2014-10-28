@@ -142,7 +142,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     total = seq >> 4
     count = seq & ((1 << 4) - 1)
 
-    obs_fmt = '<IiBBB'
+    obs_fmt = '<IiBBHB'
     obs_size = struct.calcsize(obs_fmt)
     n_obs = (len(data) - hdr_size) / obs_size
     obs_data = data[hdr_size:]
@@ -170,7 +170,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     # Save this packet
     # See sbp_piksi.h for format
     for i in range(n_obs):
-      P, Li, Lf, snr, prn = struct.unpack(obs_fmt, obs_data[:obs_size])
+      P, Li, Lf, snr, lock, prn = struct.unpack(obs_fmt, obs_data[:obs_size])
       obs_data = obs_data[obs_size:]
       self.obs[prn] = (
         float(P) / 1e2,
@@ -178,7 +178,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
         float(snr) / 4)
 
     if (count == total - 1):
-      self.t = datetime.datetime(1980, 1, 5) + \
+      self.t = datetime.datetime(1980, 1, 6) + \
                datetime.timedelta(weeks=self.gps_week) + \
                datetime.timedelta(seconds=self.gps_tow)
 
@@ -198,7 +198,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     tow, wn = struct.unpack("<dH", data[:hdr_size])
     self.gps_tow = tow
     self.gps_week = wn
-    self.t = datetime.datetime(1980, 1, 5) + \
+    self.t = datetime.datetime(1980, 1, 6) + \
              datetime.timedelta(weeks=self.gps_week) + \
              datetime.timedelta(seconds=self.gps_tow)
 

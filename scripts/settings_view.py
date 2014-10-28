@@ -22,6 +22,8 @@ import numpy as np
 import datetime
 
 import sbp_piksi as ids
+from fileio import FileIO
+import callback_prompt as prompt
 
 def u16_to_str(i):
   return chr(i & 0xff) + chr(i >> 8)
@@ -48,13 +50,13 @@ class Setting(SettingBase):
     ),
   )
 
-  def __init__(self, name, section, value, link, ordering):
+  def __init__(self, name, section, value, ordering, settings):
     self.name = name
     self.section = section
     self.full_name = "%s.%s" % (section, name)
     self.value = value
-    self.link = link
     self.ordering = ordering
+    self.settings = settings
 
   def _value_changed(self, name, old, new):
     if (old != new and
@@ -62,8 +64,7 @@ class Setting(SettingBase):
         new is not Undefined):
       if type(self.value) == unicode:
         self.value = self.value.encode('ascii', 'replace')
-      self.link.send_message(ids.SETTINGS,
-          '%s\0%s\0%s\0' % (self.section, self.name, self.value))
+      self.settings.set(self.section, self.name, self.value)
 
 class EnumSetting(Setting):
   values = List()
@@ -77,9 +78,9 @@ class EnumSetting(Setting):
     ),
   )
 
-  def __init__(self, name, section, value, link, ordering, values):
+  def __init__(self, name, section, value, ordering, values, **kwargs):
     self.values = values
-    Setting.__init__(self, name, section, value, link, ordering)
+    Setting.__init__(self, name, section, value, ordering, **kwargs)
 
 class SectionHeading(SettingBase):
   value = Constant('')
@@ -118,6 +119,12 @@ class SettingsView(HasTraits):
     width=16, height=16
   )
 
+  factory_default_button = SVGButton(
+    label='Reset to Defaults', tooltip='Reset to Factory Defaults',
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'fontawesome', 'exclamation-triangle.svg'),
+    width=16, height=16
+  )
+
   settings_list = List(SettingBase)
   selected_setting = Instance(SettingBase)
 
@@ -136,13 +143,13 @@ class SettingsView(HasTraits):
         HGroup(
           Item('settings_read_button', show_label=False),
           Item('settings_save_button', show_label=False),
+          Item('factory_default_button', show_label=False),
         ),
         Item('selected_setting', style='custom', show_label=False),
       ),
     )
   )
 
-  # Simulator buttons.
   def _settings_read_button_fired(self):
     self.settings.clear()
     self.enumindex = 0
@@ -151,6 +158,23 @@ class SettingsView(HasTraits):
 
   def _settings_save_button_fired(self):
     self.link.send_message(ids.SETTINGS_SAVE, "")
+
+  def _factory_default_button_fired(self):
+    confirm_prompt = prompt.CallbackPrompt(
+                          title="Reset to Factory Defaults?",
+                          actions=[prompt.close_button, prompt.reset_button],
+                          callback=self.reset_factory_defaults
+                         )
+    confirm_prompt.text = "This will erase all settings and then reset the device.\n" \
+                        + "Are you sure you want to reset to factory defaults?"
+    confirm_prompt.run(block=False)
+
+  def reset_factory_defaults(self):
+    # Delete settings file
+    fio = FileIO(self.link)
+    fio.remove('config')
+    # Reset the Piksi
+    self.link.send_message(ids.RESET, '')
 
   ##Callbacks for receiving messages
 
@@ -183,19 +207,22 @@ class SettingsView(HasTraits):
     if format_type is None:
       # Plain old setting, no format information
       self.settings[section][setting] = Setting(setting, section, value,
-                                                link=self.link,
-                                                ordering=self.ordering_counter
-        )
+                                                ordering=self.ordering_counter,
+                                                settings=self
+                                               )
     else:
       if setting_type == 'enum':
         enum_values = setting_format.split(',')
         self.settings[section][setting] = EnumSetting(setting, section, value,
-                                                      link=self.link,
                                                       ordering=self.ordering_counter,
-                                                      values=enum_values)
+                                                      values=enum_values,
+                                                      settings=self
+                                                     )
       else:
         # Unknown type, just treat is as a string
-        self.settings[section][setting] = Setting(setting, section, value, link=self.link)
+        self.settings[section][setting] = Setting(setting, section, value,
+                                                  settings=self
+                                                 )
 
     self.enumindex += 1
     self.link.send_message(ids.SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
@@ -208,6 +235,10 @@ class SettingsView(HasTraits):
 
   def piksi_startup_callback(self, data):
     self._settings_read_button_fired()
+
+  def set(self, section, name, value):
+      self.link.send_message(ids.SETTINGS,
+          '%s\0%s\0%s\0' % (section, name, value))
 
   def __init__(self, link, read_finished_functions=[]):
     super(SettingsView, self).__init__()
