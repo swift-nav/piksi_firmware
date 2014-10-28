@@ -168,8 +168,8 @@ class Flash():
   def __str__(self):
     return self.status
 
-  def erase_sector(self, sector):
-    if sector in self.restricted_sectors:
+  def erase_sector(self, sector, warn=True):
+    if warn and sector in self.restricted_sectors:
       text = 'Attempting to erase %s flash restricted sector %d' % \
              (self.flash_type, sector)
       raise Warning(text)
