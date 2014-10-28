@@ -95,7 +95,7 @@ if __name__ == "__main__":
       link.close()
       sys.exit()
     except:
-      # Couldn't find device
+      # Couldn't find device.
       time.sleep(0.01)
   print "link with device successfully created."
   link.add_callback(ids.PRINT, serial_link.default_print_callback)

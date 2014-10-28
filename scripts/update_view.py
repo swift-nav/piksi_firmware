@@ -9,6 +9,7 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
+from urllib2 import URLError
 from json import load as jsonload
 from time import sleep
 from intelhex import IntelHex, HexRecordError, HexReaderError
