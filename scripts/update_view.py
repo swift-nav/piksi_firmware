@@ -9,8 +9,6 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-from urllib2 import urlopen, URLError
-from urlparse import urlparse
 from json import load as jsonload
 from time import sleep
 from intelhex import IntelHex, HexRecordError, HexReaderError
@@ -30,7 +28,7 @@ import bootload
 import sbp_piksi as ids
 import flash
 import callback_prompt as prompt
-
+from update_downloader import UpdateDownloader
 from output_stream import OutputStream
 
 import sys, os
@@ -164,7 +162,7 @@ class UpdateView(HasTraits):
       'update': self
 
     }
-    self.index = None
+    self.update_dl = None
     self.stm_fw = IntelHexFileDialog('STM')
     self.stm_fw.on_trait_change(self._manage_enables, 'status')
     self.nap_fw = IntelHexFileDialog('M25')
@@ -175,16 +173,13 @@ class UpdateView(HasTraits):
   def _manage_enables(self):
     if self.updating == True or self.downloading == True:
       self.update_en = False
+      self.download_fw_en = False
     else:
+      self.download_fw_en = True
       if self.stm_fw.ihx != None and self.nap_fw.ihx != None:
         self.update_en = True
       else:
         self.update_en = False
-
-    if self.updating == True or self.downloading == True:
-      self.download_fw_en = False
-    else:
-      self.download_fw_en = True
 
     if self.updating == True:
       self.erase_en = False
@@ -212,34 +207,15 @@ class UpdateView(HasTraits):
     self._firmware_update_thread = Thread(target=self.manage_firmware_updates)
     self._firmware_update_thread.start()
 
-  # Save file at URL to current directory.
-  def _download_file_from_url(self, url):
-    url = url.encode('ascii')
-    urlpath = urlparse(url).path
-    filename = os.path.split(urlpath)[1]
-
-    self._write('Downloading file from %s' % url)
-
-    url_file = urlopen(url, timeout=120)
-    lines = url_file.readlines()
-    with open(filename, 'w') as f:
-      for line in lines:
-        f.write(line)
-    url_file.close()
-
-    self._write('Saved file to %s' % os.path.abspath(filename))
-
-    return filename
-
   def _download_firmware(self):
 
     self._write('')
-    
+
     # Check that we received the index file from the website.
-    if self.index == None:
-      self._write("Error: No website index to get firmware URLs from")
+    if self.update_dl == None:
+      self._write("Error: Can't download firmware files")
       return
-     
+
     self.downloading = True
 
     status = 'Downloading Newest Firmware...'
@@ -249,22 +225,24 @@ class UpdateView(HasTraits):
 
     # Get firmware files from Swift Nav's website, save to disk, and load.
     try:
-      url = self.index['piksi_v2.3.1']['nap_fw']['url']
-      filepath = self._download_file_from_url(url)
+      self._write('Downloading Newest NAP firmware')
+      filepath = self.update_dl.download_nap_firmware()
+      self._write('Saved file to %s' % filepath)
       self.nap_fw.load_ihx(filepath)
     except AttributeError:
-      self.stm_fw.set_status("Error downloading firmware")
+      self.nap_fw.set_status("Error downloading firmware")
       self._write("Error downloading firmware: index file not downloaded yet")
     except KeyError:
-      self.stm_fw.set_status("Error downloading firmware")
+      self.nap_fw.set_status("Error downloading firmware")
       self._write("Error downloading firmware: URL not present in index")
     except URLError:
-      self.stm_fw.set_status("Error downloading firmware")
+      self.nap_fw.set_status("Error downloading firmware")
       self._write("Error: Failed to download latest NAP firmware from Swift Navigation's website")
 
     try:
-      url = self.index['piksi_v2.3.1']['stm_fw']['url']
-      filepath = self._download_file_from_url(url)
+      self._write('Downloading Newest STM firmware')
+      filepath = self.update_dl.download_stm_firmware()
+      self._write('Saved file to %s' % filepath)
       self.stm_fw.load_ihx(filepath)
     except AttributeError:
       self.stm_fw.set_status("Error downloading firmware")
@@ -311,15 +289,14 @@ class UpdateView(HasTraits):
       return
 
     # Check that we received the index file from the website.
-    if self.index == None:
+    if self.update_dl == None:
       self._write("Error: No website index to use to compare versions with local firmware")
       return
 
     # Check if console is out of date and notify user if so.
     if self.prompt:
       local_console_version = parse_version(CONSOLE_VERSION)
-      remote_console_version = parse_version(
-          self.index['piksi_v2.3.1']['console']['version'])
+      remote_console_version = parse_version(self.newest_console_vers)
       self.console_outdated = remote_console_version > local_console_version
 
       if self.console_outdated:
@@ -338,7 +315,7 @@ class UpdateView(HasTraits):
             "Local Console Version :\n\t" + \
                 CONSOLE_VERSION + \
             "\nNewest Console Version :\n\t" + \
-                self.index['piksi_v2.3.1']['console']['version'] + "\n"
+                self.update_dl.index['piksi_v2.3.1']['console']['version'] + "\n"
 
         console_outdated_prompt.run()
 
@@ -349,13 +326,11 @@ class UpdateView(HasTraits):
     if self.prompt:
       local_stm_version = parse_version(
           self.settings['system_info']['firmware_version'].value)
-      remote_stm_version = parse_version(
-          self.index['piksi_v2.3.1']['stm_fw']['version'])
+      remote_stm_version = parse_version(self.newest_stm_vers)
 
       local_nap_version = parse_version(
           self.settings['system_info']['nap_version'].value)
-      remote_nap_version = parse_version(
-          self.index['piksi_v2.3.1']['nap_fw']['version'])
+      remote_nap_version = parse_version(self.newest_nap_vers)
 
       self.fw_outdated = remote_nap_version > local_nap_version or \
                          remote_stm_version > local_stm_version
@@ -371,9 +346,9 @@ class UpdateView(HasTraits):
             "New Piksi firmware available.\n\n" + \
             "Please use the Firmware Update tab to update.\n\n" + \
             "Newest STM Version :\n\t%s\n\n" % \
-                self.index['piksi_v2.3.1']['stm_fw']['version'] + \
+                self.update_dl.index['piksi_v2.3.1']['stm_fw']['version'] + \
             "Newest SwiftNAP Version :\n\t%s\n\n" % \
-                self.index['piksi_v2.3.1']['nap_fw']['version']
+                self.update_dl.index['piksi_v2.3.1']['nap_fw']['version']
 
         fw_update_prompt.run()
 
@@ -390,23 +365,17 @@ class UpdateView(HasTraits):
 
   def _get_latest_version_info(self):
 
-    # Get index that contains file URLs and latest
-    # version strings from Swift Nav's website.
     try:
-      f = urlopen(INDEX_URL, timeout=120)
-      self.index = jsonload(f)
-      f.close()
+      self.update_dl = UpdateDownloader()
     except URLError:
-      self._write("\nError: Failed to download latest file index from Swift Navigation's website (%s). Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n" % INDEX_URL)
+      self._write("\nError: Failed to download latest file index from Swift Navigation's website. Please visit our website to check that you're running the latest Piksi firmware and Piksi console.\n")
       return
 
     # Make sure index contains all keys we are interested in.
     try:
-      self.newest_stm_vers = self.index['piksi_v2.3.1']['stm_fw']['version']
-      self.newest_nap_vers = self.index['piksi_v2.3.1']['nap_fw']['version']
-      self.index['piksi_v2.3.1']['stm_fw']['url']
-      self.index['piksi_v2.3.1']['nap_fw']['url']
-      self.newest_console_vers = self.index['piksi_v2.3.1']['console']['version']
+      self.newest_stm_vers = self.update_dl.index['piksi_v2.3.1']['stm_fw']['version']
+      self.newest_nap_vers = self.update_dl.index['piksi_v2.3.1']['nap_fw']['version']
+      self.newest_console_vers = self.update_dl.index['piksi_v2.3.1']['console']['version']
     except KeyError:
       self._write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n" % INDEX_URL)
       return
@@ -455,7 +424,7 @@ class UpdateView(HasTraits):
   def update_flash(self, ihx, flash_type):
 
     self.create_flash(flash_type)
-    
+
     self.pk_flash.write_ihx(ihx, self.stream, mod_print = 0x10)
 
     self.stop_flash()
@@ -492,7 +461,7 @@ class UpdateView(HasTraits):
 
       reset_prompt.kill()
       reset_prompt.wait()
-      
+
     self.pk_boot.reply_handshake()
     self._write("received bootloader handshake message.")
     self._write("Piksi Onboard Bootloader Version: " + self.pk_boot.version)
