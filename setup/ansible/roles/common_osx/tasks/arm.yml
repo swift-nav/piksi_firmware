@@ -1,0 +1,18 @@
+- name: Downloading gcc-arm utilities.
+  shell: wget -qN https://launchpad.net/gcc-arm-embedded/4.7/4.7-2013-q1-update/+download/gcc-arm-none-eabi-4_7-2013q1-20130313-mac.tar.bz2
+
+- name: Unpack gcc-arm utilities.
+  shell: tar -xf gcc-arm-none-eabi-4_7-2013q1-20130313-mac.tar.bz2
+
+- name: Unpack gcc-arm utilities.
+  shell: mkdir -p ~/gcc-arm-none-eabi
+
+- name: Copy gcc-arm to destination directory.
+  sudo: False
+  shell: cp -r gcc-arm-none-eabi-4_7-2013q1/ ~/gcc-arm-none-eabi
+
+- name: Change path
+  shell: echo '\nexport PATH=$PATH:~/gcc-arm-none-eabi/bin' >> ~/.bash_profile
+
+- name: Load Path
+  shell: source ~/.bash_profile
