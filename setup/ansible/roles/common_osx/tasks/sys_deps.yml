@@ -1,0 +1,39 @@
+- name: Install base OS X packages
+  homebrew: name={{ item }} state=present
+  with_items:
+    - wget
+    - cmake
+    - qt
+    - pyqt
+    - libftdi
+    - pyside
+
+- name: Install core python dependencies.
+  sudo: True
+  command: pip install numpy==1.9.0 cython==0.21 distribute==0.7.3
+
+- name: Install enthought Python libraries.
+  sudo: True
+  command: >
+             pip install chaco==4.4.1 enable==4.4.1
+                 --allow-unverified enable
+                 --allow-unverified PIL
+                 --allow-external intelhex
+                 --allow-unverified intelhex
+
+- name: Install remaining Python dependencies.
+  sudo: True
+  command: >
+             pip install
+                 traits==4.5.0
+                 traitsui==4.4.0
+                 pyface==4.4.0
+                 wsgiref==0.1.2
+                 pyside==1.2.2
+                 pyserial==2.7
+                 pylibftdi==0.14.2
+                 pyparsing==1.5.7
+                 pygments==1.6
+                 intelhex==1.5
+                 --allow-external intelhex
+                 --allow-unverified intelhex
