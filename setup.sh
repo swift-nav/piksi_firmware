@@ -144,23 +144,19 @@ function run_all_platforms () {
         log_info "Updating..."
         sudo apt-get update
         sudo apt-get install -y ansible
-        setup_ansible_plugins
-        ansible-playbook -v --ask-sudo-pass -i setup/ansible/inventory.ini \
-            setup/ansible/provision.yml --connection=local
-        build
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         piksi_splash_osx
         log_info "Checking system dependencies for OSX..."
         log_info "Please enter your password..."
         bootstrap_osx
-        setup_ansible_plugins
-        ansible-playbook -v --ask-sudo-pass -i setup/ansible/inventory.ini \
-            setup/ansible/provision.yml --connection=local
-        build
     else
         log_error "This script does not support this platform. Please contact mookerji@swiftnav.com."
         exit 1
     fi
+    setup_ansible_plugins
+    ansible-playbook -v --ask-sudo-pass -i setup/ansible/inventory.ini \
+        setup/ansible/provision.yml --connection=local
+    build
     log_info "Done!."
 }
 
