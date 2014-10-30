@@ -222,6 +222,9 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     self.update_obs()
     self.rinex_save()
 
+  def ephemeirs_callback(self, data, sender=None):
+    print "GOT AN EPH BRO"
+
   def __init__(self, link, name='Rover', relay=False):
     super(ObservationView, self).__init__()
 
@@ -238,7 +241,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     self.link = link
     self.link.add_callback(ids.OLD_OBS, self.old_obs_callback)
     self.link.add_callback(ids.PACKED_OBS, self.obs_packed_callback)
-
+    self.link.add_callback(ids.EPHEMERIS, self.ephemeris_callback)
 
     self.python_console_cmds = {
       'obs': self
