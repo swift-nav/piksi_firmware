@@ -95,6 +95,10 @@ function homebrew_install () {
     #    source ./setup.sh
     #    homebrew_install
     ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    # Check for bash profile and add homebrew to path.
+    touch ~/.bash_profile
+    echo '\nexport PATH=/usr/local/bin:/usr/local/sbin:$PATH' >> ~/.bash_profile
+    source ~/.bash_profile
     brew doctor
     brew update
     # Homebrew apparently requires the contents of /usr/local to be
@@ -115,10 +119,15 @@ function bootstrap_osx () {
         log_info "Installing homebrew..."
         homebrew_install
     fi
+    # Download and install Homebrew Python
+    if [[ ! -x /usr/local/bin/python ]]; then
+        echo "Installing homebrew python..."
+        brew install python --framework --with-brewed-openssl 2> /dev/null
+    fi
     # Download and install Ansible
     if [[ ! -x /usr/local/bin/ansible ]]; then
         log_info "Installing Ansible..."
-        brew install ansible
+        brew install ansible 2> /dev/null
     fi
 }
 

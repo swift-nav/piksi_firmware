@@ -1,7 +1,7 @@
 # Uses brew to install system-wide dependencies and pip to install
 # python dependencies.
 
-- name: Install base OS X packages
+- name: Install base OS X packages. This may take up to 30 minutes.
   homebrew: name={{ item }} state=present
   with_items:
     - wget
