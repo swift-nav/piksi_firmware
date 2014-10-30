@@ -12,7 +12,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.network :forwarded_port, guest: 22, host: 1234
   config.ssh.forward_agent = true
   config.vm.provider :virtualbox do |vb|
-    vb.customize ["modifyvm", :id, "--usb", "on", "--usbehci", "on"]
     vb.memory = 1024
     vb.cpus = 2
   end
