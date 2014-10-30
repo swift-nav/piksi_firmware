@@ -1,5 +1,5 @@
-# This playbook contains some hacks required for getting Python
-# development tools to build on OS X.
+# Contains some edge case handing required for getting Python
+# development tools to build and run on OS X.
 
 # Homebrew's default swig 3.x plays poorly with some of our python
 # depenencies, so install brew 2.x if needed.

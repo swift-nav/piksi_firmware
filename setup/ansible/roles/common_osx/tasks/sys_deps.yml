@@ -1,3 +1,6 @@
+# Uses brew to install system-wide dependencies and pip to install
+# python dependencies.
+
 - name: Install base OS X packages
   homebrew: name={{ item }} state=present
   with_items:

@@ -1,14 +1,18 @@
+# Download and install arm-gcc compiler and add to path. This doesn't
+# run if already have it: i.e., if gcc-arm-none is already in your
+# PATH after sys_deps.yml.
+
 - name: Downloading gcc-arm utilities.
   shell: wget -qN https://launchpad.net/gcc-arm-embedded/4.7/4.7-2013-q1-update/+download/gcc-arm-none-eabi-4_7-2013q1-20130313-mac.tar.bz2
 
 - name: Unpack gcc-arm utilities.
   shell: tar -xf gcc-arm-none-eabi-4_7-2013q1-20130313-mac.tar.bz2
 
-- name: Unpack gcc-arm utilities.
+- name: Create arm-gcc directory.
   shell: mkdir -p ~/gcc-arm-none-eabi
 
 - name: Copy gcc-arm to destination directory.
   shell: cp -r gcc-arm-none-eabi-4_7-2013q1/ ~/gcc-arm-none-eabi
 
-- name: Change PATH
+- name: Add arm-gcc directory to PATH
   shell: echo '\nexport PATH=$PATH:~/gcc-arm-none-eabi/bin' >> ~/.bash_profile
