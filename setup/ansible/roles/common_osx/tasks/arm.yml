@@ -8,11 +8,7 @@
   shell: mkdir -p ~/gcc-arm-none-eabi
 
 - name: Copy gcc-arm to destination directory.
-  sudo: False
   shell: cp -r gcc-arm-none-eabi-4_7-2013q1/ ~/gcc-arm-none-eabi
 
-- name: Change path
+- name: Change PATH
   shell: echo '\nexport PATH=$PATH:~/gcc-arm-none-eabi/bin' >> ~/.bash_profile
-
-- name: Load Path
-  shell: source ~/.bash_profile

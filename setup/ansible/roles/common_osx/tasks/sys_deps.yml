@@ -37,3 +37,9 @@
                  intelhex==1.5
                  --allow-external intelhex
                  --allow-unverified intelhex
+
+# Set up conditional installation for ARM GCC tooling later.
+- name: Checking for arm gcc
+  shell: which arm-none-eabi-gcc
+  register: armgcc
+  ignore_errors: true

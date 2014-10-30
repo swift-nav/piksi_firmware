@@ -1,3 +1,4 @@
 - include: hacks.yml
 - include: sys_deps.yml
 - include: arm.yml
+  when: armgcc.stdout == ""
