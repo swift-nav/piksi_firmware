@@ -104,9 +104,9 @@ void nmea_gpgga(double pos_llh[3], gps_time_t *gps_t, u8 n_used, u8 fix_type,
 
   double frac_s = fmod(gps_t->tow, 1.0);
 
-  s8 lat_deg = (s8)((180.0 / M_PI) * pos_llh[0]);
+  s16 lat_deg = (s16)((180.0 / M_PI) * pos_llh[0]);
   double lat_min = fabs(60 * ((180.0 / M_PI) * pos_llh[0] - lat_deg));
-  s8 lon_deg = (s8)((180.0 / M_PI) * pos_llh[1]);
+  s16 lon_deg = (s16)((180.0 / M_PI) * pos_llh[1]);
   double lon_min = fabs(60 * ((180.0 / M_PI) * pos_llh[1] - lon_deg));
   lat_deg = abs(lat_deg);
   lon_deg = abs(lon_deg);
