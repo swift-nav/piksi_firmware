@@ -121,7 +121,8 @@ function bootstrap_osx () {
         brew install python --framework --with-brewed-openssl 2> /dev/null
         # Check for bash profile and add Homebrew Python to path.
         touch ~/.bash_profile
-        echo '\nexport PATH=/usr/local/bin:/usr/local/sbin:$PATH' >> ~/.bash_profile
+        echo '' >> ~/.bash_profile
+        echo 'export PATH=/usr/local/bin:/usr/local/sbin:$PATH' >> ~/.bash_profile
         source ~/.bash_profile
     fi
     # Download and install Ansible
