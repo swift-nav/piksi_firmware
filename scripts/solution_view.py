@@ -18,8 +18,6 @@ from enable.api import ComponentEditor
 from enable.savage.trait_defs.ui.svg_button import SVGButton
 from pyface.api import GUI
 
-from simulator_view import SimulatorView
-
 import struct
 import math
 import os
@@ -47,8 +45,6 @@ class SolutionView(HasTraits):
 
   plot = Instance(Plot)
   plot_data = Instance(ArrayPlotData)
-
-  simulator_view = Instance(SimulatorView)
 
   running = Bool(True)
   position_centered = Bool(False)
@@ -90,7 +86,6 @@ class SolutionView(HasTraits):
           show_label = False,
           editor = ComponentEditor(bgcolor = (0.8,0.8,0.8)),
         ),
-        UItem('simulator_view', style='custom', label='Simulator'),
       )
     )
   )
@@ -258,10 +253,7 @@ class SolutionView(HasTraits):
     self.week = None
     self.nsec = 0
 
-    self.simulator_view = SimulatorView(self.link)
-
     self.python_console_cmds = {
       'solution': self,
-      'simulator': self.simulator_view
     }
 
