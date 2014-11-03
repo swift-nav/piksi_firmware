@@ -222,8 +222,29 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     self.update_obs()
     self.rinex_save()
 
-  def ephemeirs_callback(self, data, sender=None):
-    print "GOT AN EPH BRO"
+  def ephemeris_callback(self, data, sender=None):
+#     typedef struct {
+#   double tgd;
+#   double crs, crc, cuc, cus, cic, cis;
+#   double dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot;
+#   double af0, af1, af2;
+#   gps_time_t toe, toc;
+#   u8 valid;
+#   u8 healthy;
+#   u8 prn;
+# } ephemeris_t;
+    eph_fmt = "<" + "d"*20 + "HxxBBB"
+    # eph_fmt = "<ddddddddddddddddddddHxxBBB"
+    eph_size = struct.calcsize(eph_fmt)
+    tgd, \
+    crs, crc, cuc, cus, cic, cis, \
+    dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot, \
+    af0, af1, af2, \
+    toe, toc, \
+    valid, \
+    healthy, \
+    prn = struct.unpack(eph_fmt, data[:eph_size])
+    print "GOT AN EPH BRO, prn = " + str(prn)
 
   def __init__(self, link, name='Rover', relay=False):
     super(ObservationView, self).__init__()
