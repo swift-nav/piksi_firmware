@@ -223,24 +223,14 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     self.rinex_save()
 
   def ephemeris_callback(self, data, sender=None):
-#     typedef struct {
-#   double tgd;
-#   double crs, crc, cuc, cus, cic, cis;
-#   double dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot;
-#   double af0, af1, af2;
-#   gps_time_t toe, toc;
-#   u8 valid;
-#   u8 healthy;
-#   u8 prn;
-# } ephemeris_t;
-    eph_fmt = "<" + "d"*20 + "HxxBBB"
-    # eph_fmt = "<ddddddddddddddddddddHxxBBB"
+    gps_time_fmt = "dH"
+    eph_fmt = "<" + "d"*19 + gps_time_fmt*2 + "BBB"
     eph_size = struct.calcsize(eph_fmt)
     tgd, \
     crs, crc, cuc, cus, cic, cis, \
     dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot, \
     af0, af1, af2, \
-    toe, toc, \
+    toe_tow, toe_wn, toc_tow, toc_wn, \
     valid, \
     healthy, \
     prn = struct.unpack(eph_fmt, data[:eph_size])
