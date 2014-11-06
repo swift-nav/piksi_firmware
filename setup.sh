@@ -58,7 +58,7 @@ function piksi_splash_linux () {
 }
 
 function piksi_splash_linux () {
-    log_info "TESTING!"
+    log_info "TESTING! Again"
 }
 
 function sys_dependencies_apt () {
