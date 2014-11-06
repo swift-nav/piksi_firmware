@@ -57,6 +57,10 @@ function piksi_splash_linux () {
     "
 }
 
+function piksi_splash_linux () {
+    log_info "TESTING!"
+}
+
 function sys_dependencies_apt () {
     # Install system and python library dependencies using an
     # apt-based installer.
