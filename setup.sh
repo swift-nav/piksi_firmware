@@ -57,6 +57,10 @@ function piksi_splash_linux () {
     "
 }
 
+function piksi_splash_linux () {
+    log_info "TESTING!"
+}
+
 function sys_dependencies_apt () {
     # Install system and python library dependencies using an
     # apt-based installer.
@@ -136,6 +140,10 @@ function piksi_splash_osx () {
          Welcome to piksi_firmware development installer!
 
     "
+}
+
+function atest22 () {
+    log_info "THIS IS A CI ETEST!"
 }
 
 function homebrew_install () {
