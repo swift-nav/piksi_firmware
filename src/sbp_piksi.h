@@ -64,8 +64,6 @@
 #define MSG_FILEIO_REMOVE           0xAC  /**< Host   -> Piksi */
 #define MSG_FILEIO_WRITE            0xAD  /**< Host  <-> Piksi */
 
-#define MSG_SIMULATION_ENABLED      0xAA  /**< Host  <-> Piksi */
-
 #define MSG_OBS_HDR                 0x40  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
   gps_time_t t; /**< GPS time of observation. */

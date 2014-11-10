@@ -356,16 +356,6 @@ inline bool simulation_enabled_for(simulation_modes_t mode_mask) {
     ((sim_settings.mode_mask & mode_mask) > 0);
 }
 
-/** Sends an MSG_SIMULATION_ENABLED message with
-*payload 1 if the simulation is enabled, payload 0 otherwise.
-*/
-void sbp_send_simulation_enabled(void)
-{
-  sbp_send_msg(MSG_SIMULATION_ENABLED,
-    sizeof(u8),
-    &sim_enabled);
-}
-
 /** Get current simulated PVT solution
 * The structure returned by this changes every time simulation_step is called.
 */
@@ -434,57 +424,26 @@ navigation_measurement_t* simulation_current_base_navigation_measurements(void)
   return sim_state.base_nav_meas;
 }
 
-
-/** Enables or disables the simulator when an SBP callback triggers this function
-*
-*/
-void set_simulation_enabled_callback(u16 sender_id, u8 len, u8 msg[], void* context)
-{
-  (void)sender_id; (void)len; (void) context;
-  if (len == 1) {
-    if (sim_state.last_update_ticks == 0) {
-      sim_state.last_update_ticks = chTimeNow();
-    }
-    sim_enabled = msg[0];
-  }
-
-  if (simulation_enabled()) {
-    printf("Enabled Simulation\n");
-  } else {
-    printf("Disabled Simulation\n");
-  }
-
-}
-
 /**
 * Do any setup we need for the satellite almanacs.
 */
 void simulator_setup_almanacs(void)
 {
-
   for (u8 i = 0; i < simulation_num_almanacs; i++) {
     simulation_fake_carrier_bias[i] = (rand() % 1000) * 10;
   }
-
 }
 
 /** Must be called from main() or equivalent function before simulator runs
 */
 void simulator_setup(void)
 {
-
-  static sbp_msg_callbacks_node_t set_simulation_enabled_node;
-  sbp_register_cbk(
-    MSG_SIMULATION_ENABLED,
-    &set_simulation_enabled_callback,
-    &set_simulation_enabled_node
-  );
-
   sim_state.noisy_solution.time.wn = simulation_week_number;
   sim_state.noisy_solution.time.tow = 0;
 
   simulator_setup_almanacs();
 
+  SETTING("simulator", "enabled",           sim_enabled,                    TYPE_BOOL);
   SETTING("simulator", "base_ecef_x",       sim_settings.base_ecef[0],      TYPE_FLOAT);
   SETTING("simulator", "base_ecef_y",       sim_settings.base_ecef[1],      TYPE_FLOAT);
   SETTING("simulator", "base_ecef_z",       sim_settings.base_ecef[2],      TYPE_FLOAT);
@@ -497,7 +456,6 @@ void simulator_setup(void)
   SETTING("simulator", "phase_sigma",       sim_settings.phase_sigma,       TYPE_FLOAT);
   SETTING("simulator", "num_sats",          sim_settings.num_sats,          TYPE_INT);
   SETTING("simulator", "mode_mask",         sim_settings.mode_mask,         TYPE_INT);
-
 }
 
 /** \} */
