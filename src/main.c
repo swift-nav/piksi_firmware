@@ -88,7 +88,6 @@ static msg_t nav_msg_thread(void *arg)
           printf("PRN %02d unhealthy\n", tracking_channel[i].prn+1);
         } else {
           sbp_send_msg(MSG_EPHEMERIS, sizeof(ephemeris_t), (u8 *)&es[tracking_channel[i].prn]);
-          /* TODO send ephemerides here */
         }
         if (memcmp(&es[tracking_channel[i].prn],
                    &es_old[tracking_channel[i].prn], sizeof(ephemeris_t))) {
