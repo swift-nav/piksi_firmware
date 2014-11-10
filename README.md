@@ -1,4 +1,3 @@
-
 piksi_firmware
 ==============
 
@@ -25,6 +24,6 @@ Installation
 ============
 
 To install these development tools for your platform, run the setup
-script via `bash setup.sh`. The Vagrant file is currently used for
-testing installation setup.sh, but can also be used to provision a
-development VM.
+script via `bash setup.sh -x install`. The Vagrant file is currently
+used for testing installation setup.sh, but can also be used to
+provision a development VM.
