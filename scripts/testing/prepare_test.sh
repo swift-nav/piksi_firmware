@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Prepare a pair of devices for testing
+# Usage:
+#   ./prepare_test.sh DEV1 DEV2 STM_FW NAP_FW
+
+# Power down devices
+./device_power.py $1 0
+./device_power.py $2 0
+
+sleep 2
+
+# Power up devices
+./device_power.py $1 1
+./device_power.py $2 1
+
+# Bootload STM firmware, doing a full erase
+../bootload.py -e -s -p $1 $3 &
+../bootload.py -e -s -p $2 $3
+wait
+
+# Power down devices again
+./device_power.py $1 0
+./device_power.py $2 0
+
+sleep 2
+
+# Power up devices
+./device_power.py $1 1
+./device_power.py $2 1
+
+# Bootload NAP firmware
+../bootload.py -m -p $1 $4 &
+../bootload.py -m -p $2 $4
+wait
+
+
