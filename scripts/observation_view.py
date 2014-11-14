@@ -234,16 +234,6 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     valid, \
     healthy, \
     prn = struct.unpack(eph_fmt, data[:eph_size])
-    print "GOT AN EPH BRO, prn = " + str(prn)
-    header = "tgd, " +\
-             "crs, crc, cuc, cus, cic, cis, "\
-             "dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot, "\
-             "af0, af1, af2, "\
-             "toe_tow, toe_wn, toc_tow, toc_wn, "\
-             "valid, "\
-             "healthy, "\
-             "prn\n"
-    
 
   def __init__(self, link, name='Rover', relay=False):
     super(ObservationView, self).__init__()
@@ -261,7 +251,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     self.link = link
     self.link.add_callback(ids.OLD_OBS, self.old_obs_callback)
     self.link.add_callback(ids.PACKED_OBS, self.obs_packed_callback)
-    self.link.add_callback(ids.EPHEMERIS, self.ephemeris_callback)
+    # self.link.add_callback(ids.EPHEMERIS, self.ephemeris_callback)
 
     self.python_console_cmds = {
       'obs': self
