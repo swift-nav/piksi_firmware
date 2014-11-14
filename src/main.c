@@ -84,7 +84,7 @@ static msg_t nav_msg_thread(void *arg)
         if (ret < 0)
           printf("PRN %02d ret %d\n", tracking_channel[i].prn+1, ret);
 
-        if (ret == 1 && !es[tracking_channel[i].prn].healthy) { \
+        if (ret == 1 && !es[tracking_channel[i].prn].healthy) {
           printf("PRN %02d unhealthy\n", tracking_channel[i].prn+1);
         } else {
           sbp_send_msg(MSG_EPHEMERIS, sizeof(ephemeris_t), (u8 *)&es[tracking_channel[i].prn]);
