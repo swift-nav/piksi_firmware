@@ -36,6 +36,12 @@ class SettingBase(HasTraits):
 
   traits_view = View()
 
+  def __repr__(self):
+    return "<Setting '%s' = '%s'>" % (self.name, self.value)
+
+  def __str__(self):
+    return self.value
+
 class Setting(SettingBase):
   full_name = Str()
   section = Str()
@@ -190,7 +196,10 @@ class SettingsView(HasTraits):
           self.settings_list.append(setting)
 
       for cb in self.read_finished_functions:
-        GUI.invoke_later(cb)
+        if self.gui_mode:
+          GUI.invoke_later(cb)
+        else:
+          cb()
       return
 
     section, setting, value, format_type = data[2:].split('\0')[:4]
@@ -240,9 +249,10 @@ class SettingsView(HasTraits):
       self.link.send_message(ids.SETTINGS,
           '%s\0%s\0%s\0' % (section, name, value))
 
-  def __init__(self, link, read_finished_functions=[]):
+  def __init__(self, link, read_finished_functions=[], gui_mode=True):
     super(SettingsView, self).__init__()
 
+    self.gui_mode = gui_mode
     self.enumindex = 0
     self.settings = {}
     self.link = link
