@@ -1,0 +1,47 @@
+# Contains some edge case handing required for getting Python
+# development tools to build and run on OS X. Note that this will
+# unlink and install a specific version of swig (2.0.12).
+
+# Homebrew's default swig 3.x plays poorly with some of our python
+# depenencies, so install brew 2.x if needed.
+- name: HACK - Checking out brew formula for swig-2.0.12
+  shell: chdir=/usr/local/ git checkout 89eafbe /usr/local/Library/Formula/swig.rb
+
+- name: HACK - Unlinking swig, in case already installed.
+  shell: chdir=/usr/local/ brew unlink swig 2> /dev/null
+  ignore_errors: yes
+
+- name: HACK - Install brew formula
+  shell: chdir=/usr/local/ brew install swig 2> /dev/null
+
+- name: HACK - Switching to swig 2.0.12
+  shell: chdir=/usr/local/ brew switch swig 2.0.12
+
+- name: HACK - Relinking swig...
+  shell: chdir=/usr/local/ brew unlink swig 2> /dev/null
+
+- name: HACK - Relinking swig...
+  shell: chdir=/usr/local/ brew link swig 2> /dev/null
+
+# http://stackoverflow.com/questions/20325473/error-installing-python-image-library-using-pip-on-mac-os-x-10-9
+- name: HACK - Checking for freetype
+  stat: path=/usr/local/include/freetype
+  register: freetype_stat
+
+- name: HACK - Linking freetype
+  command: ln -s /usr/local/include/freetype2 /usr/local/include/freetype
+  when: not freetype_stat.stat.exists
+
+# Build of enthought enable fails for some kind of legacy OS X
+# library dependency. If using a recent version of OS X, move the
+# offending to properly resolve build.
+# https://trac.macports.org/ticket/35735?cversion=0&cnum_hist=11
+- name: HACK - Checking to for legacy uuid.h
+  stat: path=/usr/local/include/uuid/uuid.h
+  register: uuid_stat
+
+- name: HACK - Move /usr/local/include/uuid/uuid.h
+  command: >
+             mv -fv /usr/local/include/uuid/uuid.h
+                    /usr/local/include/uuid/uuid.h.bak
+  when: uuid_stat.stat.exists

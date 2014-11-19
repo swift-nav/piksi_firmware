@@ -1,0 +1,7 @@
+# The common_osx role sets up Piksi development dependencies for OS
+# X. The subtasks included here are executed in-order.
+
+- include: hacks.yml
+- include: sys_deps.yml
+- include: arm.yml
+  when: armgcc.stdout == ""
