@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -vx
 
 # Prepare a pair of devices for testing
 # Usage:
@@ -14,10 +14,16 @@ sleep 2
 ./device_power.py $1 1
 ./device_power.py $2 1
 
+sleep 2
+
 # Bootload STM firmware, doing a full erase
-../bootload.py -e -s -p $1 $3 &
-../bootload.py -e -s -p $2 $3
+cd ..
+pwd
+./bootload.py -e -s -p $1 testing/$3 > testing/bootload_log1 &
+./bootload.py -e -s -p $2 testing/$3 > testing/bootload_log2
 wait
+
+cd testing
 
 # Power down devices again
 ./device_power.py $1 0
@@ -29,9 +35,12 @@ sleep 2
 ./device_power.py $1 1
 ./device_power.py $2 1
 
+sleep 2
+
 # Bootload NAP firmware
-../bootload.py -m -p $1 $4 &
-../bootload.py -m -p $2 $4
+cd ..
+./bootload.py -m -p $1 testing/$4  >> testing/bootload_log1 &
+./bootload.py -m -p $2 testing/$4  >> testing/bootload_log2
 wait
 
-
+cd testing

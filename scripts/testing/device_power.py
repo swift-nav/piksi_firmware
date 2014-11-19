@@ -15,7 +15,7 @@ device_file = sys.argv[1]
 power = int(sys.argv[2]) == 1
 
 c = pyudev.Context()
-d = pyudev.Device.from_device_file(c, '/dev/ttyUSB0')
+d = pyudev.Device.from_device_file(c, device_file)
 d_child = d
 
 while d is not None:
@@ -31,7 +31,7 @@ bus = int(d.attributes['busnum'])
 dev = int( d.attributes['devnum'])
 port = int(d_child.attributes['devpath'].split('.')[-1])
 
-ret = subprocess.call("./hub-ctrl -b %d -d %d -P %d -p %d" %
+ret = subprocess.call("./hub_ctrl -b %d -d %d -P %d -p %d" %
                       (bus, dev, port, 1 if power else 0), shell=True)
 
 sys.exit(ret)
