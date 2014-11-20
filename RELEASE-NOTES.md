@@ -4,10 +4,20 @@ Piksi Firmware Release Notes
 Contents
 --------
 
+ * [v0.13](#v0.13)
  * [v0.12](#v0.12)
  * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.13 <a name="v0.13"></a>
+-----
+
+ * Fix a bug resulting in a stack overflow when satellite set changes
+ * Fix a bug in the NMEA output when the longitude magnitude was >127
+ * Simulator mode enable is now a setting rather than a button in the console
+ * Numerous improvements to the development environment setup script including
+   now using Ansible to provision the required tools
 
 v0.12 <a name="v0.12"></a>
 -----
