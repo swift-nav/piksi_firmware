@@ -14,6 +14,10 @@
 [ -e $3 ]
 [ -e $4 ]
 
+# Build hub_ctrl
+
+make
+
 # Power down devices
 ./device_power.py $1 0
 ./device_power.py $2 0
