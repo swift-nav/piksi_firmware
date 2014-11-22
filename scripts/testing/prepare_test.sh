@@ -18,15 +18,8 @@
 
 make
 
-# Power down devices
-./device_power.py $1 0
-./device_power.py $2 0
-
-sleep 2
-
-# Power up devices
-./device_power.py $1 1
-./device_power.py $2 1
+# Power cycle devices
+./cycle_device_power.py $1 $2
 
 sleep 2
 
@@ -39,15 +32,8 @@ wait
 
 cd testing
 
-# Power down devices again
-./device_power.py $1 0
-./device_power.py $2 0
-
-sleep 2
-
-# Power up devices
-./device_power.py $1 1
-./device_power.py $2 1
+# Power cycle devices again
+./cycle_device_power.py $1 $2
 
 sleep 2
 
