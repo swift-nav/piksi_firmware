@@ -1,8 +1,18 @@
-#!/bin/bash -vx
+#!/bin/bash -vxe
 
 # Prepare a pair of devices for testing
 # Usage:
 #   ./prepare_test.sh DEV1 DEV2 STM_FW NAP_FW
+
+# Check devices exist
+
+[ -e $1 ]
+[ -e $2 ]
+
+# Check firmware files exist
+
+[ -e $3 ]
+[ -e $4 ]
 
 # Power down devices
 ./device_power.py $1 0
