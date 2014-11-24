@@ -17,6 +17,15 @@ import sys
 
 import sbp_piksi as ids
 
+try:
+  import libsbp.nav_messages as nav
+  import libsbp.piksi_messages as piksi
+  from libsbp.sbp import SBP
+except ImportError:
+  print 'libsbp is unavailable.'
+import cPickle as pickle
+import socket
+import calendar
 
 DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 1000000
@@ -73,6 +82,7 @@ class ListenerThread (threading.Thread):
     self.wants_to_stop = False
     self.print_unhandled = print_unhandled
     self.daemon = True
+    self.init_time = time.time()
 
   def stop(self):
     self.wants_to_stop = True
@@ -80,13 +90,18 @@ class ListenerThread (threading.Thread):
   def run(self):
     while not self.wants_to_stop:
       try:
-        mt, ms, md = self.link.get_message()
+        sbp = self.link.get_message()
+        mt, ms, md = sbp.msg_type, sbp.sender, sbp.payload
         # Will throw away last message here even if it is valid.
         if self.wants_to_stop:
           if self.link.ser:
             self.link.ser.close()
           break
         if mt is not None:
+          for cb in self.link.get_callback():
+            timestamp = calendar.timegm(time.gmtime())
+            delta = int((time.time() - self.init_time)*1000)
+            cb((delta, timestamp, sbp))
           cbs = self.link.get_callback(mt)
           if cbs is None or len(cbs) == 0:
             if self.print_unhandled:
@@ -121,6 +136,7 @@ class SerialLink:
     self.print_unhandled = print_unhandled
     self.unhandled_bytes = 0
     self.callbacks = {}
+    self.global_callbacks = []
     if use_ftdi:
       import pylibftdi
       self.ser = pylibftdi.Device()
@@ -197,9 +213,9 @@ class SerialLink:
 
     if crc != crc_received:
       print "Host Side CRC mismatch: 0x%04X 0x%04X" % (crc, crc_received)
-      return (None, None, None)
+      return SBP(None, None, None, None, None)
 
-    return (msg_type, sender_id, data)
+    return SBP(msg_type, sender_id, msg_len, data, crc)
 
   def send_message(self, msg_type, msg, sender_id=0x42):
     framed_msg = struct.pack('<BHHB', SBP_PREAMBLE, msg_type, sender_id, len(msg))
@@ -212,11 +228,18 @@ class SerialLink:
   def send_char(self, char):
     self.ser.write(char)
 
-  def add_callback(self, msg_type, callback):
-    try:
-      self.callbacks[msg_type].append(callback)
-    except KeyError:
-      self.callbacks[msg_type] = [callback]
+  def add_callback(self, callback, msg_type=None):
+    """
+    Add a named callback for a specific SBP message type, or a global
+    callback for all SBP messages.
+    """
+    if msg_type is None:
+      self.global_callbacks.append(callback)
+    else:
+      try:
+        self.callbacks[msg_type].append(callback)
+      except KeyError:
+        self.callbacks[msg_type] = [callback]
 
   def rm_callback(self, msg_type, callback):
     try:
@@ -228,11 +251,18 @@ class SerialLink:
       print "Can't remove callback for msg 0x%04x: callback not registered" \
             % msg_type
 
-  def get_callback(self, msg_type):
-    if msg_type in self.callbacks:
-      return self.callbacks[msg_type]
+  def get_callback(self, msg_type=None):
+    """
+    Retrieve a named callback for a specific SBP message type, or a global
+    callback for all SBP messages.
+    """
+    if msg_type is None:
+      return self.global_callbacks
     else:
-      return None
+      if msg_type in self.callbacks:
+        return self.callbacks[msg_type]
+      else:
+        return None
 
   def wait_message(self, msg_type, timeout=None):
     ev = threading.Event()
@@ -248,31 +278,78 @@ class SerialLink:
 def default_print_callback(data):
   sys.stdout.write(data)
 
+def default_log_callback(file_handle):
+  """
+  Callback for serializing Python objects to a file.
+
+  Parameters
+  ----------
+  file_handle : file
+    An already-opened file handle
+
+  Returns
+  ----------
+  pickler : lambda data
+    Function that will serialize Python object to open file_handle
+  """
+  return lambda data: pickle.dump(data, file_handle)
+
+def generate_log_filename():
+  """
+  Generates a consistent filename for logging.
+
+  Returns
+  ----------
+  filename : str
+    Format with filename: serial_link-<hostname>-<utc epoch>.log.
+  """
+  host = socket.gethostname()
+  timestamp = calendar.timegm(time.gmtime())
+  return "serial_link-%s-%s.log" % (host, timestamp)
+
 if __name__ == "__main__":
   import argparse
   parser = argparse.ArgumentParser(description='Swift Nav Serial Link.')
   parser.add_argument('-p', '--port',
-                     default=[DEFAULT_PORT], nargs=1,
-                     help='specify the serial port to use.')
+                      default=[DEFAULT_PORT],
+                      nargs=1,
+                      help='specify the serial port to use.')
   parser.add_argument("-b", "--baud",
-                     default=[DEFAULT_BAUD], nargs=1,
-                     help="specify the baud rate to use.")
+                      default=[DEFAULT_BAUD], nargs=1,
+                      help="specify the baud rate to use.")
   parser.add_argument("-v", "--verbose",
-                     help="print extra debugging information.",
-                     action="store_true")
+                      help="print extra debugging information.",
+                      action="store_true")
   parser.add_argument("-f", "--ftdi",
-                     help="use pylibftdi instead of pyserial.",
-                     action="store_true")
+                      help="use pylibftdi instead of pyserial.",
+                      action="store_true")
+  parser.add_argument("-l", "--log",
+                      action="store_true",
+                      help="Serialize SBP messages to autogenerated log file.")
   args = parser.parse_args()
   serial_port = args.port[0]
   baud = args.baud[0]
   link = SerialLink(serial_port, baud, use_ftdi=args.ftdi,
                     print_unhandled=args.verbose)
-  link.add_callback(ids.PRINT, default_print_callback)
+  link.add_callback(default_print_callback, ids.PRINT)
+  # Setup logging
+  log_file = None
+  if args.log:
+    try:
+      import libsbp
+    except ImportError:
+      print 'libsbp required for logging serialized SBP messages.'
+      sys.exit(1)
+    log_name = generate_log_filename()
+    log_file = open(log_name, 'w+')
+    print "Logging at %s." % log_name
+    link.add_callback(default_log_callback(log_file))
   try:
     while True:
       time.sleep(0.1)
   except KeyboardInterrupt:
     pass
   finally:
+    if log_file:
+      log_file.close()
     link.close()
