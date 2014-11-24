@@ -82,7 +82,6 @@ class ListenerThread (threading.Thread):
     self.wants_to_stop = False
     self.print_unhandled = print_unhandled
     self.daemon = True
-    self.init_time = time.time()
 
   def stop(self):
     self.wants_to_stop = True
@@ -99,9 +98,7 @@ class ListenerThread (threading.Thread):
           break
         if mt is not None:
           for cb in self.link.get_callback():
-            timestamp = calendar.timegm(time.gmtime())
-            delta = int((time.time() - self.init_time)*1000)
-            cb((delta, timestamp, sbp))
+            cb(sbp)
           cbs = self.link.get_callback(mt)
           if cbs is None or len(cbs) == 0:
             if self.print_unhandled:
@@ -278,13 +275,18 @@ class SerialLink:
 def default_print_callback(data):
   sys.stdout.write(data)
 
-def default_log_callback(file_handle):
+def default_log_callback(handle):
   """
-  Callback for serializing Python objects to a file.
+  Callback for serializing Python objects to a file with a consistent logging
+  format:
+    (delta, timestamp, item) : tuple
+      delta = msec reference timestamp (int)
+      timestamp = current timestamp (int - UTC epoch)
+      item = Python object to serialize
 
   Parameters
   ----------
-  file_handle : file
+  handle : file
     An already-opened file handle
 
   Returns
@@ -292,7 +294,8 @@ def default_log_callback(file_handle):
   pickler : lambda data
     Function that will serialize Python object to open file_handle
   """
-  return lambda data: pickle.dump(data, file_handle)
+  ref_time = time.time()
+  return lambda data: pickle.dump(format_log_entry(ref_time, data), handle)
 
 def generate_log_filename():
   """
@@ -306,6 +309,28 @@ def generate_log_filename():
   host = socket.gethostname()
   timestamp = calendar.timegm(time.gmtime())
   return "serial_link-%s-%s.log" % (host, timestamp)
+
+def format_log_entry(t0, item):
+  """
+  Generates a Python object with logging metadata.
+
+  Parameters
+  ----------
+  t0 : float
+    Reference time (seconds)
+  item : object
+    Python object to serialize
+
+  Returns
+  ----------
+  (delta, timestamp, item) : tuple
+    delta = msec reference timestamp (int)
+    timestamp = current timestamp (int - UTC epoch)
+    item = Python object to serialize
+  """
+  timestamp = calendar.timegm(time.gmtime())
+  delta = int((time.time() - t0)*1000)
+  return (delta, timestamp, item)
 
 if __name__ == "__main__":
   import argparse
