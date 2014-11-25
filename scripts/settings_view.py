@@ -12,7 +12,11 @@
 from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool, Str, Color, Constant, Font, Undefined, Property, Any, Enum
 from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, TextEditor, EnumEditor
 from traitsui.tabular_adapter import TabularAdapter
-from enable.savage.trait_defs.ui.svg_button import SVGButton
+from traits.etsconfig.api import ETSConfig
+if ETSConfig.toolkit != 'null':
+  from enable.savage.trait_defs.ui.svg_button import SVGButton
+else:
+  SVGButton = dict
 from pyface.api import GUI
 
 import struct
