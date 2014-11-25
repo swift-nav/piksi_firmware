@@ -12,7 +12,11 @@
 from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool, Str, Color, Constant, Font, Undefined, Property, Any, Enum
 from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, TextEditor, EnumEditor
 from traitsui.tabular_adapter import TabularAdapter
-from enable.savage.trait_defs.ui.svg_button import SVGButton
+from traits.etsconfig.api import ETSConfig
+if ETSConfig.toolkit != 'null':
+  from enable.savage.trait_defs.ui.svg_button import SVGButton
+else:
+  SVGButton = dict
 from pyface.api import GUI
 
 import struct
@@ -35,6 +39,12 @@ class SettingBase(HasTraits):
   ordering = Float(0)
 
   traits_view = View()
+
+  def __repr__(self):
+    return "<Setting '%s' = '%s'>" % (self.name, self.value)
+
+  def __str__(self):
+    return self.value
 
 class Setting(SettingBase):
   full_name = Str()
@@ -190,7 +200,10 @@ class SettingsView(HasTraits):
           self.settings_list.append(setting)
 
       for cb in self.read_finished_functions:
-        GUI.invoke_later(cb)
+        if self.gui_mode:
+          GUI.invoke_later(cb)
+        else:
+          cb()
       return
 
     section, setting, value, format_type = data[2:].split('\0')[:4]
@@ -240,9 +253,10 @@ class SettingsView(HasTraits):
       self.link.send_message(ids.SETTINGS,
           '%s\0%s\0%s\0' % (section, name, value))
 
-  def __init__(self, link, read_finished_functions=[]):
+  def __init__(self, link, read_finished_functions=[], gui_mode=True):
     super(SettingsView, self).__init__()
 
+    self.gui_mode = gui_mode
     self.enumindex = 0
     self.settings = {}
     self.link = link

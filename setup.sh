@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Yet another test edit!
 # Copyright (C) 2014 Swift Navigation Inc.
 # Contact: Bhaskar Mookerji <mookerji@swiftnav.com>
 
@@ -148,13 +147,13 @@ function run_all_platforms () {
     if [ ! -e ./setup.sh ] ; then
         log_error "Error: setup.sh should be run from piksi_firmware toplevel." >&2
         exit 1
-    elif [[ "$OSTYPE" == "linux-gnu" ]]; then
+    elif [[ "$OSTYPE" == "linux-"* ]]; then
         piksi_splash_linux
         log_info "Checking system dependencies for Linux..."
         log_info "Please enter your password for apt-get..."
         log_info "Updating..."
         sudo apt-get update
-        sudo apt-get install -y ansible
+        sudo apt-get install -y curl ansible
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         piksi_splash_osx
         log_info "Checking system dependencies for OSX..."
@@ -168,7 +167,13 @@ function run_all_platforms () {
     ansible-playbook -v --ask-sudo-pass -i setup/ansible/inventory.ini \
         setup/ansible/provision.yml --connection=local
     build
-    log_info "Done!."
+    log_info "Done!"
+}
+
+function show_help() {
+    echo "setup.sh script was not called with any arguments."
+    echo "To call, use ... bash setup.sh -x install."
+    exit 1
 }
 
 set -e -u
@@ -178,20 +183,21 @@ while getopts ":x:" opt; do
         x)
             if [[ "$OPTARG" == "install" ]]; then
                 run_all_platforms
+                exit 0
             elif [[ "$OPTARG" == "info" ]]; then
                 log_info "piksi_firmware development installer"
+                exit 0
             else
                 echo "Invalid option: -x $OPTARG" >&2
-                exit 1
             fi
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
-            exit 1
             ;;
         :)
             echo "Option -$OPTARG requires an argument." >&2
-            exit 1
             ;;
     esac
+    exit 1
 done
+show_help
