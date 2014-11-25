@@ -21,7 +21,7 @@ make
 # Power cycle devices
 ./cycle_device_power.py $1 $2
 
-sleep 2
+sleep 1
 
 # Bootload STM firmware, doing a full erase
 cd ..
@@ -35,7 +35,7 @@ cd testing
 # Power cycle devices again
 ./cycle_device_power.py $1 $2
 
-sleep 2
+sleep 1
 
 # Bootload NAP firmware
 cd ..
