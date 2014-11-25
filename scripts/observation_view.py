@@ -237,7 +237,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     if self.recording:
       if self.eph_file is None:
         self.eph_file = open(self.name+self.t.strftime("-%Y%m%d-%H%M%S.eph"),  'w')
-        header = "time, "
+        header = "time, " \
                + "tgd, " \
                + "crs, crc, cuc, cus, cic, cis, " \
                + "dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot, " \
