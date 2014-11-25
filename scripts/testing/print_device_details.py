@@ -3,11 +3,13 @@
 import sys, os
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
+from traits.etsconfig.api import ETSConfig
+ETSConfig.toolkit = 'null'
+
 import serial_link
 import settings_view
 import argparse
 import time
-import pprint
 
 parser = argparse.ArgumentParser(description='Print Piksi device details.')
 parser.add_argument('-p', '--port',
@@ -37,7 +39,6 @@ sv = settings_view.SettingsView(link, read_finished_functions=[callback], gui_mo
 
 while not settings_read:
   time.sleep(1)
-  print settings_read
 
 print "===================================="
 print "Piksi Device", serial_port
