@@ -16,16 +16,9 @@ import time
 import sys
 
 import sbp_piksi as ids
-
-try:
-  import libsbp.nav_messages as nav
-  import libsbp.piksi_messages as piksi
-  from libsbp.sbp import SBP
-except ImportError:
-  print 'libsbp is unavailable.'
 import cPickle as pickle
-import socket
 import calendar
+import socket
 
 DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 1000000
@@ -97,7 +90,7 @@ class ListenerThread (threading.Thread):
             self.link.ser.close()
           break
         if mt is not None:
-          for cb in self.link.get_callback():
+          for cb in self.link.get_global_callbacks():
             cb(sbp)
           cbs = self.link.get_callback(mt)
           if cbs is None or len(cbs) == 0:
@@ -210,9 +203,9 @@ class SerialLink:
 
     if crc != crc_received:
       print "Host Side CRC mismatch: 0x%04X 0x%04X" % (crc, crc_received)
-      return SBP(None, None, None, None, None)
+      return ids.SBP(None, None, None, None, None)
 
-    return SBP(msg_type, sender_id, msg_len, data, crc)
+    return ids.SBP(msg_type, sender_id, msg_len, data, crc)
 
   def send_message(self, msg_type, msg, sender_id=0x42):
     framed_msg = struct.pack('<BHHB', SBP_PREAMBLE, msg_type, sender_id, len(msg))
@@ -225,18 +218,20 @@ class SerialLink:
   def send_char(self, char):
     self.ser.write(char)
 
-  def add_callback(self, callback, msg_type=None):
+  def add_callback(self, msg_type, callback):
     """
-    Add a named callback for a specific SBP message type, or a global
-    callback for all SBP messages.
+    Add a named callback for a specific SBP message type.
     """
-    if msg_type is None:
-      self.global_callbacks.append(callback)
-    else:
-      try:
-        self.callbacks[msg_type].append(callback)
-      except KeyError:
-        self.callbacks[msg_type] = [callback]
+    try:
+      self.callbacks[msg_type].append(callback)
+    except KeyError:
+      self.callbacks[msg_type] = [callback]
+
+  def add_global_callback(self, callback):
+    """
+    Add a global callback for all SBP messages.
+    """
+    self.global_callbacks.append(callback)
 
   def rm_callback(self, msg_type, callback):
     try:
@@ -248,18 +243,21 @@ class SerialLink:
       print "Can't remove callback for msg 0x%04x: callback not registered" \
             % msg_type
 
-  def get_callback(self, msg_type=None):
+  def get_callback(self, msg_type):
+    """
+    Retrieve a named callback for a specific SBP message type.
+    """
+    if msg_type in self.callbacks:
+      return self.callbacks[msg_type]
+    else:
+      return None
+
+  def get_global_callbacks(self):
     """
     Retrieve a named callback for a specific SBP message type, or a global
     callback for all SBP messages.
     """
-    if msg_type is None:
-      return self.global_callbacks
-    else:
-      if msg_type in self.callbacks:
-        return self.callbacks[msg_type]
-      else:
-        return None
+    return self.global_callbacks
 
   def wait_message(self, msg_type, timeout=None):
     ev = threading.Event()
@@ -299,16 +297,15 @@ def default_log_callback(handle):
 
 def generate_log_filename():
   """
-  Generates a consistent filename for logging.
+  Generates a consistent filename for logging, for example:
+  serial_link_log_20141125-140552.log
 
   Returns
   ----------
   filename : str
-    Format with filename: serial_link-<hostname>-<utc epoch>.log.
+
   """
-  host = socket.gethostname()
-  timestamp = calendar.timegm(time.gmtime())
-  return "serial_link-%s-%s.log" % (host, timestamp)
+  return time.strftime("serial_link_log_%Y%m%d-%H%M%S.log")
 
 def format_log_entry(t0, item):
   """
@@ -356,7 +353,7 @@ if __name__ == "__main__":
   baud = args.baud[0]
   link = SerialLink(serial_port, baud, use_ftdi=args.ftdi,
                     print_unhandled=args.verbose)
-  link.add_callback(default_print_callback, ids.PRINT)
+  link.add_callback(ids.PRINT, default_print_callback)
   # Setup logging
   log_file = None
   if args.log:
@@ -368,7 +365,7 @@ if __name__ == "__main__":
     log_name = generate_log_filename()
     log_file = open(log_name, 'w+')
     print "Logging at %s." % log_name
-    link.add_callback(default_log_callback(log_file))
+    link.add_global_callback(default_log_callback(log_file))
   try:
     while True:
       time.sleep(0.1)
