@@ -223,7 +223,6 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     self.rinex_save()
 
   def ephemeris_callback(self, data, sender=None):
-    print "GOT AN EPHEMERIS BRO"
     gps_time_fmt = "dH"
     eph_fmt = "<" + "d"*19 + gps_time_fmt*2 + "BBB"
     eph_size = struct.calcsize(eph_fmt)
@@ -248,16 +247,17 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
                + "healthy, " \
                + "prn\n"
         self.eph_file.write(header)
-      self.eph_file.write("%s %10.7f" % (self.t.strftime(" %y %m %d %H %M"),
-                                              self.t.second + self.t.microsecond*1e-6))
-      strout = "," + str([tgd, \
-                          crs, crc, cuc, cus, cic, cis, \
-                          dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot, \
-                          af0, af1, af2, \
-                          toe_tow, toe_wn, toc_tow, toc_wn, \
-                          valid, \
-                          healthy, \
-                          prn])[1: -1] + "\n"
+
+      strout = "%s %10.7f" % (self.t.strftime(" %y %m %d %H %M"),
+                              self.t.second + self.t.microsecond*1e-6)
+      strout += "," + str([tgd, \
+                           crs, crc, cuc, cus, cic, cis, \
+                           dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot, \
+                           af0, af1, af2, \
+                           toe_tow, toe_wn, toc_tow, toc_wn, \
+                           valid, \
+                           healthy, \
+                           prn])[1: -1] + "\n"
       self.eph_file.write(strout)
       self.eph_file.flush()
 
