@@ -222,23 +222,64 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     self.update_obs()
     self.rinex_save()
 
+  def ephemeris_callback(self, data, sender=None):
+    gps_time_fmt = "dH"
+    eph_fmt = "<" + "d"*19 + gps_time_fmt*2 + "BBB"
+    eph_size = struct.calcsize(eph_fmt)
+    tgd, \
+    crs, crc, cuc, cus, cic, cis, \
+    dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot, \
+    af0, af1, af2, \
+    toe_tow, toe_wn, toc_tow, toc_wn, \
+    valid, \
+    healthy, \
+    prn = struct.unpack(eph_fmt, data[:eph_size])
+    if self.recording:
+      if self.eph_file is None:
+        self.eph_file = open(self.name+self.t.strftime("-%Y%m%d-%H%M%S.eph"),  'w')
+        header = "time, " \
+               + "tgd, " \
+               + "crs, crc, cuc, cus, cic, cis, " \
+               + "dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot, " \
+               + "af0, af1, af2, " \
+               + "toe_tow, toe_wn, toc_tow, toc_wn, " \
+               + "valid, " \
+               + "healthy, " \
+               + "prn\n"
+        self.eph_file.write(header)
+
+      strout = "%s %10.7f" % (self.t.strftime(" %y %m %d %H %M"),
+                              self.t.second + self.t.microsecond*1e-6)
+      strout += "," + str([tgd, \
+                           crs, crc, cuc, cus, cic, cis, \
+                           dn, m0, ecc, sqrta, omega0, omegadot, w, inc, inc_dot, \
+                           af0, af1, af2, \
+                           toe_tow, toe_wn, toc_tow, toc_wn, \
+                           valid, \
+                           healthy, \
+                           prn])[1: -1] + "\n"
+      self.eph_file.write(strout)
+      self.eph_file.flush()
+
+
   def __init__(self, link, name='Rover', relay=False):
     super(ObservationView, self).__init__()
 
     self.obs_count = 0
 
-    self.gps_tow = 0.0
+    self.gps_tow  = 0.0
     self.gps_week = 0
 
     self.relay = relay
-    self.name = name
+    self.name  = name
 
     self.rinex_file = None
+    self.eph_file   = None
 
     self.link = link
     self.link.add_callback(ids.OLD_OBS, self.old_obs_callback)
     self.link.add_callback(ids.PACKED_OBS, self.obs_packed_callback)
-
+    self.link.add_callback(ids.EPHEMERIS, self.ephemeris_callback)
 
     self.python_console_cmds = {
       'obs': self

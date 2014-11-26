@@ -132,6 +132,8 @@ typedef struct __attribute__((packed)) {
   latency_t obs_latency;
 } msg_uart_state_t;
 
+#define MSG_EPHEMERIS             0x1A  /**< Piksi  -> Host  */
+
 #define MSG_ACQ_RESULT            0x15  /**< Piksi  -> Host  */
 typedef struct __attribute__((packed)) {
   float snr; /* SNR of best point. */

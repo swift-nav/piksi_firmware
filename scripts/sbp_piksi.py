@@ -14,6 +14,29 @@ import os
 
 import os, sys
 
+class SBP(object):
+  """
+  Swift Binary Protocol container. This definition is provided here
+  until the libsbp module is actually distributed.
+
+  """
+
+  _PREAMBLE = 0x55
+
+  def __init__(self, msg_type, sender, length, payload, crc):
+    self.preamble = SBP._PREAMBLE
+    self.msg_type = msg_type
+    self.sender = sender
+    self.length = length
+    self.payload = payload
+    self.crc = crc
+
+  def __repr__(self):
+    p = (self.preamble, self.msg_type, self.sender, self.length,
+         self.payload, self.crc)
+    fmt = "<SBP (preamble=0x%X, msg_type=0x%X, sender=%s, length=%d, payload=%s, crc=0x%X)>"
+    return fmt % p
+
 if getattr(sys, 'frozen', False):
   # we are running in a |PyInstaller| bundle
   basedir = sys._MEIPASS
@@ -44,4 +67,3 @@ msgs = re.findall('^\s*#define\s+MSG_([A-Z0-9_]+)\s+0x([A-F0-9][A-F0-9])',
 
 for name, id in msgs:
   globals()[name] = int(id, 16)
-
