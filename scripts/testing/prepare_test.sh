@@ -18,29 +18,35 @@
 
 make
 
-# Power cycle devices
-./cycle_device_power.py $1 $2
+# For each device:
+# 1) Power cycle
+# 2) Load STM firmware using bootloader, doing a full erase of the STM flash
+# 3) Power cycle again
+# 4) Load NAP firmware
 
+# ==== DEVICE 1 =============================================
+
+./cycle_device_power.py $1
 sleep 1
-
-# Bootload STM firmware, doing a full erase
 cd ..
-pwd
-./bootload.py -e -s -p $1 testing/$3 > testing/bootload_log1 &
-./bootload.py -e -s -p $2 testing/$3 > testing/bootload_log2
-wait
-
+./bootload.py -e -s -p $1 testing/$3 > testing/bootload_log1
+cd testing
+./cycle_device_power.py $1
+sleep 1
+cd ..
+./bootload.py -m -p $1 testing/$4  >> testing/bootload_log1
 cd testing
 
-# Power cycle devices again
-./cycle_device_power.py $1 $2
+# ==== DEVICE 2 =============================================
 
+./cycle_device_power.py $2
 sleep 1
-
-# Bootload NAP firmware
 cd ..
-./bootload.py -m -p $1 testing/$4  >> testing/bootload_log1 &
-./bootload.py -m -p $2 testing/$4  >> testing/bootload_log2
-wait
-
+./bootload.py -e -s -p $2 testing/$3 > testing/bootload_log1
 cd testing
+./cycle_device_power.py $2
+sleep 1
+cd ..
+./bootload.py -m -p $2 testing/$4  >> testing/bootload_log1
+cd testing
+
