@@ -50,3 +50,6 @@ cd ..
 ./bootload.py -m -p $2 testing/$4  >> testing/bootload_log1
 cd testing
 
+# Sleep for a while to make sure both devices are booted up and ready to go
+sleep 10
+
