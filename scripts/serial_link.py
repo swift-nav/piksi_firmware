@@ -357,11 +357,6 @@ if __name__ == "__main__":
   # Setup logging
   log_file = None
   if args.log:
-    try:
-      import libsbp
-    except ImportError:
-      print 'libsbp required for logging serialized SBP messages.'
-      sys.exit(1)
     log_name = generate_log_filename()
     log_file = open(log_name, 'w+')
     print "Logging at %s." % log_name
