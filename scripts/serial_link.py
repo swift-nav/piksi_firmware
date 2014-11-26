@@ -170,7 +170,7 @@ class SerialLink:
   def get_message(self):
     while True:
       if self.lt.wants_to_stop:
-        return (None, None, None)
+        return ids.SBP(None, None, None, None, None)
 
       # Sync with magic start bytes
       magic = self.ser.read(1)
