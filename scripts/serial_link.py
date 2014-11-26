@@ -211,7 +211,7 @@ class SerialLink:
     framed_msg = struct.pack('<BHHB', SBP_PREAMBLE, msg_type, sender_id, len(msg))
     framed_msg += msg
     crc = crc16(framed_msg[1:], 0)
-    ramed_msg += struct.pack('<H', crc)
+    framed_msg += struct.pack('<H', crc)
 
     self.ser.write(framed_msg)
 
