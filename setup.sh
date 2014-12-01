@@ -167,7 +167,7 @@ function run_all_platforms () {
     ansible-playbook -v --ask-sudo-pass -i setup/ansible/inventory.ini \
         setup/ansible/provision.yml --connection=local
     build
-    log_info "Done!."
+    log_info "Done!"
 }
 
 function show_help() {
