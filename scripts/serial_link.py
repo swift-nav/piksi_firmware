@@ -275,8 +275,9 @@ def default_print_callback(data):
 
 def default_log_callback(handle):
   """
-  Callback for serializing Python objects to a file with a consistent logging
-  format:
+  Callback for binary serializing Python objects to a file with a
+  consistent logging format:
+
     (delta, timestamp, item) : tuple
       delta = msec reference timestamp (int)
       timestamp = current timestamp (int - UTC epoch)
@@ -291,9 +292,13 @@ def default_log_callback(handle):
   ----------
   pickler : lambda data
     Function that will serialize Python object to open file_handle
+
   """
   ref_time = time.time()
-  return lambda data: pickle.dump(format_log_entry(ref_time, data), handle)
+  protocol = 2
+  return lambda data: pickle.dump(format_log_entry(ref_time, data),
+                                  handle,
+                                  protocol)
 
 def generate_log_filename():
   """
@@ -383,4 +388,3 @@ if __name__ == "__main__":
     if log_file:
       log_file.close()
     link.close()
-
