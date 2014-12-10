@@ -144,7 +144,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 
   nav_msg_init(&chan->nav_msg);
 
-  chan->int_ms = 1;
+  chan->int_ms = chan->next_int_ms = 1;
 
   /* Starting carrier phase is set to zero as we don't
    * know the carrier freq well enough to calculate it.
@@ -278,19 +278,19 @@ void tracking_channel_update(u8 channel)
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
         /* Now that we have TOW we can transition to longer integration */
         log_info("Increasing integration time for PRN %d\n", chan->prn+1);
-        chan->int_ms = 20;
         /* Recalculate filter coefficients */
         aided_tl_init(&chan->tl_state, 1e3 / chan->int_ms,
                       chan->tl_state.code_freq, 1, 0.7, 1,
                       chan->tl_state.carr_freq, 15, 0.7, 1,
                       0);
+        chan->next_int_ms = 20;
       }
 
       nap_track_update_wr_blocking(
         channel,
         chan->carrier_freq_fp,
         chan->code_phase_rate_fp,
-        chan->int_ms - 1, 0
+        chan->next_int_ms - 1, 0
       );
 
       break;
