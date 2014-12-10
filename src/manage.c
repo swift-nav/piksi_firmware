@@ -252,7 +252,7 @@ void manage_acq()
   // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
   track_count += 16*(1023.0-cp)*(1.0 + cf / GPS_L1_HZ);
 
-  tracking_channel_init(chan, prn, cf, track_count);
+  tracking_channel_init(chan, prn, cf, track_count, snr);
   acq_prn_param[prn].state = ACQ_PRN_TRACKING;
   nap_timing_strobe_wait(100);
 }
