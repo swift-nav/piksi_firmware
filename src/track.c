@@ -132,8 +132,6 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
                 carrier_freq, 25, 0.7, 1,
                 5);
 
-  tracking_channel[channel].I_filter = (u32)lroundf(snr * (1 << I_FILTER_COEFF));
-  tracking_channel[channel].Q_filter = 1 << Q_FILTER_COEFF;
   tracking_channel[channel].code_phase_early = 0;
   tracking_channel[channel].code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   tracking_channel[channel].code_phase_rate_fp_prev = tracking_channel[channel].code_phase_rate_fp;
@@ -145,6 +143,11 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   tracking_channel[channel].sample_count = start_sample_count;
 
   nav_msg_init(&tracking_channel[channel].nav_msg);
+
+  /* Initialise C/N0 estimator */
+  float cn0 = 10 * log10(snr);
+  cn0 += 10 * log10(1000); /* Bandwidth */
+  cn0_est_init(&tracking_channel[channel].cn0_est, 1e3, cn0, 5, 1e3);
 
   /* Starting carrier phase is set to zero as we don't
    * know the carrier freq well enough to calculate it.
@@ -239,20 +242,8 @@ void tracking_channel_update(u8 channel)
        * tracking_channel_get_corrs. */
       corr_t* cs = chan->cs;
 
-      /* Update I and Q magnitude filters for SNR calculation.
-       * filter = (1 - 2^-FILTER_COEFF)*filter + correlation_magnitude
-       * If filters are uninitialised (=0) then initialise them with the
-       * first set of correlations.
-       */
-      if (chan->I_filter == 0 && chan->Q_filter == 0) {
-        chan->I_filter = abs(cs[1].I) << I_FILTER_COEFF;
-        chan->Q_filter = abs(cs[1].Q) << Q_FILTER_COEFF;
-      } else {
-        chan->I_filter -= chan->I_filter >> I_FILTER_COEFF;
-        chan->I_filter += abs(cs[1].I);
-        chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
-        chan->Q_filter += abs(cs[1].Q);
-      }
+      /* Update C/N0 estimate */
+      chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I);
 
       /* Run the loop filters. */
 
@@ -348,9 +339,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
  */
 float tracking_channel_snr(u8 channel)
 {
-  /* Calculate SNR from I and Q filtered magnitudes. */
-  return (float)(tracking_channel[channel].I_filter >> I_FILTER_COEFF) / \
-                (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
+  return tracking_channel[channel].cn0;
 }
 
 /** Send tracking state SBP message.

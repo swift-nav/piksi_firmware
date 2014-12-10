@@ -24,9 +24,6 @@
 /** \addtogroup tracking
  * \{ */
 
-#define I_FILTER_COEFF 4
-#define Q_FILTER_COEFF 10
-
 #define TRACKING_DISABLED 0 /**< Tracking channel disabled state. */
 #define TRACKING_RUNNING  1 /**< Tracking channel running state. */
 
@@ -51,12 +48,12 @@ typedef struct {
   s32 carrier_freq_fp;         /**< Carrier frequency in NAP register units. */
   s32 carrier_freq_fp_prev;    /**< Previous carrier frequency in NAP register units. */
   double carrier_freq;         /**< Carrier frequency Hz. */
-  u32 I_filter;                /**< Filtered Prompt I correlations. */
-  u32 Q_filter;                /**< Filtered Prompt Q correlations. */
   u32 corr_sample_count;       /**< Number of samples in correlation period. */
   corr_t cs[3];                /**< EPL correlation results in correlation period. */
   nav_msg_t nav_msg;           /**< Navigation message of channel SV. */
   u16 lock_counter;            /**< Lock counter. Increments when tracking new signal. */
+  cn0_est_state_t cn0_est;     /**< C/N0 Estimator. */
+  float cn0;                   /**< Current estimate of C/N0. */
 } tracking_channel_t;
 
 /** \} */
