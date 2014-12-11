@@ -14,5 +14,8 @@
 - name: Copy gcc-arm to destination directory.
   shell: cp -r gcc-arm-none-eabi-4_7-2013q1/ ~/gcc-arm-none-eabi
 
+- name: Check bash profile.
+  shell: touch ~/.bash_profile
+
 - name: Add arm-gcc directory to PATH
   shell: echo '\nexport PATH=$PATH:~/gcc-arm-none-eabi/bin' >> ~/.bash_profile
