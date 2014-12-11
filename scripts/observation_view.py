@@ -257,7 +257,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
                            toe_tow, toe_wn, toc_tow, toc_wn, \
                            valid, \
                            healthy, \
-                           prn])[1: -1] + "\n"
+                           prn+1])[1: -1] + "\n"
       self.eph_file.write(strout)
       self.eph_file.flush()
 
