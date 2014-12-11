@@ -148,13 +148,13 @@ function run_all_platforms () {
     if [ ! -e ./setup.sh ] ; then
         log_error "Error: setup.sh should be run from piksi_firmware toplevel." >&2
         exit 1
-    elif [[ "$OSTYPE" == "linux-gnu" ]]; then
+    elif [[ "$OSTYPE" == "linux-"* ]]; then
         piksi_splash_linux
         log_info "Checking system dependencies for Linux..."
         log_info "Please enter your password for apt-get..."
         log_info "Updating..."
         sudo apt-get update
-        sudo apt-get install -y ansible
+        sudo apt-get install -y curl ansible
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         piksi_splash_osx
         log_info "Checking system dependencies for OSX..."
