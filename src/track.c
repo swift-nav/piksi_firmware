@@ -220,7 +220,7 @@ void tracking_channel_update(u8 channel)
       }
 
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
-      s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I);
+      s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, 1);
 
       if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
         if (chan->TOW_ms > 0) {
