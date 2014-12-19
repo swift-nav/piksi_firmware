@@ -125,16 +125,11 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sam
   tracking_channel[channel].snr_above_threshold_count = 0;
   tracking_channel[channel].snr_below_threshold_count = 0;
 
-  /* PLL parameters obtained through numerical optimization were:
-   *   pll_pgain = 242.6, pll_igain = 8.9, pll_freq_igain 29.3
-   * The I and P gains correspond approximately too the (25, 0.7, 1) parameters
-   * we are currently using.
-   */
-
+  /* TODO PLL parameters obtained through numerical optimization. */
   aided_tl_init(&(tracking_channel[channel].tl_state), 1e3,
                 code_phase_rate-1.023e6, 1, 0.7, 1,
                 carrier_freq, 25, 0.7, 1,
-                29.3);
+                5);
 
   tracking_channel[channel].I_filter = 0;
   tracking_channel[channel].Q_filter = 0;
