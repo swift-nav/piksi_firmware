@@ -331,14 +331,10 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         /* Update base_obss with complete new observation set. */
         memcpy(&base_obss, &base_obss_raw, sizeof(obss_t));
         chMtxUnlock();
+        /* Signal that a complete base observation has been received. */
+        chBSemSignal(&base_obs_received);
       }
     }
-  }
-
-
-  if (count == total - 1) {
-    /* Signal that a complete base observation has been received. */
-    chBSemSignal(&base_obs_received);
   }
 }
 
@@ -769,8 +765,11 @@ static msg_t time_matched_obs_thread(void *arg)
 
           /* In practice this should basically never happen so lets make a note
            * if it does. */
-          printf("Obs Matching: t_base < t_rover (%f)\n", dt);
-
+          printf("Obs Matching: t_base < t_rover "
+                 "(dt=%f obss.t={%d,%f} base_obss.t={%d,%f})\n", dt,
+                 obss->t.wn, obss->t.tow,
+                 base_obss.t.wn, base_obss.t.tow
+          );
           /* Return the buffer to the mailbox so we can try it again later. */
           msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
           if (ret != RDY_OK) {
