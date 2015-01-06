@@ -247,6 +247,9 @@ void tracking_channel_update(u8 channel)
        * tracking_channel_get_corrs. */
       corr_t* cs = chan->cs;
 
+      /* Update C/N0 estimate */
+      chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I);
+
       /* Run the loop filters. */
 
       /* TODO: Make this more elegant. */
