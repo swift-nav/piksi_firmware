@@ -119,7 +119,7 @@ class TrackingView(HasTraits):
     self.plot = Plot(self.plot_data, auto_colors=colours_list)
     self.plot.title = "Tracking C/N0"
     self.plot.value_range.margin = 0.1
-    self.plot.value_range.bounds_func = lambda l, h, m, tb: (0, h*(1+m))
+    self.plot.value_range.bounds_func = lambda l, h, m, tb: (30, h*(1+m))
     self.plot.value_axis.orientation = 'right'
     self.plot.value_axis.axis_line_visible = False
     t = range(NUM_POINTS)
