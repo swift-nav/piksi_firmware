@@ -163,8 +163,8 @@ function run_all_platforms () {
         log_error "This script does not support this platform. Please contact mookerji@swiftnav.com."
         exit 1
     fi
-    setup_ansible_plugins
-    ansible-playbook -v --ask-sudo-pass -i setup/ansible/inventory.ini \
+    #setup_ansible_plugins
+    ansible-playbook --ask-sudo-pass -i setup/ansible/inventory.ini \
         setup/ansible/provision.yml --connection=local
     build
     log_info "Done!"

@@ -18,4 +18,4 @@
   shell: echo '\nexport PATH=$PATH:~/gcc-arm-none-eabi/gcc-arm-none-eabi-4_8-2014q3/bin' >> ~/.bashrc
 
 - name: Update PATH
-  shell: source ~/.bashrc
+  shell: . ~/.bashrc
