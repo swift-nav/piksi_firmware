@@ -142,6 +142,15 @@ function setup_ansible_plugins () {
         https://raw.githubusercontent.com/ginsys/ansible-plugins/devel/callback_plugins/human_log.py
 }
 
+function install_ansible () {
+    # Required if Ansible's not already available via apt-get.
+    if [[ ! -x /usr/bin/ansible ]]; then
+        log_info "Installing ansible from custom repo..."
+        sudo add-apt-repository ppa:rquillo/ansible
+        sudo apt-get update && sudo apt-get install ansible
+    fi
+}
+
 function run_all_platforms () {
     if [ ! -e ./setup.sh ] ; then
         log_error "Error: setup.sh should be run from piksi_firmware toplevel." >&2
@@ -152,7 +161,8 @@ function run_all_platforms () {
         log_info "Please enter your password for apt-get..."
         log_info "Updating..."
         sudo apt-get update
-        sudo apt-get install -y curl ansible
+        sudo apt-get install -y curl
+        sudo apt-get install -y ansible || install_ansible
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         piksi_splash_osx
         log_info "Checking system dependencies for OSX..."
