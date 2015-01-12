@@ -48,7 +48,6 @@ function build () {
     git submodule init
     git submodule update
     log_info "Building piksi_firmware..."
-    source ~/.bash_profile
     make clean
     make
 }
@@ -163,17 +162,20 @@ function run_all_platforms () {
         log_error "This script does not support this platform. Please contact mookerji@swiftnav.com."
         exit 1
     fi
-    #setup_ansible_plugins
+    # setup_ansible_plugins
     ansible-playbook --ask-sudo-pass -i setup/ansible/inventory.ini \
         setup/ansible/provision.yml --connection=local
-    build
     log_info "Done!"
 }
 
 function show_help() {
-    echo "setup.sh script was not called with any arguments."
-    echo "To call, use ... bash setup.sh -x install."
-    exit 1
+    log_info "piksi_firmware development setup script."
+    log_info ""
+    log_info "Usage: bash setup.sh -x <command>, where:"
+    log_info "   install, Install dependencies."
+    log_info "   build,   Build firmware."
+    log_info "   help,    This help message."
+    log_info ""
 }
 
 set -e -u
@@ -184,8 +186,15 @@ while getopts ":x:" opt; do
             if [[ "$OPTARG" == "install" ]]; then
                 run_all_platforms
                 exit 0
+            elif [[ "$OPTARG" == "build" ]]; then
+                log_info "build piksi_firmware."
+                build
+                exit 0
             elif [[ "$OPTARG" == "info" ]]; then
-                log_info "piksi_firmware development installer"
+                log_info "piksi_firmware development setup script.."
+                exit 0
+            elif [[ "$OPTARG" == "help" ]]; then
+                show_help
                 exit 0
             else
                 echo "Invalid option: -x $OPTARG" >&2

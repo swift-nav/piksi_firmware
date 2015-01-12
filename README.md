@@ -27,8 +27,8 @@ There are a few options:
   [here](http://downloads.swiftnav.com/piksi_console/).
 
 * **Development (native)**. To install dependencies for the
-  development tools for your platform (OS X, Ubuntu, or Debian), run
-  the setup script in this repository via `sudo bash setup.sh -x
+  development tools on your platform (OS X, Ubuntu, or Debian), run
+  the setup script in this repository via `bash setup.sh -x
   install`. If you're also building the firmware, you'll need to
   checkout the submodules as well.
 
