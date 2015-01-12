@@ -6,4 +6,4 @@
 
 # If apt-get install for arm fails, install manually.
 - include: arm_manual.yml
-  when: armgcc_manual.stdout == ""
+  when: armgcc.stdout == "" and armgcc_manual.stdout == ""
