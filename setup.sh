@@ -166,6 +166,8 @@ function run_all_platforms () {
     ansible-playbook --ask-sudo-pass -i setup/ansible/inventory.ini \
         setup/ansible/provision.yml --connection=local
     log_info "Done!"
+    log_info ""
+    log_info "If you'd to build the firmware, now run: bash setup.sh -x build."
 }
 
 function show_help() {

@@ -17,6 +17,7 @@
     - build-essential
     - python
     - python-setuptools
+    - python-pip
     - python-virtualenv
     - cmake
     - swig
