@@ -65,13 +65,13 @@ class SystemMonitorView(HasTraits):
   msg_obs_window_latency_ms = Int(0)
 
   traits_view = View(
-    HSplit(
+    VGroup(
       Item(
         '_threads_table_list', style = 'readonly',
         editor = TabularEditor(adapter=SimpleAdapter()),
         show_label=False, width=0.85,
       ),
-      VGroup(
+      HGroup(
         VGroup(
           Item('msg_obs_window_latency_ms', label='Obs Latency',
             style='readonly', format_str='%dms'),
