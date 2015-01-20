@@ -41,12 +41,14 @@ class SystemMonitorView(HasTraits):
   threads = List()
 
   uart_a_crc_error_count = Int(0)
+  uart_a_io_error_count = Int(0)
   uart_a_rx_buffer = Float(0)
   uart_a_tx_buffer = Float(0)
   uart_a_tx_KBps = Float(0)
   uart_a_rx_KBps = Float(0)
 
   uart_b_crc_error_count = Int(0)
+  uart_b_io_error_count = Int(0)
   uart_b_rx_buffer = Float(0)
   uart_b_tx_buffer = Float(0)
   uart_b_tx_KBps = Float(0)
@@ -54,6 +56,7 @@ class SystemMonitorView(HasTraits):
 
 
   ftdi_crc_error_count = Int(0)
+  ftdi_io_error_count = Int(0)
   ftdi_rx_buffer = Float(0)
   ftdi_tx_buffer = Float(0)
   ftdi_tx_KBps = Float(0)
@@ -84,8 +87,8 @@ class SystemMonitorView(HasTraits):
           label='Connection Monitor', show_border=True,
         ),
         VGroup(
-          Item('uart_a_crc_error_count', label='CRC Errors',
-            style='readonly'),
+          Item('uart_a_crc_error_count', label='CRC Errors', style='readonly'),
+          Item('uart_a_io_error_count', label='IO Errors', style='readonly'),
           Item('uart_a_tx_buffer', label='TX Buffer %',
                style='readonly', format_str='%.1f'),
           Item('uart_a_rx_buffer', label='RX Buffer %',
@@ -97,8 +100,8 @@ class SystemMonitorView(HasTraits):
           label='UART A', show_border=True,
         ),
         VGroup(
-          Item('uart_b_crc_error_count', label='CRC Errors',
-            style='readonly'),
+          Item('uart_b_crc_error_count', label='CRC Errors', style='readonly'),
+          Item('uart_b_io_error_count', label='IO Errors', style='readonly'),
           Item('uart_b_tx_buffer', label='TX Buffer %',
                style='readonly', format_str='%.1f'),
           Item('uart_b_rx_buffer', label='RX Buffer %',
@@ -110,8 +113,8 @@ class SystemMonitorView(HasTraits):
           label='UART B', show_border=True,
         ),
         VGroup(
-          Item('ftdi_crc_error_count', label='CRC Errors',
-            style='readonly'),
+          Item('ftdi_crc_error_count', label='CRC Errors', style='readonly'),
+          Item('ftdi_io_error_count', label='IO Errors', style='readonly'),
           Item('ftdi_tx_buffer', label='TX Buffer %',
                style='readonly', format_str='%.1f'),
           Item('ftdi_rx_buffer', label='RX Buffer %',
@@ -141,26 +144,33 @@ class SystemMonitorView(HasTraits):
     self.threads.append((th.name, th))
 
   def uart_state_callback(self, data):
-    state = struct.unpack('<ffHBBffHBBffHBBiiii', data)
-    self.uart_a_tx_KBps, self.uart_a_rx_KBps = state[0:2]
-    self.uart_a_crc_error_count = state[2]
+    state = struct.unpack('<ffHHBBffHHBBffHHBBiiii', data)
+    uarta = state[0:6]
+    uartb = state[6:12]
+    ftdi = state[12:18]
+
+    self.uart_a_tx_KBps, self.uart_a_rx_KBps = uarta[0:2]
+    self.uart_a_crc_error_count = uarta[2]
+    self.uart_a_io_error_count = uarta[3]
     self.uart_a_tx_buffer, self.uart_a_rx_buffer = map(
-      lambda x: 100.0 * x / 255.0, state[3:5])
+      lambda x: 100.0 * x / 255.0, uarta[4:6])
 
-    self.uart_b_tx_KBps, self.uart_b_rx_KBps = state[5:7]
-    self.uart_b_crc_error_count = state[7]
+    self.uart_b_tx_KBps, self.uart_b_rx_KBps = uartb[0:2]
+    self.uart_b_crc_error_count = uartb[2]
+    self.uart_b_io_error_count = uartb[3]
     self.uart_b_tx_buffer, self.uart_b_rx_buffer = map(
-      lambda x: 100.0 * x / 255.0, state[8:10])
+      lambda x: 100.0 * x / 255.0, uartb[4:6])
 
-    self.ftdi_tx_KBps, self.ftdi_rx_KBps = state[10:12]
-    self.ftdi_crc_error_count = state[12]
+    self.ftdi_tx_KBps, self.ftdi_rx_KBps = ftdi[0:2]
+    self.ftdi_crc_error_count = ftdi[2]
+    self.ftdi_io_error_count = ftdi[3]
     self.ftdi_tx_buffer, self.ftdi_rx_buffer = map(
-      lambda x: 100.0 * x / 255.0, state[13:15])
+      lambda x: 100.0 * x / 255.0, ftdi[4:6])
 
-    self.msg_obs_avg_latency_ms = state[15]
-    self.msg_obs_min_latency_ms = state[16]
-    self.msg_obs_max_latency_ms = state[17]
-    self.msg_obs_window_latency_ms = state[18]
+    self.msg_obs_avg_latency_ms = state[-4]
+    self.msg_obs_min_latency_ms = state[-3]
+    self.msg_obs_max_latency_ms = state[-2]
+    self.msg_obs_window_latency_ms = state[-1]
 
 
   def __init__(self, link):

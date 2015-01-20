@@ -76,10 +76,13 @@ static msg_t sbp_thread(void *arg)
     DO_EVERY(100,
       uart_state_msg.uarts[0].tx_throughput = usart_tx_throughput(&uarta_state.tx);
       uart_state_msg.uarts[0].rx_throughput = usart_rx_throughput(&uarta_state.rx);
+      uart_state_msg.uarts[0].io_error_count = uarta_state.rx.errors + uarta_state.tx.errors;
       uart_state_msg.uarts[1].tx_throughput = usart_tx_throughput(&uartb_state.tx);
       uart_state_msg.uarts[1].rx_throughput = usart_rx_throughput(&uartb_state.rx);
+      uart_state_msg.uarts[1].io_error_count = uartb_state.rx.errors + uartb_state.tx.errors;
       uart_state_msg.uarts[2].tx_throughput = usart_tx_throughput(&ftdi_state.tx);
       uart_state_msg.uarts[2].rx_throughput = usart_rx_throughput(&ftdi_state.rx);
+      uart_state_msg.uarts[2].io_error_count = ftdi_state.rx.errors + ftdi_state.tx.errors;
 
       if (latency_count > 0) {
         uart_state_msg.obs_latency.avg = (s32) (latency_accum_ms / latency_count);
