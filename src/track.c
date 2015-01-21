@@ -135,7 +135,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   aided_tl_init(&(tracking_channel[channel].tl_state), 1e3,
                 code_phase_rate-1.023e6, 1, 0.7, 1,
                 carrier_freq, 25, 0.7, 1,
-                29.3);
+                5);
 
   tracking_channel[channel].code_phase_early = 0;
   tracking_channel[channel].code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
