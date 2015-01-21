@@ -62,46 +62,48 @@ static msg_t nav_msg_thread(void *arg)
   }
 
   while (TRUE) {
+    chThdSleepMilliseconds(1000);
+
+    /* Check if there is a new nav msg subframe to process.
+     * TODO: move this into a function */
 
     /* TODO: This should be trigged by a semaphore from the tracking loop, not
      * just ran periodically. */
 
+    memcpy(es_old, es, sizeof(es));
 
     for (u8 i=0; i<nap_track_n_channels; i++) {
-      chThdSleepMilliseconds(100);
-      /* Check if there is a new nav msg subframe to process.
-       * TODO: move this into a function */
       if (tracking_channel[i].state == TRACKING_RUNNING &&
           tracking_channel[i].nav_msg.subframe_start_index) {
-
-        /* Save old ephemeris before potentially updating. */
-        memcpy(&es_old[tracking_channel[i].prn],
-               &es[tracking_channel[i].prn],
-               sizeof(ephemeris_t));
 
         __asm__("CPSID i;");
         s8 ret = process_subframe(&tracking_channel[i].nav_msg,
                                   &es[tracking_channel[i].prn]);
         __asm__("CPSIE i;");
 
-        if (ret < 0) {
+        if (ret < 0)
           printf("PRN %02d ret %d\n", tracking_channel[i].prn+1, ret);
-        } else if (ret == 1) {
-          /* Decoded a new ephemeris. */
 
-          if (memcmp(&es[tracking_channel[i].prn],
-                     &es_old[tracking_channel[i].prn],
-                     sizeof(ephemeris_t))) {
-            printf("New ephemeris for PRN %02d\n", tracking_channel[i].prn+1);
-          }
+        if (ret == 1 && !es[tracking_channel[i].prn].healthy) {
+          printf("PRN %02d unhealthy\n", tracking_channel[i].prn+1);
+        } else {
+          sbp_send_msg(MSG_EPHEMERIS, sizeof(ephemeris_t), (u8 *)&es[tracking_channel[i].prn]);
+        }
+        if (memcmp(&es[tracking_channel[i].prn],
+                   &es_old[tracking_channel[i].prn], sizeof(ephemeris_t))) {
 
-          if (!es[tracking_channel[i].prn].healthy) {
-            printf("PRN %02d unhealthy\n", tracking_channel[i].prn+1);
-          } else {
-            sbp_send_msg(MSG_EPHEMERIS,
-                         sizeof(ephemeris_t),
-                         (u8 *)&es[tracking_channel[i].prn]);
-          }
+          printf("New ephemeris for PRN %02d\n", tracking_channel[i].prn+1);
+
+          /* TODO: This is a janky way to set the time... */
+          gps_time_t t;
+          t.wn = es[tracking_channel[i].prn].toe.wn;
+          t.tow = tracking_channel[i].TOW_ms / 1000.0;
+          if (gpsdifftime(t, es[tracking_channel[i].prn].toe) > 2*24*3600)
+            t.wn--;
+          else if (gpsdifftime(t, es[tracking_channel[i].prn].toe) < 2*24*3600)
+            t.wn++;
+          /*set_time(TIME_COARSE, t);*/
+
         }
       }
     }

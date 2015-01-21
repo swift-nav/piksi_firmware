@@ -35,7 +35,7 @@ There are a few options:
   development VM. To do so, you will need to download
   [VirtualBox](https://www.virtualbox.org/wiki/Downloads) and
   [Vagrant](http://www.vagrantup.com/downloads.html), and then run
-  `vagrant up trusty` in this repository.
+  `vagrant up` in this repository.
 
 For additional details about the toolchain installation, please see
   http://docs.swift-nav.com/wiki/Piksi_Developer_Getting_Started_Guide .
