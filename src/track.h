@@ -54,6 +54,7 @@ typedef struct {
   u16 lock_counter;            /**< Lock counter. Increments when tracking new signal. */
   cn0_est_state_t cn0_est;     /**< C/N0 Estimator. */
   float cn0;                   /**< Current estimate of C/N0. */
+  int int_ms;                  /**< Integration length. */
 } tracking_channel_t;
 
 /** \} */
