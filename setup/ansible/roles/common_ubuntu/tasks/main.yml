@@ -1,2 +1,9 @@
 - include: sys_deps.yml
+
+# Install arm if it doesn't exist.
 - include: arm.yml
+  when: armgcc.stdout == ""
+
+# If apt-get install for arm fails, install manually.
+- include: arm_manual.yml
+  when: armgcc.stdout == "" and armgcc_manual.stdout == ""

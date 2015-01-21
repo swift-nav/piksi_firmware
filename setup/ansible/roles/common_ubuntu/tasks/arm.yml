@@ -1,21 +1,35 @@
-# Download and install arm-gcc compiler and add to path. This doesn't
-# run if already have it: i.e., if gcc-arm-none is already in your
-# PATH after sys_deps.yml.
+# Install arm-gcc tools via:
+# https://launchpad.net/~terry.guo/+archive/ubuntu/gcc-arm-embedded
 
-- name: Download GCC arm
-  shell: wget https://launchpad.net/gcc-arm-embedded/4.8/4.8-2014-q3-update/+download/gcc-arm-none-eabi-4_8-2014q3-20140805-linux.tar.bz2
+- name: Add ARM GCC repo toolchain repository
+  sudo: True
+  command: add-apt-repository -y ppa:terry.guo/gcc-arm-embedded
 
-- name: unzip ARM
-  shell: tar -jxvf gcc-arm-none-eabi-4_8-2014q3-20140805-linux.tar.bz2
+- name: Updating apt-cache
+  sudo: Yes
+  apt: update_cache=yes
 
-- name: Create arm-gcc directory.
-  shell: mkdir -p ~/gcc-arm-none-eabi
+- name: Install ARM GCC toolchain (Trusty)
+  sudo: True
+  shell: apt-get install gcc-arm-none-eabi=4.9.3.2014q4-0trusty12
+  when: ansible_distribution == 'Ubuntu' and ansible_distribution_version == '14.04'
 
-- name: Copy gcc-arm to destination directory.
-  shell: cp -r ~/gcc-arm-none-eabi-4_8-2014q3/ ~/gcc-arm-none-eabi
+- name: Install ARM GCC toolchain (Utopic)
+  sudo: True
+  shell: apt-get install gcc-arm-none-eabi=4.9.3.2014q4-0utopic12
+  when: ansible_distribution == 'Ubuntu' and ansible_distribution_version == '14.10'
 
-- name: Add arm-gcc directory to PATH
-  shell: echo '\nexport PATH=$PATH:~/gcc-arm-none-eabi/gcc-arm-none-eabi-4_8-2014q3/bin' >> ~/.bashrc
+- name: Install ARM GCC toolchain (all other Ubuntu distributions)
+  apt: pkg={{ item }} state=latest
+  sudo: True
+  ignore_errors: True
+  when: not (ansible_distribution_version == '14.04' or ansible_distribution_version == '14.10')
+  with_items:
+    - gcc-arm-none-eabi
 
-- name: Update PATH
-  shell: source ~/.bashrc
+# If arm-gcc installation does not succeed, register failture and
+# install manually with next role.
+- name: Checking for arm gcc again.
+  shell: which arm-none-eabi-gcc
+  register: armgcc_manual
+  ignore_errors: True

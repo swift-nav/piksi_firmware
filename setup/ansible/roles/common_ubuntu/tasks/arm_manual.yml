@@ -1,0 +1,21 @@
+# Download and install arm-gcc compiler and add to path. This doesn't
+# run if already have it: i.e., if gcc-arm-none is already in your
+# PATH after sys_deps.yml.
+
+- name: Download GCC arm
+  shell: wget https://launchpad.net/gcc-arm-embedded/4.8/4.8-2014-q3-update/+download/gcc-arm-none-eabi-4_8-2014q3-20140805-linux.tar.bz2
+
+- name: unzip ARM
+  shell: tar -jxvf gcc-arm-none-eabi-4_8-2014q3-20140805-linux.tar.bz2
+
+- name: Create arm-gcc directory.
+  shell: mkdir -p ~/gcc-arm-none-eabi
+
+- name: Copy gcc-arm to destination directory.
+  shell: cp -r ~/gcc-arm-none-eabi-4_8-2014q3/ ~/gcc-arm-none-eabi
+
+- name: Add arm-gcc directory to PATH
+  shell: echo '\nexport PATH=$PATH:~/gcc-arm-none-eabi/gcc-arm-none-eabi-4_8-2014q3/bin' >> ~/.bashrc
+
+- name: Update PATH
+  shell: . ~/.bashrc

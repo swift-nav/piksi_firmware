@@ -15,7 +15,6 @@
 
 - name: provision piksi development dependencies for Ubuntu
   hosts: Ubuntu
-  sudo: yes
   gather_facts: false
   roles:
     - common_ubuntu

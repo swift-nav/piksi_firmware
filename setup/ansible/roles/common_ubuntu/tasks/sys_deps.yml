@@ -1,6 +1,14 @@
 # Uses apt-get to install system-wide dependencies and pip to install
 # python dependencies.
 
+# If using Ubuntu 13.04, you may discover that some repositories are missing.
+# See this for details:
+# https://gist.github.com/dergachev/f5da514802fcbbb441a1
+- name: Handle Ubuntu 13.04 end of life.
+  sudo: True
+  shell: sed -i.bak -r 's/(archive|security).ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list
+  when: ansible_distribution == 'Ubuntu' and ansible_distribution_version == '13.04'
+
 - name: Install base Ubuntu packages
   apt: pkg={{ item }} state=installed update_cache=yes
   sudo: True
@@ -9,6 +17,7 @@
     - build-essential
     - python
     - python-setuptools
+    - python-pip
     - python-virtualenv
     - cmake
     - swig
@@ -39,7 +48,7 @@
   sudo: Yes
   apt: update_cache=yes
 
-- name: Install python dependencies
+- name: Install python Enthought dependencies
   sudo: True
   command: >
              pip install traits traitsui pyserial pylibftdi
@@ -47,3 +56,9 @@
              --allow-unverified PIL
              --allow-external intelhex
              --allow-unverified intelhex
+
+# Set up conditional installation for ARM GCC tooling later.
+- name: Checking for arm gcc
+  shell: which arm-none-eabi-gcc
+  register: armgcc
+  ignore_errors: true

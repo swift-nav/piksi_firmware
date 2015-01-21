@@ -48,7 +48,6 @@ function build () {
     git submodule init
     git submodule update
     log_info "Building piksi_firmware..."
-    source ~/.bash_profile
     make clean
     make
 }
@@ -143,6 +142,15 @@ function setup_ansible_plugins () {
         https://raw.githubusercontent.com/ginsys/ansible-plugins/devel/callback_plugins/human_log.py
 }
 
+function install_ansible () {
+    # Required if Ansible's not already available via apt-get.
+    if [[ ! -x /usr/bin/ansible ]]; then
+        log_info "Installing ansible from custom repo..."
+        sudo add-apt-repository ppa:rquillo/ansible
+        sudo apt-get update && sudo apt-get install ansible
+    fi
+}
+
 function run_all_platforms () {
     if [ ! -e ./setup.sh ] ; then
         log_error "Error: setup.sh should be run from piksi_firmware toplevel." >&2
@@ -153,7 +161,8 @@ function run_all_platforms () {
         log_info "Please enter your password for apt-get..."
         log_info "Updating..."
         sudo apt-get update
-        sudo apt-get install -y curl ansible
+        sudo apt-get install -y curl
+        sudo apt-get install -y ansible || install_ansible
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         piksi_splash_osx
         log_info "Checking system dependencies for OSX..."
@@ -163,17 +172,22 @@ function run_all_platforms () {
         log_error "This script does not support this platform. Please contact mookerji@swiftnav.com."
         exit 1
     fi
-    setup_ansible_plugins
-    ansible-playbook -v --ask-sudo-pass -i setup/ansible/inventory.ini \
+    # setup_ansible_plugins
+    ansible-playbook --ask-sudo-pass -i setup/ansible/inventory.ini \
         setup/ansible/provision.yml --connection=local
-    build
     log_info "Done!"
+    log_info ""
+    log_info "If you'd like to build the firmware, run: bash setup.sh -x build."
 }
 
 function show_help() {
-    echo "setup.sh script was not called with any arguments."
-    echo "To call, use ... bash setup.sh -x install."
-    exit 1
+    log_info "piksi_firmware development setup script."
+    log_info ""
+    log_info "Usage: bash setup.sh -x <command>, where:"
+    log_info "   install, Install dependencies."
+    log_info "   build,   Build firmware."
+    log_info "   help,    This help message."
+    log_info ""
 }
 
 set -e -u
@@ -184,8 +198,15 @@ while getopts ":x:" opt; do
             if [[ "$OPTARG" == "install" ]]; then
                 run_all_platforms
                 exit 0
+            elif [[ "$OPTARG" == "build" ]]; then
+                log_info "build piksi_firmware."
+                build
+                exit 0
             elif [[ "$OPTARG" == "info" ]]; then
-                log_info "piksi_firmware development installer"
+                log_info "piksi_firmware development setup script.."
+                exit 0
+            elif [[ "$OPTARG" == "help" ]]; then
+                show_help
                 exit 0
             else
                 echo "Invalid option: -x $OPTARG" >&2

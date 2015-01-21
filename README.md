@@ -26,9 +26,11 @@ There are a few options:
   installers (Windows and OS X) are
   [here](http://downloads.swiftnav.com/piksi_console/).
 
-* **Development (native)**. To install development tools for your
-  platform (OS X and Ubuntu), run the setup script in this repository
-  via `bash setup.sh -x install`.
+* **Development (native)**. To install dependencies for the
+  development tools on your platform (OS X, Ubuntu, or Debian), run
+  the setup script in this repository via `bash setup.sh -x
+  install`. If you're also building the firmware, you'll need to
+  checkout the submodules as well.
 
 * **Development (VM)**. The Vagrant file is currently used for testing
   installation setup.sh, but can also be used to provision a
