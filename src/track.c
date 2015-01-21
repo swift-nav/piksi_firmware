@@ -24,8 +24,6 @@
 #include <libswiftnav/logging.h>
 
 
-u8 n_rollovers = 20;
-
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
  * Initialize SwiftNAP tracking channels. Run loop filters and update
@@ -107,6 +105,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 {
   /* Calculate code phase rate with carrier aiding. */
   float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
+  tracking_channel_t *chan = &tracking_channel[channel];
 
   /* Adjust the channel start time as the start_sample_count passed
    * in corresponds to a PROMPT code phase rollover but we want to
@@ -116,35 +115,36 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   start_sample_count -= 0.5*16;
 
   /* Setup tracking_channel struct. */
-  tracking_channel[channel].state = TRACKING_RUNNING;
-  tracking_channel[channel].prn = prn;
-  tracking_channel[channel].update_count = 0;
-  tracking_channel[channel].lock_counter = ++tracking_lock_counters[prn];
+  chan->state = TRACKING_RUNNING;
+  chan->prn = prn;
+  chan->update_count = 0;
+  chan->lock_counter = ++tracking_lock_counters[prn];
 
   /* Use -1 to indicate an uninitialised value. */
-  tracking_channel[channel].TOW_ms = -1;
-  tracking_channel[channel].snr_above_threshold_count = 0;
-  tracking_channel[channel].snr_below_threshold_count = 0;
+  chan->TOW_ms = -1;
+  chan->snr_above_threshold_count = 0;
+  chan->snr_below_threshold_count = 0;
 
-  /* TODO: PLL parameters obtained through numerical optimization. */
-  aided_tl_init(&(tracking_channel[channel].tl_state), 1e3,
+  aided_tl_init(&(chan->tl_state), 1e3,
                 code_phase_rate-1.023e6, 1, 0.7, 1,
                 carrier_freq, 25, 0.7, 1,
                 5);
 
-  tracking_channel[channel].I_filter = (u32)lroundf(snr * (1 << I_FILTER_COEFF));
-  tracking_channel[channel].Q_filter = 1 << Q_FILTER_COEFF;
-  tracking_channel[channel].code_phase_early = 0;
-  tracking_channel[channel].code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  tracking_channel[channel].code_phase_rate_fp_prev = tracking_channel[channel].code_phase_rate_fp;
-  tracking_channel[channel].code_phase_rate = code_phase_rate;
-  tracking_channel[channel].carrier_phase = 0;
-  tracking_channel[channel].carrier_freq = carrier_freq;
-  tracking_channel[channel].carrier_freq_fp = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
-  tracking_channel[channel].carrier_freq_fp_prev = tracking_channel[channel].carrier_freq_fp;
-  tracking_channel[channel].sample_count = start_sample_count;
+  chan->I_filter = (u32)lroundf(snr * (1 << I_FILTER_COEFF));
+  chan->Q_filter = 1 << Q_FILTER_COEFF;
+  chan->code_phase_early = 0;
+  chan->code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
+  chan->code_phase_rate = code_phase_rate;
+  chan->carrier_phase = 0;
+  chan->carrier_freq = carrier_freq;
+  chan->carrier_freq_fp = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
+  chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
+  chan->sample_count = start_sample_count;
 
-  nav_msg_init(&tracking_channel[channel].nav_msg);
+  nav_msg_init(&chan->nav_msg);
+
+  chan->int_ms = 1;
 
   /* Starting carrier phase is set to zero as we don't
    * know the carrier freq well enough to calculate it.
@@ -157,7 +157,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   nap_track_update_wr_blocking(
     channel,
     carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ,
-    tracking_channel[channel].code_phase_rate_fp,
+    chan->code_phase_rate_fp,
     0, 0
   );
 
@@ -200,13 +200,13 @@ void tracking_channel_update(u8 channel)
   {
     case TRACKING_RUNNING:
     {
-      chan->update_count++;
+      chan->update_count += chan->int_ms;
       chan->sample_count += chan->corr_sample_count;
 
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       if (chan->TOW_ms > 0) {
         /* Have a valid time of week. */
-        chan->TOW_ms++;
+        chan->TOW_ms += chan->int_ms;
         if (chan->TOW_ms == 7*24*60*60*1000)
           chan->TOW_ms = 0;
 
@@ -216,7 +216,7 @@ void tracking_channel_update(u8 channel)
       }
 
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
-      s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, 1);
+      s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
 
       if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
         if (chan->TOW_ms > 0) {
@@ -249,9 +249,9 @@ void tracking_channel_update(u8 channel)
         chan->Q_filter = abs(cs[1].Q) << Q_FILTER_COEFF;
       } else {
         chan->I_filter -= chan->I_filter >> I_FILTER_COEFF;
-        chan->I_filter += abs(cs[1].I);
+        chan->I_filter += (abs(cs[1].I)/chan->int_ms);
         chan->Q_filter -= chan->Q_filter >> Q_FILTER_COEFF;
-        chan->Q_filter += abs(cs[1].Q);
+        chan->Q_filter += (abs(cs[1].Q)/chan->int_ms);
       }
 
       /* Run the loop filters. */
@@ -274,11 +274,23 @@ void tracking_channel_update(u8 channel)
       chan->carrier_freq_fp = chan->carrier_freq
         * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
+      if ((chan->TOW_ms > 0) && (chan->int_ms == 1) &&
+          (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
+        /* Now that we have TOW we can transition to longer integration */
+        log_info("Increasing integration time for PRN %d\n", chan->prn+1);
+        chan->int_ms = 20;
+        /* Recalculate filter coefficients */
+        aided_tl_init(&chan->tl_state, 1e3 / chan->int_ms,
+                      chan->tl_state.code_freq, 1, 0.7, 1,
+                      chan->tl_state.carr_freq, 15, 0.7, 1,
+                      0);
+      }
+
       nap_track_update_wr_blocking(
         channel,
         chan->carrier_freq_fp,
         chan->code_phase_rate_fp,
-        0, 0
+        chan->int_ms - 1, 0
       );
 
       break;
