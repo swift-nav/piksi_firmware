@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <stdio.h>
 #include <string.h>
 
 #include <ch.h>
@@ -155,9 +156,10 @@ void usart_rx_dma_disable(usart_rx_dma_state* s)
 void usart_rx_dma_isr(usart_rx_dma_state* s)
 {
   if (dma_get_interrupt_flag(s->dma, s->stream,
-                             DMA_TEIF | DMA_DMEIF | DMA_FEIF))
+                             DMA_TEIF | DMA_DMEIF | DMA_FEIF)) {
     /* TODO: Handle error interrupts! */
     screaming_death("USART RX DMA error interrupt");
+  }
 
   if (dma_get_interrupt_flag(s->dma, s->stream, DMA_HTIF | DMA_TCIF)) {
     /* Interrupt is Transmit Complete. We are in circular buffer mode so this
@@ -194,9 +196,16 @@ u32 usart_n_read_dma(usart_rx_dma_state* s)
      * (or at some point) the interrupt will have been triggered and the number
      * of bytes available in the buffer will be a sane amount. */
     n_available = 0;
-  else if (n_available > USART_RX_BUFFER_LEN)
+  else if (n_available > USART_RX_BUFFER_LEN) {
     /* If greater than a whole buffer then we have had an overflow. */
-    screaming_death("DMA RX buffer overrun");
+    printf("ERROR: DMA RX buffer overrun\n");
+    n_available = 0;
+    s->errors++;
+    /* Disable and re-enable the DMA channel to get back to a known good
+     * state */
+    usart_rx_dma_disable(s);
+    usart_rx_dma_setup(s, s->usart, s->dma, s->stream, s->channel);
+  }
 
   return n_available;
 }

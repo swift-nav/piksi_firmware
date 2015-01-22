@@ -126,6 +126,7 @@ typedef struct __attribute__((packed)) {
     float tx_throughput;
     float rx_throughput;
     u16 crc_error_count;
+    u16 io_error_count;
     u8 tx_buffer_level;
     u8 rx_buffer_level;
   } uarts[3];

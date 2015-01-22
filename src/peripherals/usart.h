@@ -81,6 +81,7 @@ typedef struct {
 
     u32 byte_counter;    /**< Counts the number of bytes received since
                               statistics were last calculated */
+    u32 errors;          /**< Counts the number of USART DMA errors */
     u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
                               were calculated */
 
@@ -101,6 +102,7 @@ typedef struct {
 
     u32 byte_counter;    /**< Counts the number of bytes received since
                               statistics were last calculated */
+    u32 errors;          /**< Counts the number of USART DMA errors */
     u32 last_byte_ticks; /**< Tick count of the last time throughput statistics
                               were calculated */
   } tx;
