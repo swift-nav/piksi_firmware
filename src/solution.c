@@ -45,7 +45,7 @@ BinarySemaphore base_obs_received;
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
 
-dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_TIME_MATCHED;
+dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_LOW_LATENCY;
 dgnss_filter_t dgnss_filter = FILTER_FIXED;
 
 systime_t last_dgnss;
