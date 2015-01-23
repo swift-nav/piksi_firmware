@@ -153,7 +153,9 @@ function run_all_platforms () {
         log_info "Please enter your password for apt-get..."
         log_info "Updating..."
         sudo apt-get update
-        sudo apt-get install -y curl ansible
+        sudo apt-get install -y curl
+        sudo apt-get python python-dev python-pip
+        sudo pip install ansible
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         piksi_splash_osx
         log_info "Checking system dependencies for OSX..."

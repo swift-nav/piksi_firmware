@@ -7,7 +7,6 @@
   with_items:
     - git
     - build-essential
-    - python
     - python-setuptools
     - python-virtualenv
     - cmake
