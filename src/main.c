@@ -57,6 +57,7 @@ static msg_t nav_msg_thread(void *arg)
   (void)arg;
   chRegSetThreadName("nav msg");
 
+  memset(es, 0, sizeof(es));
   for (u8 i=0; i<32; i++) {
     es[i].prn = i;
   }
