@@ -12,7 +12,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 #include <libswiftnav/sbp_utils.h>
 #include <libswiftnav/pvt.h>
@@ -21,14 +20,10 @@
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/single_diff.h>
 #include <libswiftnav/dgnss_management.h>
-#include <libswiftnav/ambiguity_test.h>
-#include <libswiftnav/stupid_filter.h>
 #include <libswiftnav/linear_algebra.h>
 
 #include <libopencm3/stm32/f4/timer.h>
 #include <libopencm3/stm32/f4/rcc.h>
-
-#include <ch.h>
 
 #include "board/leds.h"
 #include "position.h"
@@ -39,9 +34,8 @@
 #include "simulator.h"
 #include "settings.h"
 #include "timing.h"
+#include "base_obs.h"
 
-Mutex base_obs_lock;
-BinarySemaphore base_obs_received;
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
 
@@ -55,26 +49,6 @@ u32 obs_output_divisor = 2;
 
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
-
-bool_t base_pos_known = false;
-double known_base_ecef[3];
-
-void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
-{
-  (void) context; (void) len; (void) msg; (void) sender_id;
-
-  double llh_degrees[3];
-  double llh[3];
-  memcpy(llh_degrees, msg, 3*sizeof(double));
-
-  llh[0] = llh_degrees[0] * D2R;
-  llh[1] = llh_degrees[1] * D2R;
-  llh[2] = llh_degrees[2];
-
-  wgsllh2ecef(llh, known_base_ecef);
-
-  base_pos_known = true;
-}
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -142,21 +116,22 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
   sbp_make_baseline_ned(&sbp_ned, t, n_sats, b_ned, flags);
   sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
 
+  chMtxLock(&base_pos_lock);
   if (base_pos_known) {
     last_dgnss = chTimeNow();
     double pseudo_absolute_ecef[3];
     double pseudo_absolute_llh[3];
-    vector_add(3, known_base_ecef, b_ecef, pseudo_absolute_ecef);
+    vector_add(3, base_pos_ecef, b_ecef, pseudo_absolute_ecef);
     wgsecef2llh(pseudo_absolute_ecef, pseudo_absolute_llh);
     u8 fix_mode = (flags & 1) ? NMEA_GGA_FIX_RTK : NMEA_GGA_FIX_FLOAT;
     /* TODO: Don't fake DOP!! */
     nmea_gpgga(pseudo_absolute_llh, t, n_sats, fix_mode, 1.5);
   }
+  chMtxUnlock();
 }
 
 extern ephemeris_t es[MAX_SATS];
 
-obss_t base_obss;
 u16 lock_counters[MAX_SATS];
 
 /* Checks to see if any lock_counters have incremented or re-randomized.
@@ -177,177 +152,6 @@ u8 check_lock_counters(u8 *sats_to_drop)
     }
   }
   return num_sats_to_drop;
-}
-
-void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
-{
-  (void) context;
-  (void) len;
-  (void) msg;
-  (void) sender_id;
-
-  printf("Receiving an old deprecated observation message.\n");
-}
-void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
-{
-  (void) context;
-
-  static s16 prev_count = 0;
-  static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
-  /* Using an extra obss_t so we don't need to overwrite the old set (used for 
-   * low latency) when we end up with a bad new set. */
-  static obss_t base_obss_raw = {.has_pos = 0};
-
-  /* Sender ID of zero means that the messages are relayed observations,
-   * ignore them. */
-  if (sender_id == 0)
-    return;
-
-  /* Relay observations using sender_id = 0. */
-  sbp_send_msg_(MSG_PACKED_OBS, len, msg, 0);
-
-  gps_time_t t;
-  u8 total;
-  u8 count;
-  unpack_obs_header((msg_obs_header_t*)msg, &t, &total, &count);
-  double epoch_count = t.tow * (soln_freq / obs_output_divisor);
-
-  if (fabs(epoch_count - round(epoch_count)) > TIME_MATCH_THRESHOLD) {
-    printf("Unaligned observation from base station ignored.\n");
-    return;
-  }
-
-  /* Calculate packet latency */
-  if (time_quality >= TIME_COARSE) {
-    gps_time_t now = get_current_time();
-    float latency_ms = (float) ((now.tow - t.tow) * 1000.0);
-
-    log_obs_latency(latency_ms);
-  }
-
-  /* Verify sequence integrity */
-  if (count == 0) {
-    prev_t = t;
-    prev_count = 0;
-  } else if (prev_t.tow != t.tow ||
-        prev_t.wn != t.wn ||
-        prev_count + 1 != count) {
-      printf("Dropped one of the observation packets! Skipping this sequence.\n");
-      prev_count = -1;
-      return;
-  } else {
-      prev_count = count;
-  }
-
-  u8 obs_in_msg = (len - sizeof(msg_obs_header_t)) / sizeof(msg_obs_content_t);
-
-  if (count == 0) {
-    base_obss_raw.n = 0;
-    base_obss_raw.t = t;
-  }
-  msg_obs_content_t *obs = (msg_obs_content_t *)(msg + sizeof(msg_obs_header_t));
-  for (u8 i=0; i<obs_in_msg; i++) {
-    if (ephemeris_good(es[obs[i].prn], t)) {
-      unpack_obs_content(&obs[i],
-        &base_obss_raw.nm[base_obss_raw.n].raw_pseudorange,
-        &base_obss_raw.nm[base_obss_raw.n].carrier_phase,
-        &base_obss_raw.nm[base_obss_raw.n].snr,
-        &base_obss_raw.nm[base_obss_raw.n].lock_counter,
-        &base_obss_raw.nm[base_obss_raw.n].prn);
-      double clock_err;
-      double clock_rate_err;
-      calc_sat_pos(base_obss_raw.nm[base_obss_raw.n].sat_pos,
-                   base_obss_raw.nm[base_obss_raw.n].sat_vel,
-                   &clock_err, &clock_rate_err, &es[obs[i].prn], t);
-      /* TODO Make a function to apply some of these corrections.
-       *       They are used in a couple places. */
-      base_obss_raw.nm[base_obss_raw.n].pseudorange =
-            base_obss_raw.nm[base_obss_raw.n].raw_pseudorange + clock_err * GPS_C;
-      base_obss_raw.nm[base_obss_raw.n].tot = t;
-      /* set the time */
-      base_obss_raw.n++;
-    }
-  }
-
-  /* If we can, and all the obs have been received, calculate the receiver
-   * position. */
-  if (count == total - 1) {
-    /* Ensure observations sorted by PRN. */
-    qsort(base_obss_raw.nm, base_obss_raw.n,
-          sizeof(navigation_measurement_t), nav_meas_cmp);
-
-    /* Lock mutex before modifying base_obss.
-     * NOTE: We didn't need to lock it before reading in THIS context as this
-     * is the only thread that writes to base_obss. */
-    chMtxLock(&base_obs_lock);
-
-    /* Create a set of navigation measurements to store the previous
-     * observations. */
-    static u8 n_old = 0;
-    static navigation_measurement_t nm_old[MAX_CHANNELS];
-
-    /* Fill in the navigation measurements in base_obss, using TDCP method to
-     * calculate the Doppler shift. */
-    base_obss.n = tdcp_doppler(base_obss_raw.n, base_obss_raw.nm,
-                               n_old, nm_old, base_obss.nm);
-
-    /* Copy the current observations over to nm_old so we can difference
-     * against them next time around. */
-    memcpy(nm_old, base_obss_raw.nm,
-           base_obss_raw.n * sizeof(navigation_measurement_t));
-    n_old = base_obss_raw.n;
-
-    if (base_obss.n >= 4) {
-      /* TODO Maybe we should put the following base position stuff into its
-       *      own subsystem. */
-      if (base_pos_known) {
-        memcpy(base_obss.pos_ecef, known_base_ecef, 3 * sizeof(double));
-        base_obss.has_pos = 1;
-      } else {
-        gnss_solution soln;
-        dops_t dops;
-
-        s32 ret = calc_PVT(n_tdcp, nm_tdcp, &soln, &dops);
-        printf("!! 2 ret = %ld, valid = %d\n", ret, soln.valid);
-
-        if (soln.valid) {
-          if (base_obss.has_pos) {
-            /* TODO Implement a real filter for base position (potentially in
-               observation space), so we can do away with this terrible excuse
-               for smoothing. */
-            base_obss.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
-                                      + 0.00005 * soln.pos_ecef[0];
-            base_obss.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
-                                      + 0.00005 * soln.pos_ecef[1];
-            base_obss.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
-                                      + 0.00005 * soln.pos_ecef[2];
-          } else {
-            memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
-          }
-          base_obss.has_pos = 1;
-        } else {
-          if (base_obss.has_pos) {
-            memcpy(base_obss.pos_ecef, base_obss.pos_ecef, 3 * sizeof(double));
-            base_obss.has_pos = 1;
-          } else {
-            base_obss.has_pos = 0;
-          }
-        }
-      }
-
-      if (base_obss.has_pos) {
-        for (u8 i=0; i < base_obss.n; i++) {
-          double dx[3];
-          vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
-          base_obss.sat_dists[i] = vector_norm(3, dx);
-        }
-      }
-    }
-    /* Unlock base_obss mutex. */
-    chMtxUnlock();
-    /* Signal that a complete base observation has been received. */
-    chBSemSignal(&base_obs_received);
-  }
 }
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
@@ -760,7 +564,8 @@ static msg_t time_matched_obs_thread(void *arg)
         u8 num_sats_to_drop = check_lock_counters(sats_to_drop);
         if (num_sats_to_drop > 0) {
           /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
-           * Dropping an sdiff will cause dgnss_update to drop that sat from our filters. */
+           * Dropping an sdiff will cause dgnss_update to drop that sat from
+           * our filters. */
           n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
         }
         process_matched_obs(n_sds, &obss->t, sds);
@@ -776,8 +581,8 @@ static msg_t time_matched_obs_thread(void *arg)
         chMtxUnlock();
         if (dt > 0) {
           /* Time of base obs before time of local obs, we must not have a local
-           * observation matching this base observation, break and wait for a new
-           * base observation. */
+           * observation matching this base observation, break and wait for a
+           * new base observation. */
 
           /* In practice this should basically never happen so lets make a note
            * if it does. */
@@ -881,8 +686,6 @@ void solution_setup()
 
   SETTING("sbp", "obs_msg_max_size", msg_obs_max_size, TYPE_INT);
 
-  chMtxInit(&base_obs_lock);
-  chBSemInit(&base_obs_received, TRUE);
   static msg_t obs_mailbox_buff[OBS_N_BUFF];
   chMBInit(&obs_mailbox, obs_mailbox_buff, OBS_N_BUFF);
   chPoolInit(&obs_buff_pool, sizeof(obss_t), NULL);
@@ -906,29 +709,9 @@ void solution_setup()
   timer_enable_counter(TIM5);
   timer_enable_irq(TIM5, TIM_DIER_UIE);
 
-  chThdCreateStatic(wa_time_matched_obs_thread, sizeof(wa_time_matched_obs_thread),
-                    LOWPRIO, time_matched_obs_thread, NULL);
-
-  static sbp_msg_callbacks_node_t base_pos_node;
-  sbp_register_cbk(
-    MSG_BASE_POS,
-    &base_pos_callback,
-    &base_pos_node
-  );
-
-  static sbp_msg_callbacks_node_t obs_old_node;
-  sbp_register_cbk(
-    MSG_OLD_OBS,
-    &obs_old_callback,
-    &obs_old_node
-  );
-
-  static sbp_msg_callbacks_node_t obs_packed_node;
-  sbp_register_cbk(
-    MSG_PACKED_OBS,
-    &obs_callback,
-    &obs_packed_node
-  );
+  chThdCreateStatic(wa_time_matched_obs_thread,
+                    sizeof(wa_time_matched_obs_thread), LOWPRIO,
+                    time_matched_obs_thread, NULL);
 
   static sbp_msg_callbacks_node_t reset_filters_node;
   sbp_register_cbk(

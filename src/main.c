@@ -29,6 +29,7 @@
 #include "track.h"
 #include "timing.h"
 #include "solution.h"
+#include "base_obs.h"
 #include "position.h"
 #include "system_monitor.h"
 #include "simulator.h"
@@ -245,6 +246,7 @@ int main(void)
   manage_acq_setup();
   manage_track_setup();
   system_monitor_setup();
+  base_obs_setup();
   solution_setup();
 
   simulator_setup();
