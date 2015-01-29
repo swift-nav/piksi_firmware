@@ -27,7 +27,7 @@ import datetime
 import sbp_piksi as ids
 
 class SimpleAdapter(TabularAdapter):
-    columns = [('PRN', 0), ('Pseudorange',  1), ('Carrier Phase',  2), ('SNR', 3)]
+    columns = [('PRN', 0), ('Pseudorange',  1), ('Carrier Phase',  2), ('C/N0', 3)]
 
 class Observation:
   def from_binary(self, data):
