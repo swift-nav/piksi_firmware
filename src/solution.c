@@ -256,8 +256,8 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_raw.nm[base_obss_raw.n].prn);
       double clock_err;
       double clock_rate_err;
-      calc_sat_pos(&base_obss_raw.nm[base_obss_raw.n].sat_pos[0],
-                   &base_obss_raw.nm[base_obss_raw.n].sat_vel[0],
+      calc_sat_pos(base_obss_raw.nm[base_obss_raw.n].sat_pos,
+                   base_obss_raw.nm[base_obss_raw.n].sat_vel,
                    &clock_err, &clock_rate_err, &es[obs[i].prn], t);
       /* TODO Make a function to apply some of these corrections.
        *       They are used in a couple places. */
@@ -269,70 +269,84 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     }
   }
 
-  /* If we can, and all the obs have been received, calculate the receiver position. */
+  /* If we can, and all the obs have been received, calculate the receiver
+   * position. */
   if (count == total - 1) {
     /* Ensure observations sorted by PRN. */
     qsort(base_obss_raw.nm, base_obss_raw.n,
           sizeof(navigation_measurement_t), nav_meas_cmp);
-    if (base_obss_raw.n >= 4) {
+
+    /* Lock mutex before modifying base_obss.
+     * NOTE: We didn't need to lock it before reading in THIS context as this
+     * is the only thread that writes to base_obss. */
+    chMtxLock(&base_obs_lock);
+
+    /* Create a set of navigation measurements to store the previous
+     * observations. */
+    static u8 n_old = 0;
+    static navigation_measurement_t nm_old[MAX_CHANNELS];
+
+    /* Fill in the navigation measurements in base_obss, using TDCP method to
+     * calculate the Doppler shift. */
+    base_obss.n = tdcp_doppler(base_obss_raw.n, base_obss_raw.nm,
+                               n_old, nm_old, base_obss.nm);
+
+    /* Copy the current observations over to nm_old so we can difference
+     * against them next time around. */
+    memcpy(nm_old, base_obss_raw.nm,
+           base_obss_raw.n * sizeof(navigation_measurement_t));
+    n_old = base_obss_raw.n;
+
+    if (base_obss.n >= 4) {
       /* TODO Maybe we should put the following base position stuff into its
-       *       own subsystem. */
+       *      own subsystem. */
       if (base_pos_known) {
-        memcpy(base_obss_raw.pos_ecef, known_base_ecef, 3 * sizeof(double));
-        base_obss_raw.has_pos = 1;
+        memcpy(base_obss.pos_ecef, known_base_ecef, 3 * sizeof(double));
+        base_obss.has_pos = 1;
       } else {
         gnss_solution soln;
         dops_t dops;
 
-        calc_PVT(base_obss_raw.n, base_obss_raw.nm, &soln, &dops);
+        s32 ret = calc_PVT(n_tdcp, nm_tdcp, &soln, &dops);
+        printf("!! 2 ret = %ld, valid = %d\n", ret, soln.valid);
 
         if (soln.valid) {
           if (base_obss.has_pos) {
             /* TODO Implement a real filter for base position (potentially in
                observation space), so we can do away with this terrible excuse
                for smoothing. */
-            base_obss_raw.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
+            base_obss.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
                                       + 0.00005 * soln.pos_ecef[0];
-            base_obss_raw.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
+            base_obss.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
                                       + 0.00005 * soln.pos_ecef[1];
-            base_obss_raw.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
+            base_obss.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
                                       + 0.00005 * soln.pos_ecef[2];
           } else {
-            memcpy(base_obss_raw.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
+            memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
           }
-          base_obss_raw.has_pos = 1;
+          base_obss.has_pos = 1;
         } else {
           if (base_obss.has_pos) {
-            memcpy(base_obss_raw.pos_ecef, base_obss.pos_ecef, 3 * sizeof(double));
-            base_obss_raw.has_pos = 1;
+            memcpy(base_obss.pos_ecef, base_obss.pos_ecef, 3 * sizeof(double));
+            base_obss.has_pos = 1;
           } else {
-            base_obss_raw.has_pos = 0;
+            base_obss.has_pos = 0;
           }
         }
       }
 
-      if (base_obss_raw.has_pos) {
-        for (u8 i=0; i < base_obss_raw.n; i++) {
+      if (base_obss.has_pos) {
+        for (u8 i=0; i < base_obss.n; i++) {
           double dx[3];
-          vector_subtract(3, base_obss_raw.nm[i].sat_pos, base_obss_raw.pos_ecef,
-                          dx);
-          base_obss_raw.sat_dists[i] = vector_norm(3, dx);
+          vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
+          base_obss.sat_dists[i] = vector_norm(3, dx);
         }
-
-        /* potentially use old obss here for online corrections */
-        /* Loop over base_obss_raw.nm and base_obss.nm and check if a PRN is present in both. */
-
-        /* Lock mutex before modifying base_obss, note we didn't need to lock
-         * it before reading in THIS context as this is the only thread that
-         * writes to base_obss. */
-        chMtxLock(&base_obs_lock);
-        /* Update base_obss with complete new observation set. */
-        memcpy(&base_obss, &base_obss_raw, sizeof(obss_t));
-        chMtxUnlock();
-        /* Signal that a complete base observation has been received. */
-        chBSemSignal(&base_obs_received);
       }
     }
+    /* Unlock base_obss mutex. */
+    chMtxUnlock();
+    /* Signal that a complete base observation has been received. */
+    chBSemSignal(&base_obs_received);
   }
 }
 
