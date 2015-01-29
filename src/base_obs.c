@@ -61,7 +61,6 @@ void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   chMtxUnlock();
 }
 
-
 void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context;
@@ -71,6 +70,86 @@ void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   printf("Receiving an old deprecated observation message.\n");
   printf("Please update your base station firmware.\n");
+}
+
+void update_obss(obss_t *new_obss)
+{
+  /* Ensure observations sorted by PRN. */
+  qsort(new_obss.nm, new_obss.n,
+        sizeof(navigation_measurement_t), nav_meas_cmp);
+
+  /* Lock mutex before modifying base_obss.
+   * NOTE: We didn't need to lock it before reading in THIS context as this
+   * is the only thread that writes to base_obss. */
+  chMtxLock(&base_obs_lock);
+
+  /* Create a set of navigation measurements to store the previous
+   * observations. */
+  static u8 n_old = 0;
+  static navigation_measurement_t nm_old[MAX_CHANNELS];
+
+  /* Fill in the navigation measurements in base_obss, using TDCP method to
+   * calculate the Doppler shift. */
+  base_obss.n = tdcp_doppler(new_obss.n, new_obss.nm,
+                             n_old, nm_old, base_obss.nm);
+  base_obss.t = new_obss.t;
+
+  /* Copy the current observations over to nm_old so we can difference
+   * against them next time around. */
+  memcpy(nm_old, new_obss.nm,
+         new_obss.n * sizeof(navigation_measurement_t));
+  n_old = new_obss.n;
+
+  if (base_obss.n >= 4) {
+    /* No need to lock before reading here as base_pos_* is only written from
+     * this thread (SBP). */
+    if (base_pos_known) {
+      memcpy(base_obss.pos_ecef, base_pos_ecef, 3 * sizeof(double));
+      base_obss.has_pos = 1;
+    } else {
+      gnss_solution soln;
+      dops_t dops;
+
+      s32 ret = calc_PVT(base_obss.n, base_obss.nm, &soln, &dops);
+
+      if (ret == 0 && soln.valid) {
+        if (base_obss.has_pos) {
+          /* TODO Implement a real filter for base position (potentially in
+             observation space), so we can do away with this terrible excuse
+             for smoothing. */
+          base_obss.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
+                                    + 0.00005 * soln.pos_ecef[0];
+          base_obss.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
+                                    + 0.00005 * soln.pos_ecef[1];
+          base_obss.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
+                                    + 0.00005 * soln.pos_ecef[2];
+        } else {
+          memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
+        }
+        base_obss.has_pos = 1;
+      } else {
+        printf("Error calculating base station position (%ld)\n", ret);
+        if (base_obss.has_pos) {
+          memcpy(base_obss.pos_ecef, base_obss.pos_ecef, 3 * sizeof(double));
+          base_obss.has_pos = 1;
+        } else {
+          base_obss.has_pos = 0;
+        }
+      }
+    }
+
+    if (base_obss.has_pos) {
+      for (u8 i=0; i < base_obss.n; i++) {
+        double dx[3];
+        vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
+        base_obss.sat_dists[i] = vector_norm(3, dx);
+      }
+    }
+  }
+  /* Unlock base_obss mutex. */
+  chMtxUnlock();
+  /* Signal that a complete base observation has been received. */
+  chBSemSignal(&base_obs_received);
 }
 
 void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -106,7 +185,6 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   if (time_quality >= TIME_COARSE) {
     gps_time_t now = get_current_time();
     float latency_ms = (float) ((now.tow - t.tow) * 1000.0);
-
     log_obs_latency(latency_ms);
   }
 
@@ -115,37 +193,42 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     prev_t = t;
     prev_count = 0;
   } else if (prev_t.tow != t.tow ||
-        prev_t.wn != t.wn ||
-        prev_count + 1 != count) {
-      printf("Dropped one of the observation packets! Skipping this sequence.\n");
-      prev_count = -1;
-      return;
+             prev_t.wn != t.wn ||
+             prev_count + 1 != count) {
+    printf("Dropped one of the observation packets! Skipping this sequence.\n");
+    prev_count = -1;
+    return;
   } else {
-      prev_count = count;
+    prev_count = count;
   }
 
   u8 obs_in_msg = (len - sizeof(msg_obs_header_t)) / sizeof(msg_obs_content_t);
 
+  /* If this is the first packet in the sequence then reset the base_obss_raw
+   * state. */
   if (count == 0) {
     base_obss_raw.n = 0;
     base_obss_raw.t = t;
   }
+
   msg_obs_content_t *obs = (msg_obs_content_t *)(msg + sizeof(msg_obs_header_t));
   for (u8 i=0; i<obs_in_msg; i++) {
     if (ephemeris_good(es[obs[i].prn], t)) {
-      unpack_obs_content(&obs[i],
+      unpack_obs_content(
+        &obs[i],
         &base_obss_raw.nm[base_obss_raw.n].raw_pseudorange,
         &base_obss_raw.nm[base_obss_raw.n].carrier_phase,
         &base_obss_raw.nm[base_obss_raw.n].snr,
         &base_obss_raw.nm[base_obss_raw.n].lock_counter,
-        &base_obss_raw.nm[base_obss_raw.n].prn);
+        &base_obss_raw.nm[base_obss_raw.n].prn
+      );
       double clock_err;
       double clock_rate_err;
       calc_sat_pos(base_obss_raw.nm[base_obss_raw.n].sat_pos,
                    base_obss_raw.nm[base_obss_raw.n].sat_vel,
                    &clock_err, &clock_rate_err, &es[obs[i].prn], t);
       /* TODO Make a function to apply some of these corrections.
-       *       They are used in a couple places. */
+       *      They are used in a couple places. */
       base_obss_raw.nm[base_obss_raw.n].pseudorange =
             base_obss_raw.nm[base_obss_raw.n].raw_pseudorange + clock_err * GPS_C;
       base_obss_raw.nm[base_obss_raw.n].tot = t;
@@ -154,85 +237,10 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     }
   }
 
-  /* If we can, and all the obs have been received, calculate the receiver
-   * position. */
+  /* If we can, and all the obs have been received, update to using the new
+   * obss. */
   if (count == total - 1) {
-    /* Ensure observations sorted by PRN. */
-    qsort(base_obss_raw.nm, base_obss_raw.n,
-          sizeof(navigation_measurement_t), nav_meas_cmp);
-
-    /* Lock mutex before modifying base_obss.
-     * NOTE: We didn't need to lock it before reading in THIS context as this
-     * is the only thread that writes to base_obss. */
-    chMtxLock(&base_obs_lock);
-
-    /* Create a set of navigation measurements to store the previous
-     * observations. */
-    static u8 n_old = 0;
-    static navigation_measurement_t nm_old[MAX_CHANNELS];
-
-    /* Fill in the navigation measurements in base_obss, using TDCP method to
-     * calculate the Doppler shift. */
-    base_obss.n = tdcp_doppler(base_obss_raw.n, base_obss_raw.nm,
-                               n_old, nm_old, base_obss.nm);
-    base_obss.t = base_obss_raw.t;
-
-    /* Copy the current observations over to nm_old so we can difference
-     * against them next time around. */
-    memcpy(nm_old, base_obss_raw.nm,
-           base_obss_raw.n * sizeof(navigation_measurement_t));
-    n_old = base_obss_raw.n;
-
-    if (base_obss.n >= 4) {
-      /* No need to lock before reading here as base_pos_* is only written from
-       * this thread (SBP). */
-      if (base_pos_known) {
-        memcpy(base_obss.pos_ecef, base_pos_ecef, 3 * sizeof(double));
-        base_obss.has_pos = 1;
-      } else {
-        gnss_solution soln;
-        dops_t dops;
-
-        s32 ret = calc_PVT(base_obss.n, base_obss.nm, &soln, &dops);
-
-        if (ret == 0 && soln.valid) {
-          if (base_obss.has_pos) {
-            /* TODO Implement a real filter for base position (potentially in
-               observation space), so we can do away with this terrible excuse
-               for smoothing. */
-            base_obss.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
-                                      + 0.00005 * soln.pos_ecef[0];
-            base_obss.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
-                                      + 0.00005 * soln.pos_ecef[1];
-            base_obss.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
-                                      + 0.00005 * soln.pos_ecef[2];
-          } else {
-            memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
-          }
-          base_obss.has_pos = 1;
-        } else {
-          printf("Error calculating base station position (%ld)\n", ret);
-          if (base_obss.has_pos) {
-            memcpy(base_obss.pos_ecef, base_obss.pos_ecef, 3 * sizeof(double));
-            base_obss.has_pos = 1;
-          } else {
-            base_obss.has_pos = 0;
-          }
-        }
-      }
-
-      if (base_obss.has_pos) {
-        for (u8 i=0; i < base_obss.n; i++) {
-          double dx[3];
-          vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
-          base_obss.sat_dists[i] = vector_norm(3, dx);
-        }
-      }
-    }
-    /* Unlock base_obss mutex. */
-    chMtxUnlock();
-    /* Signal that a complete base observation has been received. */
-    chBSemSignal(&base_obs_received);
+    update_obss(&base_obss_raw);
   }
 }
 
