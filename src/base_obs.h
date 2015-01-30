@@ -20,14 +20,29 @@
 #include <libswiftnav/track.h>
 #include <libswiftnav/gpstime.h>
 
+/** \addtogroup base_obs Base station observation handling
+ * \{ */
+
 typedef struct {
+  /** GPS time of the observation. */
   gps_time_t t;
+  /** Approximate base station position.
+   * This may be the position as reported by the base station itself or the
+   * position obtained from doing a single point solution using the base
+   * station observations. */
   double pos_ecef[3];
+  /** Is the `pos_ecef` field valid? */
   u8 has_pos;
+  /** Number of observations in the set. */
   u8 n;
+  /** Set of observations. */
   navigation_measurement_t nm[MAX_CHANNELS];
+  /** Distances to each satellite based on `pos_ecef` and `nm`.
+   * Used for observation propagation. */
   double sat_dists[MAX_CHANNELS];
 } obss_t;
+
+/* \} */
 
 extern Mutex base_obs_lock;
 extern BinarySemaphore base_obs_received;

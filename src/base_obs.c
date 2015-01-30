@@ -33,17 +33,33 @@
 #include "timing.h"
 #include "base_obs.h"
 
-Mutex base_obs_lock;
-BinarySemaphore base_obs_received;
-
 extern ephemeris_t es[MAX_SATS];
+
+/** \defgroup base_obs Base station observation handling
+ * \{ */
+
+/** Mutex to control access to the base station observations. */
+Mutex base_obs_lock;
+/** Semaphore that is flagged when a new set of observations are received. */
+BinarySemaphore base_obs_received;
+/** Most recent observations from the base station. */
 obss_t base_obss;
 
+/** Mutex to control access to the base station position state.
+ * (#base_pos_ecef and #base_pos_known) */
 Mutex base_pos_lock;
+/** Is the base station position known? i.e. is #base_pos_ecef valid? */
 bool_t base_pos_known = false;
+/** Base station known position in ECEF as sent to us by the base station in
+ * the BASE_POS message.  */
 double base_pos_ecef[3];
 
-void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+/** SBP callback for when the base station sends us a message containing its
+ * known location.
+ * Stores the base station position in the global #base_pos_ecef variable and
+ * sets #base_pos_known to `true`.
+ */
+static void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context; (void) len; (void) msg; (void) sender_id;
 
@@ -61,21 +77,29 @@ void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   chMtxUnlock();
 }
 
-void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+/** SBP callback for the old style observation messages.
+ * Just prints a deprecation warning. */
+static void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void) context;
-  (void) len;
-  (void) msg;
-  (void) sender_id;
-
+  (void) context; (void) len; (void) msg; (void) sender_id;
   printf("Receiving an old deprecated observation message.\n");
   printf("Please update your base station firmware.\n");
 }
 
-void update_obss(obss_t *new_obss)
+/** Update the #base_obss state given a new set of obss.
+ * First sorts by PRN and computes the TDCP Doppler for the observation set. If
+ * #base_pos_known is false then a single point position solution is also
+ * calculated. Next the `has_pos`, `pos_ecef` and `sat_dists` fields are filled
+ * in. Finally the #base_obs_received semaphore is flagged to indicate that new
+ * observations are available.
+ *
+ * \note This function is stateful as it must store the previous observation
+ *       set for the TDCP Doppler.
+ */
+static void update_obss(obss_t *new_obss)
 {
   /* Ensure observations sorted by PRN. */
-  qsort(new_obss.nm, new_obss.n,
+  qsort(new_obss->nm, new_obss->n,
         sizeof(navigation_measurement_t), nav_meas_cmp);
 
   /* Lock mutex before modifying base_obss.
@@ -90,60 +114,67 @@ void update_obss(obss_t *new_obss)
 
   /* Fill in the navigation measurements in base_obss, using TDCP method to
    * calculate the Doppler shift. */
-  base_obss.n = tdcp_doppler(new_obss.n, new_obss.nm,
+  base_obss.n = tdcp_doppler(new_obss->n, new_obss->nm,
                              n_old, nm_old, base_obss.nm);
-  base_obss.t = new_obss.t;
+  /* Copy over the time. */
+  base_obss.t = new_obss->t;
 
   /* Copy the current observations over to nm_old so we can difference
    * against them next time around. */
-  memcpy(nm_old, new_obss.nm,
-         new_obss.n * sizeof(navigation_measurement_t));
-  n_old = new_obss.n;
+  memcpy(nm_old, new_obss->nm,
+         new_obss->n * sizeof(navigation_measurement_t));
+  n_old = new_obss->n;
 
-  if (base_obss.n >= 4) {
-    /* No need to lock before reading here as base_pos_* is only written from
-     * this thread (SBP). */
-    if (base_pos_known) {
-      memcpy(base_obss.pos_ecef, base_pos_ecef, 3 * sizeof(double));
+  /* Reset the `has_pos` flag. */
+  u8 has_pos_old = base_obss.has_pos;
+  base_obss.has_pos = 0;
+  /* Check if the base station has sent us its position explicitly and if so us
+   * that. No need to lock before reading here as base_pos_* is only written
+   * from this thread (SBP). */
+  if (base_pos_known) {
+    /* Copy the known base station position into `base_obss`. */
+    memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
+    /* Indicate that the position is valid. */
+    base_obss.has_pos = 1;
+  /* The base station wasn't sent to us explicitly but if we have >= 4
+   * satellites we can calculate it ourselves (approximately). */
+  } else if (base_obss.n >= 4) {
+    gnss_solution soln;
+    dops_t dops;
+
+    /* Calculate a position solution. */
+    s32 ret = calc_PVT(base_obss.n, base_obss.nm, &soln, &dops);
+
+    if (ret == 0 && soln.valid) {
+      /* The position solution calculation was sucessful. Unfortunately the
+       * single point position solution is very noisy so lets smooth it if we
+       * have the previous position available. */
+      if (has_pos_old) {
+        /* TODO Implement a real filter for base position (potentially in
+           observation space), so we can do away with this terrible excuse
+           for smoothing. */
+        base_obss.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
+                                  + 0.00005 * soln.pos_ecef[0];
+        base_obss.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
+                                  + 0.00005 * soln.pos_ecef[1];
+        base_obss.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
+                                  + 0.00005 * soln.pos_ecef[2];
+      } else {
+        memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
+      }
       base_obss.has_pos = 1;
     } else {
-      gnss_solution soln;
-      dops_t dops;
-
-      s32 ret = calc_PVT(base_obss.n, base_obss.nm, &soln, &dops);
-
-      if (ret == 0 && soln.valid) {
-        if (base_obss.has_pos) {
-          /* TODO Implement a real filter for base position (potentially in
-             observation space), so we can do away with this terrible excuse
-             for smoothing. */
-          base_obss.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
-                                    + 0.00005 * soln.pos_ecef[0];
-          base_obss.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
-                                    + 0.00005 * soln.pos_ecef[1];
-          base_obss.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
-                                    + 0.00005 * soln.pos_ecef[2];
-        } else {
-          memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
-        }
-        base_obss.has_pos = 1;
-      } else {
-        printf("Error calculating base station position (%ld)\n", ret);
-        if (base_obss.has_pos) {
-          memcpy(base_obss.pos_ecef, base_obss.pos_ecef, 3 * sizeof(double));
-          base_obss.has_pos = 1;
-        } else {
-          base_obss.has_pos = 0;
-        }
-      }
+      /* There was an error calculating the position solution. */
+      printf("Error calculating base station position (%ld)\n", ret);
     }
-
-    if (base_obss.has_pos) {
-      for (u8 i=0; i < base_obss.n; i++) {
-        double dx[3];
-        vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
-        base_obss.sat_dists[i] = vector_norm(3, dx);
-      }
+  }
+  /* If the base station position is known then calculate the satellite ranges.
+   * This calculation will be used later by the propagation functions. */
+  if (base_obss.has_pos) {
+    for (u8 i=0; i < base_obss.n; i++) {
+      double dx[3];
+      vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
+      base_obss.sat_dists[i] = vector_norm(3, dx);
     }
   }
   /* Unlock base_obss mutex. */
@@ -152,7 +183,12 @@ void update_obss(obss_t *new_obss)
   chBSemSignal(&base_obs_received);
 }
 
-void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+/** SBP callback for observation messages.
+ * A set of observations may be split across several messages so this function
+ * attempts to collect a full set of observations into a single `obss_t`
+ * (`base_obss_raw`). Once a full set is received then update_obss() is called.
+ */
+static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context;
 
@@ -173,15 +209,20 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   gps_time_t t;
   u8 total;
   u8 count;
-  unpack_obs_header((msg_obs_header_t*)msg, &t, &total, &count);
-  double epoch_count = t.tow * (soln_freq / obs_output_divisor);
 
+  /* Decode the message header to get the time and how far through the sequence
+   * we are. */
+  unpack_obs_header((msg_obs_header_t*)msg, &t, &total, &count);
+
+  /* Check to see if the observation is aligned with our internal observations,
+   * i.e. is it going to time match one of our local obs. */
+  double epoch_count = t.tow * (soln_freq / obs_output_divisor);
   if (fabs(epoch_count - round(epoch_count)) > TIME_MATCH_THRESHOLD) {
     printf("Unaligned observation from base station ignored.\n");
     return;
   }
 
-  /* Calculate packet latency */
+  /* Calculate packet latency. */
   if (time_quality >= TIME_COARSE) {
     gps_time_t now = get_current_time();
     float latency_ms = (float) ((now.tow - t.tow) * 1000.0);
@@ -202,6 +243,8 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     prev_count = count;
   }
 
+  /* Calculate the number of observations in this message by looking at the SBP
+   * `len` field. */
   u8 obs_in_msg = (len - sizeof(msg_obs_header_t)) / sizeof(msg_obs_content_t);
 
   /* If this is the first packet in the sequence then reset the base_obss_raw
@@ -211,9 +254,13 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     base_obss_raw.t = t;
   }
 
+  /* Pull out the contents of the message. */
   msg_obs_content_t *obs = (msg_obs_content_t *)(msg + sizeof(msg_obs_header_t));
   for (u8 i=0; i<obs_in_msg; i++) {
+    /* Check if we have an ephemeris for this satellite, we will need this to
+     * fill in satellite position etc. parameters. */
     if (ephemeris_good(es[obs[i].prn], t)) {
+      /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
         &base_obss_raw.nm[base_obss_raw.n].raw_pseudorange,
@@ -224,15 +271,17 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       );
       double clock_err;
       double clock_rate_err;
+      /* Calculate satellite parameters using the ephemeris. */
       calc_sat_pos(base_obss_raw.nm[base_obss_raw.n].sat_pos,
                    base_obss_raw.nm[base_obss_raw.n].sat_vel,
                    &clock_err, &clock_rate_err, &es[obs[i].prn], t);
+      /* Apply corrections to the raw pseudorange. */
       /* TODO Make a function to apply some of these corrections.
        *      They are used in a couple places. */
       base_obss_raw.nm[base_obss_raw.n].pseudorange =
             base_obss_raw.nm[base_obss_raw.n].raw_pseudorange + clock_err * GPS_C;
+      /* Set the time */
       base_obss_raw.nm[base_obss_raw.n].tot = t;
-      /* set the time */
       base_obss_raw.n++;
     }
   }
@@ -244,11 +293,15 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 }
 
+/** Setup the base station observation handling subsystem. */
 void base_obs_setup()
 {
+  /* Initialise all Mutex and Semaphore objects. */
   chMtxInit(&base_obs_lock);
   chBSemInit(&base_obs_received, TRUE);
   chMtxInit(&base_pos_lock);
+
+  /* Register callbacks on base station messages. */
 
   static sbp_msg_callbacks_node_t base_pos_node;
   sbp_register_cbk(
@@ -272,4 +325,5 @@ void base_obs_setup()
   );
 }
 
+/* \} */
 
