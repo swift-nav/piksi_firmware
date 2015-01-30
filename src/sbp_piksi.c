@@ -50,6 +50,18 @@ void unpack_obs_content(msg_obs_content_t *msg, double *P, double *L,
   *prn = msg->prn;
 }
 
+/** Pack GPS observables into a `msg_obs_content_t` struct.
+ * For use in constructing a `MSG_NEW_OBS` SBP message.
+ *
+ * \param P Pseudorange in meters
+ * \param L Carrier phase in cycles
+ * \param snr Signal-to-noise ratio
+ * \param lock_counter Lock counter is an arbitrary integer that should change
+ *                     if the carrier phase ambiguity is ever reset
+ * \param prn Satellite PRN identifier
+ * \param msg Pointer to a `msg_obs_content_t` struct to fill out
+ * \return `0` on success or `-1` on an overflow error
+ */
 s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
                     msg_obs_content_t *msg)
 {
