@@ -161,7 +161,7 @@ void pack_obs_header(gps_time_t *t, u8 total, u8 count,
 void unpack_obs_content(msg_obs_content_t *msg,
   double *P, double *L, double *snr, u16 *lock_counter, u8 *prn);
 
-void pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
+s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
   msg_obs_content_t *msg);
 
 /** Value specifying the size of the SBP framing */

@@ -241,8 +241,6 @@ void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   u8 obs_in_msg = (len - sizeof(msg_obs_header_t)) / sizeof(msg_obs_content_t);
 
-
-
   if (count == 0) {
     base_obss_raw.n = 0;
     base_obss_raw.t = t;
@@ -370,12 +368,16 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
     msg_obs_content_t *obs = (msg_obs_content_t *)&buff[sizeof(msg_obs_header_t)];
 
     for (u8 i = 0; i < curr_n; i++, obs_i++) {
-      pack_obs_content(m[obs_i].raw_pseudorange,
-        m[obs_i].carrier_phase,
-        m[obs_i].snr,
-        m[obs_i].lock_counter,
-        m[obs_i].prn,
-        &obs[i]);
+      if (pack_obs_content(m[obs_i].raw_pseudorange,
+            m[obs_i].carrier_phase,
+            m[obs_i].snr,
+            m[obs_i].lock_counter,
+            m[obs_i].prn,
+            &obs[i]) < 0) {
+        /* Error packing this observation, skip it. */
+        i--;
+        curr_n--;
+      }
     }
 
     sbp_send_msg(MSG_PACKED_OBS,

@@ -50,34 +50,54 @@ void unpack_obs_content(msg_obs_content_t *msg, double *P, double *L,
   *prn = msg->prn;
 }
 
-void pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
-                      msg_obs_content_t *msg)
+/** Pack GPS observables into a `msg_obs_content_t` struct.
+ * For use in constructing a `MSG_NEW_OBS` SBP message.
+ *
+ * \param P Pseudorange in meters
+ * \param L Carrier phase in cycles
+ * \param snr Signal-to-noise ratio
+ * \param lock_counter Lock counter is an arbitrary integer that should change
+ *                     if the carrier phase ambiguity is ever reset
+ * \param prn Satellite PRN identifier
+ * \param msg Pointer to a `msg_obs_content_t` struct to fill out
+ * \return `0` on success or `-1` on an overflow error
+ */
+s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
+                    msg_obs_content_t *msg)
 {
 
-  if (P < 0 || P > INT_MAX) {
-    screaming_death("observation message packing: integer overflow");
+  s64 P_fp = llround(P * MSG_OBS_P_MULTIPLIER);
+  if (P < 0 || P_fp > UINT32_MAX) {
+    printf("ERROR: observation message packing: P integer overflow (%f)\n", P);
+    return -1;
   }
 
-  msg->P = (u32) round(P * MSG_OBS_P_MULTIPLIER);
-
-  if (L < -(INT_MAX) || L > INT_MAX) {
-    screaming_death("observation message packing: integer overflow");
-  }
+  msg->P = (u32)P_fp;
 
   double Li = floor(L);
+  if (Li < INT32_MIN || Li > INT32_MAX) {
+    printf("ERROR: observation message packing: L integer overflow (%f)\n", L);
+    return -1;
+  }
+
   double Lf = L - Li;
 
   msg->L.Li = (s32) Li;
   msg->L.Lf = (u8) (Lf * MSG_OSB_LF_MULTIPLIER);
 
-  if (snr < 0 || snr > ((1<<8) / MSG_OBS_SNR_MULTIPLIER)) {
-    screaming_death("observation message packing: integer overflow");
+  s32 snr_fp = lround(snr * MSG_OBS_SNR_MULTIPLIER);
+  if (snr < 0 || snr_fp > UINT8_MAX) {
+    printf("ERROR: observation message packing: SNR integer overflow (%f)\n",
+           snr);
+    return -1;
   }
 
-  msg->snr = (u8) round(snr * MSG_OBS_SNR_MULTIPLIER);
+  msg->snr = (u8)snr_fp;
 
   msg->lock_counter = lock_counter;
 
   msg->prn = prn;
+
+  return 0;
 }
 
