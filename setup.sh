@@ -162,7 +162,7 @@ function run_all_platforms () {
         log_info "Updating..."
         sudo apt-get update
         sudo apt-get install -y curl
-        sudo apt-get python python-dev python-pip
+        sudo apt-get install python python-dev python-pip
         sudo pip install ansible
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         piksi_splash_osx
