@@ -14,6 +14,9 @@
 - name: Copy gcc-arm to destination directory.
   shell: cp -r ~/gcc-arm-none-eabi-4_8-2014q3/ ~/gcc-arm-none-eabi
 
+- name: Check that bashrc exists.
+  shell: touch ~/.bashrc
+
 - name: Add arm-gcc directory to PATH
   shell: echo '\nexport PATH=$PATH:~/gcc-arm-none-eabi/gcc-arm-none-eabi-4_8-2014q3/bin' >> ~/.bashrc
 
