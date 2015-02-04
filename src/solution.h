@@ -13,20 +13,11 @@
 #ifndef SWIFTNAV_SOLUTION_H
 #define SWIFTNAV_SOLUTION_H
 
+#include <ch.h>
 #include <libswiftnav/common.h>
-#include <libswiftnav/constants.h>
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/track.h>
 #include <libswiftnav/gpstime.h>
-
-typedef struct {
-  gps_time_t t;
-  double pos_ecef[3];
-  u8 has_pos;
-  u8 n;
-  navigation_measurement_t nm[MAX_CHANNELS];
-  double sat_dists[MAX_CHANNELS];
-} obss_t;
 
 typedef enum {
   SOLN_MODE_LOW_LATENCY,
@@ -50,6 +41,9 @@ typedef enum {
 
 #define OBS_N_BUFF 5
 #define OBS_BUFF_SIZE (OBS_N_BUFF * sizeof(obss_t))
+
+extern double soln_freq;
+extern u32 obs_output_divisor;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops);
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,

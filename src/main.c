@@ -29,6 +29,7 @@
 #include "track.h"
 #include "timing.h"
 #include "solution.h"
+#include "base_obs.h"
 #include "position.h"
 #include "system_monitor.h"
 #include "simulator.h"
@@ -57,6 +58,7 @@ static msg_t nav_msg_thread(void *arg)
   (void)arg;
   chRegSetThreadName("nav msg");
 
+  memset(es, 0, sizeof(es));
   for (u8 i=0; i<32; i++) {
     es[i].prn = i;
   }
@@ -244,6 +246,7 @@ int main(void)
   manage_acq_setup();
   manage_track_setup();
   system_monitor_setup();
+  base_obs_setup();
   solution_setup();
 
   simulator_setup();
