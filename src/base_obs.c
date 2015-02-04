@@ -128,9 +128,11 @@ static void update_obss(obss_t *new_obss)
   /* Reset the `has_pos` flag. */
   u8 has_pos_old = base_obss.has_pos;
   base_obss.has_pos = 0;
-  /* Check if the base station has sent us its position explicitly and if so us
+  /* Check if the base station has sent us its position explicitly via a
+   * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
    * that. No need to lock before reading here as base_pos_* is only written
-   * from this thread (SBP). */
+   * from this thread (SBP).
+   */
   if (base_pos_known) {
     /* Copy the known base station position into `base_obss`. */
     memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
@@ -184,21 +186,35 @@ static void update_obss(obss_t *new_obss)
 }
 
 /** SBP callback for observation messages.
- * A set of observations may be split across several messages so this function
- * attempts to collect a full set of observations into a single `obss_t`
- * (`base_obss_raw`). Once a full set is received then update_obss() is called.
+ * SBP observation sets are potentially split across multiple SBP messages to
+ * keep the payload within the size limit.
+ *
+ * The header contains a count of how many total messages there are in this set
+ * of observations (all referring to the same observation time) and a count of
+ * which message this is in the sequence.
+ *
+ * This function attempts to collect a full set of observations into a single
+ * `obss_t` (`base_obss_rx`). Once a full set is received then update_obss()
+ * is called.
  */
 static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context;
 
+  /* Keep track of where in the sequence of messages we were last time around
+   * so we can verify we haven't dropped a message. */
   static s16 prev_count = 0;
-  static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
-  /* Using an extra obss_t so we don't need to overwrite the old set (used for
-   * low latency) when we end up with a bad new set. */
-  static obss_t base_obss_raw = {.has_pos = 0};
 
-  /* Sender ID of zero means that the messages are relayed observations,
+  static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
+
+  /* As we receive observation messages we assemble them into a working
+   * `obss_t` (`base_obss_rx`) so as not to disturb the global `base_obss`
+   * state that may be in use. */
+  static obss_t base_obss_rx = {.has_pos = 0};
+
+  /* An SBP sender ID of zero means that the messages are relayed observations
+   * from the console, not from the base station. We don't want to use them and
+   * we don't want to create an infinite loop by forwarding them again so just
    * ignore them. */
   if (sender_id == 0)
     return;
@@ -206,8 +222,11 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   /* Relay observations using sender_id = 0. */
   sbp_send_msg_(MSG_PACKED_OBS, len, msg, 0);
 
+  /* GPS time of observation. */
   gps_time_t t;
+  /* Total number of messages in the observation set / sequence. */
   u8 total;
+  /* The current message number in the sequence. */
   u8 count;
 
   /* Decode the message header to get the time and how far through the sequence
@@ -247,11 +266,11 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * `len` field. */
   u8 obs_in_msg = (len - sizeof(msg_obs_header_t)) / sizeof(msg_obs_content_t);
 
-  /* If this is the first packet in the sequence then reset the base_obss_raw
+  /* If this is the first packet in the sequence then reset the base_obss_rx
    * state. */
   if (count == 0) {
-    base_obss_raw.n = 0;
-    base_obss_raw.t = t;
+    base_obss_rx.n = 0;
+    base_obss_rx.t = t;
   }
 
   /* Pull out the contents of the message. */
@@ -263,33 +282,33 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
-        &base_obss_raw.nm[base_obss_raw.n].raw_pseudorange,
-        &base_obss_raw.nm[base_obss_raw.n].carrier_phase,
-        &base_obss_raw.nm[base_obss_raw.n].snr,
-        &base_obss_raw.nm[base_obss_raw.n].lock_counter,
-        &base_obss_raw.nm[base_obss_raw.n].prn
+        &base_obss_rx.nm[base_obss_rx.n].raw_pseudorange,
+        &base_obss_rx.nm[base_obss_rx.n].carrier_phase,
+        &base_obss_rx.nm[base_obss_rx.n].snr,
+        &base_obss_rx.nm[base_obss_rx.n].lock_counter,
+        &base_obss_rx.nm[base_obss_rx.n].prn
       );
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_pos(base_obss_raw.nm[base_obss_raw.n].sat_pos,
-                   base_obss_raw.nm[base_obss_raw.n].sat_vel,
+      calc_sat_pos(base_obss_rx.nm[base_obss_rx.n].sat_pos,
+                   base_obss_rx.nm[base_obss_rx.n].sat_vel,
                    &clock_err, &clock_rate_err, &es[obs[i].prn], t);
       /* Apply corrections to the raw pseudorange. */
       /* TODO Make a function to apply some of these corrections.
        *      They are used in a couple places. */
-      base_obss_raw.nm[base_obss_raw.n].pseudorange =
-            base_obss_raw.nm[base_obss_raw.n].raw_pseudorange + clock_err * GPS_C;
+      base_obss_rx.nm[base_obss_rx.n].pseudorange =
+            base_obss_rx.nm[base_obss_rx.n].raw_pseudorange + clock_err * GPS_C;
       /* Set the time */
-      base_obss_raw.nm[base_obss_raw.n].tot = t;
-      base_obss_raw.n++;
+      base_obss_rx.nm[base_obss_rx.n].tot = t;
+      base_obss_rx.n++;
     }
   }
 
   /* If we can, and all the obs have been received, update to using the new
    * obss. */
   if (count == total - 1) {
-    update_obss(&base_obss_raw);
+    update_obss(&base_obss_rx);
   }
 }
 
