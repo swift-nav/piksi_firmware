@@ -337,9 +337,8 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
 float tracking_channel_snr(u8 channel)
 {
   /* Calculate SNR from I and Q filtered magnitudes. */
-  float snr = (float)(tracking_channel[channel].I_filter >> I_FILTER_COEFF) / \
+  return (float)(tracking_channel[channel].I_filter >> I_FILTER_COEFF) / \
                 (tracking_channel[channel].Q_filter >> Q_FILTER_COEFF);
-  return 30.f + 10.f*log10f(snr);
 }
 
 /** Send tracking state SBP message.
