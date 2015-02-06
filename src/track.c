@@ -102,8 +102,7 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
  * \param carrier_freq       Carrier frequency (Doppler) at start of tracking in Hz.
  * \param start_sample_count Sample count on which to start tracking.
  */
-void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
-                           u32 start_sample_count, float snr)
+void tracking_channel_init(u8 channel, u8 prn, float carrier_freq, u32 start_sample_count)
 {
   /* Calculate code phase rate with carrier aiding. */
   float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
@@ -137,8 +136,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
                 carrier_freq, 25, 0.7, 1,
                 29.3);
 
-  tracking_channel[channel].I_filter = (u32)lroundf(snr * (1 << I_FILTER_COEFF));
-  tracking_channel[channel].Q_filter = 1 << Q_FILTER_COEFF;
+  tracking_channel[channel].I_filter = 0;
+  tracking_channel[channel].Q_filter = 0;
   tracking_channel[channel].code_phase_early = 0;
   tracking_channel[channel].code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   tracking_channel[channel].code_phase_rate_fp_prev = tracking_channel[channel].code_phase_rate_fp;
@@ -271,6 +270,7 @@ void tracking_channel_update(u8 channel)
       chan->carrier_freq = chan->tl_state.carr_freq;
       chan->code_phase_rate = chan->tl_state.code_freq + 1.023e6;
 
+
       chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
       chan->code_phase_rate_fp = chan->code_phase_rate
         * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
@@ -278,6 +278,7 @@ void tracking_channel_update(u8 channel)
       chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
       chan->carrier_freq_fp = chan->carrier_freq
         * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
+
 
       nap_track_update_wr_blocking(
         channel,
