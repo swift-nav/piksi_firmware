@@ -42,6 +42,8 @@
 
 void manage_acq_setup(void);
 
+void manage_prod_acq(u8 prn);
+
 void manage_track_setup(void);
 s8 use_tracking_channel(u8 i);
 u8 tracking_channels_ready(void);
