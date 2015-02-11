@@ -275,6 +275,10 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     if (obs[i].prn > 31) {
       continue;
     }
+
+    /* Flag this as visible/viable to acquisition/search */
+    manage_prod_acq(obs[i].prn);
+
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
     chMtxLock(&es_mutex);
