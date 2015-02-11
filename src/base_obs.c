@@ -276,6 +276,9 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   /* Pull out the contents of the message. */
   msg_obs_content_t *obs = (msg_obs_content_t *)(msg + sizeof(msg_obs_header_t));
   for (u8 i=0; i<obs_in_msg; i++) {
+    /* Flag this as visible/viable to acquisition/search */
+    manage_prod_acq(obs[i].prn);
+
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
     if (ephemeris_good(es[obs[i].prn], t)) {

@@ -183,6 +183,41 @@ u8 best_prn(void)
   return best_prn;
 }
 
+/* Force a focus on specific satellites from Rover/Base observations
+
+RTK relies on a common set of measurements, have the receivers focus search
+efforts on satellites both are likely to be able to see. Receiver will need
+to be sufficiently close for RTK to function, and so should have a similar
+view of the constellation, even if obstructed this may change if the receivers
+move or the satellite arcs across the sky.
+
+I haven't tested how this behaves in all conditions, but should be self limiting
+in that satellites that roll out of view will stop getting promoted, and spare
+channels will get tasked with general hunting tasks. Satellites not in view to
+both due to big separation aren't going to hurt anyways.
+
+Prior to this flagging my Piksi's would perhaps both see 7 satellites, of these
+only 5 would be in common. By sharing viable/visibles birds mutually between the
+receivers we now have 9 common measurements to leverage into the RTK solution.
+
+This could be augmented further by sharing ephemeris/alamanc, here the rapidity of
+just tagging the PRN is a cheap win-win.
+
+cturvey 10-Feb-2015
+*/
+
+void manage_prod_acq(u8 prn)
+{
+  if (prn >= 32) /* check range */
+    return;
+
+  if (acq_prn_param[prn].state == ACQ_PRN_TRIED) /* We already tried to find this */
+  {
+    acq_prn_param[prn].state = ACQ_PRN_UNTRIED; /* Try it some more, look harder */
+    acq_prn_param[prn].score = 90; /* 90 Degrees, want this to be a priority */
+  }
+}
+
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
 void manage_acq()
 {
