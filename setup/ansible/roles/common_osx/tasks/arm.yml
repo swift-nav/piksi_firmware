@@ -19,3 +19,6 @@
 
 - name: Add arm-gcc directory to PATH
   shell: echo '\nexport PATH=$PATH:~/gcc-arm-none-eabi/bin' >> ~/.bash_profile
+
+- name: Refresh PATH with bash profile
+  shell: source ~/.bash_profile
