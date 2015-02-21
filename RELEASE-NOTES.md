@@ -4,11 +4,40 @@ Piksi Firmware Release Notes
 Contents
 --------
 
+ * [v0.14](#v0.14)
  * [v0.13](#v0.13)
  * [v0.12](#v0.12)
  * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.14 <a name="v0.14"></a>
+-----
+
+ * Numerous fixes to setup script for Ubuntu, OS X, ARM and RasberryPi targets
+
+#### Core
+
+ * Make low latency mode the default
+ * Added chi-squared test on baseline solution residual to catch a large class
+   of potential errors, including some cycle slips and incorrect IAR
+   initializations
+ * Handle the `DMA RX buffer overrun` and `observation message packing: integer
+   overflow` errors more gracefully, these are no longer a critical errors and
+   the system will continue to operate correctly
+ * Fixes a bug that periodically caused a `Obs Matching: t_base < t_rover`
+   error message and prevented any `BASELINE` messages from being generated
+ * Improvements to integer ambiguity resolution speed when adding new
+   satellites
+ * New tracking loop filter architecture
+
+#### Console / serial_link.py
+
+ * Added options to log SBP data to a file in the console and serial_link.py
+ * Ephemerides are now saved alongside observation files from console
+ * serial_link.py now has options to reset the device upon connection and to
+   exit after a timeout has elapsed
+ * More compact layout of GUI elements
 
 v0.13 <a name="v0.13"></a>
 -----
