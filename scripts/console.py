@@ -62,6 +62,7 @@ from traitsui.api import Item, Label, View, VGroup, VSplit, HSplit, Tabbed, Inst
 # The horrible workaround is to load the PythonLexer class explicitly and then
 # manually insert it into the pygments.lexers module.
 from pygments.lexers.agile import PythonLexer
+import pygments.lexers.c_cpp
 import pygments.lexers
 pygments.lexers.PythonLexer = PythonLexer
 
