@@ -72,7 +72,7 @@ def pretty_wait_print():
   SECS_4_3 = int((4.0/3)/WAIT_TIME)
   SECS_1_3 = int((1.0/3)/WAIT_TIME)
 
-  print ' ' + chr(3), # Clear line.
+  print '\x1b[K', # Clear line.
   print "\rWaiting for device '%s' to be plugged in " % serial_port,
   for i in range(pretty_wait_print.count-SECS_1_3, 0, -SECS_1_3):
     sys.stdout.write('.')
