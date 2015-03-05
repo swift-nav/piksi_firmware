@@ -19,7 +19,6 @@ import sbp_piksi as ids
 import cPickle as pickle
 import calendar
 import socket
-import base64
 import json
 
 DEFAULT_PORT = '/dev/ttyUSB0'
@@ -380,14 +379,7 @@ def format_log_json_entry(t0, item):
   """
   timestamp = calendar.timegm(time.gmtime())
   delta = int((time.time() - t0)*1000)
-  data = {
-    'preamble':  item.preamble,
-    'msg_type':  item.msg_type,
-    'sender':    item.sender,
-    'length':    item.length,
-    'payload':   base64.standard_b64encode(item.payload),
-    'crc':       item.crc,
-  }
+  data = item.to_json_dict()
   return {'delta': delta, 'timestamp': timestamp, 'data': data}
 
 if __name__ == "__main__":

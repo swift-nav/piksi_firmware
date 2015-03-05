@@ -12,7 +12,8 @@
 import re
 import os
 
-import os, sys
+import sys
+import base64
 
 class SBP(object):
   """
@@ -36,6 +37,16 @@ class SBP(object):
          self.payload, self.crc)
     fmt = "<SBP (preamble=0x%X, msg_type=0x%X, sender=%s, length=%d, payload=%s, crc=0x%X)>"
     return fmt % p
+
+  def to_json_dict(self):
+    return {
+      'preamble': self.preamble,
+      'msg_type': self.msg_type,
+      'sender':   self.sender,
+      'length':   self.length,
+      'payload':  base64.standard_b64encode(self.payload),
+      'crc':      self.crc,
+    }
 
 if getattr(sys, 'frozen', False):
   # we are running in a |PyInstaller| bundle
