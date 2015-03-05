@@ -62,9 +62,12 @@ from traitsui.api import Item, Label, View, VGroup, VSplit, HSplit, Tabbed, Inst
 # The horrible workaround is to load the PythonLexer class explicitly and then
 # manually insert it into the pygments.lexers module.
 from pygments.lexers.agile import PythonLexer
-import pygments.lexers.c_cpp
 import pygments.lexers
 pygments.lexers.PythonLexer = PythonLexer
+try:
+  import pygments.lexers.c_cpp
+except ImportError:
+  pass
 
 # These imports seem to be required to make pyinstaller work?
 # (usually traitsui would load them automatically)
@@ -72,7 +75,6 @@ if ETSConfig.toolkit == 'qt4':
   import pyface.ui.qt4.resource_manager
   import pyface.ui.qt4.python_shell
 from pyface.image_resource import ImageResource
-
 
 import struct
 
