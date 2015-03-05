@@ -47,6 +47,9 @@ systime_t last_dgnss;
 double soln_freq = 10.0;
 u32 obs_output_divisor = 2;
 
+bool_t output_spp_when_rtk_avail = false;
+
+
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
 
@@ -126,6 +129,14 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
     u8 fix_mode = (flags & 1) ? NMEA_GGA_FIX_RTK : NMEA_GGA_FIX_FLOAT;
     /* TODO: Don't fake DOP!! */
     nmea_gpgga(pseudo_absolute_llh, t, n_sats, fix_mode, 1.5);
+    /*now send pseudo absolute sbp message*/
+    sbp_pos_llh_t pos_llh;
+    sbp_make_pos_llh_vect(&pos_llh, pseudo_absolute_llh, t, n_sats,1);
+    sbp_send_msg(SBP_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
+
+    sbp_pos_ecef_t pos_ecef;
+    sbp_make_pos_ecef_vect(&pos_ecef,pseudo_absolute_ecef, t, n_sats,1);
+    sbp_send_msg(SBP_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
   }
   chMtxUnlock();
 }
@@ -649,7 +660,7 @@ void solution_setup()
 
   SETTING("solution", "soln_freq", soln_freq, TYPE_FLOAT);
   SETTING("solution", "output_every_n_obs", obs_output_divisor, TYPE_INT);
-
+  SETTING("solution", "output_spp_when_rtk_avail",output_spp_when_rtk_avail, TYPE_BOOL);
   static const char const *dgnss_soln_mode_enum[] = {
     "Low Latency",
     "Time Matched",
