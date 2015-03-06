@@ -10,7 +10,7 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool
-from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, UItem
+from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, UItem, Tabbed
 from traitsui.tabular_adapter import TabularAdapter
 from chaco.api import ArrayPlotData, Plot
 from chaco.tools.api import ZoomTool, PanTool
@@ -33,7 +33,8 @@ class SimpleAdapter(TabularAdapter):
 
 class SolutionView(HasTraits):
   python_console_cmds = Dict()
-#we need to doubleup on Lists to store the psuedo absolutes separately without rewriting everything
+  # we need to doubleup on Lists to store the psuedo absolutes separately 
+  # without rewriting everything
   lats = List()
   lngs = List()
   alts = List()
@@ -42,11 +43,10 @@ class SolutionView(HasTraits):
   lngs_psuedo_abs = List()
   alts_psuedo_abs = List()
   
-  table = List()
-  table2 = List()
+  table_spp = List()
+  table_psuedo_abs = List()
   dops_table = List()
-  pos_table = List()
-  pos_table_psuedo_abs = List()
+  pos_table_spp = List()
   vel_table = List()
 
   plot = Instance(Plot)
@@ -79,21 +79,28 @@ class SolutionView(HasTraits):
 
   traits_view = View(
     HSplit(
-      VGroup(
-      Item('',label='Raw psuedocode'), 
-       Item('table', style = 'readonly', editor = TabularEditor(adapter=SimpleAdapter()), show_label=False, width=0.3), 
-       Item('', label = 'Psuedo absolute'),
-       Item('table2',style = 'readonly', editor = TabularEditor(adapter=SimpleAdapter()), show_label=False, width=0.3), 
-	),
-	VGroup(
+      Tabbed(
+        VGroup(
+          Item('',label='Single point position (SPP)'), 
+          Item('table_spp', style = 'readonly', editor = TabularEditor(adapter=SimpleAdapter()),
+            show_label=False, width=0.3),
+          label = 'Single point position'
+        ),
+        VGroup(
+         Item('', label = 'RTK position'),
+         Item('table_psuedo_abs',style = 'readonly',
+          editor = TabularEditor(adapter=SimpleAdapter()), show_label=False, width=0.3), 
+	       label = 'RTK position'
+        )
+      ),
+	   VGroup(
         HGroup(
           Item('paused_button', show_label=False),
           Item('clear_button', show_label=False),
           Item('zoomall_button', show_label=False),
           Item('center_button', show_label=False),
-        ),
-        Item(
-          'plot',
+          ),
+        Item('plot',
           show_label = False,
           editor = ComponentEditor(bgcolor = (0.8,0.8,0.8)),
         ),
@@ -117,6 +124,9 @@ class SolutionView(HasTraits):
     self.lats = []
     self.lngs = []
     self.alts = []
+    self.lats_psuedo_abs = []
+    self.lngs_psuedo_abs = []
+    self.alts_psuedo_abs = []
     self.plot_data.set_data('lat', [])
     self.plot_data.set_data('lng', [])
     self.plot_data.set_data('alt', [])
@@ -133,13 +143,18 @@ class SolutionView(HasTraits):
       GUI.invoke_later(self.pos_llh_callback, data)
 
   def update_table(self):
-    self._table_list = self.table.items()
+    self._table_list = self.table_spp.items()
 
-  def pos_llh_callback_spp(self,soln,psuedo_absolutes):
+  def pos_llh_callback(self, data):
+    soln = sbp_messages.PosLLH(data)
+    masked_flag = soln.flags & 0xff;
+    if(masked_flag == 0):
+      psuedo_absolutes = False
+    else:
+      psuedo_absolutes = True
     pos_table = []      
     if self.log_file is None:
       self.log_file = open(time.strftime("position_log_%Y%m%d-%H%M%S.csv"), 'w')
-
     tow = soln.tow * 1e-3
     if self.nsec is not None:
       tow += self.nsec * 1e-9
@@ -154,7 +169,7 @@ class SolutionView(HasTraits):
       self.log_file.write('%s,%.10f,%.10f,%.4f,%d,%d\n' % (
         str(t),
         soln.lat, soln.lon, soln.height,
-        soln.n_sats,soln.flags)
+        soln.n_sats, soln.flags)
       )
       self.log_file.flush()
 
@@ -165,9 +180,17 @@ class SolutionView(HasTraits):
     pos_table.append(('Lat', soln.lat))
     pos_table.append(('Lng', soln.lon))
     pos_table.append(('Alt', soln.height))
-    pos_table.append(('flags', soln.flags))
+    pos_table.append(('Flags', '0x%02x' % soln.flags))
+    if (soln.flags & 0xff) == 0:
+      pos_table.append(('Mode', 'SPP (single point position)'))
+    elif (soln.flags & 0xff) == 1:
+      pos_table.append(('Mode', 'Fixed RTK'))
+    elif (soln.flags & 0xff) == 2:
+      pos_table.append(('Mode', 'Float RTK'))
+    else:
+      pos_table.append(('Mode', 'Unknown'))
 
-    if psuedo_absolutes==True:
+    if psuedo_absolutes:
       #setup_plot variables
       self.lats_psuedo_abs.append(soln.lat)
       self.lngs_psuedo_abs.append(soln.lon)
@@ -186,8 +209,8 @@ class SolutionView(HasTraits):
       self.plot_data.set_data('t', t)
       self.plot_data.set_data('t_ps', t_psuedo_abs)
       #set-up table variables
-      self.pos_table_psuedo_abs = pos_table
-      self.table2 = self.pos_table_psuedo_abs
+      self.table_psuedo_abs = pos_table
+
     else:
       #setup_plot variables
       self.lats.append(soln.lat)
@@ -207,21 +230,15 @@ class SolutionView(HasTraits):
       self.plot_data.set_data('t', t)
 
       #set-up table variables
-      self.pos_table = pos_table
-      self.table = self.pos_table + self.vel_table + self.dops_table
-    if self.position_centered:
-      d = (self.plot.index_range.high - self.plot.index_range.low) / 2.
-      self.plot.index_range.set_bounds(soln.lon - d, soln.lon + d)
-      d = (self.plot.value_range.high - self.plot.value_range.low) / 2.
-      self.plot.value_range.set_bounds(soln.lat - d, soln.lat + d)
-
-  def pos_llh_callback(self, data):
-    soln = sbp_messages.PosLLH(data)
-    masked_flag = soln.flags & 0xff;
-    if(masked_flag == 0):
-      self.pos_llh_callback_spp(soln,False)
-    else:
-      self.pos_llh_callback_spp(soln,True)
+      self.pos_table_spp = pos_table
+      self.table_spp = self.pos_table_spp + self.vel_table + self.dops_table
+      #TODO: figure out how to center the graph now that we have two separate messages
+      #when we selectivtely send the SPP solution, the centering function won't work anymore
+      if self.position_centered:
+        d = (self.plot.index_range.high - self.plot.index_range.low) / 2.
+        self.plot.index_range.set_bounds(soln.lon - d, soln.lon + d)
+        d = (self.plot.value_range.high - self.plot.value_range.low) / 2.
+        self.plot.value_range.set_bounds(soln.lat - d, soln.lat + d)
 
 
   def dops_callback(self, data):
@@ -233,7 +250,7 @@ class SolutionView(HasTraits):
       ('HDOP', '%.1f' % (dops.hdop * 0.01)),
       ('VDOP', '%.1f' % (dops.vdop * 0.01))
     ]
-    self.table = self.pos_table + self.vel_table + self.dops_table
+    self.table_spp = self.pos_table_spp + self.vel_table + self.dops_table
 
   def vel_ned_callback(self, data):
     vel_ned = sbp_messages.VelNED(data)
@@ -263,7 +280,7 @@ class SolutionView(HasTraits):
       ('Vel. E', '% 8.4f' % (vel_ned.e * 1e-3)),
       ('Vel. D', '% 8.4f' % (vel_ned.d * 1e-3)),
     ]
-    self.table = self.pos_table + self.vel_table + self.dops_table
+    self.table_spp = self.pos_table_spp + self.vel_table + self.dops_table
 
   def gps_time_callback(self, data):
     self.week = sbp_messages.GPSTime(data).wn
@@ -279,21 +296,28 @@ class SolutionView(HasTraits):
     self.plot = Plot(self.plot_data)
 
     #1000 point buffer
-    self.plot.plot(('lng', 'lat'), type='line', name='line', color=(0, 0, 0.9, 0.1))
-    self.plot.plot(('lng', 'lat'), type='scatter', name='points', color='blue', marker='dot', line_width=0.0, marker_size=1.0)
-    self.plot.plot(('lng_ps', 'lat_ps'), type='line', name='line', color=(0, 0.9, 0, 0.1))
-    self.plot.plot(('lng_ps', 'lat_ps'), type='scatter', name='points', color='green', marker='diamond', line_width=0.0, marker_size=1.0)
+    self.plot.plot(('lng', 'lat'), type='line',  name='', color=(0, 0, 0.9, 0.1))
+    self.plot.plot(('lng', 'lat'), type='scatter',  name='', color='blue', marker='dot', line_width=0.0, marker_size=1.0)
+    self.plot.plot(('lng_ps', 'lat_ps'), type='line',  name='', color=(0, 0.9, 0, 0.1))
+    self.plot.plot(('lng_ps', 'lat_ps'), type='scatter', name='', color='green', marker='diamond', line_width=0.0, marker_size=1.0)
     #current values
-    self.plot.plot(('cur_lng', 'cur_lat'), type='scatter', name='points', color='blue', marker='plus', line_width=1.0, marker_size=4.0)
-    self.plot.plot(('cur_lng_ps', 'cur_lat_ps'), type='scatter', name='points', color='green', marker='plus', line_width=1.5, marker_size=5.0)
-
+    self.plot.plot(('cur_lng', 'cur_lat'), type='scatter', name='SPP', color='blue', marker='plus', line_width=1.0, marker_size=4.0)
+    self.plot.plot(('cur_lng_ps', 'cur_lat_ps'), type='scatter', name='RTK', color='green', marker='plus', line_width=1.5, marker_size=5.0)
+    self.plot.legend.visible = True
+    
+ 
+ 
     self.plot.index_axis.tick_label_position = 'inside'
     self.plot.index_axis.tick_label_color = 'gray'
     self.plot.index_axis.tick_color = 'gray'
+    self.plot.index_axis.title='Longitude (degrees)'
+    self.plot.index_axis.title_spacing = 5
     self.plot.value_axis.tick_label_position = 'inside'
     self.plot.value_axis.tick_label_color = 'gray'
     self.plot.value_axis.tick_color = 'gray'
-    self.plot.padding = (0, 1, 0, 1)
+    self.plot.value_axis.title='Latitude (degrees)'
+    self.plot.value_axis.title_spacing = 5
+    self.plot.padding = (25, 25, 25, 25)
 
     self.plot.tools.append(PanTool(self.plot))
     zt = ZoomTool(self.plot, zoom_factor=1.1, tool_mode="box", always_on=False)
