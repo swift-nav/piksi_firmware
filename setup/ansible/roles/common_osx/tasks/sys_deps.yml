@@ -36,7 +36,7 @@
                  pyserial==2.7
                  pylibftdi==0.14.2
                  pyparsing==1.5.7
-                 pygments==1.6
+                 pygments==2.0.2
                  intelhex==1.5
                  --allow-external intelhex
                  --allow-unverified intelhex
