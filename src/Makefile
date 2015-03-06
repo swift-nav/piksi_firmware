@@ -86,48 +86,48 @@ LDSCRIPT= STM32F405xG.ld
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
 CSRC := $(PORTSRC) \
-       $(KERNSRC) \
-       $(SWIFTNAV_ROOT)/src/board/nap/nap_common.o \
-       $(SWIFTNAV_ROOT)/src/board/nap/nap_exti.o \
-       $(SWIFTNAV_ROOT)/src/board/nap/nap_conf.o \
-       $(SWIFTNAV_ROOT)/src/board/nap/acq_channel.o \
-       $(SWIFTNAV_ROOT)/src/board/nap/track_channel.o \
-       $(SWIFTNAV_ROOT)/src/board/nap/cw_channel.o \
-       $(SWIFTNAV_ROOT)/src/board/m25_flash.o \
-       $(SWIFTNAV_ROOT)/src/board/max2769.o \
-       $(SWIFTNAV_ROOT)/src/board/leds.o \
-       $(SWIFTNAV_ROOT)/src/peripherals/3drradio.o \
-       $(SWIFTNAV_ROOT)/src/peripherals/stm_flash.o \
-       $(SWIFTNAV_ROOT)/src/peripherals/spi.o \
-       $(SWIFTNAV_ROOT)/src/peripherals/usart.o \
-       $(SWIFTNAV_ROOT)/src/peripherals/usart_tx.o \
-       $(SWIFTNAV_ROOT)/src/peripherals/usart_rx.o \
-       $(SWIFTNAV_ROOT)/src/peripherals/usart_chat.o \
-       $(SWIFTNAV_ROOT)/src/peripherals/random.o \
-       $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee.o \
-       $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee-arch.o \
-       $(SWIFTNAV_ROOT)/src/minIni/minIni.o \
-       $(SWIFTNAV_ROOT)/src/minIni/minGlue.o \
-       $(SWIFTNAV_ROOT)/src/init.o \
-       $(SWIFTNAV_ROOT)/src/sbp.o \
-       $(SWIFTNAV_ROOT)/src/sbp_piksi.o \
-       $(SWIFTNAV_ROOT)/src/sbp_fileio.o \
-       $(SWIFTNAV_ROOT)/src/error.o \
-       $(SWIFTNAV_ROOT)/src/cw.o \
-       $(SWIFTNAV_ROOT)/src/track.o \
-       $(SWIFTNAV_ROOT)/src/acq.o \
-       $(SWIFTNAV_ROOT)/src/manage.o \
-       $(SWIFTNAV_ROOT)/src/settings.o \
-       $(SWIFTNAV_ROOT)/src/timing.o \
-       $(SWIFTNAV_ROOT)/src/position.o \
-       $(SWIFTNAV_ROOT)/src/solution.o \
-       $(SWIFTNAV_ROOT)/src/base_obs.o \
-       $(SWIFTNAV_ROOT)/src/simulator.o \
-       $(SWIFTNAV_ROOT)/src/simulator_data.o \
-       $(SWIFTNAV_ROOT)/src/nmea.o \
-       $(SWIFTNAV_ROOT)/src/system_monitor.o \
-       $(SWIFTNAV_ROOT)/src/flash_callbacks.o \
-       main.c
+        $(KERNSRC) \
+        $(SWIFTNAV_ROOT)/src/board/nap/nap_common.o \
+        $(SWIFTNAV_ROOT)/src/board/nap/nap_exti.o \
+        $(SWIFTNAV_ROOT)/src/board/nap/nap_conf.o \
+        $(SWIFTNAV_ROOT)/src/board/nap/acq_channel.o \
+        $(SWIFTNAV_ROOT)/src/board/nap/track_channel.o \
+        $(SWIFTNAV_ROOT)/src/board/nap/cw_channel.o \
+        $(SWIFTNAV_ROOT)/src/board/m25_flash.o \
+        $(SWIFTNAV_ROOT)/src/board/max2769.o \
+        $(SWIFTNAV_ROOT)/src/board/leds.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/3drradio.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/stm_flash.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/spi.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/usart.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/usart_tx.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/usart_rx.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/usart_chat.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/random.o \
+        $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee.o \
+        $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee-arch.o \
+        $(SWIFTNAV_ROOT)/src/minIni/minIni.o \
+        $(SWIFTNAV_ROOT)/src/minIni/minGlue.o \
+        $(SWIFTNAV_ROOT)/src/init.o \
+        $(SWIFTNAV_ROOT)/src/sbp.o \
+        $(SWIFTNAV_ROOT)/src/sbp_piksi.o \
+        $(SWIFTNAV_ROOT)/src/sbp_fileio.o \
+        $(SWIFTNAV_ROOT)/src/error.o \
+        $(SWIFTNAV_ROOT)/src/cw.o \
+        $(SWIFTNAV_ROOT)/src/track.o \
+        $(SWIFTNAV_ROOT)/src/acq.o \
+        $(SWIFTNAV_ROOT)/src/manage.o \
+        $(SWIFTNAV_ROOT)/src/settings.o \
+        $(SWIFTNAV_ROOT)/src/timing.o \
+        $(SWIFTNAV_ROOT)/src/position.o \
+        $(SWIFTNAV_ROOT)/src/solution.o \
+        $(SWIFTNAV_ROOT)/src/base_obs.o \
+        $(SWIFTNAV_ROOT)/src/simulator.o \
+        $(SWIFTNAV_ROOT)/src/simulator_data.o \
+        $(SWIFTNAV_ROOT)/src/nmea.o \
+        $(SWIFTNAV_ROOT)/src/system_monitor.o \
+        $(SWIFTNAV_ROOT)/src/flash_callbacks.o \
+        main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
