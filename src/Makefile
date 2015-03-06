@@ -85,7 +85,7 @@ LDSCRIPT= STM32F405xG.ld
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
-CSRC = $(PORTSRC) \
+CSRC := $(PORTSRC) \
        $(KERNSRC) \
        $(SWIFTNAV_ROOT)/src/board/nap/nap_common.o \
        $(SWIFTNAV_ROOT)/src/board/nap/nap_exti.o \
