@@ -28,12 +28,12 @@ import time
 import sbp_piksi as sbp_messages
 
 class SimpleAdapter(TabularAdapter):
-    columns = [('Item', 0), ('Value',  1)]
-    width = 80
+  columns = [('Item', 0), ('Value',  1)]
+  width = 80
 
 class SolutionView(HasTraits):
   python_console_cmds = Dict()
-  # we need to doubleup on Lists to store the psuedo absolutes separately 
+  # we need to doubleup on Lists to store the psuedo absolutes separately
   # without rewriting everything
   lats = List()
   lngs = List()
@@ -51,6 +51,7 @@ class SolutionView(HasTraits):
 
   plot = Instance(Plot)
   plot_data = Instance(ArrayPlotData)
+  #Store plots we care about for legend
 
   running = Bool(True)
   position_centered = Bool(False)
@@ -81,29 +82,28 @@ class SolutionView(HasTraits):
     HSplit(
       Tabbed(
         VGroup(
-          Item('',label='Single point position (SPP)'), 
-          Item('table_spp', style = 'readonly', editor = TabularEditor(adapter=SimpleAdapter()),
+          Item('', label='Single Point Position (SPP)'), 
+          Item('table_spp', style='readonly', 
+            editor=TabularEditor(adapter=SimpleAdapter()), 
             show_label=False, width=0.3),
-          label = 'Single point position'
-        ),
+          label='Single Point Position'),
         VGroup(
-         Item('', label = 'RTK position'),
-         Item('table_psuedo_abs',style = 'readonly',
-          editor = TabularEditor(adapter=SimpleAdapter()), show_label=False, width=0.3), 
-	       label = 'RTK position'
-        )
+          Item('', label='RTK Position'),
+          Item('table_psuedo_abs',style='readonly',
+            editor=TabularEditor(adapter=SimpleAdapter()), 
+            show_label=False, width=0.3),
+          label='RTK Position')
       ),
-	   VGroup(
+      VGroup(
         HGroup(
           Item('paused_button', show_label=False),
           Item('clear_button', show_label=False),
           Item('zoomall_button', show_label=False),
           Item('center_button', show_label=False),
-          ),
-        Item('plot',
-          show_label = False,
-          editor = ComponentEditor(bgcolor = (0.8,0.8,0.8)),
         ),
+        Item('plot',
+          show_label=False,
+          editor=ComponentEditor(bgcolor=(0.8,0.8,0.8))),
       )
     )
   )
@@ -147,12 +147,12 @@ class SolutionView(HasTraits):
 
   def pos_llh_callback(self, data):
     soln = sbp_messages.PosLLH(data)
-    masked_flag = soln.flags & 0xff;
-    if(masked_flag == 0):
+    masked_flag = soln.flags & 0x7
+    if masked_flag == 0:
       psuedo_absolutes = False
     else:
       psuedo_absolutes = True
-    pos_table = []      
+    pos_table = []
     if self.log_file is None:
       self.log_file = open(time.strftime("position_log_%Y%m%d-%H%M%S.csv"), 'w')
     tow = soln.tow * 1e-3
@@ -191,7 +191,7 @@ class SolutionView(HasTraits):
       pos_table.append(('Mode', 'Unknown'))
 
     if psuedo_absolutes:
-      #setup_plot variables
+      # setup_plot variables
       self.lats_psuedo_abs.append(soln.lat)
       self.lngs_psuedo_abs.append(soln.lon)
       self.alts_psuedo_abs.append(soln.height)
@@ -208,11 +208,11 @@ class SolutionView(HasTraits):
       t_psuedo_abs = range(len(self.lats))
       self.plot_data.set_data('t', t)
       self.plot_data.set_data('t_ps', t_psuedo_abs)
-      #set-up table variables
+      # set-up table variables
       self.table_psuedo_abs = pos_table
 
     else:
-      #setup_plot variables
+      # setup_plot variables
       self.lats.append(soln.lat)
       self.lngs.append(soln.lon)
       self.alts.append(soln.height)
@@ -229,11 +229,11 @@ class SolutionView(HasTraits):
       t = range(len(self.lats))
       self.plot_data.set_data('t', t)
 
-      #set-up table variables
+      # set-up table variables
       self.pos_table_spp = pos_table
       self.table_spp = self.pos_table_spp + self.vel_table + self.dops_table
-      #TODO: figure out how to center the graph now that we have two separate messages
-      #when we selectivtely send the SPP solution, the centering function won't work anymore
+      # TODO: figure out how to center the graph now that we have two separate messages
+      # when we selectivtely send only SPP, the centering function won't work anymore
       if self.position_centered:
         d = (self.plot.index_range.high - self.plot.index_range.low) / 2.
         self.plot.index_range.set_bounds(soln.lon - d, soln.lon + d)
@@ -292,17 +292,26 @@ class SolutionView(HasTraits):
     self.log_file = None
     self.vel_log_file = None
 
-    self.plot_data = ArrayPlotData(lat=[0.0], lng=[0.0], alt=[0.0], t=[0.0], cur_lat=[0.0], cur_lng=[0.0], cur_lat_ps=[0.0], cur_lng_ps=[0.0], lat_ps=[0.0], lng_ps=[0.0], alt_ps=[0.0], t_ps=[0.0])
+    self.plot_data = ArrayPlotData(lat=[0.0], lng=[0.0], alt=[0.0], t=[0.0], 
+      cur_lat=[0.0], cur_lng=[0.0], cur_lat_ps=[0.0], cur_lng_ps=[0.0], 
+      lat_ps=[0.0], lng_ps=[0.0], alt_ps=[0.0], t_ps=[0.0])
     self.plot = Plot(self.plot_data)
 
     #1000 point buffer
     self.plot.plot(('lng', 'lat'), type='line',  name='', color=(0, 0, 0.9, 0.1))
-    self.plot.plot(('lng', 'lat'), type='scatter',  name='', color='blue', marker='dot', line_width=0.0, marker_size=1.0)
-    self.plot.plot(('lng_ps', 'lat_ps'), type='line',  name='', color=(0, 0.9, 0, 0.1))
-    self.plot.plot(('lng_ps', 'lat_ps'), type='scatter', name='', color='green', marker='diamond', line_width=0.0, marker_size=1.0)
+    self.plot.plot(('lng', 'lat'), type='scatter',  name='', 
+      color='blue', marker='dot', line_width=0.0, marker_size=1.0)
+    self.plot.plot(('lng_ps', 'lat_ps'), type='line',  name='', color=(1, 0.4, 0, 0.1))
+    self.plot.plot(('lng_ps', 'lat_ps'), type='scatter', name='', 
+      color='orange', marker='diamond', line_width=0.0, marker_size=1.0)
     #current values
-    self.plot.plot(('cur_lng', 'cur_lat'), type='scatter', name='SPP', color='blue', marker='plus', line_width=1.0, marker_size=4.0)
-    self.plot.plot(('cur_lng_ps', 'cur_lat_ps'), type='scatter', name='RTK', color='green', marker='plus', line_width=1.5, marker_size=5.0)
+    spp = self.plot.plot(('cur_lng', 'cur_lat'), type='scatter', name='SPP', 
+      color='blue', marker='plus', line_width=1.5, marker_size=5.0)
+    rtk = self.plot.plot(('cur_lng_ps', 'cur_lat_ps'), type='scatter', 
+      name='RTK', color='orange', marker='plus', line_width=1.5, marker_size=5.0)
+    plot_labels = ['SPP','RTK']
+    plots_legend = dict(zip(plot_labels, [spp,rtk]))
+    self.plot.legend.plots = plots_legend
     self.plot.legend.visible = True
     
  

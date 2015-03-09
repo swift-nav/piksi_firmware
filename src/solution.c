@@ -141,12 +141,12 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
     last_dgnss = chTimeNow();
     double pseudo_absolute_ecef[3];
     double pseudo_absolute_llh[3];
-    /*if simulation use the simulator's base station position */
+    /* if simulation use the simulator's base station position */
     if ((simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
         simulation_enabled_for(SIMULATION_MODE_RTK))) {
       base_station_pos = simulation_ref_ecef();
     }
-    else {  /* else use the global variable*/
+    else { /* else use the global variable */
       base_station_pos = base_pos_ecef;
     }
 
@@ -361,7 +361,7 @@ static msg_t solution_thread(void *arg)
               s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
                       position_solution.pos_ecef, &num_sds_used, prop_baseline);
               if (ll_err_code != -1) {
-                /* reminder, ll_err_code is -1 if no baseline, 2 if float, 1 if fixed*/
+                /* reminder, ll_err_code is -1 if no baseline, 2 if float, 1 if fixed */
                 solution_send_baseline(&position_solution.time,
                                        num_sds_used, prop_baseline,
                                        position_solution.pos_ecef,
@@ -690,7 +690,7 @@ void solution_setup()
 
   SETTING("solution", "soln_freq", soln_freq, TYPE_FLOAT);
   SETTING("solution", "output_every_n_obs", obs_output_divisor, TYPE_INT);
-  
+
   static const char const *dgnss_soln_mode_enum[] = {
     "Low Latency",
     "Time Matched",

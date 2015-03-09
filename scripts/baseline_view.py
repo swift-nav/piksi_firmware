@@ -131,6 +131,9 @@ class BaselineView(HasTraits):
     self.plot_data.set_data('e', [])
     self.plot_data.set_data('d', [])
     self.plot_data.set_data('t', [])
+    self.plot_data.set_data('curr_n', [])
+    self.plot_data.set_data('curr_e', [])
+    self.plot_data.set_data('curr_d', [])
 
   def _baseline_callback_ecef(self, data):
     #Don't do anything for ECEF currently
@@ -211,9 +214,13 @@ class BaselineView(HasTraits):
     self.plot_data.set_data('n', self.ns)
     self.plot_data.set_data('e', self.es)
     self.plot_data.set_data('d', self.ds)
-    self.plot_data.set_data('ref_n', [0.0, soln.n])
-    self.plot_data.set_data('ref_e', [0.0, soln.e])
-    self.plot_data.set_data('ref_d', [0.0, soln.d])
+    self.plot_data.set_data('curr_n', [soln.n])
+    self.plot_data.set_data('curr_e', [soln.e])
+    self.plot_data.set_data('curr_d', [soln.d])
+    self.plot_data.set_data('ref_n', [0.0])
+    self.plot_data.set_data('ref_e', [0.0])
+    self.plot_data.set_data('ref_d', [0.0])
+
     t = range(len(self.ns))
     self.plot_data.set_data('t', t)
 
@@ -232,26 +239,46 @@ class BaselineView(HasTraits):
 
     self.num_hyps = 0
 
-    self.plot_data = ArrayPlotData(n=[0.0], e=[0.0], d=[0.0], t=[0.0], ref_n=[0.0], ref_e=[0.0], ref_d=[0.0])
+    self.plot_data = ArrayPlotData(n=[0.0], e=[0.0], d=[0.0], t=[0.0], ref_n=[0.0], 
+                   ref_e=[0.0], ref_d=[0.0], curr_e=[0.0], curr_n=[0.0], curr_d=[0.0])
     self.plot = Plot(self.plot_data)
-
-    self.plot.plot(('e', 'n'), type='line', name='line', color=(0, 0, 0, 0.1))
-    self.plot.plot(('e', 'n'), type='scatter', name='points', color='blue', marker='dot', line_width=0.0, marker_size=1.0)
-    self.plot.plot(('ref_e', 'ref_n'),
+    lin = self.plot.plot(('e', 'n'), 
+        type='line', 
+        color=(0, 0, 1, 0.1))
+    pts = self.plot.plot(('e', 'n'), 
+        type='scatter', 
+        color='blue', 
+        marker='dot', 
+        line_width=0.0, 
+        marker_size=1.0)
+    ref = self.plot.plot(('ref_e', 'ref_n'),
         type='scatter',
         color='red',
         marker='plus',
         marker_size=5,
-        line_width=1.5
-    )
+        line_width=1.5)
+    cur = self.plot.plot(('curr_e', 'curr_n'),
+        type='scatter',
+        color='orange',
+        marker='plus',
+        marker_size=5,
+        line_width=1.5)
+    plot_labels = ['Base Position','Rover Relative Position','Rover Path']
+    plots_legend = dict(zip(plot_labels, [ref,cur,pts]))
+    self.plot.legend.plots = plots_legend
+    self.plot.legend.visible = True
 
     self.plot.index_axis.tick_label_position = 'inside'
     self.plot.index_axis.tick_label_color = 'gray'
     self.plot.index_axis.tick_color = 'gray'
+    self.plot.index_axis.title='E (meters)'
+    self.plot.index_axis.title_spacing = 5
     self.plot.value_axis.tick_label_position = 'inside'
     self.plot.value_axis.tick_label_color = 'gray'
     self.plot.value_axis.tick_color = 'gray'
-    self.plot.padding = (0, 1, 0, 1)
+    self.plot.value_axis.title='N (meters)'
+    self.plot.value_axis.title_spacing = 5
+    self.plot.padding = (25, 25, 25, 25)
 
     self.plot.tools.append(PanTool(self.plot))
     zt = ZoomTool(self.plot, zoom_factor=1.1, tool_mode="box", always_on=False)
