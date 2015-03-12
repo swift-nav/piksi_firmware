@@ -82,13 +82,13 @@ class SolutionView(HasTraits):
     HSplit(
       Tabbed(
         VGroup(
-          Item('', label='Single Point Position (SPP)'), 
+          Item('', label='Single Point Position (SPP)', emphasized=True), 
           Item('table_spp', style='readonly', 
             editor=TabularEditor(adapter=SimpleAdapter()), 
             show_label=False, width=0.3),
           label='Single Point Position'),
         VGroup(
-          Item('', label='RTK Position'),
+          Item('', label='RTK Position', emphasized=True),
           Item('table_psuedo_abs',style='readonly',
             editor=TabularEditor(adapter=SimpleAdapter()), 
             show_label=False, width=0.3),

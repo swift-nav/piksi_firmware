@@ -53,7 +53,7 @@ import os
 import sys
 
 from traits.api import Str, Instance, Dict, HasTraits, Int, Button, List
-from traitsui.api import Item, Label, View, VGroup, VSplit, HSplit, Tabbed, InstanceEditor, EnumEditor, ShellEditor
+from traitsui.api import Item, Label, View, HGroup, VGroup, VSplit, HSplit, Tabbed, InstanceEditor, EnumEditor, ShellEditor
 
 # When bundled with pyInstaller, PythonLexer can't be found. The problem is
 # pygments.lexers is doing some crazy magic to load up all of the available
@@ -97,6 +97,7 @@ from observation_view import ObservationView
 from system_monitor_view import SystemMonitorView
 from settings_view import SettingsView
 from update_view import UpdateView
+from enable.savage.trait_defs.ui.svg_button import SVGButton
 
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
@@ -113,6 +114,17 @@ class SwiftConsole(HasTraits):
   settings_view = Instance(SettingsView)
   update_view = Instance(UpdateView)
 
+  paused_button = SVGButton(
+    label='', tooltip='Pause console update', toggle_tooltip='Resume console update', toggle=True,
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'pause.svg'),
+    toggle_filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'play.svg'),
+    width=8, height=8
+  )
+  clear_button = SVGButton(
+    label='', tooltip='Clear console buffer',
+    filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'x.svg'),
+    width=8, height=8
+  )
   view = View(
     VSplit(
       Tabbed(
@@ -133,13 +145,21 @@ class SwiftConsole(HasTraits):
         ),
         show_labels=False
       ),
-      Item(
-        'console_output',
-        style='custom',
-        editor=InstanceEditor(),
-        height=0.3,
-        show_label=False,
-      ),
+      VGroup(
+        HGroup(
+          Item('', show_label=False),
+          Item('paused_button', show_label=False),
+          Item('clear_button', show_label=False),
+          Item('', label='Console Log', emphasized=True), 
+        ),
+        Item(
+          'console_output',
+          style='custom',
+          editor=InstanceEditor(),
+          height=0.3,
+          show_label=False,
+        ),
+      )
     ),
     icon = icon,
     resizable = True,
@@ -152,13 +172,18 @@ class SwiftConsole(HasTraits):
     try:
       self.console_output.write(data.encode('ascii', 'ignore'))
     except UnicodeDecodeError:
-      print "Oh crap!"
+      print "Critical Error encoding the serial stream as ascii."
 
   def debug_var_callback(self, data):
     x = struct.unpack('<d', data[:8])[0]
     name = data[8:]
     print "VAR: %s = %d" % (name, x)
 
+  def _paused_button_fired(self):
+    self.console_output.paused = not self.console_output.paused 
+
+  def _clear_button_fired(self):
+    self.console_output.reset()
   def __init__(self, *args, **kwargs):
     try:
       update = kwargs.pop('update')

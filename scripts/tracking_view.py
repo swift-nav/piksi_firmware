@@ -9,7 +9,7 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-from traits.api import Str, Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int
+from traits.api import Str, Instance, Dict, HasTraits, Array, Float, Bool, on_trait_change, List, Int
 from traitsui.api import Item, View, HGroup, ArrayEditor, HSplit
 
 from chaco.api import BarPlot, ArrayDataSource, DataRange1D, LinearMapper, OverlayPlotContainer, LabelAxis, PlotAxis, ArrayPlotData, Plot, Legend
@@ -39,6 +39,7 @@ colours_list = [
 ]
 
 class TrackingState(HasTraits):
+  
   state = Int()
   cn0 = Float()
   prn = Int()
@@ -75,7 +76,6 @@ class TrackingView(HasTraits):
 
   def tracking_state_callback(self, data):
     n_channels = len(data) / TRACKING_STATE_BYTES_PER_CHANNEL
-
     if n_channels != self.n_channels:
       # Update number of channels
       self.n_channels = n_channels
@@ -116,8 +116,9 @@ class TrackingView(HasTraits):
     self.n_channels = None
 
     self.plot_data = ArrayPlotData(t=[0.0])
-    self.plot = Plot(self.plot_data, auto_colors=colours_list)
+    self.plot = Plot(self.plot_data, auto_colors=colours_list, emphasized=True)
     self.plot.title = "Tracking C/N0"
+    self.plot.title_color = [0,0,0.43]
     self.plot.value_range.margin = 0.1
     self.plot.value_range.bounds_func = lambda l, h, m, tb: (0, h*(1+m))
     self.plot.value_axis.orientation = 'right'
