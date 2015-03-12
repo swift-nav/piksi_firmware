@@ -278,7 +278,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   for (u8 i=0; i<obs_in_msg; i++) {
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
-    if (ephemeris_good(es[obs[i].prn], t)) {
+    if (ephemeris_good(&es[obs[i].prn], t)) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
@@ -291,9 +291,10 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_pos(base_obss_rx.nm[base_obss_rx.n].sat_pos,
-                   base_obss_rx.nm[base_obss_rx.n].sat_vel,
-                   &clock_err, &clock_rate_err, &es[obs[i].prn], t);
+      calc_sat_state(&es[obs[i].prn], t,
+                     base_obss_rx.nm[base_obss_rx.n].sat_pos,
+                     base_obss_rx.nm[base_obss_rx.n].sat_vel,
+                     &clock_err, &clock_rate_err);
       /* Apply corrections to the raw pseudorange. */
       /* TODO Make a function to apply some of these corrections.
        *      They are used in a couple places. */
