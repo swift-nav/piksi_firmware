@@ -239,17 +239,17 @@ class BaselineView(HasTraits):
 
     self.num_hyps = 0
 
-    self.plot_data = ArrayPlotData(n=[0.0], e=[0.0], d=[0.0], t=[0.0], ref_n=[0.0], 
-                   ref_e=[0.0], ref_d=[0.0], curr_e=[0.0], curr_n=[0.0], curr_d=[0.0])
+    self.plot_data = ArrayPlotData(n=[0.0], e=[0.0], d=[0.0], t=[0.0], ref_n=[0.0],
+                     ref_e=[0.0], ref_d=[0.0], curr_e=[0.0], curr_n=[0.0], curr_d=[0.0])
     self.plot = Plot(self.plot_data)
-    lin = self.plot.plot(('e', 'n'), 
-        type='line', 
+    lin = self.plot.plot(('e', 'n'),
+        type='line',
         color=(0, 0, 1, 0.1))
-    pts = self.plot.plot(('e', 'n'), 
-        type='scatter', 
-        color='blue', 
-        marker='dot', 
-        line_width=0.0, 
+    pts = self.plot.plot(('e', 'n'),
+        type='scatter',
+        color='blue',
+        marker='dot',
+        line_width=0.0,
         marker_size=1.0)
     ref = self.plot.plot(('ref_e', 'ref_n'),
         type='scatter',

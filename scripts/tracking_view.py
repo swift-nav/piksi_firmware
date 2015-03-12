@@ -39,7 +39,6 @@ colours_list = [
 ]
 
 class TrackingState(HasTraits):
-  
   state = Int()
   cn0 = Float()
   prn = Int()
@@ -117,12 +116,13 @@ class TrackingView(HasTraits):
 
     self.plot_data = ArrayPlotData(t=[0.0])
     self.plot = Plot(self.plot_data, auto_colors=colours_list, emphasized=True)
-    self.plot.title = "Tracking C/N0"
+    self.plot.title = 'Tracking C/N0'
     self.plot.title_color = [0,0,0.43]
     self.plot.value_range.margin = 0.1
     self.plot.value_range.bounds_func = lambda l, h, m, tb: (0, h*(1+m))
     self.plot.value_axis.orientation = 'right'
     self.plot.value_axis.axis_line_visible = False
+    self.plot.value_axis.title = 'dB-Hz'
     t = range(NUM_POINTS)
     self.plot_data.set_data('t', t)
 

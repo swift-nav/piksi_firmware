@@ -42,7 +42,7 @@ class SolutionView(HasTraits):
   lats_psuedo_abs = List()
   lngs_psuedo_abs = List()
   alts_psuedo_abs = List()
-  
+
   table_spp = List()
   table_psuedo_abs = List()
   dops_table = List()
@@ -51,7 +51,7 @@ class SolutionView(HasTraits):
 
   plot = Instance(Plot)
   plot_data = Instance(ArrayPlotData)
-  #Store plots we care about for legend
+  # Store plots we care about for legend
 
   running = Bool(True)
   position_centered = Bool(False)
@@ -82,16 +82,16 @@ class SolutionView(HasTraits):
     HSplit(
       Tabbed(
         VGroup(
-          Item('', label='Single Point Position (SPP)', emphasized=True), 
-          Item('table_spp', style='readonly', 
-            editor=TabularEditor(adapter=SimpleAdapter()), 
-            show_label=False, width=0.3),
+          Item('', label='Single Point Position (SPP)', emphasized=True),
+          Item('table_spp', style='readonly',
+                editor=TabularEditor(adapter=SimpleAdapter()),
+                show_label=False, width=0.3),
           label='Single Point Position'),
         VGroup(
           Item('', label='RTK Position', emphasized=True),
           Item('table_psuedo_abs',style='readonly',
-            editor=TabularEditor(adapter=SimpleAdapter()), 
-            show_label=False, width=0.3),
+               editor=TabularEditor(adapter=SimpleAdapter()),
+               show_label=False, width=0.3),
           label='RTK Position')
       ),
       VGroup(
@@ -292,30 +292,30 @@ class SolutionView(HasTraits):
     self.log_file = None
     self.vel_log_file = None
 
-    self.plot_data = ArrayPlotData(lat=[0.0], lng=[0.0], alt=[0.0], t=[0.0], 
-      cur_lat=[0.0], cur_lng=[0.0], cur_lat_ps=[0.0], cur_lng_ps=[0.0], 
-      lat_ps=[0.0], lng_ps=[0.0], alt_ps=[0.0], t_ps=[0.0])
+    self.plot_data = ArrayPlotData(lat=[], lng=[], alt=[], t=[],
+      cur_lat=[], cur_lng=[], cur_lat_ps=[], cur_lng_ps=[],
+      lat_ps=[], lng_ps=[], alt_ps=[], t_ps=[])
     self.plot = Plot(self.plot_data)
 
-    #1000 point buffer
+    # 1000 point buffer
     self.plot.plot(('lng', 'lat'), type='line',  name='', color=(0, 0, 0.9, 0.1))
-    self.plot.plot(('lng', 'lat'), type='scatter',  name='', 
+    self.plot.plot(('lng', 'lat'), type='scatter',  name='',
       color='blue', marker='dot', line_width=0.0, marker_size=1.0)
     self.plot.plot(('lng_ps', 'lat_ps'), type='line',  name='', color=(1, 0.4, 0, 0.1))
-    self.plot.plot(('lng_ps', 'lat_ps'), type='scatter', name='', 
+    self.plot.plot(('lng_ps', 'lat_ps'), type='scatter', name='',
       color='orange', marker='diamond', line_width=0.0, marker_size=1.0)
-    #current values
-    spp = self.plot.plot(('cur_lng', 'cur_lat'), type='scatter', name='SPP', 
+    # current values
+    spp = self.plot.plot(('cur_lng', 'cur_lat'), type='scatter', name='SPP',
       color='blue', marker='plus', line_width=1.5, marker_size=5.0)
-    rtk = self.plot.plot(('cur_lng_ps', 'cur_lat_ps'), type='scatter', 
+    rtk = self.plot.plot(('cur_lng_ps', 'cur_lat_ps'), type='scatter',
       name='RTK', color='orange', marker='plus', line_width=1.5, marker_size=5.0)
     plot_labels = ['SPP','RTK']
     plots_legend = dict(zip(plot_labels, [spp,rtk]))
     self.plot.legend.plots = plots_legend
     self.plot.legend.visible = True
-    
- 
- 
+
+
+
     self.plot.index_axis.tick_label_position = 'inside'
     self.plot.index_axis.tick_label_color = 'gray'
     self.plot.index_axis.tick_color = 'gray'

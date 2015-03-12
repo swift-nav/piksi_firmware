@@ -150,7 +150,7 @@ class SwiftConsole(HasTraits):
           Item('', show_label=False),
           Item('paused_button', show_label=False),
           Item('clear_button', show_label=False),
-          Item('', label='Console Log', emphasized=True), 
+          Item('', label='Console Log', emphasized=True),
         ),
         Item(
           'console_output',
@@ -180,7 +180,7 @@ class SwiftConsole(HasTraits):
     print "VAR: %s = %d" % (name, x)
 
   def _paused_button_fired(self):
-    self.console_output.paused = not self.console_output.paused 
+    self.console_output.paused = not self.console_output.paused
 
   def _clear_button_fired(self):
     self.console_output.reset()
