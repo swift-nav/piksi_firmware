@@ -46,11 +46,11 @@ simulation_settings_t sim_settings = {
   },
   .speed = 4.0,
   .radius = 100.0,
-  .pos_sigma = 2.0,
-  .speed_sigma = 0.02,
-  .cn0_sigma = 0.1,
-  .pseudorange_sigma = 16,
-  .phase_sigma = 9e-4,
+  .pos_sigma = 1.5,
+  .speed_sigma = .15,
+  .cn0_sigma = 0.3,
+  .pseudorange_sigma = 4,
+  .phase_sigma = 3e-2,
   .num_sats = 9,
   .mode_mask =
     SIMULATION_MODE_PVT |
@@ -229,14 +229,17 @@ void simulation_step_position_in_circle(double elapsed)
 
   /* Add gaussian noise to PVT position */
   double* pos_ecef = sim_state.noisy_solution.pos_ecef;
-  pos_ecef[0] = sim_state.pos[0] + rand_gaussian(sim_settings.pos_sigma);
-  pos_ecef[1] = sim_state.pos[1] + rand_gaussian(sim_settings.pos_sigma);
-  pos_ecef[2] = sim_state.pos[2] + rand_gaussian(sim_settings.pos_sigma);
+  double pos_variance = sim_settings.pos_sigma * sim_settings.pos_sigma;
+  pos_ecef[0] = sim_state.pos[0] + rand_gaussian(pos_variance);
+  pos_ecef[1] = sim_state.pos[1] + rand_gaussian(pos_variance);
+  pos_ecef[2] = sim_state.pos[2] + rand_gaussian(pos_variance);
 
   wgsecef2llh(sim_state.noisy_solution.pos_ecef, sim_state.noisy_solution.pos_llh);
 
   /* Calculate Velocity vector tangent to the sphere */
-  double noisy_speed = sim_settings.speed + rand_gaussian(sim_settings.speed_sigma);
+  double noisy_speed = sim_settings.speed +
+                       rand_gaussian(sim_settings.speed_sigma *
+                                     sim_settings.speed_sigma);
 
   sim_state.noisy_solution.vel_ned[0] = noisy_speed * cos(sim_state.angle);
   sim_state.noisy_solution.vel_ned[1] = noisy_speed * -1.0 * sin(sim_state.angle);
@@ -331,13 +334,17 @@ void populate_nav_meas(navigation_measurement_t *nav_meas, double dist, double e
   nav_meas->prn             =  simulation_almanacs[almanac_i].prn + SIM_PRN_OFFSET;
 
   nav_meas->raw_pseudorange =  dist;
-  nav_meas->raw_pseudorange += rand_gaussian(sim_settings.pseudorange_sigma);
+  nav_meas->raw_pseudorange += rand_gaussian(sim_settings.pseudorange_sigma *
+                                             sim_settings.pseudorange_sigma);
 
   nav_meas->carrier_phase =    dist / (GPS_C / GPS_L1_HZ);
   nav_meas->carrier_phase +=   simulation_fake_carrier_bias[almanac_i];
-  nav_meas->carrier_phase +=   rand_gaussian(sim_settings.phase_sigma);
+  nav_meas->carrier_phase +=   rand_gaussian(sim_settings.phase_sigma *
+                                             sim_settings.phase_sigma);
 
-  nav_meas->snr             =  lerp(elevation, 0, M_PI/2, 35, 45) + rand_gaussian(sim_settings.cn0_sigma);
+  nav_meas->snr             =  lerp(elevation, 0, M_PI/2, 35, 45) +
+                               rand_gaussian(sim_settings.cn0_sigma *
+                                             sim_settings.cn0_sigma);
 }
 
 /** Returns true if the simulation is at all enabled
