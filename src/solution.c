@@ -47,6 +47,7 @@ systime_t last_dgnss;
 double soln_freq = 10.0;
 u32 obs_output_divisor = 2;
 
+
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
 
@@ -102,9 +103,27 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
   );
 }
 
+/** Creates and sends RTK solution.
+ * If the base station position is known,
+ * send the NMEA and SBP psuedo absolute msgs.
+ *
+ * \note this function relies upon the global base_pos_ecef and base_pos_known
+ * for logic and base station position when sending psuedo absolutes.
+ * If operating in simulation mode, it depends upon the simulation mode enabled
+ * and the simulation base_ecef position (both available in the global struct
+ * sim_settings and accessed via wrappers prototyped in simulator.h)
+ *
+ * \param t pointer to gps time struct representing gps time for solution
+ * \param n_sats u8 representig the number of satellites
+ * \param b_ecef size 3 vector of doubles representing ECEF position (meters)
+ * \param ref_ecef size 3 vector of doubles representing reference position
+ * for conversion from ECEF to local NED coordinates (meters)
+ * \param flags u8 RTK solution flags. 1 if float, 0 if fixed
+ */
 void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
                             double ref_ecef[3], u8 flags)
 {
+  double* base_station_pos;
   sbp_baseline_ecef_t sbp_ecef;
   sbp_make_baseline_ecef(&sbp_ecef, t, n_sats, b_ecef, flags);
   sbp_send_msg(SBP_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
@@ -117,15 +136,36 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
   sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
 
   chMtxLock(&base_pos_lock);
-  if (base_pos_known) {
+  if (base_pos_known || (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
+      simulation_enabled_for(SIMULATION_MODE_RTK))) {
     last_dgnss = chTimeNow();
     double pseudo_absolute_ecef[3];
     double pseudo_absolute_llh[3];
-    vector_add(3, base_pos_ecef, b_ecef, pseudo_absolute_ecef);
+    /* if simulation use the simulator's base station position */
+    if ((simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
+        simulation_enabled_for(SIMULATION_MODE_RTK))) {
+      base_station_pos = simulation_ref_ecef();
+    }
+    else { /* else use the global variable */
+      base_station_pos = base_pos_ecef;
+    }
+
+    vector_add(3, base_station_pos, b_ecef, pseudo_absolute_ecef);
     wgsecef2llh(pseudo_absolute_ecef, pseudo_absolute_llh);
     u8 fix_mode = (flags & 1) ? NMEA_GGA_FIX_RTK : NMEA_GGA_FIX_FLOAT;
     /* TODO: Don't fake DOP!! */
     nmea_gpgga(pseudo_absolute_llh, t, n_sats, fix_mode, 1.5);
+    /* now send pseudo absolute sbp message */
+    /* Flag in message is defined as follows :float->2, fixed->1 */
+    /* We defined the flags for the SBP protocol to be spp->0, fixed->1, float->2 */
+    /* TODO: Define these flags from the yaml and remove hardcoding */
+    u8 sbp_flags = (flags == 1) ? 1 : 2;
+    sbp_pos_llh_t pos_llh;
+    sbp_make_pos_llh_vect(&pos_llh, pseudo_absolute_llh, t, n_sats, sbp_flags);
+    sbp_send_msg(SBP_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
+    sbp_pos_ecef_t pos_ecef;
+    sbp_make_pos_ecef_vect(&pos_ecef, pseudo_absolute_ecef, t, n_sats, sbp_flags);
+    sbp_send_msg(SBP_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
   }
   chMtxUnlock();
 }
@@ -321,6 +361,7 @@ static msg_t solution_thread(void *arg)
               s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
                       position_solution.pos_ecef, &num_sds_used, prop_baseline);
               if (ll_err_code != -1) {
+                /* reminder, ll_err_code is -1 if no baseline, 2 if float, 1 if fixed */
                 solution_send_baseline(&position_solution.time,
                                        num_sds_used, prop_baseline,
                                        position_solution.pos_ecef,
