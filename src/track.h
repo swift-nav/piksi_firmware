@@ -56,6 +56,7 @@ typedef struct {
   float cn0;                   /**< Current estimate of C/N0. */
   u8 int_ms;                   /**< Integration length. */
   u8 next_int_ms;              /**< Integration length for the next cycle. */
+  bool short_cycle;            /**< Set to true when a short 1ms integration is requested. */
 } tracking_channel_t;
 
 /** \} */

@@ -23,6 +23,7 @@
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
 
+#define LONG_INTEGRATION_INTERVAL 20
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
@@ -142,7 +143,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 
   nav_msg_init(&chan->nav_msg);
 
-  chan->int_ms = chan->next_int_ms = 1;
+  chan->int_ms = 1;
+  chan->short_cycle = true;
 
   /* Initialise C/N0 estimator */
   float cn0 = 10 * log10(snr);
@@ -180,7 +182,19 @@ void tracking_channel_get_corrs(u8 channel)
   {
     case TRACKING_RUNNING:
       /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
-      nap_track_corr_rd_blocking(channel, &chan->corr_sample_count, chan->cs);
+      if ((chan->int_ms > 1) && !chan->short_cycle) {
+        /* If we just requested the short cycle, this is the long cycle's
+         * correlations. */
+        corr_t cs[3];
+        nap_track_corr_rd_blocking(channel, &chan->corr_sample_count, cs);
+        /* accumulate short cycle correlations with long */
+        for(int i = 0; i < 3; i++) {
+          chan->cs[i].I += cs[i].I;
+          chan->cs[i].Q += cs[i].Q;
+        }
+      } else {
+        nap_track_corr_rd_blocking(channel, &chan->corr_sample_count, chan->cs);
+      }
       break;
 
     case TRACKING_DISABLED:
@@ -203,20 +217,44 @@ void tracking_channel_update(u8 channel)
   {
     case TRACKING_RUNNING:
     {
-      chan->update_count += chan->int_ms;
       chan->sample_count += chan->corr_sample_count;
+      chan->code_phase_early = (u64)chan->code_phase_early +
+                               (u64)chan->corr_sample_count
+                                 * chan->code_phase_rate_fp_prev;
+      chan->carrier_phase += (s64)chan->carrier_freq_fp_prev
+                               * chan->corr_sample_count;
+      /* TODO: Fix this in the FPGA - first integration is one sample short. */
+      if (chan->update_count == 0)
+        chan->carrier_phase -= chan->carrier_freq_fp_prev;
+      chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
+      chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
 
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       if (chan->TOW_ms > 0) {
         /* Have a valid time of week. */
-        chan->TOW_ms += chan->int_ms;
-        if (chan->TOW_ms == 7*24*60*60*1000)
-          chan->TOW_ms = 0;
-
-        /* Turn off FLL aiding. For now we do this here because having a valid
-         * TOW is a very good indication that the tracking loops have locked. */
-        chan->tl_state.carr_filt.aiding_igain = 0;
+        chan->TOW_ms += chan->short_cycle ? 1 : (chan->int_ms-1);
+        chan->TOW_ms %= 7*24*60*60*1000;
       }
+
+      if (chan->int_ms > 1) {
+        /* If we're doing long integrations alternate between short and long
+         * cycles.
+         */
+        chan->short_cycle = !chan->short_cycle;
+
+        if (!chan->short_cycle) {
+          nap_track_update_wr_blocking(
+            channel,
+            chan->carrier_freq_fp,
+            chan->code_phase_rate_fp,
+            0, 0
+          );
+          return;
+        }
+      }
+
+      chan->update_count += chan->int_ms;
+
 
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
@@ -228,15 +266,6 @@ void tracking_channel_update(u8 channel)
         }
         chan->TOW_ms = TOW_ms;
       }
-
-      chan->code_phase_early = (u64)chan->code_phase_early +
-                               (u64)chan->corr_sample_count
-                                 * chan->code_phase_rate_fp_prev;
-      chan->carrier_phase += (s64)chan->carrier_freq_fp_prev
-                               * chan->corr_sample_count;
-      /* TODO: Fix this in the FPGA - first integration is one sample short. */
-      if (chan->update_count == 1)
-        chan->carrier_phase -= chan->carrier_freq_fp_prev;
 
       /* Correlations should already be in chan->cs thanks to
        * tracking_channel_get_corrs. */
@@ -261,7 +290,6 @@ void tracking_channel_update(u8 channel)
       chan->code_phase_rate_fp = chan->code_phase_rate
         * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
-      chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
       chan->carrier_freq_fp = chan->carrier_freq
         * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
@@ -269,19 +297,21 @@ void tracking_channel_update(u8 channel)
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
         /* Now that we have TOW we can transition to longer integration */
         log_info("Increasing integration time for PRN %d\n", chan->prn+1);
+        chan->int_ms = LONG_INTEGRATION_INTERVAL;
+        chan->short_cycle = true;
+
         /* Recalculate filter coefficients */
         aided_tl_init(&chan->tl_state, 1e3 / chan->int_ms,
                       chan->tl_state.code_freq, 1, 0.7, 1,
                       chan->tl_state.carr_freq, 15, 0.7, 1,
                       0);
-        chan->next_int_ms = 20;
       }
 
       nap_track_update_wr_blocking(
         channel,
         chan->carrier_freq_fp,
         chan->code_phase_rate_fp,
-        chan->next_int_ms - 1, 0
+        chan->int_ms == 1 ? 0 : chan->int_ms - 2, 0
       );
 
       break;
