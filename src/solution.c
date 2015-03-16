@@ -10,9 +10,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <stdio.h>
 #include <string.h>
 
+#include <libswiftnav/logging.h>
 #include <libswiftnav/sbp_utils.h>
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/constants.h>
@@ -211,12 +211,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
   u16 obs_in_msg = msg_payload_size / sizeof(msg_obs_content_t);
 
   /* Round up the number of messages */
-  u16 total = (n + obs_in_msg - 1) / obs_in_msg;
-
-  if (total > MSG_OBS_HEADER_MAX_SIZE) {
-    printf("Capping number of observations sent\n");
-    total = MSG_OBS_HEADER_MAX_SIZE;
-  }
+  u16 total = MIN((n + obs_in_msg - 1) / obs_in_msg, MSG_OBS_HEADER_MAX_SIZE);
 
   u8 obs_i = 0;
   for (u8 count = 0; count < total; count++) {
@@ -269,8 +264,8 @@ static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
   uint32_t tmp = TIM_CNT(timer_peripheral);
   if (tmp > period) {
     TIM_CNT(timer_peripheral) = period;
-    printf("WARNING: Solution thread missed deadline, "
-           "TIM counter = %lu, period = %lu\n", tmp, period);
+    log_warn("Solution thread missed deadline, "
+             "TIM counter = %lu, period = %lu\n", tmp, period);
   }
   __asm__("CPSIE i;");
 }
@@ -414,7 +409,7 @@ static msg_t solution_thread(void *arg)
              * overwrite the oldest item in the queue. */
             ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
             if (ret != RDY_OK) {
-              printf("ERROR: Pool full and mailbox empty!\n");
+              log_error("Pool full and mailbox empty!\n");
             }
           }
           obs->t = new_obs_time;
@@ -427,7 +422,7 @@ static msg_t solution_thread(void *arg)
              * are equal then we should have already handled the case where the
              * mailbox is full when we handled the case that the pool was full.
              * */
-            printf("ERROR: Mailbox should have space!\n");
+            log_error("Mailbox should have space!\n");
           }
         }
 
@@ -455,7 +450,7 @@ static msg_t solution_thread(void *arg)
         /* TODO: Make this based on time since last error instead of a simple
          * count. */
         DO_EVERY((u32)soln_freq,
-          printf("PVT solver: %s (%d)\n", err_msg[-ret-1], ret);
+          log_warn("PVT solver: %s (%d)\n", err_msg[-ret-1], ret);
         );
 
         /* Send just the DOPs */
@@ -517,7 +512,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
   if (init_known_base) {
     if (n_sds > 4) {
       /* Calculate ambiguities from known baseline. */
-      printf("Initializing using known baseline\n");
+      log_info("Initializing using known baseline\n");
       double known_baseline_ecef[3];
       wgsned2ecef(known_baseline, position_solution.pos_ecef,
                   known_baseline_ecef);
@@ -525,13 +520,13 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
                                 known_baseline_ecef);
       init_known_base = false;
     } else {
-      printf("> 4 satellites required for known baseline init.\n");
+      log_warn("> 4 satellites required for known baseline init.\n");
     }
   }
   if (!init_done) {
     if (n_sds > 4) {
       /* Initialize filters. */
-      printf("Initializing DGNSS filters\n");
+      log_info("Initializing DGNSS filters\n");
       dgnss_init(n_sds, sds, position_solution.pos_ecef);
       init_done = 1;
     }
@@ -627,17 +622,17 @@ static msg_t time_matched_obs_thread(void *arg)
 
           /* In practice this should basically never happen so lets make a note
            * if it does. */
-          printf("Obs Matching: t_base < t_rover "
-                 "(dt=%f obss.t={%d,%f} base_obss.t={%d,%f})\n", dt,
-                 obss->t.wn, obss->t.tow,
-                 base_obss.t.wn, base_obss.t.tow
+          log_warn("Obs Matching: t_base < t_rover "
+                   "(dt=%f obss.t={%d,%f} base_obss.t={%d,%f})\n", dt,
+                   obss->t.wn, obss->t.tow,
+                   base_obss.t.wn, base_obss.t.tow
           );
           /* Return the buffer to the mailbox so we can try it again later. */
           msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
           if (ret != RDY_OK) {
             /* Something went wrong with returning it to the buffer, better just
              * free it and carry on. */
-            printf("Obs Matching: mailbox full, discarding observation!\n");
+            log_warn("Obs Matching: mailbox full, discarding observation!\n");
             chPoolFree(&obs_buff_pool, obss);
           }
           break;
@@ -665,11 +660,11 @@ void reset_filters_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)sender_id; (void)len; (void)context;
   switch (msg[0]) {
   case 0:
-    printf("Filter reset requested\n");
+    log_info("Filter reset requested\n");
     init_done = false;
     break;
   case 1:
-    printf("IAR reset requested\n");
+    log_info("IAR reset requested\n");
     reset_iar = true;
     break;
   default:

@@ -11,7 +11,8 @@
  */
 
 #include <string.h>
-#include <stdio.h>
+
+#include <libswiftnav/logging.h>
 
 #include "peripherals/usart.h"
 #include "peripherals/usart_chat.h"
@@ -64,7 +65,7 @@ bool usart_sendwait(enum uart u, const char *send, const char *wait, u32 timeout
     for (i = 0; send[i]; i++) {
       usart_read_dma_timeout(&uart_state(u)->rx, &c, 1, TIMEOUT_CHAR);
       if (c != send[i]) {
-        printf("No echo: '%s'\n", send);
+        log_debug("No echo: '%s'\n", send);
         return false;
       }
     }

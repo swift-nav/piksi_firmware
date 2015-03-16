@@ -10,7 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <stdio.h>
+#include <libswiftnav/logging.h>
 
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
@@ -164,7 +164,7 @@ bool antenna_changed(struct setting *s, const char *val)
       break;
     }
     max2769_write(MAX2769_CONF1, max2769_conf1);
-    printf("Antenna changed to: %s\n", val);
+    log_info("Antenna changed to: %s\n", val);
 
     return true;
   }

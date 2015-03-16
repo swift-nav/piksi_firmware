@@ -10,13 +10,14 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <string.h>
+
+#include <libswiftnav/logging.h>
+
 #include "peripherals/usart.h"
+#include "minIni/minIni.h"
 #include "sbp.h"
 #include "settings.h"
-#include "minIni/minIni.h"
-
-#include <string.h>
-#include <stdio.h>
 
 #define SETTINGS_FILE "config"
 
@@ -332,7 +333,7 @@ static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context
   return;
 
 error:
-  printf("Error in settings read message\n");
+  log_error("Error in settings read message\n");
 }
 
 static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -344,7 +345,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   u8 buflen = 0;
 
   if (len != 2) {
-    printf("Invalid length for settings read by index!");
+    log_error("Invalid length for settings read by index!");
     return;
   }
   u16 index = (msg[1] << 8) | msg[0];
@@ -374,7 +375,7 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* contex
   (void)sender_id; (void) context; (void)len; (void)msg;
 
   if (f == -1) {
-    printf("Error opening config file!\n");
+    log_error("Error opening config file!\n");
     return;
   }
 
@@ -387,19 +388,21 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* contex
       /* New section, write section header */
       sec = s->section;
       i = snprintf(buf, sizeof(buf), "[%s]\n", sec);
-      if (cfs_write(f, buf, i) != i)
-        printf("Error writing to config file!\n");
+      if (cfs_write(f, buf, i) != i) {
+        log_error("Error writing to config file!\n");
+      }
     }
 
     /* Write setting */
     i = snprintf(buf, sizeof(buf), "%s=", s->name);
     i += s->type->to_string(s->type->priv, &buf[i], sizeof(buf) - i - 1, s->addr, s->len);
     buf[i++] = '\n';
-    if (cfs_write(f, buf, i) != i)
-      printf("Error writing to config file!\n");
+    if (cfs_write(f, buf, i) != i) {
+      log_error("Error writing to config file!\n");
+    }
   }
 
   cfs_close(f);
-  printf("Wrote settings to config file.\n");
+  log_info("Wrote settings to config file.\n");
 }
 

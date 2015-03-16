@@ -128,7 +128,6 @@ static void gen_obs_gps(rtcm_t *rtcm, const navigation_measurement_t *data,
 
     /* L1 phaserange - L1 pseudorange */
     ppr = cp_pr(data->carrier_phase, pr1c / lam1);
-    /*printf("%02d - cp: %g, pr1c: %g, ppr: %g\n", data->prn+1, data->carrier_phase, pr1c/lam1, ppr);*/
     if (ppr1) *ppr1 = ROUND(ppr * lam1 / 0.0005);
   }
   /*lt1 = locktime(data->time, rtcm->lltime[data->sat - 1], data->LLI[0]);*/

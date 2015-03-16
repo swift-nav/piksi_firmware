@@ -10,10 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <stdio.h>
-
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
+
+#include <libswiftnav/logging.h>
 #include <libswiftnav/sbp.h>
 
 #include "main.h"
@@ -110,12 +110,13 @@ void check_nap_auth(void)
   if (nhs != NAP_HASH_MATCH) {
     led_on(LED_GREEN);
     led_off(LED_RED);
-    while (1)
+    while (1) {
       DO_EVERY(10000000,
-        printf("NAP Verification Failed\n");
+        log_error("NAP Verification Failed\n");
         led_toggle(LED_GREEN);
         led_toggle(LED_RED);
       );
+    }
   }
 }
 

@@ -11,11 +11,11 @@
  */
 
 #include <math.h>
-#include <stdio.h>
 #include <string.h>
 
 #include <ch.h>
 
+#include <libswiftnav/logging.h>
 #include <libswiftnav/almanac.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
@@ -52,19 +52,20 @@ void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   almanac_t *new_almanac = (almanac_t*)msg;
 
-  printf("Received alamanc for PRN %02d\n", new_almanac->prn);
+  log_info("Received alamanc for PRN %02d\n", new_almanac->prn);
   memcpy(&almanac[new_almanac->prn-1], new_almanac, sizeof(almanac_t));
 
   int fd = cfs_open("almanac", CFS_WRITE);
   if (fd != -1) {
     cfs_seek(fd, (new_almanac->prn-1)*sizeof(almanac_t), CFS_SEEK_SET);
-    if (cfs_write(fd, new_almanac, sizeof(almanac_t)) != sizeof(almanac_t))
-      printf("Error writing to almanac file\n");
-    else
-      printf("Saved almanac to flash\n");
+    if (cfs_write(fd, new_almanac, sizeof(almanac_t)) != sizeof(almanac_t)) {
+      log_error("Error writing to almanac file\n");
+    } else {
+      log_info("Saved almanac to flash\n");
+    }
     cfs_close(fd);
   } else {
-    printf("Error opening almanac file\n");
+    log_error("Error opening almanac file\n");
   }
 }
 
@@ -92,10 +93,10 @@ void manage_acq_setup()
   int fd = cfs_open("almanac", CFS_READ);
   if (fd != -1) {
     cfs_read(fd, almanac, 32*sizeof(almanac_t));
-    printf("Loaded almanac from flash\n");
+    log_info("Loaded almanac from flash\n");
     cfs_close(fd);
   } else {
-    printf("No almanac file present in flash, create an empty one\n");
+    log_info("No almanac file present in flash, create an empty one\n");
     cfs_coffee_reserve("almanac", 32*sizeof(almanac_t));
     cfs_coffee_configure_log("almanac", 256, sizeof(almanac_t));
 
@@ -177,7 +178,7 @@ u8 best_prn(void)
       if (acq_prn_param[prn].state == ACQ_PRN_TRIED)
         acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
     }
-    printf("acq: restarting PRN search\n");
+    log_info("acq: restarting PRN search\n");
     return -1;
   }
   return best_prn;
@@ -213,7 +214,7 @@ void manage_acq()
     double dopp = -calc_sat_doppler_almanac(&almanac[prn], t.tow, t.wn, position_solution.pos_ecef);
     /* TODO: look into accuracy of prediction and possibilities for
      * improvement, e.g. use clock bias estimated by PVT solution. */
-    /*printf("Expecting PRN %02d @ %.1f\n", prn+1, dopp);*/
+    /*log_info("Expecting PRN %02d @ %.1f\n", prn+1, dopp);*/
     acq_search(dopp - 4000, dopp + 4000, ACQ_FULL_CF_STEP);
   } else {
     acq_search(ACQ_FULL_CF_MIN, ACQ_FULL_CF_MAX, ACQ_FULL_CF_STEP);
@@ -233,7 +234,7 @@ void manage_acq()
     return;
   }
 
-  printf("acq: PRN %d found @ %d Hz, %d SNR\n", prn + 1, (int)cf, (int)snr);
+  log_info("acq: PRN %d found @ %d Hz, %d SNR\n", prn + 1, (int)cf, (int)snr);
 
   u8 chan = manage_track_new_acq(snr);
   if (chan == MANAGE_NO_CHANNELS_FREE) {
@@ -241,7 +242,7 @@ void manage_acq()
     /* TODO: Perhaps we can try to warm start this one
      * later using another fine acq.
      */
-    printf("No channels free :(\n");
+    log_info("No channels free :(\n");
     acq_prn_param[prn].state = ACQ_PRN_TRIED;
     return;
   }
@@ -320,7 +321,7 @@ void manage_track()
               tracking_channel[i].snr_above_threshold_count >
               TRACK_SNR_THRES_COUNT) {
           /* This tracking channel has lost its satellite. */
-          printf("Disabling channel %d\n", i);
+          log_info("Disabling channel %d\n", i);
           tracking_channel_disable(i);
           acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_TRIED;
         }

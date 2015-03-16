@@ -11,9 +11,9 @@
  */
 
 #include <math.h>
-#include <stdio.h>
 #include <string.h>
 
+#include <libswiftnav/logging.h>
 #include <libswiftnav/linear_algebra.h>
 
 #include "position.h"
@@ -43,20 +43,20 @@ void position_setup(void)
   if (fd != -1) {
     cfs_read(fd, &position_solution, sizeof(gnss_solution));
     if (position_solution.valid) {
-      printf("Loaded last position solution from file: %.4f %.4f %.1f\n",
-             position_solution.pos_llh[0] * (180 / M_PI),
-             position_solution.pos_llh[1] * (180 / M_PI),
-             position_solution.pos_llh[2]
-             );
+      log_info("Loaded last position solution from file: %.4f %.4f %.1f\n",
+               position_solution.pos_llh[0] * (180 / M_PI),
+               position_solution.pos_llh[1] * (180 / M_PI),
+               position_solution.pos_llh[2]);
       position_quality = POSITION_GUESS;
       set_time(TIME_GUESS, position_solution.time);
       last_time = position_solution.time;
       memcpy(last_ecef, position_solution.pos_ecef, sizeof(last_ecef));
-    } else
-      printf("Loaded position solution from file invalid\n");
+    } else {
+      log_warn("Loaded position solution from file invalid\n");
+    }
     cfs_close(fd);
   } else {
-    printf("No position file present in flash, create an empty one\n");
+    log_info("No position file present in flash, create an empty one\n");
     cfs_coffee_reserve("posn", sizeof(gnss_solution));
     cfs_coffee_configure_log("posn", 256, sizeof(gnss_solution));
   }
@@ -76,13 +76,15 @@ void position_updated(void)
     int fd = cfs_open("posn", CFS_WRITE);
     if (fd != -1) {
       if (cfs_write(fd, (void *)&position_solution,
-                    sizeof(position_solution)) != sizeof(position_solution))
-        printf("Error writing to position file\n");
-      else
-        printf("Saved position to flash\n");
+                    sizeof(position_solution)) != sizeof(position_solution)) {
+        log_error("Error writing to position file\n");
+      } else {
+        log_info("Saved position to flash\n");
+      }
       cfs_close(fd);
-    } else
-      printf("Error opening position file\n");
+    } else {
+      log_error("Error opening position file\n");
+    }
     last_time = position_solution.time;
     memcpy(last_ecef, position_solution.pos_ecef, sizeof(last_ecef));
   }

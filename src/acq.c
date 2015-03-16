@@ -12,9 +12,10 @@
 
 #include <math.h>
 #include <string.h>
-#include <stdio.h>
 
 #include <ch.h>
+
+#include <libswiftnav/logging.h>
 
 #include "board/nap/acq_channel.h"
 #include "acq.h"
@@ -32,8 +33,9 @@ void acq_set_prn(u8 prn)
 {
   chBSemInit(&load_wait_sem, TRUE);
   nap_acq_code_wr_blocking(prn);
-  if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT)
-    printf("acq: Timeout waiting for code load!\n");
+  if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
+    log_warn("acq: Timeout waiting for code load!\n");
+  }
 }
 
 /** Send results of an acquisition to the host.
@@ -75,7 +77,7 @@ bool acq_load(u32 count)
   nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
-    printf("acq: Timeout waiting for sample load!\n");
+    log_warn("acq: Timeout waiting for sample load!\n");
     return false;
   }
   return true;
@@ -139,16 +141,18 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
     (float)cf_step);
 
   for (s16 cf = cf_min; cf < cf_max; cf += cf_step) {
-    if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT)
-      printf("acq: Timeout waiting for search!\n");
+    if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
+      log_warn("acq: Timeout waiting for search!\n");
+    }
     acq_state.pipeline[acq_state.p_head].cf = cf;
     acq_state.p_head = (acq_state.p_head + 1) % NAP_ACQ_PIPELINE_STAGES;
     nap_acq_init_wr_params_blocking(cf);
   }
 
   for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {
-    if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT)
-      printf("acq: Timeout waiting for search!\n");
+    if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
+      log_warn("acq: Timeout waiting for search!\n");
+    }
   }
 }
 

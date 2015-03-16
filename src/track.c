@@ -11,7 +11,6 @@
  */
 
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -22,6 +21,7 @@
 #include "peripherals/random.h"
 
 #include <libswiftnav/constants.h>
+#include <libswiftnav/logging.h>
 
 
 u8 n_rollovers = 20;
@@ -220,8 +220,8 @@ void tracking_channel_update(u8 channel)
 
       if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
         if (chan->TOW_ms > 0) {
-          printf("PRN %d TOW mismatch: %ld, %lu\n",
-              chan->prn+1, chan->TOW_ms, TOW_ms);
+          log_warn("PRN %d TOW mismatch: %ld, %lu\n",
+                   chan->prn+1, chan->TOW_ms, TOW_ms);
         }
         chan->TOW_ms = TOW_ms;
       }
