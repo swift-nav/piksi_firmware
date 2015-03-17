@@ -10,8 +10,8 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import serial_link
-import sbp_piksi as ids
 from version import VERSION as CONSOLE_VERSION
+from sbp.piksi import SBP_MSG_DEBUG_VAR, SBP_MSG_PRINT, SBP_MSG_RESET
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
@@ -192,13 +192,13 @@ class SwiftConsole(HasTraits):
 
   def print_message_callback(self, data):
     try:
-      self.console_output.write(data.encode('ascii', 'ignore'))
+      self.console_output.write(data.payload.encode('ascii', 'ignore'))
     except UnicodeDecodeError:
       print "Critical Error encoding the serial stream as ascii."
 
   def debug_var_callback(self, data):
-    x = struct.unpack('<d', data[:8])[0]
-    name = data[8:]
+    x = struct.unpack('<d', data.payload[:8])[0]
+    name = data.payload[8:]
     print "VAR: %s = %d" % (name, x)
 
   def _paused_button_fired(self):
@@ -219,8 +219,8 @@ class SwiftConsole(HasTraits):
     reset = kwargs.pop('reset')
     try:
       self.link = serial_link.SerialLink(*args, **kwargs)
-      self.link.add_callback(ids.PRINT, self.print_message_callback)
-      self.link.add_callback(ids.DEBUG_VAR, self.debug_var_callback)
+      self.link.add_callback(SBP_MSG_PRINT, self.print_message_callback)
+      self.link.add_callback(SBP_MSG_DEBUG_VAR, self.debug_var_callback)
       # Setup logging
       if log:
         log_name = serial_link.generate_log_filename()
@@ -228,7 +228,7 @@ class SwiftConsole(HasTraits):
         print "Logging at %s." % log_name
         self.link.add_global_callback(serial_link.default_log_callback(self.log_file))
         if reset:
-          self.link.send_message(ids.RESET, '')
+          self.link.send_message(SBP_MSG_RESET, '')
 
       settings_read_finished_functions = []
 

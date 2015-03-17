@@ -24,7 +24,8 @@ import numpy as np
 import datetime
 import time
 
-import sbp_piksi as sbp_messages
+from sbp.piksi      import SBP_MSG_IAR_STATE, SBP_MSG_INIT_BASE, SBP_MSG_RESET_FILTERS
+from sbp.navigation import SBP_MSG_BASELINE_ECEF, SBP_MSG_BASELINE_NED, SBP_MSG_GPS_TIME, MsgBaselineNED, MsgGPSTime
 
 class SimpleAdapter(TabularAdapter):
     columns = [('Item', 0), ('Value',  1)]
@@ -115,13 +116,13 @@ class BaselineView(HasTraits):
     self.running = not self.running
 
   def _reset_button_fired(self):
-    self.link.send_message(sbp_messages.RESET_FILTERS, '\x00')
+    self.link.send_message(SBP_MSG_RESET_FILTERS, '\x00')
 
   def _reset_iar_button_fired(self):
-    self.link.send_message(sbp_messages.RESET_FILTERS, '\x01')
+    self.link.send_message(SBP_MSG_RESET_FILTERS, '\x01')
 
   def _init_base_button_fired(self):
-    self.link.send_message(sbp_messages.INIT_BASE, '')
+    self.link.send_message(SBP_MSG_INIT_BASE, '')
 
   def _clear_button_fired(self):
     self.ns = []
@@ -140,7 +141,7 @@ class BaselineView(HasTraits):
     return
 
   def iar_state_callback(self, data):
-    self.num_hyps = struct.unpack('<I', data)[0]
+    self.num_hyps = struct.unpack('<I', data.payload)[0]
 
   def _baseline_callback_ned(self, data):
     # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
@@ -152,11 +153,11 @@ class BaselineView(HasTraits):
     self._table_list = self.table.items()
 
   def gps_time_callback(self, data):
-    self.week = sbp_messages.GPSTime(data).wn
-    self.nsec = sbp_messages.GPSTime(data).ns
+    self.week = MsgGPSTime(data).wn
+    self.nsec = MsgGPSTime(data).ns
 
   def baseline_callback(self, data):
-    soln = sbp_messages.BaselineNED(data)
+    soln = MsgBaselineNED(data)
     table = []
 
     soln.n = soln.n * 1e-3
@@ -288,12 +289,11 @@ class BaselineView(HasTraits):
     self.nsec = 0
 
     self.link = link
-    self.link.add_callback(sbp_messages.SBP_BASELINE_NED, self._baseline_callback_ned)
-    self.link.add_callback(sbp_messages.SBP_BASELINE_ECEF, self._baseline_callback_ecef)
-    self.link.add_callback(sbp_messages.IAR_STATE, self.iar_state_callback)
-    self.link.add_callback(sbp_messages.SBP_GPS_TIME, self.gps_time_callback)
+    self.link.add_callback(SBP_MSG_BASELINE_NED, self._baseline_callback_ned)
+    self.link.add_callback(SBP_MSG_BASELINE_ECEF, self._baseline_callback_ecef)
+    self.link.add_callback(SBP_MSG_IAR_STATE, self.iar_state_callback)
+    self.link.add_callback(SBP_MSG_GPS_TIME, self.gps_time_callback)
 
     self.python_console_cmds = {
       'baseline': self
     }
-

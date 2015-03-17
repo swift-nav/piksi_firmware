@@ -19,7 +19,8 @@ import os
 import numpy as np
 import datetime
 
-import sbp_piksi as sbp_messages
+from sbp.piksi    import SBP_MSG_THREAD_STATE, SBP_MSG_UART_STATE
+from sbp.standard import SBP_MSG_HEARTBEAT
 
 class SimpleAdapter(TabularAdapter):
     columns = [('Thread Name', 0), ('CPU %',  1), ('Stack Free',  2)]
@@ -140,11 +141,11 @@ class SystemMonitorView(HasTraits):
 
   def thread_state_callback(self, data):
     th = ThreadState()
-    th.from_binary(data)
+    th.from_binary(data.payload)
     self.threads.append((th.name, th))
 
   def uart_state_callback(self, data):
-    state = struct.unpack('<ffHHBBffHHBBffHHBBiiii', data)
+    state = struct.unpack('<ffHHBBffHHBBffHHBBiiii', data.payload)
     uarta = state[0:6]
     uartb = state[6:12]
     ftdi = state[12:18]
@@ -177,15 +178,14 @@ class SystemMonitorView(HasTraits):
     super(SystemMonitorView, self).__init__()
 
     self.link = link
-    self.link.add_callback(sbp_messages.SBP_HEARTBEAT,
+    self.link.add_callback(SBP_MSG_HEARTBEAT,
       self.heartbeat_callback)
-    self.link.add_callback(sbp_messages.THREAD_STATE,
+    self.link.add_callback(SBP_MSG_THREAD_STATE,
       self.thread_state_callback)
-    self.link.add_callback(sbp_messages.UART_STATE,
+    self.link.add_callback(SBP_MSG_UART_STATE,
       self.uart_state_callback)
 
 
     self.python_console_cmds = {
       'mon': self
     }
-

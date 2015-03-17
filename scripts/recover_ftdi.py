@@ -12,14 +12,15 @@
 #This script resets the FDTI settings to its default values
 
 import serial_link
-import sbp_piksi as ids
 import time
 import struct
 import argparse
 import sys
 
+from sbp.piksi import SBP_MSG_SETTINGS, SBP_MSG_SETTINGS_SAVE
+
 def send_setting(link, section, name, value):
-  link.send_message(ids.SETTINGS, '%s\0%s\0%s\0' % (section, name, value))
+  link.send_message(SBP_MSG_SETTINGS, '%s\0%s\0%s\0' % (section, name, value))
 
 
 if __name__ == "__main__":
@@ -66,17 +67,16 @@ if __name__ == "__main__":
   time.sleep(0.5)
 
   print "Attempting to save settings"
-  link.send_message(ids.SETTINGS_SAVE, "")
+  link.send_message(SBP_MSG_SETTINGS_SAVE, "")
   time.sleep(0.5)
-  link.send_message(ids.SETTINGS_SAVE, "")
+  link.send_message(SBP_MSG_SETTINGS_SAVE, "")
   time.sleep(0.5)
-  link.send_message(ids.SETTINGS_SAVE, "")
+  link.send_message(SBP_MSG_SETTINGS_SAVE, "")
   time.sleep(0.5)
-  link.send_message(ids.SETTINGS_SAVE, "")
+  link.send_message(SBP_MSG_SETTINGS_SAVE, "")
 
   print "Sent Settings Reset message to return FTDI to defaults"
 
   # Clean up and exit
   link.close()
   sys.exit()
-  

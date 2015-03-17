@@ -11,12 +11,13 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 import serial_link
-import sbp_piksi as ids
 import struct
 import time
 import sys
-from itertools import groupby
 import new
+
+from itertools import groupby
+from sbp.piksi import SBP_MSG_FLASH_DONE, SBP_MSG_FLASH_ERASE, SBP_MSG_FLASH_READ, SBP_MSG_FLASH_PROGRAM, SBP_MSG_M25_FLASH_WRITE_STATUS, SBP_MSG_STM_FLASH_LOCK_SECTOR, SBP_MSG_STM_FLASH_UNLOCK_SECTOR
 
 ADDRS_PER_OP = 128
 
@@ -102,7 +103,7 @@ def ihx_n_ops(ihx, addr_sector_map):
 def _stm_lock_sector(self, sector):
   self._waiting_for_callback = True
   msg_buf = struct.pack("B", sector)
-  self.link.send_message(ids.STM_FLASH_LOCK_SECTOR, msg_buf)
+  self.link.send_message(SBP_MSG_STM_FLASH_LOCK_SECTOR, msg_buf)
   while self._waiting_for_callback:
     time.sleep(0.001)
 
@@ -110,7 +111,7 @@ def _stm_lock_sector(self, sector):
 def _stm_unlock_sector(self, sector):
   self._waiting_for_callback = True
   msg_buf = struct.pack("B", sector)
-  self.link.send_message(ids.STM_FLASH_UNLOCK_SECTOR, msg_buf)
+  self.link.send_message(SBP_MSG_STM_FLASH_UNLOCK_SECTOR, msg_buf)
   while self._waiting_for_callback:
     time.sleep(0.001)
 
@@ -118,7 +119,7 @@ def _stm_unlock_sector(self, sector):
 def _m25_write_status(self, sr):
   self._waiting_for_callback = True
   msg_buf = struct.pack("B", sr)
-  self.link.send_message(ids.M25_FLASH_WRITE_STATUS, msg_buf)
+  self.link.send_message(SBP_MSG_M25_FLASH_WRITE_STATUS, msg_buf)
   while self._waiting_for_callback:
     time.sleep(0.001)
 
@@ -131,8 +132,8 @@ class Flash():
     self.flash_type = flash_type
     self._waiting_for_callback = False
     self._read_callback_data = []
-    self.link.add_callback(ids.FLASH_DONE, self._done_callback)
-    self.link.add_callback(ids.FLASH_READ, self._read_callback)
+    self.link.add_callback(SBP_MSG_FLASH_DONE, self._done_callback)
+    self.link.add_callback(SBP_MSG_FLASH_READ, self._read_callback)
     self.ihx_elapsed_ops = 0 # N operations finished in self.write_ihx
     self.ihx_total_ops = None # Total operations in self.write_ihx call
     if self.flash_type == "STM":
@@ -162,8 +163,8 @@ class Flash():
 
   def stop(self):
     self.stopped = True
-    self.link.rm_callback(ids.FLASH_DONE, self._done_callback)
-    self.link.rm_callback(ids.FLASH_READ, self._read_callback)
+    self.link.rm_callback(SBP_MSG_FLASH_DONE, self._done_callback)
+    self.link.rm_callback(SBP_MSG_FLASH_READ, self._read_callback)
 
   def __str__(self):
     return self.status
@@ -175,7 +176,7 @@ class Flash():
       raise Warning(text)
     msg_buf = struct.pack("BB", self.flash_type_byte, sector)
     self._waiting_for_callback = True
-    self.link.send_message(ids.FLASH_ERASE, msg_buf)
+    self.link.send_message(SBP_MSG_FLASH_ERASE, msg_buf)
     while self._waiting_for_callback == True:
       time.sleep(0.001)
 
@@ -184,7 +185,7 @@ class Flash():
     msg_buf += struct.pack("<I", address)
     msg_buf += struct.pack("B", len(data))
     self._waiting_for_callback = True
-    self.link.send_message(ids.FLASH_PROGRAM, msg_buf + data)
+    self.link.send_message(SBP_MSG_FLASH_PROGRAM, msg_buf + data)
     while self._waiting_for_callback == True:
       time.sleep(0.001)
 
@@ -193,7 +194,7 @@ class Flash():
     msg_buf += struct.pack("<I", address)
     msg_buf += struct.pack("B", length)
     self._waiting_for_callback = True
-    self.link.send_message(ids.FLASH_READ, msg_buf)
+    self.link.send_message(SBP_MSG_FLASH_READ, msg_buf)
     while self._waiting_for_callback == True:
       time.sleep(0.001)
     assert address == self._read_callback_address, \
@@ -206,7 +207,7 @@ class Flash():
 
   # Returned for all commands other than read. Returned for read if failed.
   def _done_callback(self, data):
-    ret = ord(data)
+    ret = ord(data.payload)
 
     if (ret != 0):
       print "Flash operation returned error (%d)" % ret
@@ -216,10 +217,10 @@ class Flash():
   # Returned for read if successful.
   def _read_callback(self, data):
     # 4 bytes addr, 1 byte length, length bytes data
-    self._read_callback_address = struct.unpack('<I', data[0:4])[0]
-    self._read_callback_length = struct.unpack('B', data[4])[0]
+    self._read_callback_address = struct.unpack('<I', data.payload[0:4])[0]
+    self._read_callback_length = struct.unpack('B', data.payload[4])[0]
     length = self._read_callback_length
-    self._read_callback_data = list(struct.unpack(str(length)+'B', data[5:]))
+    self._read_callback_data = list(struct.unpack(str(length)+'B', data.payload[5:]))
     self._waiting_for_callback = False
 
   def write_ihx(self, ihx, stream=None, mod_print=0):

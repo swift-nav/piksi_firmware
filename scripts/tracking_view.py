@@ -22,7 +22,7 @@ import struct
 
 import numpy as np
 
-import sbp_piksi as ids
+from sbp.tracking import SBP_MSG_TRACKING_STATE
 
 TRACKING_STATE_BYTES_PER_CHANNEL = 6
 NUM_POINTS = 200
@@ -74,7 +74,7 @@ class TrackingView(HasTraits):
   )
 
   def tracking_state_callback(self, data):
-    n_channels = len(data) / TRACKING_STATE_BYTES_PER_CHANNEL
+    n_channels = len(data.payload) / TRACKING_STATE_BYTES_PER_CHANNEL
     if n_channels != self.n_channels:
       # Update number of channels
       self.n_channels = n_channels
@@ -89,7 +89,7 @@ class TrackingView(HasTraits):
       print 'Number of tracking channels changed to', n_channels
 
     fmt = '<' + n_channels * 'BBf'
-    state_data = struct.unpack(fmt, data)
+    state_data = struct.unpack(fmt, data.payload)
     for n, s in enumerate(self.states):
       s.update(*state_data[3*n:3*(n+1)])
     GUI.invoke_later(self.update_plot)
@@ -131,9 +131,8 @@ class TrackingView(HasTraits):
     self.plot.legend.tools.append(LegendTool(self.plot.legend, drag_button="right"))
 
     self.link = link
-    self.link.add_callback(ids.TRACKING_STATE, self.tracking_state_callback)
+    self.link.add_callback(SBP_MSG_TRACKING_STATE, self.tracking_state_callback)
 
     self.python_console_cmds = {
       'track': self
     }
-

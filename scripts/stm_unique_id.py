@@ -13,7 +13,8 @@ import time
 import struct
 import sys
 import serial_link
-import sbp_piksi as ids
+
+from sbp.piksi import SBP_MSG_STM_UNIQUE_ID
 
 class STMUniqueID:
 
@@ -21,16 +22,16 @@ class STMUniqueID:
     self.unique_id_returned = False
     self.unique_id = None
     self.link = link
-    link.add_callback(ids.STM_UNIQUE_ID, self.receive_stm_unique_id_callback)
+    link.add_callback(SBP_MSG_STM_UNIQUE_ID, self.receive_stm_unique_id_callback)
 
   def receive_stm_unique_id_callback(self,data):
     self.unique_id_returned = True
-    self.unique_id = struct.unpack('<12B',data)
+    self.unique_id = struct.unpack('<12B',data.payload)
 
   def get_id(self):
     self.unique_id_returned = False
     self.unique_id = None
-    self.link.send_message(ids.STM_UNIQUE_ID, struct.pack("<I",0))
+    self.link.send_message(SBP_MSG_STM_UNIQUE_ID, struct.pack("<I",0))
     while not self.unique_id_returned:
       time.sleep(0.1)
     return self.unique_id

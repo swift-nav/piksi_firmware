@@ -18,9 +18,10 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import sbp_piksi as ids
 import time
 import struct
+
+from sbp.piksi import SBP_MSG_BOOTLOADER_HANDSHAKE, SBP_MSG_BOOTLOADER_JUMP_TO_APP, SBP_MSG_PRINT, SBP_MSG_RESET
 
 class Bootloader():
 
@@ -29,7 +30,7 @@ class Bootloader():
     self.handshake_received = False
     self.version = None
     self.link = link
-    self.link.add_callback(ids.BOOTLOADER_HANDSHAKE,self._handshake_callback)
+    self.link.add_callback(SBP_MSG_BOOTLOADER_HANDSHAKE,self._handshake_callback)
 
   def __del__(self):
     if not self.stopped:
@@ -37,15 +38,15 @@ class Bootloader():
 
   def stop(self):
     self.stopped = True
-    self.link.rm_callback(ids.BOOTLOADER_HANDSHAKE, self._handshake_callback)
+    self.link.rm_callback(SBP_MSG_BOOTLOADER_HANDSHAKE, self._handshake_callback)
 
   def _handshake_callback(self, data):
-    if len(data)==1 and struct.unpack('B', data[0])==0:
+    if len(data.payload)==1 and struct.unpack('B', data.payload[0])==0:
       # == v0.1 of the bootloader, returns hardcoded version number 0.
       self.version = "v0.1"
     else:
       # > v0.1 of the bootloader, returns git commit string.
-      self.version = data[:]
+      self.version = data.payload[:]
     self.handshake_received = True
 
   def wait_for_handshake(self, timeout=None):
@@ -60,10 +61,10 @@ class Bootloader():
     return True
 
   def reply_handshake(self):
-    self.link.send_message(ids.BOOTLOADER_HANDSHAKE, '\x00')
+    self.link.send_message(SBP_MSG_BOOTLOADER_HANDSHAKE, '\x00')
 
   def jump_to_app(self):
-    self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
+    self.link.send_message(SBP_MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
 
 WAIT_TIME = 0.01
 
@@ -146,11 +147,11 @@ if __name__ == "__main__":
   print "Link successfully created with device: '%s'." % serial_port
 
   # Reset device if the payload is running.
-  link.send_message(ids.RESET, '')
+  link.send_message(SBP_MSG_RESET, '')
 
   # Add print callback.
   time.sleep(0.2)
-  link.add_callback(ids.PRINT, serial_link.default_print_callback)
+  link.add_callback(SBP_MSG_PRINT, serial_link.default_print_callback)
 
   # Tell Bootloader we want to write to the flash.
   piksi_bootloader = Bootloader(link)

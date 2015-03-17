@@ -12,8 +12,9 @@
 import struct
 import sys
 import serial_link
-import sbp_piksi as ids
 import threading
+
+from sbp.piksi import SBP_MSG_FILEIO_READ, SBP_MSG_FILEIO_READ_DIR, SBP_MSG_FILEIO_REMOVE, SBP_MSG_FILEIO_WRITE
 
 class FileIO(object):
   def __init__(self, link):
@@ -37,8 +38,8 @@ class FileIO(object):
     buf = ''
     while True:
       msg = struct.pack("<IB", len(buf), chunksize) + filename + '\0'
-      self.link.send_message(ids.FILEIO_READ, msg)
-      data = self.link.wait_message(ids.FILEIO_READ, timeout=1.0)
+      self.link.send_message(SBP_MSG_FILEIO_READ, msg)
+      data = self.link.wait_message(SBP_MSG_FILEIO_READ, timeout=1.0)
       if not data:
         raise Exception("Timeout waiting for FILEIO_READ reply")
       if data[:len(msg)] != msg:
@@ -65,8 +66,8 @@ class FileIO(object):
     files = []
     while True:
       msg = struct.pack("<I", len(files)) + dirname + '\0'
-      self.link.send_message(ids.FILEIO_READ_DIR, msg)
-      data = self.link.wait_message(ids.FILEIO_READ_DIR, timeout=1.0)
+      self.link.send_message(SBP_MSG_FILEIO_READ_DIR, msg)
+      data = self.link.wait_message(SBP_MSG_FILEIO_READ_DIR, timeout=1.0)
       if not data:
         raise Exception("Timeout waiting for FILEIO_READ_DIR reply")
       if data[:len(msg)] != msg:
@@ -85,7 +86,7 @@ class FileIO(object):
     filename : str
         Name of the file to delete.
     """
-    self.link.send_message(ids.FILEIO_REMOVE, filename + '\0')
+    self.link.send_message(SBP_MSG_FILEIO_REMOVE, filename + '\0')
 
   def write(self, filename, data, offset=0, trunc=True):
     """
@@ -117,8 +118,8 @@ class FileIO(object):
       chunk = data[:chunksize]
       data = data[chunksize:]
       header = struct.pack("<I", offset) + filename + '\0'
-      self.link.send_message(ids.FILEIO_WRITE, header + chunk)
-      reply = self.link.wait_message(ids.FILEIO_WRITE, timeout=1.0)
+      self.link.send_message(SBP_MSG_FILEIO_WRITE, header + chunk)
+      reply = self.link.wait_message(SBP_MSG_FILEIO_WRITE, timeout=1.0)
       if not reply:
         raise Exception("Timeout waiting for FILEIO_WRITE reply")
       if reply != header:

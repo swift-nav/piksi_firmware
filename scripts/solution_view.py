@@ -25,7 +25,7 @@ import numpy as np
 import datetime
 import time
 
-import sbp_piksi as sbp_messages
+from sbp.navigation import SBP_MSG_DOPS, SBP_MSG_GPS_TIME, SBP_MSG_POS_LLH, SBP_MSG_VEL_NED, MsgDops, MsgGPSTime, MsgPosLLH, MsgVelNED
 
 class SimpleAdapter(TabularAdapter):
   columns = [('Item', 0), ('Value',  1)]
@@ -146,13 +146,14 @@ class SolutionView(HasTraits):
     self._table_list = self.table_spp.items()
 
   def pos_llh_callback(self, data):
-    soln = sbp_messages.PosLLH(data)
+    soln = MsgPosLLH(data)
     masked_flag = soln.flags & 0x7
     if masked_flag == 0:
       psuedo_absolutes = False
     else:
       psuedo_absolutes = True
     pos_table = []
+
     if self.log_file is None:
       self.log_file = open(time.strftime("position_log_%Y%m%d-%H%M%S.csv"), 'w')
     tow = soln.tow * 1e-3
@@ -242,7 +243,7 @@ class SolutionView(HasTraits):
 
 
   def dops_callback(self, data):
-    dops = sbp_messages.Dops(data)
+    dops = MsgDops(data)
     self.dops_table = [
       ('PDOP', '%.1f' % (dops.pdop * 0.01)),
       ('GDOP', '%.1f' % (dops.gdop * 0.01)),
@@ -253,7 +254,7 @@ class SolutionView(HasTraits):
     self.table_spp = self.pos_table_spp + self.vel_table + self.dops_table
 
   def vel_ned_callback(self, data):
-    vel_ned = sbp_messages.VelNED(data)
+    vel_ned = MsgVelNED(data)
 
     if self.vel_log_file is None:
       self.vel_log_file = open(time.strftime("velocity_log_%Y%m%d-%H%M%S.csv"), 'w')
@@ -283,8 +284,8 @@ class SolutionView(HasTraits):
     self.table_spp = self.pos_table_spp + self.vel_table + self.dops_table
 
   def gps_time_callback(self, data):
-    self.week = sbp_messages.GPSTime(data).wn
-    self.nsec = sbp_messages.GPSTime(data).ns
+    self.week = MsgGPSTime(data).wn
+    self.nsec = MsgGPSTime(data).ns
 
   def __init__(self, link):
     super(SolutionView, self).__init__()
@@ -333,10 +334,10 @@ class SolutionView(HasTraits):
     self.plot.overlays.append(zt)
 
     self.link = link
-    self.link.add_callback(sbp_messages.SBP_POS_LLH, self._pos_llh_callback)
-    self.link.add_callback(sbp_messages.SBP_VEL_NED, self.vel_ned_callback)
-    self.link.add_callback(sbp_messages.SBP_DOPS, self.dops_callback)
-    self.link.add_callback(sbp_messages.SBP_GPS_TIME, self.gps_time_callback)
+    self.link.add_callback(SBP_MSG_POS_LLH, self._pos_llh_callback)
+    self.link.add_callback(SBP_MSG_VEL_NED, self.vel_ned_callback)
+    self.link.add_callback(SBP_MSG_DOPS, self.dops_callback)
+    self.link.add_callback(SBP_MSG_GPS_TIME, self.gps_time_callback)
 
     self.week = None
     self.nsec = 0
@@ -344,4 +345,3 @@ class SolutionView(HasTraits):
     self.python_console_cmds = {
       'solution': self,
     }
-

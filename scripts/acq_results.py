@@ -11,12 +11,14 @@
 
 
 import serial_link
-import sbp_piksi as ids
 import argparse
 import sys
 import time
 import struct
-from numpy import mean
+
+from numpy           import mean
+from sbp.acquisition import SBP_MSG_ACQ_RESULT
+from sbp.piksi       import SBP_MSG_PRINT
 
 N_RECORD = 0 # Number of results to keep in memory, 0 = no limit.
 N_PRINT = 32
@@ -28,7 +30,7 @@ class AcqResults():
   def __init__(self, link):
     self.acqs = []
     self.link = link
-    self.link.add_callback(ids.ACQ_RESULT, self._receive_acq_result)
+    self.link.add_callback(SBP_MSG_ACQ_RESULT, self._receive_acq_result)
     self.max_corr = 0
 
   def __str__(self):
@@ -67,10 +69,10 @@ class AcqResults():
     self.acqs.append({})
     a = self.acqs[-1]
 
-    a['SNR'] = struct.unpack('f', data[0:4])[0]  # SNR of best point.
-    a['CP'] = struct.unpack('f', data[4:8])[0]   # Code phase of best point.
-    a['CF'] = struct.unpack('f', data[8:12])[0]  # Carr freq of best point.
-    a['PRN'] = struct.unpack('B', data[12])[0]   # PRN of acq.
+    a['SNR'] = struct.unpack('f', data.payload[0:4])[0]  # SNR of best point.
+    a['CP'] = struct.unpack('f', data.payload[4:8])[0]   # Code phase of best point.
+    a['CF'] = struct.unpack('f', data.payload[8:12])[0]  # Carr freq of best point.
+    a['PRN'] = struct.unpack('B', data.payload[12])[0]   # PRN of acq.
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Acquisition Monitor')
@@ -98,7 +100,7 @@ if __name__ == "__main__":
       # Couldn't find device.
       time.sleep(0.01)
   print "link with device successfully created."
-  link.add_callback(ids.PRINT, serial_link.default_print_callback)
+  link.add_callback(SBP_MSG_PRINT, serial_link.default_print_callback)
 
   acq_results = AcqResults(link)
 

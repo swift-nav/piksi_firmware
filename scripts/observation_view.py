@@ -24,7 +24,8 @@ import os
 import numpy as np
 import datetime
 
-import sbp_piksi as ids
+from sbp.observation import SBP_MSG_OBS
+from sbp.tracking    import SBP_MSG_EPHEMERIS
 
 class SimpleAdapter(TabularAdapter):
     columns = [('PRN', 0), ('Pseudorange',  1), ('Carrier Phase',  2), ('C/N0', 3)]
@@ -128,14 +129,14 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
   def update_obs(self):
     self._obs_table_list = [(prn + 1,) + obs for prn, obs in sorted(self.obs.items(), key=lambda x: x[0])]
 
-  def obs_packed_callback(self, data, sender=None):
-    if (sender is not None and
-        (self.relay ^ (sender == 0))):
+  def obs_packed_callback(self, data):
+    if (data.sender is not None and
+        (self.relay ^ (data.sender == 0))):
       return
 
     hdr_fmt = "<IHB"
     hdr_size = struct.calcsize(hdr_fmt)
-    tow, wn, seq = struct.unpack(hdr_fmt, data[:hdr_size])
+    tow, wn, seq = struct.unpack(hdr_fmt, data.payload[:hdr_size])
 
     tow = float(tow) / 1000.0
 
@@ -144,8 +145,8 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
 
     obs_fmt = '<IiBBHB'
     obs_size = struct.calcsize(obs_fmt)
-    n_obs = (len(data) - hdr_size) / obs_size
-    obs_data = data[hdr_size:]
+    n_obs = (len(data.payload) - hdr_size) / obs_size
+    obs_data = data.payload[hdr_size:]
 
     # Confirm this packet is good.
     # Assumes no out-of-order packets
@@ -187,42 +188,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
 
     return
 
-  def old_obs_callback(self, data, sender=None):
-    print "Received deprecated observation messages. Please update your Piksi."
-    if (sender is not None and
-        (self.relay ^ (sender == 0))):
-      return
-
-    hdr_fmt = "<dH"
-    hdr_size = struct.calcsize(hdr_fmt)
-    tow, wn = struct.unpack("<dH", data[:hdr_size])
-    self.gps_tow = tow
-    self.gps_week = wn
-    self.t = datetime.datetime(1980, 1, 6) + \
-             datetime.timedelta(weeks=self.gps_week) + \
-             datetime.timedelta(seconds=self.gps_tow)
-
-    # Observation message format
-    # double P;      /**< Pseudorange (m) */
-    # double L;      /**< Carrier-phase (cycles) */
-    # float snr;     /**< Signal-to-Noise ratio */
-    # u8 prn;        /**< Satellite number. */
-    obs_fmt = '<ddfB'
-
-    obs_size = struct.calcsize(obs_fmt)
-    n_obs = (len(data) - hdr_size) / obs_size
-    obs_data = data[hdr_size:]
-
-    self.obs = {}
-    for i in range(n_obs):
-      P, L, snr, prn = struct.unpack(obs_fmt, obs_data[:obs_size])
-      obs_data = obs_data[obs_size:]
-      self.obs[prn] = (P, L, snr)
-
-    self.update_obs()
-    self.rinex_save()
-
-  def ephemeris_callback(self, data, sender=None):
+  def ephemeris_callback(self, data):
     gps_time_fmt = "dH"
     eph_fmt = "<" + "d"*19 + gps_time_fmt*2 + "BBB"
     eph_size = struct.calcsize(eph_fmt)
@@ -233,7 +199,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     toe_tow, toe_wn, toc_tow, toc_wn, \
     valid, \
     healthy, \
-    prn = struct.unpack(eph_fmt, data[:eph_size])
+    prn = struct.unpack(eph_fmt, data.payload[:eph_size])
     if self.recording:
       if self.eph_file is None:
         self.eph_file = open(self.name+self.t.strftime("-%Y%m%d-%H%M%S.eph"),  'w')
@@ -277,11 +243,9 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     self.eph_file   = None
 
     self.link = link
-    self.link.add_callback(ids.OLD_OBS, self.old_obs_callback)
-    self.link.add_callback(ids.PACKED_OBS, self.obs_packed_callback)
-    self.link.add_callback(ids.EPHEMERIS, self.ephemeris_callback)
+    self.link.add_callback(SBP_MSG_OBS, self.obs_packed_callback)
+    self.link.add_callback(SBP_MSG_EPHEMERIS, self.ephemeris_callback)
 
     self.python_console_cmds = {
       'obs': self
     }
-
