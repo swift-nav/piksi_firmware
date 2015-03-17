@@ -216,8 +216,9 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * from the console, not from the base station. We don't want to use them and
    * we don't want to create an infinite loop by forwarding them again so just
    * ignore them. */
-  if (sender_id == 0)
+  if (sender_id == 0) {
     return;
+  }
 
   /* Relay observations using sender_id = 0. */
   sbp_send_msg_(MSG_PACKED_OBS, len, msg, 0);
@@ -235,9 +236,12 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   /* Check to see if the observation is aligned with our internal observations,
    * i.e. is it going to time match one of our local obs. */
-  double epoch_count = t.tow * (soln_freq / obs_output_divisor);
-  if (fabs(epoch_count - round(epoch_count)) > TIME_MATCH_THRESHOLD) {
-    log_warn("Unaligned observation from base station ignored.\n");
+  u32 obs_freq = soln_freq / obs_output_divisor;
+  double epoch_count = t.tow * obs_freq;
+  double dt = fabs(epoch_count - round(epoch_count)) / obs_freq;
+  if (dt > TIME_MATCH_THRESHOLD) {
+    log_warn("Unaligned observation from base station ignored, "
+             "tow = %.3f, dt = %.3f\n", t.tow, dt);
     return;
   }
 
