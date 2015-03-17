@@ -10,10 +10,14 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <ch.h>
-#include <libopencm3/stm32/f4/usart.h>
-#include <stdio.h>
 #include <string.h>
+
+#include <ch.h>
+
+#include <libopencm3/stm32/f4/usart.h>
+
+#include <libswiftnav/logging.h>
+
 #include "3drradio.h"
 #include "../settings.h"
 
@@ -137,8 +141,8 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
 
   /* If we found a radio, we send it a configuration string. */
   if (found_radio) {
-    printf("Telemetry radio found on %s at baudrate %lu, "
-           "sending configuration string.\n", uart_name, baud_rate);
+    log_info("Telemetry radio found on %s at baudrate %lu, "
+             "sending configuration string.\n", uart_name, baud_rate);
 
     char* command = commandstr;
     while (*command != 0) {
@@ -158,8 +162,8 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
     busy_wait_for_str(usart, "\x00", WAIT_BETWEEN_COMMANDS);
 
   } else {
-    printf("No telemetry radio found on %s, skipping configuration.\n",
-           uart_name);
+    log_info("No telemetry radio found on %s, skipping configuration.\n",
+             uart_name);
   }
 
   /* Reset the UART to the original baudrate. */
@@ -169,5 +173,6 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
 
 void radio_setup()
 {
-    SETTING("telemetry_radio", "configuration_string", commandstr, TYPE_STRING);
+  SETTING("telemetry_radio", "configuration_string", commandstr, TYPE_STRING);
 }
+

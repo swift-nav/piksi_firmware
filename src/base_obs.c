@@ -10,11 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
 
+#include <libswiftnav/logging.h>
 #include <libswiftnav/sbp_utils.h>
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/constants.h>
@@ -82,8 +82,8 @@ static void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 static void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context; (void) len; (void) msg; (void) sender_id;
-  printf("Receiving an old deprecated observation message.\n");
-  printf("Please update your base station firmware.\n");
+  log_warn("Receiving an old deprecated observation message.\n");
+  log_warn("Please update your base station firmware.\n");
 }
 
 /** Update the #base_obss state given a new set of obss.
@@ -167,7 +167,7 @@ static void update_obss(obss_t *new_obss)
       base_obss.has_pos = 1;
     } else {
       /* There was an error calculating the position solution. */
-      printf("Error calculating base station position (%ld)\n", ret);
+      log_error("Error calculating base station position (%ld)\n", ret);
     }
   }
   /* If the base station position is known then calculate the satellite ranges.
@@ -237,7 +237,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * i.e. is it going to time match one of our local obs. */
   double epoch_count = t.tow * (soln_freq / obs_output_divisor);
   if (fabs(epoch_count - round(epoch_count)) > TIME_MATCH_THRESHOLD) {
-    printf("Unaligned observation from base station ignored.\n");
+    log_warn("Unaligned observation from base station ignored.\n");
     return;
   }
 
@@ -255,7 +255,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   } else if (prev_t.tow != t.tow ||
              prev_t.wn != t.wn ||
              prev_count + 1 != count) {
-    printf("Dropped one of the observation packets! Skipping this sequence.\n");
+    log_info("Dropped one of the observation packets! Skipping this sequence.\n");
     prev_count = -1;
     return;
   } else {

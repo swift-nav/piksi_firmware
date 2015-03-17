@@ -10,11 +10,11 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <stdio.h>
 #include <string.h>
 
 #include <ch.h>
 
+#include <libswiftnav/logging.h>
 #include <libswiftnav/sbp_messages.h>
 #include <libswiftnav/dgnss_management.h>
 
@@ -129,8 +129,9 @@ static msg_t system_monitor_thread(void *arg)
     send_thread_states();
 
     u32 err = nap_error_rd_blocking();
-    if (err)
-      printf("Error: 0x%08X\n", (unsigned int)err);
+    if (err) {
+      log_error("SwiftNAP Error: 0x%08X\n", (unsigned int)err);
+    }
   }
 
   return 0;

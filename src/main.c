@@ -10,10 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include <libswiftnav/logging.h>
 #include <libswiftnav/sbp_messages.h>
 
 #include <ch.h>
@@ -87,18 +87,18 @@ static msg_t nav_msg_thread(void *arg)
         __asm__("CPSIE i;");
 
         if (ret < 0) {
-          printf("PRN %02d ret %d\n", tracking_channel[i].prn+1, ret);
+          log_info("PRN %02d ret %d\n", tracking_channel[i].prn+1, ret);
         } else if (ret == 1) {
           /* Decoded a new ephemeris. */
 
           if (memcmp(&es[tracking_channel[i].prn],
                      &es_old[tracking_channel[i].prn],
                      sizeof(ephemeris_t))) {
-            printf("New ephemeris for PRN %02d\n", tracking_channel[i].prn+1);
+            log_info("New ephemeris for PRN %02d\n", tracking_channel[i].prn+1);
           }
 
           if (!es[tracking_channel[i].prn].healthy) {
-            printf("PRN %02d unhealthy\n", tracking_channel[i].prn+1);
+            log_info("PRN %02d unhealthy\n", tracking_channel[i].prn+1);
           } else {
             sbp_send_msg(MSG_EPHEMERIS,
                          sizeof(ephemeris_t),
@@ -223,14 +223,14 @@ int main(void)
 
   static char nap_version_string[64] = {0};
   nap_conf_rd_version_string(nap_version_string);
-  printf("NAP firmware version: %s\n", nap_version_string);
+  log_info("NAP firmware version: %s\n", nap_version_string);
 
   /* Check we are running a compatible version of the NAP firmware. */
   const char *required_nap_version = "v0.9-46";
   if (compare_version(nap_version_string, required_nap_version) < 0) {
-    printf("ERROR: NAP firmware version newer than %s required, please update!\n"
-           "(instructions can be found at http://docs.swift-nav.com/)\n",
-           required_nap_version);
+    log_error("NAP firmware version newer than %s required, please update!\n"
+              "(instructions can be found at http://docs.swift-nav.com/)\n",
+              required_nap_version);
     while (1) {
       chThdSleepSeconds(60);
     }

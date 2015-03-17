@@ -12,7 +12,6 @@
 
 
 
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -20,9 +19,9 @@
 
 #include "chdebug.h"
 
-#include "error.h"
 #include "sbp_piksi.h"
 
+#include <libswiftnav/logging.h>
 
 void unpack_obs_header(msg_obs_header_t *msg, gps_time_t* t, u8* total, u8* count)
 {
@@ -68,7 +67,7 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
 
   s64 P_fp = llround(P * MSG_OBS_P_MULTIPLIER);
   if (P < 0 || P_fp > UINT32_MAX) {
-    printf("ERROR: observation message packing: P integer overflow (%f)\n", P);
+    log_error("observation message packing: P integer overflow (%f)\n", P);
     return -1;
   }
 
@@ -76,7 +75,7 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
 
   double Li = floor(L);
   if (Li < INT32_MIN || Li > INT32_MAX) {
-    printf("ERROR: observation message packing: L integer overflow (%f)\n", L);
+    log_error("observation message packing: L integer overflow (%f)\n", L);
     return -1;
   }
 
@@ -87,8 +86,7 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
 
   s32 snr_fp = lround(snr * MSG_OBS_SNR_MULTIPLIER);
   if (snr < 0 || snr_fp > UINT8_MAX) {
-    printf("ERROR: observation message packing: SNR integer overflow (%f)\n",
-           snr);
+    log_error("observation message packing: SNR integer overflow (%f)\n", snr);
     return -1;
   }
 

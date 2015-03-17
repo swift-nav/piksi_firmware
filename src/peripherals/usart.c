@@ -15,8 +15,9 @@
 #include <libopencm3/stm32/f4/rcc.h>
 #include <libopencm3/stm32/f4/usart.h>
 
+#include <libswiftnav/logging.h>
+
 #include <ch.h>
-#include <stdio.h>
 
 #include "../settings.h"
 #include "usart.h"
@@ -183,9 +184,9 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
 
   if (do_preconfigure_hooks) {
 
-    printf("\n\nPiksi Starting...\n"
-       "Firmware Version: " GIT_VERSION "\n" \
-       "Built: " __DATE__ " " __TIME__ "\n");
+    log_info("Piksi Starting...\n");
+    log_info("Firmware Version: " GIT_VERSION "\n");
+    log_info("Built: " __DATE__ " " __TIME__ "\n");
 
     if (uarta_usart.configure_telemetry_radio_on_boot) {
       radio_preconfigure_hook(USART1, uarta_baud, "UARTA");
