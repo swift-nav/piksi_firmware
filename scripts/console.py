@@ -53,7 +53,8 @@ import os
 import sys
 
 from traits.api import Str, Instance, Dict, HasTraits, Int, Button, List
-from traitsui.api import Item, Label, View, HGroup, VGroup, VSplit, HSplit, Tabbed, InstanceEditor, EnumEditor, ShellEditor
+from traitsui.api import Item, Label, View, HGroup, VGroup, VSplit, HSplit, Tabbed, \
+                         InstanceEditor, EnumEditor, ShellEditor, Handler
 
 # When bundled with pyInstaller, PythonLexer can't be found. The problem is
 # pygments.lexers is doing some crazy magic to load up all of the available
@@ -99,10 +100,29 @@ from settings_view import SettingsView
 from update_view import UpdateView
 from enable.savage.trait_defs.ui.svg_button import SVGButton
 
+CONSOLE_TITLE = 'Piksi Console, Version: ' + CONSOLE_VERSION
+class ConsoleHandler(Handler):
+  """
+  Handler that updates the window title with the device serial number
+
+  This Handler is used by Traits UI to manage making changes to the GUI in
+  response to changes in the underlying class/data.
+  """
+  def object_device_serial_changed(self, info):
+    """
+    Update the window title with the device serial number.
+
+    This is a magic method called by the handler in response to any changes in
+    the `device_serial` variable in the underlying class.
+    """
+    if info.initialized:
+      info.ui.title = CONSOLE_TITLE + ' : ' + info.object.device_serial
+
 class SwiftConsole(HasTraits):
   link = Instance(serial_link.SerialLink)
   console_output = Instance(OutputStream)
   python_console_env = Dict
+  device_serial = Str('')
   a = Int
   b = Int
   tracking_view = Instance(TrackingView)
@@ -125,6 +145,7 @@ class SwiftConsole(HasTraits):
     filename=os.path.join(os.path.dirname(__file__), 'images', 'iconic', 'x.svg'),
     width=8, height=8
   )
+
   view = View(
     VSplit(
       Tabbed(
@@ -165,7 +186,8 @@ class SwiftConsole(HasTraits):
     resizable = True,
     width = 1000,
     height = 600,
-    title = 'Piksi Console, Version: ' + CONSOLE_VERSION
+    handler = ConsoleHandler(),
+    title = CONSOLE_TITLE
   )
 
   def print_message_callback(self, data):
@@ -221,6 +243,13 @@ class SwiftConsole(HasTraits):
 
       self.update_view = UpdateView(self.link, prompt=update)
       settings_read_finished_functions.append(self.update_view.compare_versions)
+
+      # Once we have received the settings, update device_serial with the Piksi
+      # serial number which will be displayed in the window title
+      def update_serial():
+        serial_string = self.settings_view.settings['system_info']['serial_number'].value
+        self.device_serial = 'PK%04d' % int(serial_string)
+      settings_read_finished_functions.append(update_serial)
 
       self.settings_view = \
           SettingsView(self.link, settings_read_finished_functions)
