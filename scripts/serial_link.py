@@ -21,6 +21,8 @@ import calendar
 import socket
 import json
 
+from sbp_messages import SBP_HEARTBEAT
+
 DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 1000000
 
@@ -382,6 +384,44 @@ def format_log_json_entry(t0, item):
   data = item.to_json_dict()
   return {'delta': delta, 'timestamp': timestamp, 'data': data}
 
+class Watchdog:
+  """
+  Watchdog wraps a timer with a callback that can rearm the timer.
+
+  Parameters
+  ----------
+  timeout : float
+    timeout of timer in seconds
+  alarm : callback
+    function to call when/if timer expires
+  """
+  def __init__(self, timeout, alarm):
+    self.timeout = timeout
+    self.alarm = alarm
+    self.timer = None
+
+  def __call__(self, *args):
+    self.call()
+
+  def call(self):
+    """
+    Rearm the timer.
+    """
+    if self.timer:
+      self.timer.cancel()
+    self.timer = threading.Timer(self.timeout, self.alarm)
+    self.timer.daemon = True
+    self.timer.start()
+
+def default_watchdog_alarm():
+  """
+  Called when the watchdog timer alarms. Will raise a KeyboardInterrupt to the
+  main thread and exit the process.
+  """
+  sys.stderr.write("ERROR: Watchdog expired!")
+  import thread
+  thread.interrupt_main()
+
 if __name__ == "__main__":
   import argparse
   parser = argparse.ArgumentParser(description='Swift Nav Serial Link.')
@@ -404,6 +444,9 @@ if __name__ == "__main__":
   parser.add_argument("-j", "--json",
                       action="store_true",
                       help="JSON serialize SBP messages.")
+  parser.add_argument("-w", "--watchdog",
+                      default=[None], nargs=1,
+                      help="alarm after WATCHDOG seconds have elapsed without heartbeat.")
   parser.add_argument("-t", "--timeout",
                       default=[None], nargs=1,
                       help="exit after TIMEOUT seconds have elapsed.")
@@ -426,8 +469,12 @@ if __name__ == "__main__":
       link.add_global_callback(default_log_json_callback(log_file))
     else:
       link.add_global_callback(default_log_callback(log_file))
-    if args.reset:
-      link.send_message(ids.RESET, '')
+  if args.reset:
+    link.send_message(ids.RESET, '')
+  # Setup watchdog
+  watchdog = args.watchdog[0]
+  if watchdog:
+    link.add_callback(SBP_HEARTBEAT, Watchdog(float(watchdog), default_watchdog))
   try:
     if args.timeout[0] is None:
       # Wait forever until the user presses Ctrl-C
