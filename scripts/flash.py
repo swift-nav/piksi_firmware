@@ -15,11 +15,16 @@ import struct
 import time
 import sys
 import new
+from intelhex import IntelHex
+from threading import Lock
 
 from itertools import groupby
 from sbp.piksi import *
 
+# 0.5 * ADDRS_PER_OP * MAX_QUEUED_OPS (plus SBP overhead) is how much each of
+# the STM32 TX/RX buffers will be filled by the program/read callback messages.
 ADDRS_PER_OP = 128
+MAX_QUEUED_OPS = 20
 
 M25_SR_SRWD = 1 << 7
 M25_SR_BP2  = 1 << 4
@@ -101,37 +106,38 @@ def ihx_n_ops(ihx, addr_sector_map):
 
 # Lock sector of STM flash (0-11).
 def _stm_lock_sector(self, sector):
-  self._waiting_for_callback = True
   msg_buf = struct.pack("B", sector)
+  self.inc_n_queued_ops()
   self.link.send_message(SBP_MSG_STM_FLASH_LOCK_SECTOR, msg_buf)
-  while self._waiting_for_callback:
+  while self.get_n_queued_ops() > 0:
     time.sleep(0.001)
 
 # Unlock sector of STM flash (0-11).
 def _stm_unlock_sector(self, sector):
-  self._waiting_for_callback = True
   msg_buf = struct.pack("B", sector)
+  self.inc_n_queued_ops()
   self.link.send_message(SBP_MSG_STM_FLASH_UNLOCK_SECTOR, msg_buf)
-  while self._waiting_for_callback:
+  while self.get_n_queued_ops() > 0:
     time.sleep(0.001)
 
 # Write M25 status register (8 bits).
 def _m25_write_status(self, sr):
-  self._waiting_for_callback = True
   msg_buf = struct.pack("B", sr)
+  self.inc_n_queued_ops()
   self.link.send_message(SBP_MSG_M25_FLASH_WRITE_STATUS, msg_buf)
-  while self._waiting_for_callback:
+  while self.get_n_queued_ops() > 0:
     time.sleep(0.001)
 
 class Flash():
 
   def __init__(self, link, flash_type):
+    self._n_queued_ops = 0
+    self.nqo_lock = Lock()
     self.stopped = False
     self.status = ''
     self.link = link
     self.flash_type = flash_type
-    self._waiting_for_callback = False
-    self._read_callback_data = []
+    self._read_callback_ihx = IntelHex()
     self.link.add_callback(SBP_MSG_FLASH_DONE, self._done_callback)
     self.link.add_callback(SBP_MSG_FLASH_READ, self._read_callback)
     self.ihx_elapsed_ops = 0 # N operations finished in self.write_ihx
@@ -157,6 +163,19 @@ class Flash():
     else:
       raise ValueError("flash_type must be \"STM\" or \"M25\"")
 
+  def inc_n_queued_ops(self):
+    self.nqo_lock.acquire()
+    self._n_queued_ops += 1
+    self.nqo_lock.release()
+
+  def dec_n_queued_ops(self):
+    self.nqo_lock.acquire()
+    self._n_queued_ops -= 1
+    self.nqo_lock.release()
+
+  def get_n_queued_ops(self):
+    return self._n_queued_ops
+
   def __del__(self):
     if not self.stopped:
       self.stop()
@@ -175,35 +194,24 @@ class Flash():
              (self.flash_type, sector)
       raise Warning(text)
     msg_buf = struct.pack("BB", self.flash_type_byte, sector)
-    self._waiting_for_callback = True
+    self.inc_n_queued_ops()
     self.link.send_message(SBP_MSG_FLASH_ERASE, msg_buf)
-    while self._waiting_for_callback == True:
+    while self.get_n_queued_ops() > 0:
       time.sleep(0.001)
 
   def program(self, address, data):
     msg_buf = struct.pack("B", self.flash_type_byte)
     msg_buf += struct.pack("<I", address)
     msg_buf += struct.pack("B", len(data))
-    self._waiting_for_callback = True
+    self.inc_n_queued_ops()
     self.link.send_message(SBP_MSG_FLASH_PROGRAM, msg_buf + data)
-    while self._waiting_for_callback == True:
-      time.sleep(0.001)
 
   def read(self, address, length):
     msg_buf = struct.pack("B", self.flash_type_byte)
     msg_buf += struct.pack("<I", address)
     msg_buf += struct.pack("B", length)
-    self._waiting_for_callback = True
+    self.inc_n_queued_ops()
     self.link.send_message(SBP_MSG_FLASH_READ, msg_buf)
-    while self._waiting_for_callback == True:
-      time.sleep(0.001)
-    assert address == self._read_callback_address, \
-        "Address received (0x%08x) does not match address sent (0x%08x)" % \
-        (self._read_callback_address, address)
-    assert length == self._read_callback_length, \
-        "Length received (0x%08x) does not match length sent (0x%08x)" % \
-        (self._read_callback_length, length)
-    return self._read_callback_data
 
   # Returned for all commands other than read. Returned for read if failed.
   def _done_callback(self, sbp_msg):
@@ -212,21 +220,28 @@ class Flash():
     if (ret != 0):
       print "Flash operation returned error (%d)" % ret
 
-    self._waiting_for_callback = False
+    self.dec_n_queued_ops()
+    assert self.get_n_queued_ops() >= 0, \
+      "Number of queued flash operations is negative"
 
   # Returned for read if successful.
   def _read_callback(self, sbp_msg):
     # 4 bytes addr, 1 byte length, length bytes data
-    self._read_callback_address = struct.unpack('<I', sbp_msg.payload[0:4])[0]
-    self._read_callback_length = struct.unpack('B', sbp_msg.payload[4])[0]
-    length = self._read_callback_length
-    self._read_callback_data = list(struct.unpack(str(length)+'B', sbp_msg.payload[5:]))
-    self._waiting_for_callback = False
+    address = struct.unpack('<I', data[0:4])[0]
+    length = struct.unpack('B', data[4])[0]
+
+    self._read_callback_ihx.puts(address, data[5:])
+
+    self.dec_n_queued_ops()
+    assert self.get_n_queued_ops() >= 0, \
+      "Number of queued flash operations is negative"
 
   def write_ihx(self, ihx, stream=None, mod_print=0):
     self.ihx_total_ops = ihx_n_ops(ihx, self.addr_sector_map)
     self.ihx_elapsed_ops = 0
     self.count = 0
+
+    start_time = time.time()
 
     # Erase sectors
     ihx_addrs = ihx_ranges(ihx)
@@ -240,11 +255,9 @@ class Flash():
     if stream:
       stream.write('\n')
 
-    # Write data to flash and validate
-    start_time = time.time()
-    # STM's lowest address is used by bootloader to check that the application
-    # is valid, so program from high to low to ensure this address is programmed
-    # last.
+    # Write data to flash and read back to later validate. STM's lowest address
+    # is used by bootloader to check that the application is valid, so program
+    # from high to low to ensure this address is programmed last.
     for start, end in reversed(ihx_addrs):
       for addr in reversed(range(start, end, ADDRS_PER_OP)):
         self.status = self.flash_type + " Flash: Programming address" + \
@@ -256,13 +269,32 @@ class Flash():
             self.count = 1
           else:
             self.count += 1
+
         binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
+
+        while self.get_n_queued_ops() >= MAX_QUEUED_OPS:
+          time.sleep(0.001)
         self.program(addr, binary)
         self.ihx_elapsed_ops += 1
-        flash_readback = self.read(addr, ADDRS_PER_OP)
+
+        while self.get_n_queued_ops() >= MAX_QUEUED_OPS:
+          time.sleep(0.001)
+        self.read(addr, ADDRS_PER_OP)
         self.ihx_elapsed_ops += 1
-        if flash_readback != map(ord, binary):
-          raise Exception('Data read from flash != Data written to flash')
+
+    # Verify that data written to flash matches data read from flash.
+    while self.get_n_queued_ops() > 0:
+      time.sleep(0.001)
+    for start, end in reversed(ihx_addrs):
+      if self._read_callback_ihx.gets(start, end-start+1) != \
+          ihx.gets(start, end-start+1):
+        for i in range(start, end):
+          r = self._read_callback_ihx.gets(i,1)
+          p = ihx.gets(i,1)
+          if r != p:
+            raise Exception('Data read from flash != Data programmed to flash'
+              ('Addr: %x, Programmed: %x, Read: %x' % (i,r,p)).upper())
+
     self.status = self.flash_type + " Flash: Successfully programmed and " + \
                                     "verified, total time = %d seconds" % \
                                     int(time.time()-start_time)
