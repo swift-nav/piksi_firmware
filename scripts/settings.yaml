@@ -1,511 +1,572 @@
 ---
+
 - group: base_station_mode
   name: enable
   type: boolean
-  Units: 
+  units:
   default value: 'false'
   enumerated possible values: true,false
-  Description: Operate in base station mode
+  Description: Output surveyed base station location
   Notes: 'This flag ultimately determines whether the SBP message with identifier
     MSG_BASE_POS will be calculated and sent.  Logically, setting this attribute to
-    true sets the current Piksi as a base station and configures the unit to send
-    it''s surveyed location coordinates to the other Piksi(s) with which the base
-    station is communicating.  If enabled, the Piksi that receives the base station''s
+    "true" sets the Local Piksi as a base station and configures the unit to send
+    its surveyed location coordinates to the other Piksi(s) with which the base
+    station is communicating.  If "true", the Piksi that receives the base station''s
     surveyed coordinates will also calculate and communicate its own pseudo absolute
-    RTK position based upon the received position of the base station.  '
+    RTK position based upon the received position of the Base Station.  '
+
 - group: base_station_mode
   name: surveyed lat
   type: Double
-  Units: degrees
+  units: degrees
   default value: '0'
-  enumerated possible values: 
-  Description: Surveyed latitude of the Piksi connected to the console over usb
-  Notes: This setting represents the latitude of the connected piksi's antenna.  If
-    "base station mode" is true, the coordinate will be communicated to the rover
-    with which to calculate the rover's pseudo-absolute RTK position.  The value should
+  enumerated possible values:
+  Description: "Surveyed latitude of the Piksi's antenna"
+  Notes: This setting represents the latitude of the connected Piksi's antenna.  If
+    "base station mode" is "true", the coordinate will be communicated to the Rover
+    with which to calculate the Rover's pseudo-absolute RTK position.  The value should
     be as accurate as possible and should have precision to at least 7 digits following
     the decimal point.  For reference, 1e-7 degrees of latitude is about 1.1cm on
     the surface of the earth. Any errors in the surveyed position will directly affect
-    the pseudo-absolute RTK position measurement reported by the roving Piksi.
+    the pseudo-absolute RTK position measurement reported by the Rover.
+
 - group: base_station_mode
   name: surveyed lon
   type: Double
-  Units: degrees
+  units: degrees
   default value: '0'
-  enumerated possible values: 
-  Description: Surveyed longitude of the Piksi connected to the console over usb
+  enumerated possible values:
+  Description: "Surveyed longitude of the Piksi's antenna"
   Notes: This setting represents the longitude of the connected Piksi's antenna.  If
-    "base station mode" is true, the coordinate will be communicated to the rover
-    unit with which to calculate the rover's pseudo-absolute RTK position.  This value
+    "base station mode" is "true", the coordinate will be communicated to the Rover
+    unit with which to calculate the Rover's pseudo-absolute RTK position.  This value
     should be as accurate as possible and should have precision to at least 7 digits
     following the decimal point. For reference, 1e-7 degrees of longitude at 35 degrees
     latitude is about 1 cm. Any errors in the surveyed position will directly affect
-    the pseudo-absolute RTK position measurement reported by the roving Piksi.
+    the pseudo-absolute RTK position measurement reported by the Rover.
+
 - group: base_station_mode
   name: surveyed alt
   type: Double
-  Units: meters
+  units: meters
   default value: '0'
-  enumerated possible values: 
-  Description: Surveyed altitude of the Piksi connected to the console over usb
+  enumerated possible values:
+  Description: "Surveyed altitude of the Piksi's antenna"
   Notes: This setting represents the altitude of the antenna connected to the Piksi
-    above the WGS84 ellipsoid. This coordinate will be communicated to rover unit
-    against which to calculate a pseudo-absolute position. This value should be as
-    accurate as possible and should be precise to 1 cm.  Any errors in the surveyed
-    position will directly affect the pseudo-absolute RTK position measurement reported
-    by the roving Piksi.
+    above the WGS84 ellipsoid. This coordinate will be communicated to the Rover
+    against which to calculate a pseudo-absolute position. This value should be
+    precise to 1 cm.  Any errors in the surveyed position will directly affect
+    the pseudo-absolute RTK position measurement reported by the Rover.
+
 - group: float_kf
   name: phase_var
   type: Double
-  Units: cycles^2
+  units: cycles^2
   default value: '0.0144'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Assumed variance of a satellite's phase measurement
   Notes: This setting adjusts variance estimates in the Swift Kalman filter which
     aids in integer ambiguity resolution (IAR).  Increasing this value can reduce
     the occurrence of false carrier phase locks but can also increase the time required
     to achieve an IAR fixed solution.  This setting should not be adjusted by end
     users.
+
 - group: float_kf
   name: code_var
   type: Double
-  Units: meters^2
+  units: meters^2
   default value: '40000'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Assumed variance of a satellite's pseudorange measurement
   Notes: This setting adjusts variance estimates in the Swift Kalman filter which
     aids in integer ambiguity resolution (IAR).  Increasing this value can reduce
     the occurrence of false carrier phase locks but can also increase the time required
     to achieve an IAR fixed solution.  This setting should not be adjusted by end
     users.
+
 - group: float_kf
   name: amb_init_var
   type: Double
-  Units: non dimensional
+  units: non dimensional
   default value: '1.00E+08'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Initial integer ambiguity variance at filter initialization
   Notes: This setting adjusts variance estimates in the Swift Kalman filter which
     aids in integer ambiguity resolution (IAR).  Increasing this value can reduce
     the occurrence of false carrier phase locks but can also increase the time required
     to achieve an IAR fixed solution.  This setting should not be adjusted by end
     users.
+
 - group: float_kf
   name: new_amb_var
   type: Double
-  Units: non dimensional
+  units: non dimensional
   default value: '1.00E+10'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Variance for new ambiguity measurements
   Notes: This setting adjusts variance estimates in the Swift Kalman filter which
     aids in integer ambiguity resolution (IAR).  Increasing this value can reduce
     the occurrence of false carrier phase locks but can also increase the time required
     to achieve an IAR fixed solution.  This setting should not be adjusted by end
     users.
+
 - group: frontend
   name: antenna_selection
   type: enum
-  Units: 
+  units:
   default value: Auto
   enumerated possible values: Auto,Patch,External
   Description: Determines which antenna to use.
   Notes: This setting selects the antenna input that should be used by the Piksi.  When
-    set to auto, if the unit senses an external antenna attached, it will use the
-    external antenna.  If no external antenna is attached, it will use the integrated
-    patch antenna.  This setting can override the automatic antenna selection and
-    force the external or patch antenna to be used.
+    set to "Auto", if the unit senses an external antenna attached to the Piksi
+    from a load placed on the antenna output DC bias, it will use the
+    external antenna.  If no external antenna is attached (or a passive antenna
+    is attached), it will use the integrated patch antenna.  Selecting "Patch"
+    or "External" for this setting can override the automatic antenna selection
+    and force the external or patch antenna to be used.
+
 - group: iar
   name: phase_var
   type: double
-  Units: cycles^2
+  units: cycles^2
   default value: '0.0144'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Determines the measured carrier phase variance for use in the integer
     ambiguity resolution test loop
   Notes: This setting adjusts variance estimates in the integer ambiguity resolution
     (IAR) subroutine.  Increasing this value can reduce the occurrence of false carrier
     phase locks but can also increase the time required to achieve an IAR fixed solution.  This
     setting should not be adjusted by end users.
+
 - group: iar
   name: code_var
   type: double
-  Units: meters^2
+  units: meters^2
   default value: '40000'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Determines the pseudocode variance for the integer ambiguity resolution
     subroutine
   Notes: This setting adjusts variance estimates in the integer ambiguity resolution
     (IAR) subroutine.  Increasing this value can reduce the occurrence of false carrier
     phase locks but can also increase the time required to achieve an IAR fixed solution.  This
     setting should not be adjusted by end users.
+
 - group: sbp
   name: obs_msg_max_size
   type: integer
-  Units: bytes
+  units: bytes
   default value: '104'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Determines the maximum message length for raw observation sbp messages.
-  Notes: 'This parameter is useful for tuning observation messages for compatibility
+  Notes: This parameter is useful for tuning observation messages for compatibility
     with radio modems.  Some serial modems will internally split serial packets for
     their protocol and this parameter allows the size of the message to be reduced
     as to prevent the modem from sending multiple packets. If the parameter exceeds
     255 bytes (the maximum size of an SBP message), the Piksi firmware will ignore
     the parameter and use 255 bytes.  If the parameter is set smaller than the size
     of one observation, the Piksi firmware will ignore the parameter and use the size
-    of one observation as the maximum message size.  '
+    of one observation as the maximum message size.
+
 - group: simulator
   name: enabled
   type: boolean
-  Units: 
+  units:
   default value: 'false'
   enumerated possible values: true,false
-  Description: Toggles the swift navigation internal simulator on and off
-  Notes: The swift navigation simulator will provide simulated outputs of a stationary
-    base station and the current Piksi moving in a circle around the base station.
+  Description: Toggles the Piksi internal simulator on and off
+  Notes: The Piksi simulator will provide simulated outputs of a
+    stationary base station and the Local Piksi moving in a circle around the
+    base station The simulator is intended to aid in system integration by
+    providing realistic looking outputs but does not faithfully simulate every
+    aspect of device operation.
+
 - group: simulator
   name: base_ecef_x
   type: double
-  Units: meters
-  default value: 
-  enumerated possible values: 
+  units: meters
+  default value:
+  enumerated possible values:
   Description: Simulated base station position
   Notes: Earth centered earth fixed (ECEF) x position of the simulated base station.
+
 - group: simulator
   name: base_ecef_y
   type: double
-  Units: meters
-  default value: 
-  enumerated possible values: 
+  units: meters
+  default value:
+  enumerated possible values:
   Description: Simulated base station position
   Notes: Earth centered earth fixed (ECEF) y position of the simulated base station.
+
 - group: simulator
   name: base_ecef_z
   type: double
-  Units: meters
-  default value: 
-  enumerated possible values: 
+  units: meters
+  default value:
+  enumerated possible values:
   Description: Simulated base station position
   Notes: Earth centered earth fixed (ECEF) z position of the simulated base station.
+
 - group: simulator
   name: speed
   type: double
-  Units: meters/s
+  units: meters/s
   default value: '4'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Simulated tangential speed of Piksi
-  Notes: 
+  Notes:
+
 - group: simulator
   name: radius
   type: double
-  Units: meters
+  units: meters
   default value: '100'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Radius of the circle around which the simulated Piksi will move
-  Notes: 
+  Notes:
+
 - group: simulator
   name: pos_sigma
   type: double
-  Units: meters^2
+  units: meters^2
   default value: '2'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Standard deviation of simulated single point position
-  Notes: 
+  Notes:
+
 - group: simulator
   name: speed_sigma
   type: double
-  Units: meters^2/s^2
+  units: meters^2/s^2
   default value: '0.02'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Standard deviation of noise addition to simulated tangential speed.
-  Notes: 
+  Notes:
+
 - group: simulator
   name: cn0_sigma
   type: double
-  Units: dbm hz
+  units: dbm hz
   default value: '0.1'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Standard deviation of noise added to the simulated signal to noise
     ratio
-  Notes: 
+  Notes:
+
 - group: simulator
   name: pseudorange_sigma
   type: double
-  Units: meters
+  units: meters
   default value: '16'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Standard deviation of noise added to the simulated pseudo range
-  Notes: 
+  Notes:
+
 - group: simulator
   name: phase_sigma
   type: double
-  Units: cycles
+  units: cycles
   default value: '0.0009'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Standard deviation of noise added to the simulated carrier phase
-  Notes: 
+  Notes:
+
 - group: simulator
   name: num_sats
   type: integer
-  Units: 
+  units:
   default value: '9'
-  enumerated possible values: 
+  enumerated possible values:
   Description: The number of satellites for the simulator.
-  Notes: 
+  Notes:
+
 - group: simulator
   name: mode_mask
   type: packed bitfield
-  Units: 
+  units:
   default value: 15 (decimal), 0xF (hexadecimal)
-  enumerated possible values: 
-  Description: 'Determines the types of position outputs for the simulator.  '
-  Notes: |-
+  enumerated possible values:
+  Description: Determines the types of position outputs for the simulator.
+  Notes: |
     bit 0 (decimal value 1) turns on single point position PVT simulated outputs
     bit 1 (decimal value 2) turns on the satellite tracking simulated outputs
     bit 2 (decimal value 4) turns on Float IAR simulated RTK outputs
     bit 3 (decimal value 8) turns on Fixed IAR simulated RTK outputs
+
 - group: solution
   name: soln_freq
   type: integer
-  Units: hz
+  units: hz
   default value: '10'
-  enumerated possible values: 
+  enumerated possible values:
   Description: The rate at which a solution is generated internally to the Piksi.
-  Notes: 
+  Notes:
+
 - group: solution
   name: output_every_n_obs
   type: integer
-  Units: 
+  units:
   default value: '2'
-  enumerated possible values: 
-  Description: 'Integer divisor of solution frequency for which the observations will
-    be output. '
+  enumerated possible values:
+  Description: Integer divisor of solution frequency for which the observations will
+    be output.
   Notes: For instance, if the solution frequency is 10 hz, and the "output every n
     obs" parameter is 2, it means that the observation output will occur at a rate
     of 5hz.  Since the observations are the information used by the Piksi receiving
     corrections from the connected Piksi, this determines the rate of information
     sharing for RTK solution output. This parameter is designed to tune the rate at
-    which correction information is passed from one piksi to the other as to efficiently
+    which correction information is passed from one Piksi to the other as to efficiently
     use radio modem bandwidth and fit with user applications.
+
 - group: solution
   name: dgnss_solution_mode
   type: enum
-  Units: 
-  default value: 
+  units:
+  default value:
   enumerated possible values: Low Latency, Time Matched
   Description: Determines the type of RTK solution which will be output.
-  Notes: A low latency solution uses an internal model of anticipated satellite observations
-    to provide RTK output with minimal latency but slightly reduced accuracy.  This
-    mode should be used for most applications.  Where accuracy is desired with the
-    expectation of increased latency, the "Time matched" mode can be chosen.  This
+  Notes: A "Low Latency" solution uses an internal model of anticipated satellite observations
+    to provide RTK output with minimal latency but slightly reduced accuracy.  "Low Latency" mode
+    assumes that the base station is stationary. For applications where accuracy is desired over timelieness
+    or when both Piksi's are moving, "Time matched" mode can be chosen.  This
     means that the RTK output will require a corresponding set of correction observations
     for each timestamp.
+
 - group: solution
   name: dgnss_filter
   type: enum
-  Units: 
+  units:
   default value: Fixed
   enumerated possible values: Fixed,Float
-  Description: Determines the type of IAR the pikis will attempt to achieve.
-  Notes: If "fixed", the Piksi will output a fixed integer ambiguity estimate.  If
-    no fixed solution is available, it will rever to the float solution.  If "float",
-    the device will only output the float integer ambiguity estimate.
+  Description: Determines the type of carrier phase ambiguity resolution that the Piksi will attempt to achieve.
+  Notes: If "fixed", the Piksi will output a integer fixed ambiguity estimate.  If
+    no fixed solution is available, it will revert to the float solution.  If "float",
+    the device will only output the float ambiguity estimate.
+
 - group: solution
   name: known_baseline_n
   type: double
-  Units: meters (north)
+  units: meters (north)
   default value: '0'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Determines the baseline vector for the "init known baseline" feature.
-  Notes: 
+  Notes: This sets the number of meters that the rover is North from the
+    base station when the "init known baseline" feature is used.
+
 - group: solution
   name: known_baseline_e
   type: double
-  Units: meters (east)
+  units: meters (east)
   default value: '0'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Determines the baseline vector for the "init known baseline" feature.
-  Notes: 
+  Notes: This sets the number of meters that the rover is East from the
+    base station when the "init known baseline" feature is used.
+
 - group: solution
   name: known_baseline_d
   type: double
-  Units: meters (down)
+  units: meters (down)
   default value: '0'
-  enumerated possible values: 
+  enumerated possible values:
   Description: Determines the baseline vector for the "init known baseline" feature.
-  Notes: 
+  Notes: This sets the number of meters that the rover is Down from the
+    base station when the "init known baseline" feature is used.
+
 - group: system_info
   name: serial_number
   type: integer
-  Units: 
-  default value: 
-  enumerated possible values: 
-  Description: The serial number of the piksi
+  units:
+  default value:
+  enumerated possible values:
+  Description: The serial number of the Piksi
   Notes: This number should match the number on the barcode and cannot be modified
+
 - group: system_info
   name: firmware_version
   type: string
-  Units: 
-  default value: 
-  enumerated possible values: 
-  Description: Indicates the firmware version for the current piksi
+  units:
+  default value:
+  enumerated possible values:
+  Description: Indicates the firmware version for the Local Piksi
   Notes: 'For user generated firmware, this information will appear the same as the
-    GIT command: "git describe --dirty"'
+    git command: "git describe --dirty"'
+
 - group: system_info
   name: firmware_built
   type: string
-  Units: 
-  default value: 
-  enumerated possible values: 
-  Description: Date of hardware build
-  Notes: 
+  units:
+  default value:
+  enumerated possible values:
+  Description: Date of firmware build
+  Notes:
+
 - group: system_info
   name: hw_revision
   type: string
-  Units: 
-  default value: 
-  enumerated possible values: 
-  Description: hardware revision for piksi
-  Notes: 
+  units:
+  default value:
+  enumerated possible values:
+  Description: hardware revision for Piksi
+  Notes:
+
 - group: system_info
   name: nap_version
   type: integer
-  Units: 
-  default value: 
-  enumerated possible values: 
-  Description: Version of the Navigation Acceleration Process (NAP)
-  Notes: Version of code for the NAP (which runs in the Piksi FPGA)
+  units:
+  default value:
+  enumerated possible values:
+  Description: Version of the SwiftNAP FPGA firmware.
+  Notes:
+
 - group: system_info
   name: nap_channels
   type: integer
-  Units: 
-  default value: 
-  enumerated possible values: 
-  Description: Number of tracking channels in the NAP firmware
-  Notes: 
+  units:
+  default value:
+  enumerated possible values:
+  Description: Number of tracking channels in the SwiftNAP firmware
+  Notes:
+
 - group: system_info
   name: nap_fft_index_bits
-  type: 
-  Units: 
-  default value: 
-  enumerated possible values: 
+  type:
+  units:
+  default value:
+  enumerated possible values:
   Description: Number of bits to represent the result of fast fourier transform in
-    NAP firmware
-  Notes: 
+    SwiftNAP firmware
+  Notes:
+
 - group: system_monitor
   name: heartbeat_period_milliseconds
   type: integer
-  Units: 
-  default value: 
-  enumerated possible values: 
-  Description: Period for sending the SBP_HEARTBEAT and MSG_BASE_POS SBP messages
-  Notes: 
+  units:
+  default value:
+  enumerated possible values:
+  Description: Period for sending the SBP_HEARTBEAT messages
+  Notes:
+
 - group: telemetry_radio
   name: configuration_string
   type: string
-  Units: 
-  default value: 
-  enumerated possible values: 
+  units:
+  default value:
+  enumerated possible values:
   Description: Configuration string to send radio modem over UART when detected
-  Notes: 
+  Notes: This configuration string is intended for radios that use AT style commands
+
 - group: uart_ftdi
   name: mode
   type: enum
-  Units: 
+  units:
   default value: SBP
   enumerated possible values: SBP,NMEA,RTCM
-  Description: Configure mode for uart for the USB port on piksi
-  Notes: 
+  Description: Configure mode for USB serial port on Piksi
+  Notes:
+
 - group: uart_ftdi
   name: sbp_message_mask
   type: integer
-  Units: 
+  units:
   default value: 65535 (decimal), 0xFFFF (hex)
-  enumerated possible values: 
-  Description: Configure the message mask for SBP messages on the uart for the USB
-    port on piksi
-  Notes: "The message mask is bitwise anded to the message identifier for a particular
+  enumerated possible values:
+  Description: Configure the message mask for SBP messages on the UART for the USB
+    port on Piksi
+  Notes: 'The message mask is bitwise anded to the message identifier for a particular
     message.  If the result is non-zero, the message will be sent over this UART.
     For example, consider the Piksi firmware sending an SBP
-    message with ID 0x0041. If UART A has mask 64 = 0x0040, 
-    The SBP subsystem bitwise-ands the message id with UART A's mask giving the result
-    of 0x0040. Since the result is non-zero, the message is valid for UART A and is sent. 
-    Practically, the UART with mask 64 (0x0020) transmits
+    message with ID 0x0041. If UART A has mask "64" (0x0040),
+    The SBP subsystem bitwise-ands the message id with the UART A mask giving the result
+    of 0x0040. Since the result is non-zero, the message is valid for UART A and is sent.
+    Practically, the UART with mask 64 (0x0040) transmits
     only RTK observation data and the USART with mask 65280 (0xFF00) transmits
-    most messages (this is the default USB USART on Piksi)."
+    most messages of interest to the host system (such as position and velocity).
+    A mask of 0xFFFF will transmit all messages at the expense of bandwidth.'
+
 - group: uart_ftdi
   name: baudrate
   type: integer
-  Units: bits/s
-  default value: '115200'
-  enumerated possible values: 
-  Description: The baudrate for the uart for the USB port on piksi
-  Notes: 
+  units: baud
+  default value: '1000000'
+  enumerated possible values:
+  Description: The baudrate for the UART for the USB port on Piksi
+  Notes:
+
 - group: uart_uarta
   name: mode
   type: enum
-  Units: 
+  units:
   default value: SBP
   enumerated possible values: SBP,NMEA,RTCM
-  Description: Configure mode for uart
-  Notes: 
+  Description: Configure mode for UART
+  Notes:
+
 - group: uart_uarta
   name: sbp_message_mask
   type: integer
-  Units: 
-  default value: 64 (decimal), 0x0020 (hex)
-  enumerated possible values: 
-  Description: Configure the message mask for SBP messages on uart
-  Notes: The default message mask on this uart (0x0020) is appropriate for a radio to communicate observation messages
-    to another piksi.
+  units:
+  default value: 64 (decimal), 0x0040 (hex)
+  enumerated possible values:
+  Description: Configure the message mask for SBP messages on UART
+  Notes: The default message mask on this UART (0x0040) is appropriate
+    for a radio to communicate observation messages to another Piksi.  The
+    out-of-the box configuration uses UART A for Piksi to Piksi communication.
+
 - group: uart_uarta
   name: configure_telemetry_radio_on_boot
   type: boolean
-  Units: 
+  units:
   default value: 'TRUE'
   enumerated possible values: true,false
-  Description: Determines whether this uart will attempt to configure a telemetry
+  Description: Determines whether this UART will attempt to configure a telemetry
     radio upon boot
   Notes: If a telemetry radio is connected to this UART, this should be set to true
     in order to send the configuration string to the radio.
+
 - group: uart_uarta
   name: baudrate
   type: integer
-  Units: bits/s
+  units: baud
   default value: '115200'
-  enumerated possible values: 
-  Description: The baudrate for the uart
+  enumerated possible values:
+  Description: The baudrate for the UART
   Notes: The radio baudrate may be constrained by the particular RF equipment used
     for the telemetry radio.
+
 - group: uart_uartb
   name: mode
   type: enum
-  Units: 
+  units:
   default value: SBP
   enumerated possible values: SBP,NMEA,RTCM
-  Description: Configure mode for uart
+  Description: Configure mode for UART
+
 - group: uart_uartb
   name: sbp_message_mask
   type: integer
-  Units: 
+  units:
   default value: 655280 (decimal), 0xFF00 (hex)
-  enumerated possible values: 
-  Description: Configure the message mask for SBP messages on uart
-  Notes: The default message mask on this uart (0xFF00) is appropriate for a general purpose interface to the piksi.
+  enumerated possible values:
+  Description: Configure the message mask for SBP messages on UART
+  Notes: The default message mask on this uart (0xFF00) is appropriate for a general purpose interface to the Piksi.
+
 - group: uart_uartb
   name: configure_telemetry_radio_on_boot
   type: boolean
-  Units: 
+  units:
   default value: 'TRUE'
   enumerated possible values: true,false
-  Description: Determines whether this uart will attempt to configure a telemetry
+  Description: Determines whether this UART will attempt to configure a telemetry
     radio upon boot
   Notes: If a telemetry radio is connected to this UART, this should be set to true
     in order to send the configuration string to the radio.
+
 - group: uart_uartb
   name: baudrate
   type: integer
-  Units: bits/s
+  units: baud
   default value: '115200'
-  enumerated possible values: 
+  enumerated possible values:
   Description: The baudrate for the uart
-  Notes: 
+  Notes:

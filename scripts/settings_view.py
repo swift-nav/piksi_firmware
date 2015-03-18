@@ -9,8 +9,6 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-from pyface.qt import QtCore, QtGui
-
 from traits.api import Instance, Dict, HasTraits, Array, Float, \
                        on_trait_change, List, Int, Button, Bool, Str, Color, \
                        Constant, Font, Undefined, Property, Any, Enum
@@ -36,7 +34,9 @@ import datetime
 from fileio import FileIO
 import callback_prompt as prompt
 
-import sbp_piksi as ids
+from sbp.piksi    import *
+from sbp.standard import SBP_MSG_STARTUP
+
 from settings_list import SettingsList
 
 
@@ -59,12 +59,10 @@ class SettingBase(HasTraits):
   def __str__(self):
     return self.value
 
-class mytexteditor(TextEditor):
+class MyTextEditor(TextEditor):
   def init(self,parent):
     parent.read_only = True
     parent.multi_line = True
-    # alignment not working in Traits
-    # parent.text_alignment='bottom'
 
 class Setting(SettingBase):
   full_name = Str()
@@ -77,7 +75,7 @@ class Setting(SettingBase):
       Item('description', style='readonly'),
       Item('default_value', style='readonly'),
       UItem('notes', label="Notes", height=-1,
-            editor=mytexteditor(TextEditor(multi_line=True)), style='readonly',
+            editor=MyTextEditor(TextEditor(multi_line=True)), style='readonly',
             show_label=True, resizable=True),
       show_border=True,
       label='Setting',
@@ -91,10 +89,10 @@ class Setting(SettingBase):
     self.value = value
     self.ordering = ordering
     self.settings = settings
-    self.description = settings.settings_yaml.sl_get_field(section,
+    self.description = settings.settings_yaml.get_field(section,
                                                            name, 'Description')
-    self.notes = settings.settings_yaml.sl_get_field(section, name, 'Notes')
-    self.default_value = settings.settings_yaml.sl_get_field(section, name,
+    self.notes = settings.settings_yaml.get_field(section, name, 'Notes')
+    self.default_value = settings.settings_yaml.get_field(section, name,
                                                              'default value')
 
   def _value_changed(self, name, old, new):
@@ -114,7 +112,7 @@ class EnumSetting(Setting):
       Item('description', style='readonly'),
       Item('default_value', style='readonly'),
             UItem('notes', label="Notes", height=-1,
-            editor=mytexteditor(TextEditor(multi_line=True)), style='readonly',
+            editor=MyTextEditor(TextEditor(multi_line=True)), style='readonly',
             show_label=True, resizable=True),
       show_border=True,
       label='Setting',
