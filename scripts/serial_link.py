@@ -484,7 +484,12 @@ if __name__ == "__main__":
       # Wait until the timeout has elapsed
       time.sleep(float(args.timeout[0]))
   except KeyboardInterrupt:
-    pass
+    # Callbacks, such as the watchdog timer on SBP_HEARTBEAT call
+    # thread.interrupt_main(), which throw a KeyboardInterrupt
+    # exception. To get the proper error condition, return exit code
+    # of 1. Note that the finally block does get caught since exit
+    # itself throws a SystemExit exception.
+    sys.exit(1)
   finally:
     if log_file:
       log_file.close()
