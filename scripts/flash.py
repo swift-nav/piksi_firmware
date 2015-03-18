@@ -141,7 +141,6 @@ class Flash():
     self.link.add_callback(SBP_MSG_FLASH_DONE, self._done_callback)
     self.link.add_callback(SBP_MSG_FLASH_READ, self._read_callback)
     self.ihx_elapsed_ops = 0 # N operations finished in self.write_ihx
-    self.ihx_total_ops = None # Total operations in self.write_ihx call
     if self.flash_type == "STM":
       self.flash_type_byte = 0
       self.addr_sector_map = stm_addr_sector_map
@@ -161,7 +160,12 @@ class Flash():
       self.n_sectors = M25_N_SECTORS
       self.restricted_sectors = M25_RESTRICTED_SECTORS
     else:
-      raise ValueError("flash_type must be \"STM\" or \"M25\"")
+      raise ValueError("flash_type must be \"STM\" or \"M25\", got \"%s\"" \
+                       % flash_type)
+
+  # Operations it will take to write a particular hexfile using self.write_ihx.
+  def ihx_n_ops(self, ihx):
+    return ihx_n_ops(ihx, self.addr_sector_map)
 
   def inc_n_queued_ops(self):
     self.nqo_lock.acquire()
@@ -236,8 +240,7 @@ class Flash():
     assert self.get_n_queued_ops() >= 0, \
       "Number of queued flash operations is negative"
 
-  def write_ihx(self, ihx, stream=None, mod_print=0):
-    self.ihx_total_ops = ihx_n_ops(ihx, self.addr_sector_map)
+  def write_ihx(self, ihx, stream=None, mod_print=0, elapsed_ops_cb=None):
     self.ihx_elapsed_ops = 0
     self.print_count = 0
 
@@ -252,6 +255,8 @@ class Flash():
         stream.flush()
       self.erase_sector(sector)
       self.ihx_elapsed_ops += 1
+      if elapsed_ops_cb != None:
+        elapsed_ops_cb(self.ihx_elapsed_ops)
     if stream:
       stream.write('\n')
 
@@ -272,15 +277,21 @@ class Flash():
 
         binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
 
+        # Program ADDRS_PER_OP addresses
         while self.get_n_queued_ops() >= MAX_QUEUED_OPS:
           time.sleep(0.001)
         self.program(addr, binary)
         self.ihx_elapsed_ops += 1
+        if elapsed_ops_cb != None:
+          elapsed_ops_cb(self.ihx_elapsed_ops)
 
+        # Read ADDRS_PER_OP addresses
         while self.get_n_queued_ops() >= MAX_QUEUED_OPS:
           time.sleep(0.001)
         self.read(addr, ADDRS_PER_OP)
         self.ihx_elapsed_ops += 1
+        if elapsed_ops_cb != None:
+          elapsed_ops_cb(self.ihx_elapsed_ops)
 
     # Verify that data written to flash matches data read from flash.
     while self.get_n_queued_ops() > 0:

@@ -24,7 +24,7 @@ from traits.api import HasTraits, Event, String, Button, Instance, Int, Bool, \
 from traitsui.api import View, Handler, Action, Item, TextEditor, VGroup, \
                          UItem, InstanceEditor, VSplit, HSplit, HGroup, \
                          BooleanEditor
-from pyface.api import GUI, FileDialog, OK
+from pyface.api import GUI, FileDialog, OK, ProgressDialog
 
 from version import VERSION as CONSOLE_VERSION
 import bootload
@@ -46,6 +46,7 @@ icon = ImageResource('icon',
          search_path=['images', os.path.join(basedir, 'images')])
 
 INDEX_URL = 'http://downloads.swiftnav.com/index.json'
+
 
 class IntelHexFileDialog(HasTraits):
 
@@ -169,6 +170,9 @@ class UpdateView(HasTraits):
     self.stm_fw.on_trait_change(self._manage_enables, 'status')
     self.nap_fw = IntelHexFileDialog('M25')
     self.nap_fw.on_trait_change(self._manage_enables, 'status')
+    self.progress_dialog = ProgressDialog(min=0)
+    self.progress_dialog_max = 0
+    self.pulse_progress_initially = False
     self.stream = OutputStream()
     self.get_latest_version_info()
 
@@ -382,26 +386,65 @@ class UpdateView(HasTraits):
       self._write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n" % INDEX_URL)
       return
 
+  def update_progress_dialog(self, count):
+    # Provide user feedback via pulse for slow sector erases.
+    if self.pulse_progress_initially:
+      if count > 20:
+        self.progress_dialog.max = self.progress_dialog_max
+    self.progress_dialog.update(count)
+
   # Executed in GUI thread, called from Handler.
   def manage_firmware_updates(self):
     self.updating = True
 
     self._write('')
 
-    # Erase STM if so directed.
+    # Erase STM if box is checked.
     if self.erase_stm:
-      self._write("Erasing STM flash...")
-      self.erase_flash("STM")
+      text = "Erasing STM"
+      self._write(text)
+      self.progress_dialog.title = text
+      self.create_flash("STM")
+      sectors_to_erase = \
+          set(range(self.pk_flash.n_sectors)).difference(set(self.pk_flash.restricted_sectors))
+      self.progress_dialog.max = len(sectors_to_erase)
+      self.pulse_progress_initially = False
+      GUI.invoke_later(self.progress_dialog.open)
+      erase_count = 0
+      for s in sorted(sectors_to_erase):
+        self.update_progress_dialog(erase_count)
+        self._write('Erasing %s sector %d' % (self.pk_flash.flash_type,s))
+        self.pk_flash.erase_sector(s)
+        erase_count += 1
+      self.stop_flash()
       self._write("")
 
     # Flash STM.
-    self._write("Updating STM firmware...")
-    self.update_flash(self.stm_fw.ihx, "STM")
+    text = "Updating STM"
+    self._write(text)
+    self.progress_dialog.title = text
+    self.create_flash("STM")
+    self.progress_dialog.max = 0
+    self.progress_dialog_max = self.pk_flash.ihx_n_ops(self.stm_fw.ihx)
+    self.pulse_progress_initially = True
+    GUI.invoke_later(self.progress_dialog.open)
+    self.pk_flash.write_ihx(self.stm_fw.ihx, self.stream, mod_print=0x10, \
+                            elapsed_ops_cb = self.update_progress_dialog)
+    self.stop_flash()
     self._write("")
 
     # Flash NAP.
-    self._write("Updating SwiftNAP firmware...")
-    self.update_flash(self.nap_fw.ihx, "M25")
+    text = "Updating NAP"
+    self._write(text)
+    self.progress_dialog.title = text
+    self.create_flash("M25")
+    self.progress_dialog.max = 0
+    self.progress_dialog_max = self.pk_flash.ihx_n_ops(self.nap_fw.ihx)
+    self.pulse_progress_initially = True
+    GUI.invoke_later(self.progress_dialog.open)
+    self.pk_flash.write_ihx(self.nap_fw.ihx, self.stream, mod_print=0x10, \
+                            elapsed_ops_cb = self.update_progress_dialog)
+    self.stop_flash()
     self._write("")
 
     # Must tell Piksi to jump to application after updating firmware.
@@ -410,26 +453,6 @@ class UpdateView(HasTraits):
     self._write("")
 
     self.updating = False
-
-  def erase_flash(self, flash_type):
-
-    self.create_flash(flash_type)
-
-    sectors_to_erase = \
-        set(range(self.pk_flash.n_sectors)).difference(set(self.pk_flash.restricted_sectors))
-    for s in sorted(sectors_to_erase):
-      self._write('Erasing %s sector %d' % (self.pk_flash.flash_type,s))
-      self.pk_flash.erase_sector(s)
-
-    self.stop_flash()
-
-  def update_flash(self, ihx, flash_type):
-
-    self.create_flash(flash_type)
-
-    self.pk_flash.write_ihx(ihx, self.stream, mod_print = 0x10)
-
-    self.stop_flash()
 
   def create_flash(self, flash_type):
 
