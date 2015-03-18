@@ -239,7 +239,7 @@ class Flash():
   def write_ihx(self, ihx, stream=None, mod_print=0):
     self.ihx_total_ops = ihx_n_ops(ihx, self.addr_sector_map)
     self.ihx_elapsed_ops = 0
-    self.count = 0
+    self.print_count = 0
 
     start_time = time.time()
 
@@ -263,12 +263,12 @@ class Flash():
         self.status = self.flash_type + " Flash: Programming address" + \
                                         " 0x%08X" % addr
         if stream:
-          if mod_print == 0 or mod_print != 0 and self.count % mod_print == 0:
+          if mod_print == 0 or mod_print != 0 and self.print_count % mod_print == 0:
             stream.write('\r' + self.status)
             stream.flush()
-            self.count = 1
+            self.print_count = 1
           else:
-            self.count += 1
+            self.print_count += 1
 
         binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
 
