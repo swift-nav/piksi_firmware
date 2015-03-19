@@ -120,12 +120,6 @@ class PulsableProgressDialog(ProgressDialog):
       self.max = self.passed_max
       GUI.invoke_later(self.update, count)
 
-  def reset(self, max, pulsed=False):
-    self.max = 0
-    self.passed_max = max
-    self.pulsed = pulsed
-    self.progress(0)
-
   def close(self):
     GUI.invoke_after(0.1, super(PulsableProgressDialog, self).close)
     sleep(0.2)
@@ -418,16 +412,13 @@ class UpdateView(HasTraits):
 
     self._write('')
 
-    progress_dialog = PulsableProgressDialog(0)
-
     # Erase all of STM's flash (other than bootloader) if box is checked.
     if self.erase_stm:
       text = "Erasing STM"
       self._write(text)
       self.create_flash("STM")
-      sectors_to_erase = \
-          set(range(self.pk_flash.n_sectors)).difference(set(self.pk_flash.restricted_sectors))
-      progress_dialog.reset(len(sectors_to_erase), False)
+      sectors_to_erase = set(range(self.pk_flash.n_sectors)).difference(set(self.pk_flash.restricted_sectors))
+      progress_dialog = PulsableProgressDialog(len(sectors_to_erase), False)
       progress_dialog.title = text
       GUI.invoke_later(progress_dialog.open)
       erase_count = 0
@@ -446,11 +437,11 @@ class UpdateView(HasTraits):
     self.create_flash("STM")
     stm_n_ops = self.pk_flash.ihx_n_ops(self.stm_fw.ihx, \
                                         erase = not self.erase_stm)
-    progress_dialog.reset(stm_n_ops, True)
+    progress_dialog = PulsableProgressDialog(stm_n_ops, True)
     progress_dialog.title = text
     GUI.invoke_later(progress_dialog.open)
     # Don't erase sectors if we've already done so above.
-    self.pk_flash.write_ihx(self.stm_fw.ihx, self.stream, mod_print=0x100, \
+    self.pk_flash.write_ihx(self.stm_fw.ihx, self.stream, mod_print=0x40, \
                             elapsed_ops_cb = progress_dialog.progress, \
                             erase = not self.erase_stm)
     self.stop_flash()
@@ -465,15 +456,16 @@ class UpdateView(HasTraits):
       nap_out_of_date = local_nap_version != remote_nap_version
     except KeyError:
       nap_out_of_date = True
+    nap_out_of_date = True
     if nap_out_of_date:
       text = "Updating NAP"
       self._write(text)
       self.create_flash("M25")
       nap_n_ops = self.pk_flash.ihx_n_ops(self.nap_fw.ihx)
-      progress_dialog.reset(nap_n_ops, True)
+      progress_dialog = PulsableProgressDialog(nap_n_ops, True)
       progress_dialog.title = text
       GUI.invoke_later(progress_dialog.open)
-      self.pk_flash.write_ihx(self.nap_fw.ihx, self.stream, mod_print=0x100, \
+      self.pk_flash.write_ihx(self.nap_fw.ihx, self.stream, mod_print=0x40, \
                               elapsed_ops_cb = progress_dialog.progress)
       self.stop_flash()
       self._write("")
