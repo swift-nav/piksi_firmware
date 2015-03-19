@@ -219,7 +219,7 @@ DINCDIR =
 
 # List the default directory to look for the libraries here
 DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
-          $(SWIFTNAV_ROOT)/libsp/c/build/src \
+          $(SWIFTNAV_ROOT)/libsbp/c/build/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/lapacke \
           $(SWIFTNAV_ROOT)/libswiftnav/build/CBLAS/src \
