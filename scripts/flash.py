@@ -271,15 +271,15 @@ class Flash():
       for addr in reversed(range(start, end, ADDRS_PER_OP)):
         self.status = self.flash_type + " Flash: Programming address" + \
                                         " 0x%08X" % addr
-        if stream:
-          if mod_print == 0 or mod_print != 0 and self.print_count % mod_print == 0:
+        if mod_print == 0 or mod_print != 0 and self.print_count % mod_print == 0:
+          if stream:
             stream.write('\r' + self.status)
             stream.flush()
-            self.print_count = 1
-            if elapsed_ops_cb != None:
-              elapsed_ops_cb(self.ihx_elapsed_ops)
-          else:
-            self.print_count += 1
+          self.print_count = 1
+          if elapsed_ops_cb != None:
+            elapsed_ops_cb(self.ihx_elapsed_ops)
+        else:
+          self.print_count += 1
 
         binary = ihx.tobinstr(start=addr, size=ADDRS_PER_OP)
 

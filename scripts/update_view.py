@@ -115,15 +115,20 @@ class PulsableProgressDialog(ProgressDialog):
     if self.pulsed:
       if count > 20:
         self.max = self.passed_max
+        GUI.invoke_later(self.update, count)
     else:
       self.max = self.passed_max
-    self.update(count)
+      GUI.invoke_later(self.update, count)
 
   def reset(self, max, pulsed=False):
     self.max = 0
     self.passed_max = max
     self.pulsed = pulsed
     self.progress(0)
+
+  def close(self):
+    GUI.invoke_after(0.1, super(PulsableProgressDialog, self).close)
+    sleep(0.2)
 
 class UpdateView(HasTraits):
 
@@ -433,6 +438,7 @@ class UpdateView(HasTraits):
         erase_count += 1
       self.stop_flash()
       self._write("")
+      progress_dialog.close()
 
     # Flash STM.
     text = "Updating STM"
@@ -444,17 +450,22 @@ class UpdateView(HasTraits):
     progress_dialog.title = text
     GUI.invoke_later(progress_dialog.open)
     # Don't erase sectors if we've already done so above.
-    self.pk_flash.write_ihx(self.stm_fw.ihx, self.stream, mod_print=0x80, \
+    self.pk_flash.write_ihx(self.stm_fw.ihx, self.stream, mod_print=0x100, \
                             elapsed_ops_cb = progress_dialog.progress, \
                             erase = not self.erase_stm)
     self.stop_flash()
     self._write("")
+    progress_dialog.close()
 
     # Flash NAP if out of date.
-    local_nap_version = parse_version(
-        self.settings['system_info']['nap_version'].value)
-    remote_nap_version = parse_version(self.newest_nap_vers)
-    if local_nap_version != remote_nap_version:
+    try:
+      local_nap_version = parse_version(
+          self.settings['system_info']['nap_version'].value)
+      remote_nap_version = parse_version(self.newest_nap_vers)
+      nap_out_of_date = local_nap_version != remote_nap_version
+    except KeyError:
+      nap_out_of_date = True
+    if nap_out_of_date:
       text = "Updating NAP"
       self._write(text)
       self.create_flash("M25")
@@ -462,13 +473,11 @@ class UpdateView(HasTraits):
       progress_dialog.reset(nap_n_ops, True)
       progress_dialog.title = text
       GUI.invoke_later(progress_dialog.open)
-      self.pk_flash.write_ihx(self.nap_fw.ihx, self.stream, mod_print=0x80, \
+      self.pk_flash.write_ihx(self.nap_fw.ihx, self.stream, mod_print=0x100, \
                               elapsed_ops_cb = progress_dialog.progress)
       self.stop_flash()
       self._write("")
-
-    progress_dialog.close()
-    del progress_dialog
+      progress_dialog.close()
 
     # Must tell Piksi to jump to application after updating firmware.
     self.link.send_message(SBP_MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
