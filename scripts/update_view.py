@@ -450,20 +450,25 @@ class UpdateView(HasTraits):
     self.stop_flash()
     self._write("")
 
-    # Flash NAP.
-    text = "Updating NAP"
-    self._write(text)
-    self.create_flash("M25")
-    nap_n_ops = self.pk_flash.ihx_n_ops(self.nap_fw.ihx)
-    progress_dialog.reset(nap_n_ops, True)
-    progress_dialog.title = text
-    GUI.invoke_later(progress_dialog.open)
-    self.pk_flash.write_ihx(self.nap_fw.ihx, self.stream, mod_print=0x80, \
-                            elapsed_ops_cb = progress_dialog.progress)
+    # Flash NAP if out of date.
+    local_nap_version = parse_version(
+        self.settings['system_info']['nap_version'].value)
+    remote_nap_version = parse_version(self.newest_nap_vers)
+    if local_nap_version != remote_nap_version:
+      text = "Updating NAP"
+      self._write(text)
+      self.create_flash("M25")
+      nap_n_ops = self.pk_flash.ihx_n_ops(self.nap_fw.ihx)
+      progress_dialog.reset(nap_n_ops, True)
+      progress_dialog.title = text
+      GUI.invoke_later(progress_dialog.open)
+      self.pk_flash.write_ihx(self.nap_fw.ihx, self.stream, mod_print=0x80, \
+                              elapsed_ops_cb = progress_dialog.progress)
+      self.stop_flash()
+      self._write("")
+
     progress_dialog.close()
     del progress_dialog
-    self.stop_flash()
-    self._write("")
 
     # Must tell Piksi to jump to application after updating firmware.
     self.link.send_message(SBP_MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
