@@ -413,14 +413,16 @@ class UpdateView(HasTraits):
 
     self._write('')
 
-    # Erase STM if box is checked.
+    progress_dialog = PulsableProgressDialog(0)
+
+    # Erase all of STM's flash (other than bootloader) if box is checked.
     if self.erase_stm:
       text = "Erasing STM"
       self._write(text)
       self.create_flash("STM")
       sectors_to_erase = \
           set(range(self.pk_flash.n_sectors)).difference(set(self.pk_flash.restricted_sectors))
-      progress_dialog = PulsableProgressDialog(len(sectors_to_erase), False)
+      progress_dialog.reset(len(sectors_to_erase), False)
       progress_dialog.title = text
       GUI.invoke_later(progress_dialog.open)
       erase_count = 0
@@ -436,12 +438,15 @@ class UpdateView(HasTraits):
     text = "Updating STM"
     self._write(text)
     self.create_flash("STM")
-    stm_n_ops = self.pk_flash.ihx_n_ops(self.stm_fw.ihx)
+    stm_n_ops = self.pk_flash.ihx_n_ops(self.stm_fw.ihx, \
+                                        erase = not self.erase_stm)
     progress_dialog.reset(stm_n_ops, True)
     progress_dialog.title = text
     GUI.invoke_later(progress_dialog.open)
+    # Don't erase sectors if we've already done so above.
     self.pk_flash.write_ihx(self.stm_fw.ihx, self.stream, mod_print=0x80, \
-                            elapsed_ops_cb = progress_dialog.progress)
+                            elapsed_ops_cb = progress_dialog.progress, \
+                            erase = not self.erase_stm)
     self.stop_flash()
     self._write("")
 

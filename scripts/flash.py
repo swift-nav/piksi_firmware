@@ -90,13 +90,15 @@ def sectors_used(addrs, addr_sector_map):
   return sorted(list(sectors))
 
 # Operations it will take to write a particular hexfile using flash.write_ihx.
-def ihx_n_ops(ihx, addr_sector_map):
+def ihx_n_ops(ihx, addr_sector_map, erase=True):
   ihx_addrs = ihx_ranges(ihx)
   erase_ops = len(sectors_used(ihx_addrs, addr_sector_map))
   program_ops_addr_args = [range(s,e,ADDRS_PER_OP) for s,e in ihx_addrs]
   program_ops = sum([len(l) for l in program_ops_addr_args])
   read_ops = program_ops # One read callback for every program callback.
-  return erase_ops + program_ops + read_ops
+  if erase:
+    return erase_ops + program_ops + read_ops
+  return program_ops + read_ops
 
 # Defining separate functions to lock/unlock STM sectors and to read/write M25
 # status register, as there isn't a great way to define lock/unlock sector
@@ -164,8 +166,8 @@ class Flash():
                        % flash_type)
 
   # Operations it will take to write a particular hexfile using self.write_ihx.
-  def ihx_n_ops(self, ihx):
-    return ihx_n_ops(ihx, self.addr_sector_map)
+  def ihx_n_ops(self, ihx, erase=True):
+    return ihx_n_ops(ihx, self.addr_sector_map, erase)
 
   def inc_n_queued_ops(self):
     self.nqo_lock.acquire()
@@ -240,25 +242,27 @@ class Flash():
     assert self.get_n_queued_ops() >= 0, \
       "Number of queued flash operations is negative"
 
-  def write_ihx(self, ihx, stream=None, mod_print=0, elapsed_ops_cb=None):
+  def write_ihx(self, ihx, stream=None, mod_print=0, elapsed_ops_cb=None, erase=True):
     self.ihx_elapsed_ops = 0
     self.print_count = 0
 
     start_time = time.time()
 
-    # Erase sectors
     ihx_addrs = ihx_ranges(ihx)
-    for sector in sectors_used(ihx_addrs, self.addr_sector_map):
-      self.status = self.flash_type + " Flash: Erasing sector %d" % sector
+
+    # Erase sectors
+    if erase:
+      for sector in sectors_used(ihx_addrs, self.addr_sector_map):
+        self.status = self.flash_type + " Flash: Erasing sector %d" % sector
+        if stream:
+          stream.write('\r' + self.status)
+          stream.flush()
+        self.erase_sector(sector)
+        self.ihx_elapsed_ops += 1
+        if elapsed_ops_cb != None:
+          elapsed_ops_cb(self.ihx_elapsed_ops)
       if stream:
-        stream.write('\r' + self.status)
-        stream.flush()
-      self.erase_sector(sector)
-      self.ihx_elapsed_ops += 1
-      if elapsed_ops_cb != None:
-        elapsed_ops_cb(self.ihx_elapsed_ops)
-    if stream:
-      stream.write('\n')
+        stream.write('\n')
 
     # Write data to flash and read back to later validate. STM's lowest address
     # is used by bootloader to check that the application is valid, so program
