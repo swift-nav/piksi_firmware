@@ -474,7 +474,7 @@ if __name__ == "__main__":
   # Setup watchdog
   watchdog = args.watchdog[0]
   if watchdog:
-    link.add_callback(SBP_HEARTBEAT, Watchdog(float(watchdog), default_watchdog))
+    link.add_callback(SBP_HEARTBEAT, Watchdog(float(watchdog), default_watchdog_alarm))
   try:
     if args.timeout[0] is None:
       # Wait forever until the user presses Ctrl-C
