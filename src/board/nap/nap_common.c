@@ -13,7 +13,7 @@
 
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
-#include <libswiftnav/sbp.h>
+#include <libsbp/sbp.h>
 
 #include "../../error.h"
 #include "../../peripherals/spi.h"
@@ -171,7 +171,7 @@ void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)sender_id; (void)len; (void)msg; (void) context;
   u8 dna[8];
   nap_rd_dna(dna);
-  sbp_send_msg(MSG_NAP_DEVICE_DNA, 8, dna);
+  sbp_send_msg(SBP_MSG_NAP_DEVICE_DNA, 8, dna);
 }
 
 /** Setup NAP callbacks. */
@@ -179,7 +179,7 @@ void nap_callbacks_setup(void)
 {
   static sbp_msg_callbacks_node_t nap_dna_node;
 
-  sbp_register_cbk(MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback,
+  sbp_register_cbk(SBP_MSG_NAP_DEVICE_DNA, &nap_rd_dna_callback,
                    &nap_dna_node);
 }
 

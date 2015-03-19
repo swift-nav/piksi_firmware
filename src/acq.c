@@ -19,7 +19,6 @@
 
 #include "board/nap/acq_channel.h"
 #include "acq.h"
-#include "sbp_piksi.h"
 #include "sbp.h"
 
 /** \defgroup acq Acquisition
@@ -47,15 +46,15 @@ void acq_set_prn(u8 prn)
  */
 void acq_send_result(u8 prn, float snr, float cp, float cf)
 {
-  acq_result_msg_t acq_result_msg;
+  msg_acq_result_t acq_result_msg;
 
   acq_result_msg.prn = prn;
   acq_result_msg.snr = snr;
   acq_result_msg.cp = cp;
   acq_result_msg.cf = cf;
 
-  sbp_send_msg(MSG_ACQ_RESULT,
-               sizeof(acq_result_msg_t),
+  sbp_send_msg(SBP_MSG_ACQ_RESULT,
+               sizeof(msg_acq_result_t),
                (u8 *)&acq_result_msg);
 }
 

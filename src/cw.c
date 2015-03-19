@@ -12,7 +12,7 @@
 
 #include <math.h>
 #include <stdio.h>
-#include <libswiftnav/sbp.h>
+#include <libsbp/sbp.h>
 
 #include "board/nap/cw_channel.h"
 #include "sbp.h"
@@ -42,7 +42,7 @@ void cw_start_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 void cw_setup()
 {
   static sbp_msg_callbacks_node_t cw_start_callback_node;
-  sbp_register_cbk(MSG_CW_START, &cw_start_callback, &cw_start_callback_node);
+  sbp_register_cbk(SBP_MSG_CW_START, &cw_start_callback, &cw_start_callback_node);
 }
 
 /** Schedule a load of samples into the CW channel's sample ram.
@@ -184,7 +184,7 @@ void cw_send_result(float freq, u64 power)
   msg.freq = freq;
   msg.power = power;
 
-  sbp_send_msg(MSG_CW_RESULTS, sizeof(msg), (u8*)&msg);
+  sbp_send_msg(SBP_MSG_CW_RESULTS, sizeof(msg), (u8*)&msg);
 }
 
 /** Get a point from the CW correlations array

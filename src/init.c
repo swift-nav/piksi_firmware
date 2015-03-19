@@ -13,8 +13,8 @@
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
+#include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
-#include <libswiftnav/sbp.h>
 
 #include "main.h"
 #include "board/leds.h"
@@ -66,7 +66,7 @@ static void reset_callback_register(void)
   static sbp_msg_callbacks_node_t reset_node;
 
   sbp_register_cbk(
-    MSG_RESET,
+    SBP_MSG_RESET,
     &reset_callback,
     &reset_node
   );
