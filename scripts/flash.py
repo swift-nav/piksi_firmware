@@ -272,6 +272,8 @@ class Flash():
             stream.write('\r' + self.status)
             stream.flush()
             self.print_count = 1
+            if elapsed_ops_cb != None:
+              elapsed_ops_cb(self.ihx_elapsed_ops)
           else:
             self.print_count += 1
 
@@ -282,16 +284,12 @@ class Flash():
           time.sleep(0.001)
         self.program(addr, binary)
         self.ihx_elapsed_ops += 1
-        if elapsed_ops_cb != None:
-          elapsed_ops_cb(self.ihx_elapsed_ops)
 
         # Read ADDRS_PER_OP addresses
         while self.get_n_queued_ops() >= MAX_QUEUED_OPS:
           time.sleep(0.001)
         self.read(addr, ADDRS_PER_OP)
         self.ihx_elapsed_ops += 1
-        if elapsed_ops_cb != None:
-          elapsed_ops_cb(self.ihx_elapsed_ops)
 
     # Verify that data written to flash matches data read from flash.
     while self.get_n_queued_ops() > 0:

@@ -101,6 +101,30 @@ class IntelHexFileDialog(HasTraits):
     else:
       self.set_status('Error while selecting file')
 
+class PulsableProgressDialog(ProgressDialog):
+
+  def __init__(self, max, pulsed=False):
+    super(PulsableProgressDialog, self).__init__()
+    self.min = 0
+    self.max = 0
+    self.pulsed = pulsed
+    self.passed_max = max
+
+  def progress(self, count):
+    # Provide user feedback initially via pulse for slow sector erases.
+    if self.pulsed:
+      if count > 20:
+        self.max = self.passed_max
+    else:
+      self.max = self.passed_max
+    self.update(count)
+
+  def reset(self, max, pulsed=False):
+    self.max = 0
+    self.passed_max = max
+    self.pulsed = pulsed
+    self.progress(0)
+
 class UpdateView(HasTraits):
 
   piksi_stm_vers = String('Waiting for Piksi to send settings...')
@@ -170,9 +194,6 @@ class UpdateView(HasTraits):
     self.stm_fw.on_trait_change(self._manage_enables, 'status')
     self.nap_fw = IntelHexFileDialog('M25')
     self.nap_fw.on_trait_change(self._manage_enables, 'status')
-    self.progress_dialog = ProgressDialog(min=0)
-    self.progress_dialog_max = 0
-    self.pulse_progress_initially = False
     self.stream = OutputStream()
     self.get_latest_version_info()
 
@@ -386,13 +407,6 @@ class UpdateView(HasTraits):
       self._write("\nError: Index downloaded from Swift Navigation's website (%s) doesn't contain all keys. Please contact Swift Navigation.\n" % INDEX_URL)
       return
 
-  def update_progress_dialog(self, count):
-    # Provide user feedback via pulse for slow sector erases.
-    if self.pulse_progress_initially:
-      if count > 20:
-        self.progress_dialog.max = self.progress_dialog_max
-    self.progress_dialog.update(count)
-
   # Executed in GUI thread, called from Handler.
   def manage_firmware_updates(self):
     self.updating = True
@@ -403,16 +417,15 @@ class UpdateView(HasTraits):
     if self.erase_stm:
       text = "Erasing STM"
       self._write(text)
-      self.progress_dialog.title = text
       self.create_flash("STM")
       sectors_to_erase = \
           set(range(self.pk_flash.n_sectors)).difference(set(self.pk_flash.restricted_sectors))
-      self.progress_dialog.max = len(sectors_to_erase)
-      self.pulse_progress_initially = False
-      GUI.invoke_later(self.progress_dialog.open)
+      progress_dialog = PulsableProgressDialog(len(sectors_to_erase), False)
+      progress_dialog.title = text
+      GUI.invoke_later(progress_dialog.open)
       erase_count = 0
       for s in sorted(sectors_to_erase):
-        self.update_progress_dialog(erase_count)
+        progress_dialog.progress(erase_count)
         self._write('Erasing %s sector %d' % (self.pk_flash.flash_type,s))
         self.pk_flash.erase_sector(s)
         erase_count += 1
@@ -422,28 +435,28 @@ class UpdateView(HasTraits):
     # Flash STM.
     text = "Updating STM"
     self._write(text)
-    self.progress_dialog.title = text
     self.create_flash("STM")
-    self.progress_dialog.max = 0
-    self.progress_dialog_max = self.pk_flash.ihx_n_ops(self.stm_fw.ihx)
-    self.pulse_progress_initially = True
-    GUI.invoke_later(self.progress_dialog.open)
-    self.pk_flash.write_ihx(self.stm_fw.ihx, self.stream, mod_print=0x10, \
-                            elapsed_ops_cb = self.update_progress_dialog)
+    stm_n_ops = self.pk_flash.ihx_n_ops(self.stm_fw.ihx)
+    progress_dialog.reset(stm_n_ops, True)
+    progress_dialog.title = text
+    GUI.invoke_later(progress_dialog.open)
+    self.pk_flash.write_ihx(self.stm_fw.ihx, self.stream, mod_print=0x80, \
+                            elapsed_ops_cb = progress_dialog.progress)
     self.stop_flash()
     self._write("")
 
     # Flash NAP.
     text = "Updating NAP"
     self._write(text)
-    self.progress_dialog.title = text
     self.create_flash("M25")
-    self.progress_dialog.max = 0
-    self.progress_dialog_max = self.pk_flash.ihx_n_ops(self.nap_fw.ihx)
-    self.pulse_progress_initially = True
-    GUI.invoke_later(self.progress_dialog.open)
-    self.pk_flash.write_ihx(self.nap_fw.ihx, self.stream, mod_print=0x10, \
-                            elapsed_ops_cb = self.update_progress_dialog)
+    nap_n_ops = self.pk_flash.ihx_n_ops(self.nap_fw.ihx)
+    progress_dialog.reset(nap_n_ops, True)
+    progress_dialog.title = text
+    GUI.invoke_later(progress_dialog.open)
+    self.pk_flash.write_ihx(self.nap_fw.ihx, self.stream, mod_print=0x80, \
+                            elapsed_ops_cb = progress_dialog.progress)
+    progress_dialog.close()
+    del progress_dialog
     self.stop_flash()
     self._write("")
 
