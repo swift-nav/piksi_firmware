@@ -13,9 +13,9 @@
 #ifndef SWIFTNAV_SBP_H
 #define SWIFTNAV_SBP_H
 
-#include <libswiftnav/common.h>
-#include <libswiftnav/sbp.h>
-#include <libswiftnav/sbp_messages.h>
+#include <libsbp/common.h>
+#include <libsbp/sbp.h>
+#include <libsbp/sbp_messages.h>
 
 #include "peripherals/usart.h"
 #include "sbp_piksi.h"

@@ -12,8 +12,8 @@
 
 #include <string.h>
 
+#include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
-#include <libswiftnav/sbp_utils.h>
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/ephemeris.h>
@@ -29,6 +29,7 @@
 #include "position.h"
 #include "nmea.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 #include "solution.h"
 #include "manage.h"
 #include "simulator.h"

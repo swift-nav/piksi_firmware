@@ -15,11 +15,11 @@
 
 #include <ch.h>
 
+#include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
 #include <libswiftnav/almanac.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
-#include <libswiftnav/sbp.h>
 
 #include "main.h"
 #include "board/nap/track_channel.h"

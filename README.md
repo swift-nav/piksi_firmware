@@ -8,7 +8,7 @@ Documentation available online at http://docs.swift-nav.com/piksi_firmware
 Checking Out Submodules
 =========================
 
-ChibiOS, libopencm3 and libswiftnav are submodules of this git repository.
+ChibiOS, libopencm3, libsbp and libswiftnav are submodules of this git repository.
 Check them out using:
 
 	git submodule init

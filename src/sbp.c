@@ -20,9 +20,8 @@
 #include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/usart.h>
 
+#include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
-#include <libswiftnav/edc.h>
-#include <libswiftnav/sbp.h>
 
 #include "board/leds.h"
 #include "board/m25_flash.h"

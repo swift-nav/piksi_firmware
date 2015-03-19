@@ -13,8 +13,8 @@
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
+#include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
-#include <libswiftnav/sbp.h>
 
 #include "main.h"
 #include "board/leds.h"

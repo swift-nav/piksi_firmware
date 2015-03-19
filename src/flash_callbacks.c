@@ -11,7 +11,7 @@
  */
 
 #include <string.h>
-#include <libswiftnav/sbp.h>
+#include <libsbp/sbp.h>
 
 #include "sbp.h"
 #include "peripherals/stm_flash.h"

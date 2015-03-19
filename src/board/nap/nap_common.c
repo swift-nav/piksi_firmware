@@ -13,7 +13,7 @@
 
 #include <libopencm3/stm32/f4/gpio.h>
 #include <libopencm3/stm32/f4/rcc.h>
-#include <libswiftnav/sbp.h>
+#include <libsbp/sbp.h>
 
 #include "../../error.h"
 #include "../../peripherals/spi.h"

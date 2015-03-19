@@ -14,8 +14,8 @@
 
 #include <ch.h>
 
+#include <libsbp/sbp_messages.h>
 #include <libswiftnav/logging.h>
-#include <libswiftnav/sbp_messages.h>
 #include <libswiftnav/dgnss_management.h>
 
 #include "board/nap/nap_common.h"

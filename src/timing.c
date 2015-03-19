@@ -14,9 +14,9 @@
 #include <string.h>
 #include <time.h>
 
+#include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
 #include <libswiftnav/linear_algebra.h>
-#include <libswiftnav/sbp.h>
 
 #include "board/nap/nap_common.h"
 #include "main.h"
