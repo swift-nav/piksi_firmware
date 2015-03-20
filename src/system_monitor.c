@@ -14,8 +14,8 @@
 
 #include <ch.h>
 
+#include <libsbp/standard.h>
 #include <libswiftnav/logging.h>
-#include <libswiftnav/sbp_messages.h>
 #include <libswiftnav/dgnss_management.h>
 
 #include "board/nap/nap_common.h"
@@ -111,7 +111,7 @@ static msg_t system_monitor_thread(void *arg)
     chThdSleepMilliseconds(heartbeat_period_milliseconds);
 
     u32 status_flags = 0;
-    sbp_send_msg(SBP_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
+    sbp_send_msg(SBP_MSG_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
 
     /* If we are in base station mode then broadcast our known location. */
     if (base_station_mode) {

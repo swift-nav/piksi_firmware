@@ -12,7 +12,7 @@
 
 #include <math.h>
 #include <stdio.h>
-#include <libswiftnav/sbp.h>
+#include <libsbp/sbp.h>
 
 #include "board/nap/cw_channel.h"
 #include "sbp.h"

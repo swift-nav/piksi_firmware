@@ -15,8 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <libswiftnav/edc.h>
-#include <libswiftnav/sbp.h>
+#include <libsbp/sbp.h>
 
 #include "board/leds.h"
 #include "peripherals/usart.h"
