@@ -148,6 +148,9 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   chan->int_ms = 1;
   chan->short_cycle = true;
 
+  alias_detect_init(&chan->alias_detect, 50,
+                    (LONG_INTEGRATION_INTERVAL-1)*1e-3);
+
   /* Starting carrier phase is set to zero as we don't
    * know the carrier freq well enough to calculate it.
    */
@@ -191,6 +194,7 @@ void tracking_channel_get_corrs(u8 channel)
         }
       } else {
         nap_track_corr_rd_blocking(channel, &chan->corr_sample_count, chan->cs);
+        alias_detect_first(&chan->alias_detect, chan->cs[1].I, chan->cs[1].Q);
       }
       break;
 
@@ -302,6 +306,17 @@ void tracking_channel_update(u8 channel)
       chan->carrier_freq_fp = chan->carrier_freq
         * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
+      if (chan->int_ms != 1) {
+        s32 I = (cs[1].I - chan->alias_detect.first_I) / (LONG_INTEGRATION_INTERVAL-1);
+        s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (LONG_INTEGRATION_INTERVAL-1);
+        float err = alias_detect_second(&chan->alias_detect, I, Q);
+        if (fabs(err) > 10) {
+          log_warn("False phase lock detect PRN%d: err=%f\n", chan->prn+1, err);
+          chan->tl_state.carr_freq += err;
+          chan->tl_state.carr_filt.y = chan->tl_state.carr_freq;
+        }
+      }
+
       if ((chan->TOW_ms > 0) && (chan->int_ms == 1) &&
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
         /* Now that we have TOW we can transition to longer integration */
@@ -312,7 +327,7 @@ void tracking_channel_update(u8 channel)
         /* Recalculate filter coefficients */
         aided_tl_init(&chan->tl_state, 1e3 / chan->int_ms,
                       chan->tl_state.code_freq, 1, 0.7, 1,
-                      chan->tl_state.carr_freq, 15, 0.7, 1,
+                      chan->tl_state.carr_freq, 10, 0.7, 1,
                       0);
       }
 
