@@ -15,7 +15,6 @@
 
 #include <libsbp/common.h>
 #include <libsbp/sbp.h>
-#include <libsbp/sbp_messages.h>
 
 #include "peripherals/usart.h"
 #include "sbp_piksi.h"
@@ -38,4 +37,3 @@ void debug_variable(char *name, double x);
   ); }
 
 #endif
-

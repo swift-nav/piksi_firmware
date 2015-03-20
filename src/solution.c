@@ -56,36 +56,36 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
   if (soln) {
     /* Send GPS_TIME message first. */
-    sbp_gps_time_t gps_time;
+    msg_gps_time_t gps_time;
     sbp_make_gps_time(&gps_time, &soln->time, 0);
-    sbp_send_msg(SBP_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
+    sbp_send_msg(SBP_MSG_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
 
     /* Position in LLH. */
-    sbp_pos_llh_t pos_llh;
+    msg_pos_llh_t pos_llh;
     sbp_make_pos_llh(&pos_llh, soln, 0);
-    sbp_send_msg(SBP_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
+    sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
 
     /* Position in ECEF. */
-    sbp_pos_ecef_t pos_ecef;
+    msg_pos_ecef_t pos_ecef;
     sbp_make_pos_ecef(&pos_ecef, soln, 0);
-    sbp_send_msg(SBP_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
+    sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
 
     /* Velocity in NED. */
-    sbp_vel_ned_t vel_ned;
+    msg_vel_ned_t vel_ned;
     sbp_make_vel_ned(&vel_ned, soln, 0);
-    sbp_send_msg(SBP_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
+    sbp_send_msg(SBP_MSG_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
 
     /* Velocity in ECEF. */
-    sbp_vel_ecef_t vel_ecef;
+    msg_vel_ecef_t vel_ecef;
     sbp_make_vel_ecef(&vel_ecef, soln, 0);
-    sbp_send_msg(SBP_VEL_ECEF, sizeof(vel_ecef), (u8 *) &vel_ecef);
+    sbp_send_msg(SBP_MSG_VEL_ECEF, sizeof(vel_ecef), (u8 *) &vel_ecef);
   }
 
   if (dops) {
     DO_EVERY(10,
-      sbp_dops_t sbp_dops;
+      msg_dops_t sbp_dops;
       sbp_make_dops(&sbp_dops, dops, &(soln->time));
-      sbp_send_msg(SBP_DOPS, sizeof(sbp_dops_t), (u8 *) &sbp_dops);
+      sbp_send_msg(SBP_MSG_DOPS, sizeof(sbp_dops), (u8 *) &sbp_dops);
     );
   }
 }
@@ -125,16 +125,16 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
                             double ref_ecef[3], u8 flags)
 {
   double* base_station_pos;
-  sbp_baseline_ecef_t sbp_ecef;
+  msg_baseline_ecef_t sbp_ecef;
   sbp_make_baseline_ecef(&sbp_ecef, t, n_sats, b_ecef, flags);
-  sbp_send_msg(SBP_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
+  sbp_send_msg(SBP_MSG_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
 
   double b_ned[3];
   wgsecef2ned(b_ecef, ref_ecef, b_ned);
 
-  sbp_baseline_ned_t sbp_ned;
+  msg_baseline_ned_t sbp_ned;
   sbp_make_baseline_ned(&sbp_ned, t, n_sats, b_ned, flags);
-  sbp_send_msg(SBP_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
+  sbp_send_msg(SBP_MSG_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
 
   chMtxLock(&base_pos_lock);
   if (base_pos_known || (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
@@ -161,12 +161,12 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
     /* We defined the flags for the SBP protocol to be spp->0, fixed->1, float->2 */
     /* TODO: Define these flags from the yaml and remove hardcoding */
     u8 sbp_flags = (flags == 1) ? 1 : 2;
-    sbp_pos_llh_t pos_llh;
+    msg_pos_llh_t pos_llh;
     sbp_make_pos_llh_vect(&pos_llh, pseudo_absolute_llh, t, n_sats, sbp_flags);
-    sbp_send_msg(SBP_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
-    sbp_pos_ecef_t pos_ecef;
+    sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
+    msg_pos_ecef_t pos_ecef;
     sbp_make_pos_ecef_vect(&pos_ecef, pseudo_absolute_ecef, t, n_sats, sbp_flags);
-    sbp_send_msg(SBP_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
+    sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
   }
   chMtxUnlock();
 }
