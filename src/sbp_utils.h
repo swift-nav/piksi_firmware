@@ -27,7 +27,7 @@ void sbp_make_pos_ecef_vect(sbp_pos_ecef_t *pos_ecef, double ecef[3],
                             gps_time_t *gps_t, u8 n_used, u8 flags);
 void sbp_make_vel_ned(sbp_vel_ned_t *vel_ned, gnss_solution *soln, u8 flags);
 void sbp_make_vel_ecef(sbp_vel_ecef_t *vel_ecef, gnss_solution *soln, u8 flags);
-void sbp_make_dops(sbp_dops_t *dops_out, dops_t *dops_in);
+void sbp_make_dops(sbp_dops_t *dops_out, dops_t *dops_in, gps_time_t *t);
 void sbp_make_baseline_ecef(sbp_baseline_ecef_t *baseline_ecef, gps_time_t *t,
                             u8 n_sats, double b_ecef[3], u8 flags);
 void sbp_make_baseline_ned(sbp_baseline_ned_t *baseline_ned, gps_time_t *t,

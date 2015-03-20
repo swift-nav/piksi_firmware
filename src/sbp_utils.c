@@ -109,6 +109,7 @@ void sbp_make_vel_ecef(sbp_vel_ecef_t *vel_ecef, gnss_solution *soln, u8 flags)
 
 void sbp_make_dops(sbp_dops_t *dops_out, dops_t *dops_in)
 {
+  dops_out->tow = round(t->tow * 1e3);
   dops_out->pdop = round(dops_in->pdop * 100);
   dops_out->gdop = round(dops_in->gdop * 100);
   dops_out->tdop = round(dops_in->tdop * 100);
