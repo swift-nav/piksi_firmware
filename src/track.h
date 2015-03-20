@@ -60,6 +60,7 @@ typedef struct {
   u8 int_ms;                   /**< Integration length. */
   u8 next_int_ms;              /**< Integration length for the next cycle. */
   bool short_cycle;            /**< Set to true when a short 1ms integration is requested. */
+  bool output_iq;              /**< Set if this channel should output I/Q samples on SBP. */
 } tracking_channel_t;
 
 /** \} */
