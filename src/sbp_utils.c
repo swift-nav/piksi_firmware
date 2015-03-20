@@ -107,7 +107,7 @@ void sbp_make_vel_ecef(sbp_vel_ecef_t *vel_ecef, gnss_solution *soln, u8 flags)
   vel_ecef->flags = flags;
 }
 
-void sbp_make_dops(sbp_dops_t *dops_out, dops_t *dops_in)
+void sbp_make_dops(sbp_dops_t *dops_out, dops_t *dops_in, gps_time_t *t)
 {
   dops_out->tow = round(t->tow * 1e3);
   dops_out->pdop = round(dops_in->pdop * 100);
