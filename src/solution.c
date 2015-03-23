@@ -491,7 +491,7 @@ static msg_t solution_thread(void *arg)
 
         u8 flags = simulation_enabled_for(SIMULATION_MODE_RTK) ? 1 : 0;
 
-        solution_send_baseline(&soln->time,
+        solution_send_baseline(&(soln->time),
           simulation_current_num_sats(),
           simulation_current_baseline_ecef(),
           simulation_ref_ecef(), flags);
@@ -499,7 +499,7 @@ static msg_t solution_thread(void *arg)
         double t_check = expected_tow * (soln_freq / obs_output_divisor);
         if (fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
           send_observations(simulation_current_num_sats(),
-            &soln->time, simulation_current_navigation_measurements());
+            &(soln->time), simulation_current_navigation_measurements());
         }
       }
     }
