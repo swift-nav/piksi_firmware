@@ -467,36 +467,40 @@ static msg_t solution_thread(void *arg)
 
       simulation_step();
 
+      /* TODO: The simulator's handling of time is a bit crazy. This is a hack
+       * for now but the simulator should be refactored so that it can give the
+       * exact correct solution time output without this nonsense. */
+      gnss_solution *soln = simulation_current_gnss_solution();
+      double expected_tow = \
+        round(soln->time.tow * soln_freq) / soln_freq;
+      soln->time.tow = expected_tow;
+      soln->time = normalize_gps_time(soln->time);
+
       if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
         /* Then we send fake messages. */
-        solution_send_sbp(simulation_current_gnss_solution(),
-                          simulation_current_dops_solution());
-        solution_send_nmea(simulation_current_gnss_solution(),
-                           simulation_current_dops_solution(),
+        solution_send_sbp(soln, simulation_current_dops_solution());
+        solution_send_nmea(soln, simulation_current_dops_solution(),
                            simulation_current_num_sats(),
                            simulation_current_navigation_measurements(),
                            NMEA_GGA_FIX_GPS);
 
       }
 
-      double expected_tow = \
-        round(simulation_current_gnss_solution()->time.tow * soln_freq) / soln_freq;
-      double t_check = expected_tow * (soln_freq / obs_output_divisor);
-
-      if ((simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
-           simulation_enabled_for(SIMULATION_MODE_RTK)) &&
-          fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+      if (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
+          simulation_enabled_for(SIMULATION_MODE_RTK)) {
 
         u8 flags = simulation_enabled_for(SIMULATION_MODE_RTK) ? 1 : 0;
 
-        solution_send_baseline(&simulation_current_gnss_solution()->time,
+        solution_send_baseline(&(soln->time),
           simulation_current_num_sats(),
           simulation_current_baseline_ecef(),
           simulation_ref_ecef(), flags);
 
-        send_observations(simulation_current_num_sats(),
-          &simulation_current_gnss_solution()->time,
-          simulation_current_navigation_measurements());
+        double t_check = expected_tow * (soln_freq / obs_output_divisor);
+        if (fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+          send_observations(simulation_current_num_sats(),
+            &(soln->time), simulation_current_navigation_measurements());
+        }
       }
     }
   }
