@@ -281,6 +281,14 @@ class Flash():
       raise ValueError("flash_type must be \"STM\" or \"M25\", got \"%s\"" \
                        % flash_type)
 
+  def __enter__(self):
+    return self
+
+  def __exit__(self, type, value, traceback):
+    """ Calls self.stop() before instance is deleted. """
+    if not self.stopped:
+      self.stop()
+
   def ihx_n_ops(self, ihx, erase=True):
     """
     Find the number of sent SBP messages (erase, program, read) self.write_ihx
@@ -330,11 +338,6 @@ class Flash():
       Get the current count of queued flash operation SBP messages.
     """
     return self._n_queued_ops
-
-  def __del__(self):
-    """ Calls self.stop() before instance is deleted. """
-    if not self.stopped:
-      self.stop()
 
   def stop(self):
     """ Remove instance callbacks from serial_link.SerialLink. """
