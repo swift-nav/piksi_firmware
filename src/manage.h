@@ -15,6 +15,7 @@
 
 #include <ch.h>
 #include <libswiftnav/common.h>
+#include "board/nap/acq_channel.h"
 
 /** \addtogroup manage
  * \{ */
@@ -27,10 +28,7 @@
 
 #define ACQ_FULL_CF_MIN  -8500
 #define ACQ_FULL_CF_MAX   8500
-#define ACQ_FULL_CF_STEP  400
-#define ACQ_FINE_CF_WIDTH 500
-#define ACQ_FINE_CP_WIDTH 20
-#define ACQ_FINE_CF_STEP  50
+#define ACQ_FULL_CF_STEP  (1 / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ)
 
 #define MANAGE_NO_CHANNELS_FREE 255
 
@@ -39,16 +37,6 @@
 
 #define MANAGE_TRACK_THREAD_PRIORITY (NORMALPRIO-2)
 #define MANAGE_TRACK_THREAD_STACK    3000
-
-/** Acquisition management states. */
-typedef enum {
-  ACQ_MANAGE_START = 0,
-  ACQ_MANAGE_DISABLED,
-  ACQ_MANAGE_LOADING_COARSE,
-  ACQ_MANAGE_RUNNING_COARSE,
-  ACQ_MANAGE_LOADING_FINE,
-  ACQ_MANAGE_RUNNING_FINE
-} acq_manage_state_t;
 
 /** Status of acquisition for a particular PRN. */
 typedef struct __attribute__((packed)) {
