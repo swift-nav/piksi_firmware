@@ -14,7 +14,7 @@ import sys
 import serial_link
 import threading
 
-from sbp.piksi import SBP_MSG_FILEIO_READ, SBP_MSG_FILEIO_READ_DIR, SBP_MSG_FILEIO_REMOVE, SBP_MSG_FILEIO_WRITE
+from sbp.piksi import *
 
 class FileIO(object):
   def __init__(self, link):

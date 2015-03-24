@@ -62,17 +62,17 @@ class AcqResults():
     else:
       return 0
 
-  def _receive_acq_result(self, data):
+  def _receive_acq_result(self, sbp_msg):
     while N_RECORD > 0 and len(self.acqs) >= N_RECORD:
       self.acqs.pop(0)
 
     self.acqs.append({})
     a = self.acqs[-1]
 
-    a['SNR'] = struct.unpack('f', data.payload[0:4])[0]  # SNR of best point.
-    a['CP'] = struct.unpack('f', data.payload[4:8])[0]   # Code phase of best point.
-    a['CF'] = struct.unpack('f', data.payload[8:12])[0]  # Carr freq of best point.
-    a['PRN'] = struct.unpack('B', data.payload[12])[0]   # PRN of acq.
+    a['SNR'] = struct.unpack('f', sbp_msg.payload[0:4])[0]  # SNR of best point.
+    a['CP'] = struct.unpack('f', sbp_msg.payload[4:8])[0]   # Code phase of best point.
+    a['CF'] = struct.unpack('f', sbp_msg.payload[8:12])[0]  # Carr freq of best point.
+    a['PRN'] = struct.unpack('B', sbp_msg.payload[12])[0]   # PRN of acq.
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser(description='Acquisition Monitor')

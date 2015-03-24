@@ -21,7 +21,7 @@
 import time
 import struct
 
-from sbp.piksi import SBP_MSG_BOOTLOADER_HANDSHAKE, SBP_MSG_BOOTLOADER_JUMP_TO_APP, SBP_MSG_PRINT, SBP_MSG_RESET
+from sbp.piksi import *
 
 class Bootloader():
 
@@ -40,13 +40,13 @@ class Bootloader():
     self.stopped = True
     self.link.rm_callback(SBP_MSG_BOOTLOADER_HANDSHAKE, self._handshake_callback)
 
-  def _handshake_callback(self, data):
-    if len(data.payload)==1 and struct.unpack('B', data.payload[0])==0:
+  def _handshake_callback(self, sbp_msg):
+    if len(sbp_msg.payload)==1 and struct.unpack('B', sbp_msg.payload[0])==0:
       # == v0.1 of the bootloader, returns hardcoded version number 0.
       self.version = "v0.1"
     else:
       # > v0.1 of the bootloader, returns git commit string.
-      self.version = data.payload[:]
+      self.version = sbp_msg.payload[:]
     self.handshake_received = True
 
   def wait_for_handshake(self, timeout=None):

@@ -24,8 +24,8 @@ import numpy as np
 import datetime
 import time
 
-from sbp.piksi      import SBP_MSG_IAR_STATE, SBP_MSG_INIT_BASE, SBP_MSG_RESET_FILTERS
-from sbp.navigation import SBP_MSG_BASELINE_ECEF, SBP_MSG_BASELINE_NED, SBP_MSG_GPS_TIME, MsgBaselineNED, MsgGPSTime
+from sbp.piksi      import *
+from sbp.navigation import *
 
 class SimpleAdapter(TabularAdapter):
     columns = [('Item', 0), ('Value',  1)]
@@ -140,24 +140,24 @@ class BaselineView(HasTraits):
     #Don't do anything for ECEF currently
     return
 
-  def iar_state_callback(self, data):
-    self.num_hyps = struct.unpack('<I', data.payload)[0]
+  def iar_state_callback(self, sbp_msg):
+    self.num_hyps = struct.unpack('<I', sbp_msg.payload)[0]
 
-  def _baseline_callback_ned(self, data):
+  def _baseline_callback_ned(self, sbp_msg):
     # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
     # actually perform the update in the UI thread.
     if self.running:
-      GUI.invoke_later(self.baseline_callback, data)
+      GUI.invoke_later(self.baseline_callback, sbp_msg)
 
   def update_table(self):
     self._table_list = self.table.items()
 
-  def gps_time_callback(self, data):
-    self.week = MsgGPSTime(data).wn
-    self.nsec = MsgGPSTime(data).ns
+  def gps_time_callback(self, sbp_msg):
+    self.week = MsgGPSTime(sbp_msg).wn
+    self.nsec = MsgGPSTime(sbp_msg).ns
 
-  def baseline_callback(self, data):
-    soln = MsgBaselineNED(data)
+  def baseline_callback(self, sbp_msg):
+    soln = MsgBaselineNED(sbp_msg)
     table = []
 
     soln.n = soln.n * 1e-3

@@ -17,7 +17,7 @@ import sys
 import new
 
 from itertools import groupby
-from sbp.piksi import SBP_MSG_FLASH_DONE, SBP_MSG_FLASH_ERASE, SBP_MSG_FLASH_READ, SBP_MSG_FLASH_PROGRAM, SBP_MSG_M25_FLASH_WRITE_STATUS, SBP_MSG_STM_FLASH_LOCK_SECTOR, SBP_MSG_STM_FLASH_UNLOCK_SECTOR
+from sbp.piksi import *
 
 ADDRS_PER_OP = 128
 
@@ -206,8 +206,8 @@ class Flash():
     return self._read_callback_data
 
   # Returned for all commands other than read. Returned for read if failed.
-  def _done_callback(self, data):
-    ret = ord(data.payload)
+  def _done_callback(self, sbp_msg):
+    ret = ord(sbp_msg.payload)
 
     if (ret != 0):
       print "Flash operation returned error (%d)" % ret
@@ -215,12 +215,12 @@ class Flash():
     self._waiting_for_callback = False
 
   # Returned for read if successful.
-  def _read_callback(self, data):
+  def _read_callback(self, sbp_msg):
     # 4 bytes addr, 1 byte length, length bytes data
-    self._read_callback_address = struct.unpack('<I', data.payload[0:4])[0]
-    self._read_callback_length = struct.unpack('B', data.payload[4])[0]
+    self._read_callback_address = struct.unpack('<I', sbp_msg.payload[0:4])[0]
+    self._read_callback_length = struct.unpack('B', sbp_msg.payload[4])[0]
     length = self._read_callback_length
-    self._read_callback_data = list(struct.unpack(str(length)+'B', data.payload[5:]))
+    self._read_callback_data = list(struct.unpack(str(length)+'B', sbp_msg.payload[5:]))
     self._waiting_for_callback = False
 
   def write_ihx(self, ihx, stream=None, mod_print=0):

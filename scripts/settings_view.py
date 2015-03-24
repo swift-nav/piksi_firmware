@@ -28,7 +28,7 @@ import datetime
 from fileio import FileIO
 import callback_prompt as prompt
 
-from sbp.piksi    import SBP_MSG_RESET, SBP_MSG_SETTINGS, SBP_MSG_SETTINGS_READ_BY_INDEX, SBP_MSG_SETTINGS_SAVE
+from sbp.piksi    import *
 from sbp.standard import SBP_MSG_STARTUP
 
 def u16_to_str(i):
@@ -190,8 +190,8 @@ class SettingsView(HasTraits):
 
   ##Callbacks for receiving messages
 
-  def settings_read_by_index_callback(self, data):
-    if not data.payload:
+  def settings_read_by_index_callback(self, sbp_msg):
+    if not sbp_msg.payload:
       self.settings_list = []
 
       sections = sorted(self.settings.keys())
@@ -208,7 +208,7 @@ class SettingsView(HasTraits):
           cb()
       return
 
-    section, setting, value, format_type = data.payload[2:].split('\0')[:4]
+    section, setting, value, format_type = sbp_msg.payload[2:].split('\0')[:4]
     self.ordering_counter += 1
 
     if format_type == '':
@@ -242,13 +242,13 @@ class SettingsView(HasTraits):
     self.enumindex += 1
     self.link.send_message(SBP_MSG_SETTINGS_READ_BY_INDEX, u16_to_str(self.enumindex))
 
-  def settings_read_callback(self, data):
-    section, setting, value = data.payload.split('\0')[:3]
+  def settings_read_callback(self, sbp_msg):
+    section, setting, value = sbp_msg.payload.split('\0')[:3]
     # Hack to prevent an infinite loop of setting settings
     self.settings[section][setting].value = Undefined
     self.settings[section][setting].value = value
 
-  def piksi_startup_callback(self, data):
+  def piksi_startup_callback(self, sbp_msg):
     self._settings_read_button_fired()
 
   def set(self, section, name, value):

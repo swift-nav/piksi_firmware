@@ -25,7 +25,7 @@ import numpy as np
 import datetime
 import time
 
-from sbp.navigation import SBP_MSG_DOPS, SBP_MSG_GPS_TIME, SBP_MSG_POS_LLH, SBP_MSG_VEL_NED, MsgDops, MsgGPSTime, MsgPosLLH, MsgVelNED
+from sbp.navigation import *
 
 class SimpleAdapter(TabularAdapter):
   columns = [('Item', 0), ('Value',  1)]
@@ -136,17 +136,17 @@ class SolutionView(HasTraits):
     self.plot_data.set_data('alt_ps', [])
     self.plot_data.set_data('t_ps', [])
 
-  def _pos_llh_callback(self, data):
+  def _pos_llh_callback(self, sbp_msg):
     # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
     # actually perform the update in the UI thread.
     if self.running:
-      GUI.invoke_later(self.pos_llh_callback, data)
+      GUI.invoke_later(self.pos_llh_callback, sbp_msg)
 
   def update_table(self):
     self._table_list = self.table_spp.items()
 
-  def pos_llh_callback(self, data):
-    soln = MsgPosLLH(data)
+  def pos_llh_callback(self, sbp_msg):
+    soln = MsgPosLLH(sbp_msg)
     masked_flag = soln.flags & 0x7
     if masked_flag == 0:
       psuedo_absolutes = False
@@ -242,8 +242,8 @@ class SolutionView(HasTraits):
         self.plot.value_range.set_bounds(soln.lat - d, soln.lat + d)
 
 
-  def dops_callback(self, data):
-    dops = MsgDops(data)
+  def dops_callback(self, sbp_msg):
+    dops = MsgDops(sbp_msg)
     self.dops_table = [
       ('PDOP', '%.1f' % (dops.pdop * 0.01)),
       ('GDOP', '%.1f' % (dops.gdop * 0.01)),
@@ -253,8 +253,8 @@ class SolutionView(HasTraits):
     ]
     self.table_spp = self.pos_table_spp + self.vel_table + self.dops_table
 
-  def vel_ned_callback(self, data):
-    vel_ned = MsgVelNED(data)
+  def vel_ned_callback(self, sbp_msg):
+    vel_ned = MsgVelNED(sbp_msg)
 
     if self.vel_log_file is None:
       self.vel_log_file = open(time.strftime("velocity_log_%Y%m%d-%H%M%S.csv"), 'w')
@@ -283,9 +283,9 @@ class SolutionView(HasTraits):
     ]
     self.table_spp = self.pos_table_spp + self.vel_table + self.dops_table
 
-  def gps_time_callback(self, data):
-    self.week = MsgGPSTime(data).wn
-    self.nsec = MsgGPSTime(data).ns
+  def gps_time_callback(self, sbp_msg):
+    self.week = MsgGPSTime(sbp_msg).wn
+    self.nsec = MsgGPSTime(sbp_msg).ns
 
   def __init__(self, link):
     super(SolutionView, self).__init__()

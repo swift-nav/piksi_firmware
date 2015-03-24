@@ -73,8 +73,8 @@ class TrackingView(HasTraits):
     )
   )
 
-  def tracking_state_callback(self, data):
-    n_channels = len(data.payload) / TRACKING_STATE_BYTES_PER_CHANNEL
+  def tracking_state_callback(self, sbp_msg):
+    n_channels = len(sbp_msg.payload) / TRACKING_STATE_BYTES_PER_CHANNEL
     if n_channels != self.n_channels:
       # Update number of channels
       self.n_channels = n_channels
@@ -89,7 +89,7 @@ class TrackingView(HasTraits):
       print 'Number of tracking channels changed to', n_channels
 
     fmt = '<' + n_channels * 'BBf'
-    state_data = struct.unpack(fmt, data.payload)
+    state_data = struct.unpack(fmt, sbp_msg.payload)
     for n, s in enumerate(self.states):
       s.update(*state_data[3*n:3*(n+1)])
     GUI.invoke_later(self.update_plot)

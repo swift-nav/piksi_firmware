@@ -24,9 +24,9 @@ class STMUniqueID:
     self.link = link
     link.add_callback(SBP_MSG_STM_UNIQUE_ID, self.receive_stm_unique_id_callback)
 
-  def receive_stm_unique_id_callback(self,data):
+  def receive_stm_unique_id_callback(self,sbp_msg):
     self.unique_id_returned = True
-    self.unique_id = struct.unpack('<12B',data.payload)
+    self.unique_id = struct.unpack('<12B',sbp_msg.payload)
 
   def get_id(self):
     self.unique_id_returned = False

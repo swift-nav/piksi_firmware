@@ -135,17 +135,17 @@ class SystemMonitorView(HasTraits):
       for thread_name, state in sorted(
         self.threads, key=lambda x: x[1].cpu, reverse=True)]
 
-  def heartbeat_callback(self, data):
+  def heartbeat_callback(self, sbp_msg):
     self.update_threads()
     self.threads = []
 
-  def thread_state_callback(self, data):
+  def thread_state_callback(self, sbp_msg):
     th = ThreadState()
-    th.from_binary(data.payload)
+    th.from_binary(sbp_msg.payload)
     self.threads.append((th.name, th))
 
-  def uart_state_callback(self, data):
-    state = struct.unpack('<ffHHBBffHHBBffHHBBiiii', data.payload)
+  def uart_state_callback(self, sbp_msg):
+    state = struct.unpack('<ffHHBBffHHBBffHHBBiiii', sbp_msg.payload)
     uarta = state[0:6]
     uartb = state[6:12]
     ftdi = state[12:18]

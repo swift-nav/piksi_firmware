@@ -129,14 +129,14 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
   def update_obs(self):
     self._obs_table_list = [(prn + 1,) + obs for prn, obs in sorted(self.obs.items(), key=lambda x: x[0])]
 
-  def obs_packed_callback(self, data):
-    if (data.sender is not None and
-        (self.relay ^ (data.sender == 0))):
+  def obs_packed_callback(self, sbp_msg):
+    if (sbp_msg.sender is not None and
+        (self.relay ^ (sbp_msg.sender == 0))):
       return
 
     hdr_fmt = "<IHB"
     hdr_size = struct.calcsize(hdr_fmt)
-    tow, wn, seq = struct.unpack(hdr_fmt, data.payload[:hdr_size])
+    tow, wn, seq = struct.unpack(hdr_fmt, sbp_msg.payload[:hdr_size])
 
     tow = float(tow) / 1000.0
 
@@ -145,8 +145,8 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
 
     obs_fmt = '<IiBBHB'
     obs_size = struct.calcsize(obs_fmt)
-    n_obs = (len(data.payload) - hdr_size) / obs_size
-    obs_data = data.payload[hdr_size:]
+    n_obs = (len(sbp_msg.payload) - hdr_size) / obs_size
+    obs_data = sbp_msg.payload[hdr_size:]
 
     # Confirm this packet is good.
     # Assumes no out-of-order packets
@@ -188,7 +188,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
 
     return
 
-  def ephemeris_callback(self, data):
+  def ephemeris_callback(self, sbp_msg):
     gps_time_fmt = "dH"
     eph_fmt = "<" + "d"*19 + gps_time_fmt*2 + "BBB"
     eph_size = struct.calcsize(eph_fmt)
@@ -199,7 +199,7 @@ pyNEX                                   %s UTC PGM / RUN BY / DATE
     toe_tow, toe_wn, toc_tow, toc_wn, \
     valid, \
     healthy, \
-    prn = struct.unpack(eph_fmt, data.payload[:eph_size])
+    prn = struct.unpack(eph_fmt, sbp_msg.payload[:eph_size])
     if self.recording:
       if self.eph_file is None:
         self.eph_file = open(self.name+self.t.strftime("-%Y%m%d-%H%M%S.eph"),  'w')

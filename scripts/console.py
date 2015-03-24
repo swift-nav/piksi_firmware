@@ -11,7 +11,7 @@
 
 import serial_link
 from version import VERSION as CONSOLE_VERSION
-from sbp.piksi import SBP_MSG_DEBUG_VAR, SBP_MSG_PRINT, SBP_MSG_RESET
+from sbp.piksi import *
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
@@ -190,15 +190,15 @@ class SwiftConsole(HasTraits):
     title = CONSOLE_TITLE
   )
 
-  def print_message_callback(self, data):
+  def print_message_callback(self, sbp_msg):
     try:
-      self.console_output.write(data.payload.encode('ascii', 'ignore'))
+      self.console_output.write(sbp_msg.payload.encode('ascii', 'ignore'))
     except UnicodeDecodeError:
       print "Critical Error encoding the serial stream as ascii."
 
-  def debug_var_callback(self, data):
-    x = struct.unpack('<d', data.payload[:8])[0]
-    name = data.payload[8:]
+  def debug_var_callback(self, sbp_msg):
+    x = struct.unpack('<d', sbp_msg.payload[:8])[0]
+    name = sbp_msg.payload[8:]
     print "VAR: %s = %d" % (name, x)
 
   def _paused_button_fired(self):
