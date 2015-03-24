@@ -205,7 +205,7 @@ def _stm_unlock_sector(self, sector):
   sector : int
       Sector of STM flash to unlock (> 0, <= 11).
   """
-  if not 0 <= sector <+ 11:
+  if not 0 <= sector <= 11:
     raise ValueError("Must have 0 <= sector <= 11, received %d" % sector)
   msg_buf = struct.pack("B", sector)
   self.inc_n_queued_ops()
