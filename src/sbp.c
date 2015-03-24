@@ -20,9 +20,8 @@
 #include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/usart.h>
 
+#include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
-#include <libswiftnav/edc.h>
-#include <libswiftnav/sbp.h>
 
 #include "board/leds.h"
 #include "board/m25_flash.h"
@@ -65,39 +64,39 @@ static msg_t sbp_thread(void *arg)
   (void)arg;
   chRegSetThreadName("SBP");
 
-  uart_state_msg.obs_latency.avg = -1;
-  uart_state_msg.obs_latency.min = 0;
-  uart_state_msg.obs_latency.max = 0;
-  uart_state_msg.obs_latency.current = -1;
+  uart_state_msg.latency.avg = -1;
+  uart_state_msg.latency.lmin = 0;
+  uart_state_msg.latency.lmax = 0;
+  uart_state_msg.latency.current = -1;
 
   while (TRUE) {
     chThdSleepMilliseconds(10);
     sbp_process_messages();
 
     DO_EVERY(100,
-      uart_state_msg.uarts[0].tx_throughput = usart_tx_throughput(&uarta_state.tx);
-      uart_state_msg.uarts[0].rx_throughput = usart_rx_throughput(&uarta_state.rx);
-      uart_state_msg.uarts[0].io_error_count = uarta_state.rx.errors + uarta_state.tx.errors;
-      uart_state_msg.uarts[1].tx_throughput = usart_tx_throughput(&uartb_state.tx);
-      uart_state_msg.uarts[1].rx_throughput = usart_rx_throughput(&uartb_state.rx);
-      uart_state_msg.uarts[1].io_error_count = uartb_state.rx.errors + uartb_state.tx.errors;
-      uart_state_msg.uarts[2].tx_throughput = usart_tx_throughput(&ftdi_state.tx);
-      uart_state_msg.uarts[2].rx_throughput = usart_rx_throughput(&ftdi_state.rx);
-      uart_state_msg.uarts[2].io_error_count = ftdi_state.rx.errors + ftdi_state.tx.errors;
+      uart_state_msg.uart_a.tx_throughput = usart_tx_throughput(&uarta_state.tx);
+      uart_state_msg.uart_a.rx_throughput = usart_rx_throughput(&uarta_state.rx);
+      uart_state_msg.uart_a.io_error_count = uarta_state.rx.errors + uarta_state.tx.errors;
+      uart_state_msg.uart_b.tx_throughput = usart_tx_throughput(&uartb_state.tx);
+      uart_state_msg.uart_b.rx_throughput = usart_rx_throughput(&uartb_state.rx);
+      uart_state_msg.uart_b.io_error_count = uartb_state.rx.errors + uartb_state.tx.errors;
+      uart_state_msg.uart_ftdi.tx_throughput = usart_tx_throughput(&ftdi_state.tx);
+      uart_state_msg.uart_ftdi.rx_throughput = usart_rx_throughput(&ftdi_state.rx);
+      uart_state_msg.uart_ftdi.io_error_count = ftdi_state.rx.errors + ftdi_state.tx.errors;
 
       if (latency_count > 0) {
-        uart_state_msg.obs_latency.avg = (s32) (latency_accum_ms / latency_count);
+        uart_state_msg.latency.avg = (s32) (latency_accum_ms / latency_count);
       }
 
-      sbp_send_msg(MSG_UART_STATE, sizeof(msg_uart_state_t),
+      sbp_send_msg(SBP_MSG_UART_STATE, sizeof(msg_uart_state_t),
                    (u8*)&uart_state_msg);
 
-      uart_state_msg.uarts[0].tx_buffer_level = 0;
-      uart_state_msg.uarts[0].rx_buffer_level = 0;
-      uart_state_msg.uarts[1].tx_buffer_level = 0;
-      uart_state_msg.uarts[1].rx_buffer_level = 0;
-      uart_state_msg.uarts[2].tx_buffer_level = 0;
-      uart_state_msg.uarts[2].rx_buffer_level = 0;
+      uart_state_msg.uart_a.tx_buffer_level = 0;
+      uart_state_msg.uart_a.rx_buffer_level = 0;
+      uart_state_msg.uart_b.tx_buffer_level = 0;
+      uart_state_msg.uart_b.rx_buffer_level = 0;
+      uart_state_msg.uart_ftdi.tx_buffer_level = 0;
+      uart_state_msg.uart_ftdi.rx_buffer_level = 0;
 
       log_obs_latency_tick();
     );
@@ -204,8 +203,8 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
       usart_release(&uarta_state);
     }
 
-    uart_state_msg.uarts[0].tx_buffer_level =
-      MAX(uart_state_msg.uarts[0].tx_buffer_level,
+    uart_state_msg.uart_a.tx_buffer_level =
+      MAX(uart_state_msg.uart_a.tx_buffer_level,
         255 - (255 * usart_tx_n_free(&uarta_state.tx)) / (USART_TX_BUFFER_LEN-1));
 
     if (use_usart(&uartb_usart, msg_type) && usart_claim(&uartb_state, SBP_MODULE)) {
@@ -214,8 +213,8 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
       usart_release(&uartb_state);
     }
 
-    uart_state_msg.uarts[1].tx_buffer_level =
-      MAX(uart_state_msg.uarts[1].tx_buffer_level,
+    uart_state_msg.uart_b.tx_buffer_level =
+      MAX(uart_state_msg.uart_b.tx_buffer_level,
         255 - (255 * usart_tx_n_free(&uartb_state.tx)) / (USART_TX_BUFFER_LEN-1));
 
   }
@@ -226,8 +225,8 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
     usart_release(&ftdi_state);
   }
 
-  uart_state_msg.uarts[2].tx_buffer_level =
-    MAX(uart_state_msg.uarts[2].tx_buffer_level,
+  uart_state_msg.uart_ftdi.tx_buffer_level =
+    MAX(uart_state_msg.uart_ftdi.tx_buffer_level,
       255 - (255 * usart_tx_n_free(&ftdi_state.tx)) / (USART_TX_BUFFER_LEN-1));
 
   if (ret != 3*len) {
@@ -264,41 +263,41 @@ void sbp_process_messages()
 {
   s8 ret;
 
-  uart_state_msg.uarts[0].rx_buffer_level =
-    MAX(uart_state_msg.uarts[0].rx_buffer_level,
+  uart_state_msg.uart_a.rx_buffer_level =
+    MAX(uart_state_msg.uart_a.rx_buffer_level,
       (255 * usart_n_read_dma(&uarta_state.rx)) / USART_RX_BUFFER_LEN);
 
   if (usart_claim(&uarta_state, SBP_MODULE)) {
     while (usart_n_read_dma(&uarta_state.rx) > 0) {
       ret = sbp_process(&uarta_sbp_state, &uarta_read);
       if (ret == SBP_CRC_ERROR)
-        uart_state_msg.uarts[0].crc_error_count++;
+        uart_state_msg.uart_a.crc_error_count++;
     }
     usart_release(&uarta_state);
   }
 
-  uart_state_msg.uarts[1].rx_buffer_level =
-    MAX(uart_state_msg.uarts[1].rx_buffer_level,
+  uart_state_msg.uart_b.rx_buffer_level =
+    MAX(uart_state_msg.uart_b.rx_buffer_level,
       (255 * usart_n_read_dma(&uartb_state.rx)) / USART_RX_BUFFER_LEN);
 
   if (usart_claim(&uartb_state, SBP_MODULE)) {
     while (usart_n_read_dma(&uartb_state.rx) > 0) {
       ret = sbp_process(&uartb_sbp_state, &uartb_read);
       if (ret == SBP_CRC_ERROR)
-        uart_state_msg.uarts[1].crc_error_count++;
+        uart_state_msg.uart_b.crc_error_count++;
     }
     usart_release(&uartb_state);
   }
 
-  uart_state_msg.uarts[2].rx_buffer_level =
-    MAX(uart_state_msg.uarts[2].rx_buffer_level,
+  uart_state_msg.uart_ftdi.rx_buffer_level =
+    MAX(uart_state_msg.uart_ftdi.rx_buffer_level,
       (255 * usart_n_read_dma(&ftdi_state.rx)) / USART_RX_BUFFER_LEN);
 
   if (usart_claim(&ftdi_state, SBP_MODULE)) {
     while (usart_n_read_dma(&ftdi_state.rx) > 0) {
       ret = sbp_process(&ftdi_sbp_state, &ftdi_read);
       if (ret == SBP_CRC_ERROR)
-        uart_state_msg.uarts[2].crc_error_count++;
+        uart_state_msg.uart_ftdi.crc_error_count++;
     }
     usart_release(&ftdi_state);
   }
@@ -320,7 +319,7 @@ int _write(int file, char *ptr, int len)
   case 1:
   case 2:
     if (len > 255) len = 255;   /* Send maximum of 255 chars at a time */
-    sbp_send_msg(MSG_PRINT, len, (u8 *)ptr);
+    sbp_send_msg(SBP_MSG_PRINT, len, (u8 *)ptr);
     return len;
 
   case 22:
@@ -340,7 +339,7 @@ void debug_variable(char *name, double x)
   u8* buff = malloc(sl + sizeof(double));
   memcpy(buff, &x, sizeof(double));
   memcpy(&buff[8], name, sl);
-  sbp_send_msg(MSG_DEBUG_VAR, sl + sizeof(double), buff);
+  sbp_send_msg(SBP_MSG_DEBUG_VAR, sl + sizeof(double), buff);
   free(buff);
 }
 
@@ -351,20 +350,20 @@ void log_obs_latency(float latency_ms)
   latency_accum_ms += (double) latency_ms;
   latency_count += 1;
 
-  uart_state_msg.obs_latency.current = (s32) ((LATENCY_SMOOTHING * ((float)latency_ms)) + 
-    ((1 - LATENCY_SMOOTHING) * (float) (uart_state_msg.obs_latency.current)));
+  uart_state_msg.latency.current = (s32) ((LATENCY_SMOOTHING * ((float)latency_ms)) + 
+    ((1 - LATENCY_SMOOTHING) * (float) (uart_state_msg.latency.current)));
 
   /* Don't change the min and max latencies if we appear to have a zero latency
    * speed. */
   if (latency_ms <= 0)
     return;
 
-  if (uart_state_msg.obs_latency.min > latency_ms ||
-      uart_state_msg.obs_latency.min == 0) {
-    uart_state_msg.obs_latency.min = latency_ms;
+  if (uart_state_msg.latency.lmin > latency_ms ||
+      uart_state_msg.latency.lmin == 0) {
+    uart_state_msg.latency.lmin = latency_ms;
   }
-  if (uart_state_msg.obs_latency.max < latency_ms) {
-    uart_state_msg.obs_latency.max = latency_ms;
+  if (uart_state_msg.latency.lmax < latency_ms) {
+    uart_state_msg.latency.lmax = latency_ms;
   }
 }
 
@@ -374,7 +373,7 @@ void log_obs_latency_tick()
   double elapsed = (now_ticks - last_obs_msg_ticks) / (double)CH_FREQUENCY;
 
   if (last_obs_msg_ticks == 0 || elapsed > LOG_OBS_LATENCY_WINDOW_DURATION) {
-    uart_state_msg.obs_latency.current = -1;
+    uart_state_msg.latency.current = -1;
   }
 }
 

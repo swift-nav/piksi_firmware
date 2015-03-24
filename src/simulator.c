@@ -27,7 +27,6 @@
 
 #include "simulator.h"
 #include "solution.h"
-#include "sbp_piksi.h"
 #include "board/leds.h"
 #include "sbp.h"
 
@@ -69,7 +68,7 @@ struct {
 
   u8             num_sats_selected;
 
-  tracking_state_msg_t      tracking_channel[MAX_CHANNELS];
+  tracking_channel_state_t  tracking_channel[MAX_CHANNELS];
   navigation_measurement_t  nav_meas[MAX_CHANNELS];
   navigation_measurement_t  base_nav_meas[MAX_CHANNELS];
   dops_t                    dops;
@@ -407,7 +406,7 @@ u8 simulation_current_num_sats(void)
 *
 * \param channel The simulated tracking channel.
 */
-tracking_state_msg_t simulation_current_tracking_state(u8 channel)
+tracking_channel_state_t simulation_current_tracking_state(u8 channel)
 {
   if (channel >= simulation_current_num_sats()) {
     channel = simulation_current_num_sats() - 1;

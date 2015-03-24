@@ -62,14 +62,16 @@ CFLAGS += -O0 -g -Wall -Wextra -Werror -std=gnu99 \
 
 CFLAGS += -I$(SWIFTNAV_ROOT)/src \
           -I$(SWIFTNAV_ROOT)/libopencm3/include \
+          -I$(SWIFTNAV_ROOT)/libsbp/c/include \
           -I$(SWIFTNAV_ROOT)/libswiftnav/include
 
 LDSCRIPT ?= $(SWIFTNAV_ROOT)/stm32/swiftnav.ld
 LDFLAGS += -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections \
            -mcpu=cortex-m4 -march=armv7e-m -mthumb \
            -mfloat-abi=hard -mfpu=fpv4-sp-d16 \
-           -lopencm3_stm32f4 -lswiftnav-static -llapacke -llapack -lcblas -lblas -lf2c -lm -lc -lnosys \
+           -lopencm3_stm32f4 -lsbp-static -lswiftnav-static -llapacke -llapack -lcblas -lblas -lf2c -lm -lc -lnosys \
            -L$(SWIFTNAV_ROOT)/libopencm3/lib \
+           -L$(SWIFTNAV_ROOT)/libsbp/c/build/src \
            -L$(SWIFTNAV_ROOT)/libswiftnav/build/lapacke \
            -L$(SWIFTNAV_ROOT)/libswiftnav/build/CBLAS/src \
            -L$(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/BLAS/SRC \

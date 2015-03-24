@@ -15,11 +15,11 @@
 
 #include <ch.h>
 
+#include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
 #include <libswiftnav/almanac.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
-#include <libswiftnav/sbp.h>
 
 #include "main.h"
 #include "board/nap/track_channel.h"
@@ -106,7 +106,7 @@ void manage_acq_setup()
   }
 
   sbp_register_cbk(
-    MSG_ALMANAC,
+    SBP_MSG_ALMANAC,
     &almanac_callback,
     &almanac_callback_node
   );

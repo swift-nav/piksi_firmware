@@ -85,7 +85,7 @@ dops_t*                    simulation_current_dops_solution(void);
 double*                    simulation_ref_ecef(void);
 double*                    simulation_current_baseline_ecef(void);
 u8                         simulation_current_num_sats(void);
-tracking_state_msg_t       simulation_current_tracking_state(u8 channel);
+tracking_channel_state_t   simulation_current_tracking_state(u8 channel);
 navigation_measurement_t*  simulation_current_navigation_measurements(void);
 
 //Initialization:

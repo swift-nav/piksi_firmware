@@ -29,35 +29,35 @@ void sbp_fileio_setup(void)
 {
   static sbp_msg_callbacks_node_t read_node;
   sbp_register_cbk(
-    MSG_FILEIO_READ,
+    SBP_MSG_FILEIO_READ,
     &read_cb,
     &read_node
   );
   static sbp_msg_callbacks_node_t read_dir_node;
   sbp_register_cbk(
-    MSG_FILEIO_READ_DIR,
+    SBP_MSG_FILEIO_READ_DIR,
     &read_dir_cb,
     &read_dir_node
   );
   static sbp_msg_callbacks_node_t remove_node;
   sbp_register_cbk(
-    MSG_FILEIO_REMOVE,
+    SBP_MSG_FILEIO_REMOVE,
     &remove_cb,
     &remove_node
   );
   static sbp_msg_callbacks_node_t write_node;
   sbp_register_cbk(
-    MSG_FILEIO_WRITE,
+    SBP_MSG_FILEIO_WRITE,
     &write_cb,
     &write_node
   );
 }
 
 /** File read callback.
- * Responds to a MSG_FILEIO_READ message.
+ * Responds to a SBP_MSG_FILEIO_READ message.
  *
  * Reads a certain length (up to 255 bytes) from a given offset. Returns the
- * data in a MSG_FILEIO_READ message where the message length field indicates
+ * data in a SBP_MSG_FILEIO_READ message where the message length field indicates
  * how many bytes were succesfully read.
  */
 static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -79,16 +79,16 @@ static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   len += cfs_read(f, buf + len, readlen);
   cfs_close(f);
 
-  sbp_send_msg(MSG_FILEIO_READ, len, buf);
+  sbp_send_msg(SBP_MSG_FILEIO_READ, len, buf);
 }
 
 /** Directory listing callback.
- * Responds to a MSG_FILEIO_READ_DIR message.
+ * Responds to a SBP_MSG_FILEIO_READ_DIR message.
  *
  * The offset parameter can be used to skip the first n elements of the file
  * list.
  *
- * Returns a MSG_FILEIO_READ_DIR message containing the directory
+ * Returns a SBP_MSG_FILEIO_READ_DIR message containing the directory
  * listings as a NULL delimited list. The listing is chunked over multiple SBP
  * packets and the end of the list is identified by an entry containing just
  * the character 0xFF.
@@ -122,11 +122,11 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 
   cfs_closedir(&dir);
 
-  sbp_send_msg(MSG_FILEIO_READ_DIR, len, buf);
+  sbp_send_msg(SBP_MSG_FILEIO_READ_DIR, len, buf);
 }
 
 /* Remove file callback.
- * Responds to a MSG_FILEIO_REMOVE message.
+ * Responds to a SBP_MSG_FILEIO_REMOVE message.
  */
 static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -142,10 +142,10 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 }
 
 /* Write to file callback.
- * Responds to a MSG_FILEIO_WRITE message.
+ * Responds to a SBP_MSG_FILEIO_WRITE message.
  *
  * Writes a certain length (up to 255 bytes) at a given offset. Returns a copy
- * of the original MSG_FILEIO_WRITE message to check integrity of the write.
+ * of the original SBP_MSG_FILEIO_WRITE message to check integrity of the write.
  */
 static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -164,5 +164,5 @@ static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   cfs_write(f, msg + headerlen, len - headerlen);
   cfs_close(f);
 
-  sbp_send_msg(MSG_FILEIO_WRITE, headerlen, msg);
+  sbp_send_msg(SBP_MSG_FILEIO_WRITE, headerlen, msg);
 }

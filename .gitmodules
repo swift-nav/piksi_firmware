@@ -7,3 +7,6 @@
 [submodule "ChibiOS-RT"]
 	path = ChibiOS-RT
 	url = https://github.com/mabl/ChibiOS.git
+[submodule "libsbp"]
+	path = libsbp
+	url = https://github.com/swift-nav/libsbp.git

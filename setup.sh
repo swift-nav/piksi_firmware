@@ -44,7 +44,7 @@ function build () {
     # Pulls down git submodules and builds the project, assuming that
     # all other system, ARM GCC, and python dependencies have been
     # installed.
-    log_info "Initializing Git submodules for ChibiOS, libopencm3, and libswiftnav..."
+    log_info "Initializing Git submodules for ChibiOS, libopencm3, libsbp and libswiftnav..."
     git submodule init
     git submodule update
     log_info "Building piksi_firmware..."

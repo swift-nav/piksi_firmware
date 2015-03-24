@@ -110,8 +110,8 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/minIni/minGlue.o \
         $(SWIFTNAV_ROOT)/src/init.o \
         $(SWIFTNAV_ROOT)/src/sbp.o \
-        $(SWIFTNAV_ROOT)/src/sbp_piksi.o \
         $(SWIFTNAV_ROOT)/src/sbp_fileio.o \
+        $(SWIFTNAV_ROOT)/src/sbp_utils.o \
         $(SWIFTNAV_ROOT)/src/error.o \
         $(SWIFTNAV_ROOT)/src/cw.o \
         $(SWIFTNAV_ROOT)/src/track.o \
@@ -157,6 +157,7 @@ TCPPSRC =
 ASMSRC = $(PORTASM)
 
 INCDIR = $(PORTINC) $(KERNINC) $(CHIBIOS)/os/various \
+         $(SWIFTNAV_ROOT)/libsbp/c/include \
          $(SWIFTNAV_ROOT)/libswiftnav/include \
          $(SWIFTNAV_ROOT)/src \
          $(SWIFTNAV_ROOT)/libopencm3/include
@@ -217,6 +218,8 @@ DINCDIR =
 
 # List the default directory to look for the libraries here
 DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
+          $(SWIFTNAV_ROOT)/libsbp/c/build/src \
+          $(SWIFTNAV_ROOT)/libswiftnav/build/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/lapacke \
           $(SWIFTNAV_ROOT)/libswiftnav/build/CBLAS/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/BLAS/SRC \
@@ -225,7 +228,7 @@ DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src
 
 # List all default libraries here
-DLIBS = -lopencm3_stm32f4 -lswiftnav-static \
+DLIBS = -lopencm3_stm32f4 -lsbp-static -lswiftnav-static \
         -llapacke -llapack -lcblas -lblas \
         -lf2c -lm -lc -lnosys
 

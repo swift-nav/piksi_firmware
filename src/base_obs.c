@@ -15,7 +15,6 @@
 #include <math.h>
 
 #include <libswiftnav/logging.h>
-#include <libswiftnav/sbp_utils.h>
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/ephemeris.h>
@@ -26,6 +25,7 @@
 #include "position.h"
 #include "nmea.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 #include "solution.h"
 #include "manage.h"
 #include "simulator.h"
@@ -75,15 +75,6 @@ static void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   wgsllh2ecef(llh, base_pos_ecef);
   base_pos_known = true;
   chMtxUnlock();
-}
-
-/** SBP callback for the old style observation messages.
- * Just prints a deprecation warning. */
-static void obs_old_callback(u16 sender_id, u8 len, u8 msg[], void* context)
-{
-  (void) context; (void) len; (void) msg; (void) sender_id;
-  log_warn("Receiving an old deprecated observation message.\n");
-  log_warn("Please update your base station firmware.\n");
 }
 
 /** Update the #base_obss state given a new set of obss.
@@ -220,7 +211,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     return;
 
   /* Relay observations using sender_id = 0. */
-  sbp_send_msg_(MSG_PACKED_OBS, len, msg, 0);
+  sbp_send_msg_(SBP_MSG_OBS, len, msg, 0);
 
   /* GPS time of observation. */
   gps_time_t t;
@@ -231,7 +222,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   /* Decode the message header to get the time and how far through the sequence
    * we are. */
-  unpack_obs_header((msg_obs_header_t*)msg, &t, &total, &count);
+  unpack_obs_header((observation_header_t*)msg, &t, &total, &count);
 
   /* Check to see if the observation is aligned with our internal observations,
    * i.e. is it going to time match one of our local obs. */
@@ -264,7 +255,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   /* Calculate the number of observations in this message by looking at the SBP
    * `len` field. */
-  u8 obs_in_msg = (len - sizeof(msg_obs_header_t)) / sizeof(msg_obs_content_t);
+  u8 obs_in_msg = (len - sizeof(observation_header_t)) / sizeof(packed_obs_content_t);
 
   /* If this is the first packet in the sequence then reset the base_obss_rx
    * state. */
@@ -274,7 +265,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 
   /* Pull out the contents of the message. */
-  msg_obs_content_t *obs = (msg_obs_content_t *)(msg + sizeof(msg_obs_header_t));
+  packed_obs_content_t *obs = (packed_obs_content_t *)(msg + sizeof(observation_header_t));
   for (u8 i=0; i<obs_in_msg; i++) {
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
@@ -325,25 +316,17 @@ void base_obs_setup()
 
   static sbp_msg_callbacks_node_t base_pos_node;
   sbp_register_cbk(
-    MSG_BASE_POS,
+    SBP_MSG_BASE_POS,
     &base_pos_callback,
     &base_pos_node
   );
 
-  static sbp_msg_callbacks_node_t obs_old_node;
-  sbp_register_cbk(
-    MSG_OLD_OBS,
-    &obs_old_callback,
-    &obs_old_node
-  );
-
   static sbp_msg_callbacks_node_t obs_packed_node;
   sbp_register_cbk(
-    MSG_PACKED_OBS,
+    SBP_MSG_OBS,
     &obs_callback,
     &obs_packed_node
   );
 }
 
 /* \} */
-

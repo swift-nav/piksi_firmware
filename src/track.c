@@ -342,7 +342,7 @@ float tracking_channel_snr(u8 channel)
 void tracking_send_state()
 {
 
-  tracking_state_msg_t states[nap_track_n_channels];
+  tracking_channel_state_t states[nap_track_n_channels];
 
   if (simulation_enabled_for(SIMULATION_MODE_TRACKING)) {
 
@@ -371,7 +371,7 @@ void tracking_send_state()
 
   }
 
-  sbp_send_msg(MSG_TRACKING_STATE, sizeof(states), (u8*)states);
+  sbp_send_msg(SBP_MSG_TRACKING_STATE, sizeof(states), (u8*)states);
 
 }
 

@@ -14,15 +14,14 @@
 
 #include <ch.h>
 
+#include <libsbp/standard.h>
 #include <libswiftnav/logging.h>
-#include <libswiftnav/sbp_messages.h>
 #include <libswiftnav/dgnss_management.h>
 
 #include "board/nap/nap_common.h"
 #include "board/leds.h"
 #include "main.h"
 #include "sbp.h"
-#include "sbp_piksi.h"
 #include "manage.h"
 #include "simulator.h"
 #include "system_monitor.h"
@@ -60,7 +59,7 @@ void send_thread_states()
     tp_state.cpu = cpu;
     tp_state.stack_free = check_stack_free(tp);
     strncpy(tp_state.name, chRegGetThreadName(tp), sizeof(tp_state.name));
-    sbp_send_msg(MSG_THREAD_STATE, sizeof(tp_state), (u8 *)&tp_state);
+    sbp_send_msg(SBP_MSG_THREAD_STATE, sizeof(tp_state), (u8 *)&tp_state);
 
     /* This works because chThdGetTicks is actually a define that pulls out a
      * value from a struct, hopefully if that fact changes then this statement
@@ -111,11 +110,11 @@ static msg_t system_monitor_thread(void *arg)
     chThdSleepMilliseconds(heartbeat_period_milliseconds);
 
     u32 status_flags = 0;
-    sbp_send_msg(SBP_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
+    sbp_send_msg(SBP_MSG_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
 
     /* If we are in base station mode then broadcast our known location. */
     if (base_station_mode) {
-      sbp_send_msg(MSG_BASE_POS, sizeof(msg_base_pos_t), (u8 *)&base_llh);
+      sbp_send_msg(SBP_MSG_BASE_POS, sizeof(msg_base_pos_t), (u8 *)&base_llh);
     }
 
     msg_iar_state_t iar_state;
@@ -124,7 +123,7 @@ static msg_t system_monitor_thread(void *arg)
     } else {
       iar_state.num_hyps = dgnss_iar_num_hyps();
     }
-    sbp_send_msg(MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
+    sbp_send_msg(SBP_MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
 
     send_thread_states();
 

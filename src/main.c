@@ -13,8 +13,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <libsbp/standard.h>
 #include <libswiftnav/logging.h>
-#include <libswiftnav/sbp_messages.h>
 
 #include <ch.h>
 
@@ -100,7 +100,7 @@ static msg_t nav_msg_thread(void *arg)
           if (!es[tracking_channel[i].prn].healthy) {
             log_info("PRN %02d unhealthy\n", tracking_channel[i].prn+1);
           } else {
-            sbp_send_msg(MSG_EPHEMERIS,
+            sbp_send_msg(SBP_MSG_EPHEMERIS,
                          sizeof(ephemeris_t),
                          (u8 *)&es[tracking_channel[i].prn]);
           }
@@ -284,10 +284,9 @@ int main(void)
 
   /* Send message to inform host we are up and running. */
   u32 startup_flags = 0;
-  sbp_send_msg(SBP_STARTUP, sizeof(startup_flags), (u8 *)&startup_flags);
+  sbp_send_msg(SBP_MSG_STARTUP, sizeof(startup_flags), (u8 *)&startup_flags);
 
   while (1) {
     chThdSleepSeconds(60);
   }
 }
-

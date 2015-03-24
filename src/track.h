@@ -13,6 +13,7 @@
 #ifndef SWIFTNAV_TRACK_H
 #define SWIFTNAV_TRACK_H
 
+#include <libsbp/tracking.h>
 #include <libswiftnav/common.h>
 #include <libswiftnav/nav_msg.h>
 #include <libswiftnav/track.h>
@@ -30,13 +31,6 @@
 #define TRACKING_RUNNING  1 /**< Tracking channel running state. */
 
 extern u8 n_rollovers;
-
-/** Message struct for SBP tracking state message. */
-typedef struct __attribute__((packed)) {
-  u8 state;  /**< State of the tracking channel. */
-  u8 prn;    /**< PRN being tracked by the tracking channel. */
-  float cn0; /**< SNR of the tracking channel. */
-} tracking_state_msg_t;
 
 /** Tracking channel parameters as of end of last correlation period. */
 typedef struct {
