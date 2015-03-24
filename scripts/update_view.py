@@ -15,6 +15,8 @@ from time import sleep
 from intelhex import IntelHex, HexRecordError, HexReaderError
 from pkg_resources import parse_version
 
+from sbp.piksi import SBP_MSG_BOOTLOADER_JUMP_TO_APP, SBP_MSG_RESET
+
 from threading import Thread
 
 from traits.api import HasTraits, Event, String, Button, Instance, Int, Bool, \
@@ -26,7 +28,6 @@ from pyface.api import GUI, FileDialog, OK
 
 from version import VERSION as CONSOLE_VERSION
 import bootload
-import sbp_piksi as ids
 import flash
 import callback_prompt as prompt
 from update_downloader import UpdateDownloader
@@ -404,7 +405,7 @@ class UpdateView(HasTraits):
     self._write("")
 
     # Must tell Piksi to jump to application after updating firmware.
-    self.link.send_message(ids.BOOTLOADER_JUMP_TO_APP, '\x00')
+    self.link.send_message(SBP_MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
     self._write("Firmware updates finished.")
     self._write("")
 
@@ -433,7 +434,7 @@ class UpdateView(HasTraits):
   def create_flash(self, flash_type):
 
     # Reset device if the application is running to put into bootloader mode.
-    self.link.send_message(ids.RESET, '')
+    self.link.send_message(SBP_MSG_RESET, '')
 
     self.pk_boot = bootload.Bootloader(self.link)
 

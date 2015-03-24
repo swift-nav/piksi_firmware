@@ -24,7 +24,8 @@ import numpy as np
 import datetime
 import time
 
-import sbp_piksi as sbp_messages
+from sbp.piksi      import *
+from sbp.navigation import *
 
 class SimpleAdapter(TabularAdapter):
     columns = [('Item', 0), ('Value',  1)]
@@ -115,13 +116,13 @@ class BaselineView(HasTraits):
     self.running = not self.running
 
   def _reset_button_fired(self):
-    self.link.send_message(sbp_messages.RESET_FILTERS, '\x00')
+    self.link.send_message(SBP_MSG_RESET_FILTERS, '\x00')
 
   def _reset_iar_button_fired(self):
-    self.link.send_message(sbp_messages.RESET_FILTERS, '\x01')
+    self.link.send_message(SBP_MSG_RESET_FILTERS, '\x01')
 
   def _init_base_button_fired(self):
-    self.link.send_message(sbp_messages.INIT_BASE, '')
+    self.link.send_message(SBP_MSG_INIT_BASE, '')
 
   def _clear_button_fired(self):
     self.ns = []
@@ -139,24 +140,24 @@ class BaselineView(HasTraits):
     #Don't do anything for ECEF currently
     return
 
-  def iar_state_callback(self, data):
-    self.num_hyps = struct.unpack('<I', data)[0]
+  def iar_state_callback(self, sbp_msg):
+    self.num_hyps = struct.unpack('<I', sbp_msg.payload)[0]
 
-  def _baseline_callback_ned(self, data):
+  def _baseline_callback_ned(self, sbp_msg):
     # Updating an ArrayPlotData isn't thread safe (see chaco issue #9), so
     # actually perform the update in the UI thread.
     if self.running:
-      GUI.invoke_later(self.baseline_callback, data)
+      GUI.invoke_later(self.baseline_callback, sbp_msg)
 
   def update_table(self):
     self._table_list = self.table.items()
 
-  def gps_time_callback(self, data):
-    self.week = sbp_messages.GPSTime(data).wn
-    self.nsec = sbp_messages.GPSTime(data).ns
+  def gps_time_callback(self, sbp_msg):
+    self.week = MsgGPSTime(sbp_msg).wn
+    self.nsec = MsgGPSTime(sbp_msg).ns
 
-  def baseline_callback(self, data):
-    soln = sbp_messages.BaselineNED(data)
+  def baseline_callback(self, sbp_msg):
+    soln = MsgBaselineNED(sbp_msg)
     table = []
 
     soln.n = soln.n * 1e-3
@@ -288,12 +289,11 @@ class BaselineView(HasTraits):
     self.nsec = 0
 
     self.link = link
-    self.link.add_callback(sbp_messages.SBP_BASELINE_NED, self._baseline_callback_ned)
-    self.link.add_callback(sbp_messages.SBP_BASELINE_ECEF, self._baseline_callback_ecef)
-    self.link.add_callback(sbp_messages.IAR_STATE, self.iar_state_callback)
-    self.link.add_callback(sbp_messages.SBP_GPS_TIME, self.gps_time_callback)
+    self.link.add_callback(SBP_MSG_BASELINE_NED, self._baseline_callback_ned)
+    self.link.add_callback(SBP_MSG_BASELINE_ECEF, self._baseline_callback_ecef)
+    self.link.add_callback(SBP_MSG_IAR_STATE, self.iar_state_callback)
+    self.link.add_callback(SBP_MSG_GPS_TIME, self.gps_time_callback)
 
     self.python_console_cmds = {
       'baseline': self
     }
-
