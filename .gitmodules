@@ -9,4 +9,4 @@
 	url = https://github.com/mabl/ChibiOS.git
 [submodule "libsbp"]
 	path = libsbp
-        url = https://github.com/swift-nav/libsbp.git
+	url = https://github.com/swift-nav/libsbp.git
