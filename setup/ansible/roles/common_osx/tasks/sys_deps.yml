@@ -38,6 +38,7 @@
                  pyparsing==1.5.7
                  pygments==2.0.2
                  intelhex==1.5
+                 sbp==0.24
                  --allow-external intelhex
                  --allow-unverified intelhex
 
