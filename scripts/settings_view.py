@@ -9,10 +9,15 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-from traits.api import Instance, Dict, HasTraits, Array, Float, on_trait_change, List, Int, Button, Bool, Str, Color, Constant, Font, Undefined, Property, Any, Enum
-from traitsui.api import Item, View, HGroup, VGroup, ArrayEditor, HSplit, TabularEditor, TextEditor, EnumEditor
+from traits.api import Instance, Dict, HasTraits, Array, Float, \
+                       on_trait_change, List, Int, Button, Bool, Str, Color, \
+                       Constant, Font, Undefined, Property, Any, Enum
+from traitsui.api import Item, UItem, View, HGroup, Handler, VGroup, \
+                         ArrayEditor, HSplit, TabularEditor, TextEditor, \
+                         EnumEditor
 from traitsui.tabular_adapter import TabularAdapter
 from traits.etsconfig.api import ETSConfig
+
 if ETSConfig.toolkit != 'null':
   from enable.savage.trait_defs.ui.svg_button import SVGButton
 else:
@@ -25,11 +30,15 @@ import os
 import numpy as np
 import datetime
 
+
 from fileio import FileIO
 import callback_prompt as prompt
 
 from sbp.piksi    import *
 from sbp.standard import SBP_MSG_STARTUP
+
+from settings_list import SettingsList
+
 
 def u16_to_str(i):
   return chr(i & 0xff) + chr(i >> 8)
@@ -37,8 +46,10 @@ def u16_to_str(i):
 class SettingBase(HasTraits):
   name = Str()
   description = Str()
+  notes = Str()
   value = Str(Undefined)
   ordering = Float(0)
+  default_value = Str()
 
   traits_view = View()
 
@@ -47,6 +58,11 @@ class SettingBase(HasTraits):
 
   def __str__(self):
     return self.value
+
+class MyTextEditor(TextEditor):
+  def init(self,parent):
+    parent.read_only = True
+    parent.multi_line = True
 
 class Setting(SettingBase):
   full_name = Str()
@@ -57,6 +73,10 @@ class Setting(SettingBase):
       Item('full_name', label='Name', style='readonly'),
       Item('value', editor=TextEditor(auto_set=False, enter_set=True)),
       Item('description', style='readonly'),
+      Item('default_value', style='readonly'),
+      UItem('notes', label="Notes", height=-1,
+            editor=MyTextEditor(TextEditor(multi_line=True)), style='readonly',
+            show_label=True, resizable=True),
       show_border=True,
       label='Setting',
     ),
@@ -69,6 +89,11 @@ class Setting(SettingBase):
     self.value = value
     self.ordering = ordering
     self.settings = settings
+    self.description = settings.settings_yaml.get_field(section,
+                                                           name, 'Description')
+    self.notes = settings.settings_yaml.get_field(section, name, 'Notes')
+    self.default_value = settings.settings_yaml.get_field(section, name,
+                                                             'default value')
 
   def _value_changed(self, name, old, new):
     if (old != new and
@@ -85,6 +110,10 @@ class EnumSetting(Setting):
       Item('full_name', label='Name', style='readonly'),
       Item('value', editor=EnumEditor(name='values')),
       Item('description', style='readonly'),
+      Item('default_value', style='readonly'),
+            UItem('notes', label="Notes", height=-1,
+            editor=MyTextEditor(TextEditor(multi_line=True)), style='readonly',
+            show_label=True, resizable=True),
       show_border=True,
       label='Setting',
     ),
@@ -118,6 +147,8 @@ class SimpleAdapter(TabularAdapter):
     return self.item.name.replace('_', ' ')
 
 class SettingsView(HasTraits):
+
+  settings_yaml = list()
 
   settings_read_button = SVGButton(
     label='Reload', tooltip='Reload settings from Piksi',
@@ -266,6 +297,9 @@ class SettingsView(HasTraits):
     self.link.add_callback(SBP_MSG_STARTUP, self.piksi_startup_callback)
     self.link.add_callback(SBP_MSG_SETTINGS_READ_BY_INDEX,
         self.settings_read_by_index_callback)
+
+    # Read in yaml file for setting metadatas (hardcoded filename for now)
+    self.settings_yaml = SettingsList("settings.yaml")
 
     # List of functions to be executed after all settings are read.
     # No support for arguments currently.

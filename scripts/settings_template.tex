@@ -1,0 +1,113 @@
+\documentclass{article}
+
+\usepackage{swiftnav}
+
+\usepackage{endnotes}
+
+\usepackage{standalone}
+\usepackage{longtable}
+\usepackage{register}
+\usepackage{bytefield}
+\usepackage{booktabs}
+\usepackage{minibox}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{caption}
+
+\setlength{\regWidth}{0.4\textwidth}
+
+\floatstyle{plain}
+\newfloat{field}{h}{fld}
+\floatname{field}{Field}
+
+\numberwithin{table}{subsection}
+\numberwithin{field}{subsection}
+
+\usepackage{draftwatermark}
+\SetWatermarkLightness{0.9}
+\SetWatermarkScale{1}
+
+\renewcommand{\regLabelFamily}{}
+\renewcommand\theversion{((( version )))}
+
+% ---------------------------------------------------------------------------
+\title{Piksi Settings}
+\mysubtitle{Piksi Firmware version  \theversion}
+\author{Swift Navigation}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{firstpage}
+
+\section{Introduction}
+\label{sec:settings}
+Piksi Firmware has a number of settings that can be controlled by the end user via the provided Piksi Console or through the SBP binary message protocol.  This Document serves to enumerate these settings with an explanation and any relevant notes.
+
+((* block settings_toc *))
+{
+\newpage
+\section{Settings Table}
+\centering
+  \begin{longtable}{llp{10cm}}
+    \toprule
+    Grouping & Name & Description \\
+    \midrule
+    ((*- for g in groups *))
+    \textbf{(((g|escape_tex_exp|no_us)))} & & \\
+    ((*- for m in setting *))
+    ((*- if m.group==g *))
+     & (((m.name|escape_tex_exp|no_us))) & (((m.Description|escape_tex_exp|no_us))) \\
+    ((*- endif *))
+    ((*- endfor *))
+    ((*- endfor *))
+    \bottomrule
+    \caption{Summary of message types}
+  \end{longtable}
+}
+((* endblock *))
+
+% ---------------------------------------------------------------------------
+\newpage
+\section{Settings Detail}
+((* for g in groups *))
+\subsection{(((g|escape_tex_exp|no_us)))}
+
+((* for m in setting *))
+((* if m.group==g *))
+((* block settings_detail scoped *))
+\subsubsection{(((m.name|escape_tex_exp|no_us)))}
+{
+\textbf{Description:}
+(((m.Description|escape_tex_exp)))
+\begin{table}[H]
+  \centering
+  \begin{tabular}{p{4cm} p{7cm}}
+    \toprule
+    Label & Value \\
+    \midrule
+    \hbadness=20000
+    ((*- for key,value in m.iteritems() *))
+    ((*- if(key is defined and key != 'Notes' and key != 'Description' and value is defined) *))
+    (((key|escape_tex_exp|no_us))) & $(((value|escape_tex_exp|no_us)))$ \\
+    ((*- endif *))
+    ((*- endfor *))
+    \midrule
+    & (((m.size))) \\
+    \bottomrule
+  \end{tabular}
+  \caption{(((m.name|escape_tex_exp|no_us)))}
+\end{table}
+\begin{flushleft}
+((* if m.Notes is defined and m.Notes != 'None'*))
+\textbf{Notes:}
+(((m.Notes|escape_tex_exp)))
+((* endif *))
+\end{flushleft}
+((* endblock *))
+((* endif *))
+((* endfor *))
+((* endfor *))
+
+\end{document}
