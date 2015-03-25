@@ -243,7 +243,8 @@ void manage_acq()
      * later using another fine acq.
      */
     log_info("No channels free :(\n");
-    acq_prn_param[prn].state = ACQ_PRN_TRIED;
+    acq_prn_param[prn].score = MIN(snr, 127);
+    acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
     return;
   }
   /* Transition to tracking. */
