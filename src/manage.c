@@ -41,12 +41,38 @@
  * tracking channels that have lost lock on their satellites.
  * \{ */
 
+/** Different hints on satellite info to aid the acqusition */
+enum acq_hint {
+  ACQ_HINT_ALMANAC,  /**< Almanac information. */
+  ACQ_HINT_ACQ,      /**< Previous successful acqusition. */
+  ACQ_HINT_TRACK,    /**< Previously tracked satellite. */
+  ACQ_HINT_OBS,      /**< Observation from reference station. */
+
+  ACQ_HINT_NUM
+};
+
+/** Status of acquisition for a particular PRN. */
+typedef struct {
+  enum {
+    ACQ_PRN_SKIP = 0,
+    ACQ_PRN_UNTRIED,
+    ACQ_PRN_TRIED,
+    ACQ_PRN_ACQUIRING,
+    ACQ_PRN_TRACKING,
+    ACQ_PRN_UNHEALTHY
+  } state;  /**< Management status of PRN. */
+  s8 score; /**< Acquisition preference of PRN. */
+} acq_prn_t;
 acq_prn_t acq_prn_param[32];
+
 almanac_t almanac[32];
 
+static u8 manage_track_new_acq(void);
+static void manage_acq(void);
+static void manage_track(void);
 
-sbp_msg_callbacks_node_t almanac_callback_node;
-void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static sbp_msg_callbacks_node_t almanac_callback_node;
+static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void) context;
 
@@ -157,7 +183,7 @@ static void manage_calc_scores(void)
   }
 }
 
-u8 best_prn(void)
+static u8 best_prn(void)
 {
   s8 best_prn = -1;
   s8 best_score = -1;
@@ -184,7 +210,7 @@ u8 best_prn(void)
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
-void manage_acq()
+static void manage_acq()
 {
   /* Decide which PRN to try and then start it acquiring. */
   u8 prn = best_prn();
@@ -235,7 +261,7 @@ void manage_acq()
 
   log_info("acq: PRN %d found @ %d Hz, %d SNR\n", prn + 1, (int)cf, (int)snr);
 
-  u8 chan = manage_track_new_acq(snr);
+  u8 chan = manage_track_new_acq();
   if (chan == MANAGE_NO_CHANNELS_FREE) {
     /* No channels are free to accept our new satellite :( */
     /* TODO: Perhaps we can try to warm start this one
@@ -267,10 +293,8 @@ void manage_acq()
  * \param snr SNR of the acquisition.
  * \return Index of first unused tracking channel.
  */
-u8 manage_track_new_acq(float snr)
+static u8 manage_track_new_acq(void)
 {
-  (void)snr;
-
   /* Decide which (if any) tracking channel to put
    * a newly acquired satellite into.
    */
@@ -331,7 +355,7 @@ void manage_track_setup()
 extern ephemeris_t es[32];
 
 /** Disable any tracking channel whose SNR is below a certain margin. */
-void manage_track()
+static void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracking_channel[i].state == TRACKING_RUNNING) {

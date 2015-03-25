@@ -38,27 +38,11 @@
 #define MANAGE_TRACK_THREAD_PRIORITY (NORMALPRIO-2)
 #define MANAGE_TRACK_THREAD_STACK    3000
 
-/** Status of acquisition for a particular PRN. */
-typedef struct __attribute__((packed)) {
-  enum {
-    ACQ_PRN_SKIP = 0,
-    ACQ_PRN_UNTRIED,
-    ACQ_PRN_TRIED,
-    ACQ_PRN_ACQUIRING,
-    ACQ_PRN_TRACKING,
-    ACQ_PRN_UNHEALTHY,
-  } state;  /**< Management status of PRN. */
-  s8 score; /**< Acquisition preference of PRN. */
-} acq_prn_t;
-
 /** \} */
 
 void manage_acq_setup(void);
-void manage_acq(void);
 
 void manage_track_setup(void);
-u8 manage_track_new_acq(float snr);
-void manage_track(void);
 s8 use_tracking_channel(u8 i);
 u8 tracking_channels_ready(void);
 
