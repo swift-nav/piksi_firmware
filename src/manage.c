@@ -42,6 +42,7 @@
  * \{ */
 
 /** Different hints on satellite info to aid the acqusition */
+/* XXX add me **/
 enum acq_hint {
   ACQ_HINT_ALMANAC,  /**< Almanac information. */
   ACQ_HINT_ACQ,      /**< Previous successful acqusition. */
@@ -61,7 +62,7 @@ typedef struct {
     ACQ_PRN_TRACKING,
     ACQ_PRN_UNHEALTHY
   } state;  /**< Management status of PRN. */
-  s8 score; /**< Acquisition preference of PRN. */
+  u16 score[ACQ_HINT_NUM]; /**< Acquisition preference of PRN. */
 } acq_prn_t;
 acq_prn_t acq_prn_param[32];
 
@@ -113,7 +114,8 @@ void manage_acq_setup()
 {
   for (u8 prn=0; prn<32; prn++) {
     acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
-    acq_prn_param[prn].score = 0;
+    for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
+      acq_prn_param[prn].score[hint] = 0;
   }
 
   int fd = cfs_open("almanac", CFS_READ);
@@ -159,26 +161,10 @@ static void manage_calc_scores(void)
         position_quality == POSITION_UNKNOWN) {
       /* No almanac or position/time information, give it the benefit of the
        * doubt. */
-      acq_prn_param[prn].score = 0;
+      acq_prn_param[prn].score[ACQ_HINT_ALMANAC] = 0;
     } else {
       calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024, position_solution.pos_ecef, &az, &el);
-      acq_prn_param[prn].score = (s8)(el/D2R);
-
-      gps_time_t toa;
-      toa.wn = almanac[prn].week + 1024;
-      toa.tow = almanac[prn].toa;
-
-      double dt_alm = fabs(gpsdifftime(t, toa));
-      double dt_pos = fabs(gpsdifftime(t, position_solution.time));
-
-      if (time_quality == TIME_GUESS ||
-          dt_pos > 1*24*3600 ||
-          dt_alm > 4*24*3600) {
-        /* Don't exclude other sats if our time is just a guess, our last
-         * position solution was ages ago or our almanac is old. */
-        if (acq_prn_param[prn].score < 0)
-          acq_prn_param[prn].score = 0;
-      }
+      acq_prn_param[prn].score[ACQ_HINT_ALMANAC] = el > 0 ? (u8)(el/D2R) : 0;
     }
   }
 }
@@ -186,12 +172,18 @@ static void manage_calc_scores(void)
 static u8 best_prn(void)
 {
   s8 best_prn = -1;
-  s8 best_score = -1;
+  s16 best_score = -1;
   for (u8 prn=0; prn<32; prn++) {
+
+    u16 score = 0;
+    for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++) {
+      score += acq_prn_param[prn].score[hint];
+    }
+
     if ((acq_prn_param[prn].state == ACQ_PRN_UNTRIED) &&
-        (acq_prn_param[prn].score > best_score)) {
+        (score > best_score)) {
       best_prn = prn;
-      best_score = acq_prn_param[prn].score;
+      best_score = score;
     }
   }
 
@@ -237,11 +229,7 @@ void manage_prod_acq(u8 prn)
   if (prn >= 32) /* check range */
     return;
 
-  if (acq_prn_param[prn].state == ACQ_PRN_TRIED) /* We already tried to find this */
-  {
-    acq_prn_param[prn].state = ACQ_PRN_UNTRIED; /* Try it some more, look harder */
-    acq_prn_param[prn].score = 90; /* 90 Degrees, want this to be a priority */
-  }
+  acq_prn_param[prn].score[ACQ_HINT_OBS] = 90; /* 90 Degrees, want this to be a priority */
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
@@ -290,6 +278,7 @@ static void manage_acq()
   acq_send_result(prn, snr, cp, cf);
   if (snr < ACQ_THRESHOLD) {
     /* Didn't find the satellite :( */
+    acq_prn_param[prn].score[ACQ_HINT_ACQ] = 0;
     acq_prn_param[prn].state = ACQ_PRN_TRIED;
     return;
   }
@@ -304,7 +293,7 @@ static void manage_acq()
      */
     log_info("No channels free :(\n");
     if (snr > ACQ_RETRY_THRESHOLD) {
-      acq_prn_param[prn].score = MIN(snr, 127);
+      acq_prn_param[prn].score[ACQ_HINT_ACQ] = MIN(snr, 127);
       acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
     } else {
       acq_prn_param[prn].state = ACQ_PRN_TRIED;
@@ -419,6 +408,7 @@ static void manage_track()
         /* This tracking channel has lost its satellite. */
         log_info("Disabling channel %d\n", i);
         tracking_channel_disable(i);
+        acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = 90;
         acq_prn_param[ch->prn].state = ACQ_PRN_TRIED;
       }
     } else {
