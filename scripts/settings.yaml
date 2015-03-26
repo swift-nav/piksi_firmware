@@ -1,62 +1,65 @@
 ---
 
-- group: base_station_mode
-  name: enable
+- group: surveyed_position
+  name: broadcast
   type: boolean
   units:
   default value: 'false'
   enumerated possible values: true,false
-  Description: Output surveyed base station location
-  Notes: 'This flag ultimately determines whether the SBP message with identifier
+  Description: Broadcast surveyed base station location
+  Notes: This flag ultimately determines whether the SBP message with identifier
     MSG_BASE_POS will be calculated and sent.  Logically, setting this attribute to
     "true" sets the Local Piksi as a base station and configures the unit to send
     its surveyed location coordinates to the other Piksi(s) with which the base
-    station is communicating.  If "true", the Piksi that receives the base station''s
-    surveyed coordinates will also calculate and communicate its own pseudo absolute
-    RTK position based upon the received position of the Base Station.  '
+    station is communicating.  If "true", the remote Piksi that receives the
+    surveyed position will calculate and communicate a pseudo absolute
+    RTK position based upon the received position.
 
-- group: base_station_mode
-  name: surveyed lat
+- group: surveyed_position
+  name: surveyed_lat
   type: Double
   units: degrees
   default value: '0'
   enumerated possible values:
   Description: "Surveyed latitude of the Piksi's antenna"
-  Notes: This setting represents the latitude of the connected Piksi's antenna.  If
-    "base station mode" is "true", the coordinate will be communicated to the Rover
-    with which to calculate the Rover's pseudo-absolute RTK position.  The value should
-    be as accurate as possible and should have precision to at least 7 digits following
-    the decimal point.  For reference, 1e-7 degrees of latitude is about 1.1cm on
-    the surface of the earth. Any errors in the surveyed position will directly affect
-    the pseudo-absolute RTK position measurement reported by the Rover.
+  Notes: This setting represents the latitude of the local Piksi's antenna. If
+    surveyed position "broadcast" is set to "true", the coordinate will be
+    communicated to remote Piksis with which to calculate their pseudo-absolute
+    RTK position.  The value should be as accurate as possible and should have
+    precision to at least 7 digits following the decimal point. For reference,
+    1e-7 degrees of latitude is about 1.1cm on the surface of the earth. Any
+    errors in the surveyed position will directly affect the pseudo-absolute
+    RTK position measurement reported by the remote Piksi.
 
-- group: base_station_mode
-  name: surveyed lon
+- group: surveyed_position
+  name: surveyed_lon
   type: Double
   units: degrees
   default value: '0'
   enumerated possible values:
   Description: "Surveyed longitude of the Piksi's antenna"
-  Notes: This setting represents the longitude of the connected Piksi's antenna.  If
-    "base station mode" is "true", the coordinate will be communicated to the Rover
-    unit with which to calculate the Rover's pseudo-absolute RTK position.  This value
-    should be as accurate as possible and should have precision to at least 7 digits
-    following the decimal point. For reference, 1e-7 degrees of longitude at 35 degrees
-    latitude is about 1 cm. Any errors in the surveyed position will directly affect
-    the pseudo-absolute RTK position measurement reported by the Rover.
+  Notes: This setting represents the longitude of the local Piksi's antenna. If
+    surveyed position "broadcast" is set to "true", the coordinate will be
+    communicated to remote Piksis with which to calculate their pseudo-absolute
+    RTK position.  The value should be as accurate as possible and should have
+    precision to at least 7 digits following the decimal point. For reference,
+    1e-7 degrees of longitude at 35 degree latitude is about 1 cm.  Any
+    errors in the surveyed position will directly affect the pseudo-absolute
+    RTK position measurement reported by the remote Piksi.
 
-- group: base_station_mode
-  name: surveyed alt
+- group: surveyed_position
+  name: surveyed_alt
   type: Double
   units: meters
   default value: '0'
   enumerated possible values:
   Description: "Surveyed altitude of the Piksi's antenna"
-  Notes: This setting represents the altitude of the antenna connected to the Piksi
-    above the WGS84 ellipsoid. This coordinate will be communicated to the Rover
-    against which to calculate a pseudo-absolute position. This value should be
-    precise to 1 cm.  Any errors in the surveyed position will directly affect
-    the pseudo-absolute RTK position measurement reported by the Rover.
+  Notes: This setting represents the altitude of the Piksi's antenna above the
+    WGS84 ellipsoid. If surveyed position "broadcast" is set to "true", this
+    coordinate will be communicated to remote Piksi's against which to calculate
+     a pseudo-absolute position. This value should be precise to 1 cm. Any
+     errors in the surveyed position will directly affect the pseudo-absolute
+     RTK position measurement reported by the Rover.
 
 - group: float_kf
   name: phase_var
