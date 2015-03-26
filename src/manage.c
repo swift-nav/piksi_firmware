@@ -340,23 +340,22 @@ void manage_track_setup()
 static void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
-    if (tracking_channel[i].state == TRACKING_RUNNING) {
-      if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
-        tracking_channel[i].snr_below_threshold_count =
-          tracking_channel[i].update_count;
-        if (tracking_channel[i].update_count > TRACK_SNR_INIT_COUNT &&
-            tracking_channel[i].update_count -
-              tracking_channel[i].snr_above_threshold_count >
-              TRACK_SNR_THRES_COUNT) {
-          /* This tracking channel has lost its satellite. */
-          log_info("Disabling channel %d\n", i);
-          tracking_channel_disable(i);
-          acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_TRIED;
-        }
-      } else {
-        tracking_channel[i].snr_above_threshold_count =
-          tracking_channel[i].update_count;
+    tracking_channel_t *ch = &tracking_channel[i];
+    if (ch->state != TRACKING_RUNNING)
+      continue;
+
+    if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
+      ch->snr_below_threshold_count = ch->update_count;
+      if (ch->update_count > TRACK_SNR_INIT_COUNT &&
+          ch->update_count - ch->snr_above_threshold_count >
+            TRACK_SNR_THRES_COUNT) {
+        /* This tracking channel has lost its satellite. */
+        log_info("Disabling channel %d\n", i);
+        tracking_channel_disable(i);
+        acq_prn_param[ch->prn].state = ACQ_PRN_TRIED;
       }
+    } else {
+      ch->snr_above_threshold_count = ch->update_count;
     }
   }
 }
