@@ -60,8 +60,10 @@ typedef struct {
     ACQ_PRN_TRIED,
     ACQ_PRN_ACQUIRING,
     ACQ_PRN_TRACKING
-  } state;  /**< Management status of PRN. */
+  } state;                 /**< Management status of PRN. */
   u16 score[ACQ_HINT_NUM]; /**< Acquisition preference of PRN. */
+  float dopp_hint_low;     /**< Low bound of doppler search hint. */
+  float dopp_hint_high;    /**< High bound of doppler search hint. */
 } acq_prn_t;
 acq_prn_t acq_prn_param[32];
 
@@ -115,6 +117,8 @@ void manage_acq_setup()
     acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
     for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
       acq_prn_param[prn].score[hint] = 0;
+    acq_prn_param[prn].dopp_hint_low = ACQ_FULL_CF_MIN;
+    acq_prn_param[prn].dopp_hint_high = ACQ_FULL_CF_MAX;
   }
 
   int fd = cfs_open("almanac", CFS_READ);
@@ -149,10 +153,7 @@ void manage_acq_setup()
 static void manage_calc_scores(void)
 {
   double az, el;
-  gps_time_t t;
-
-  if (time_quality != TIME_UNKNOWN)
-    t = get_current_time();
+  gps_time_t t = get_current_time();
 
   for (u8 prn=0; prn<32; prn++) {
     if (!almanac[prn].valid ||
@@ -163,7 +164,11 @@ static void manage_calc_scores(void)
       acq_prn_param[prn].score[ACQ_HINT_ALMANAC] = 0;
     } else {
       calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024, position_solution.pos_ecef, &az, &el);
+      float dopp = -calc_sat_doppler_almanac(&almanac[prn], t.tow, t.wn,
+                                             position_solution.pos_ecef);
       acq_prn_param[prn].score[ACQ_HINT_ALMANAC] = el > 0 ? (u8)(el/D2R) : 0;
+      acq_prn_param[prn].dopp_hint_low = dopp - 4000;
+      acq_prn_param[prn].dopp_hint_high = dopp + 4000;
     }
   }
 }
@@ -254,18 +259,9 @@ static void manage_acq()
     /* acq_load could timeout if we're preempted and miss the timing strobe */
   } while (!acq_load(timer_count));
 
-  /* Done loading, now lets set that coarse acquisition going. */
-  if (almanac[prn].valid && time_quality == TIME_COARSE) {
-    gps_time_t t = rx2gpstime(timer_count);
-
-    double dopp = -calc_sat_doppler_almanac(&almanac[prn], t.tow, t.wn, position_solution.pos_ecef);
-    /* TODO: look into accuracy of prediction and possibilities for
-     * improvement, e.g. use clock bias estimated by PVT solution. */
-    /*log_info("Expecting PRN %02d @ %.1f\n", prn+1, dopp);*/
-    acq_search(dopp - 4000, dopp + 4000, ACQ_FULL_CF_STEP);
-  } else {
-    acq_search(ACQ_FULL_CF_MIN, ACQ_FULL_CF_MAX, ACQ_FULL_CF_STEP);
-  }
+  acq_search(acq_prn_param[prn].dopp_hint_low,
+             acq_prn_param[prn].dopp_hint_high,
+             ACQ_FULL_CF_STEP);
 
   /* Done with the coarse acquisition, check if we have found a
    * satellite, if so save the results and start the loading
@@ -277,6 +273,12 @@ static void manage_acq()
   acq_send_result(prn, snr, cp, cf);
   if (snr < ACQ_THRESHOLD) {
     /* Didn't find the satellite :( */
+    float dilute = (acq_prn_param[prn].dopp_hint_high -
+                    acq_prn_param[prn].dopp_hint_low) / 2;
+    acq_prn_param[prn].dopp_hint_high =
+        MIN(acq_prn_param[prn].dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
+    acq_prn_param[prn].dopp_hint_low =
+        MAX(acq_prn_param[prn].dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
     acq_prn_param[prn].score[ACQ_HINT_ACQ] = 0;
     acq_prn_param[prn].state = ACQ_PRN_TRIED;
     return;
@@ -293,6 +295,8 @@ static void manage_acq()
     log_info("No channels free :(\n");
     if (snr > ACQ_RETRY_THRESHOLD) {
       acq_prn_param[prn].score[ACQ_HINT_ACQ] = MIN(snr, 127);
+      acq_prn_param[prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
+      acq_prn_param[prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
       acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
     } else {
       acq_prn_param[prn].state = ACQ_PRN_TRIED;
@@ -375,7 +379,12 @@ static void manage_track()
         /* This tracking channel has lost its satellite. */
         log_info("Disabling channel %d\n", i);
         tracking_channel_disable(i);
-        acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = 90;
+        if (ch->snr_above_threshold_count > TRACK_SNR_THRES_COUNT) {
+          acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = 90;
+          float cf = ch->carrier_freq;
+          acq_prn_param[ch->prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
+          acq_prn_param[ch->prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
+        }
         acq_prn_param[ch->prn].state = ACQ_PRN_TRIED;
       }
     } else {
