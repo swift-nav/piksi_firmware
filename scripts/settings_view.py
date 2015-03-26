@@ -286,7 +286,9 @@ class SettingsView(HasTraits):
       self.link.send_message(SBP_MSG_SETTINGS,
           '%s\0%s\0%s\0' % (section, name, value))
 
-  def __init__(self, link, read_finished_functions=[], gui_mode=True):
+  def __init__(self, link, read_finished_functions=[],
+               name_of_yaml_file="settings.yaml", gui_mode=True):
+
     super(SettingsView, self).__init__()
 
     self.gui_mode = gui_mode
@@ -299,7 +301,7 @@ class SettingsView(HasTraits):
         self.settings_read_by_index_callback)
 
     # Read in yaml file for setting metadatas (hardcoded filename for now)
-    self.settings_yaml = SettingsList("settings.yaml")
+    self.settings_yaml = SettingsList(name_of_yaml_file)
 
     # List of functions to be executed after all settings are read.
     # No support for arguments currently.
