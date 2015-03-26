@@ -24,7 +24,7 @@ from traits.api import HasTraits, Event, String, Button, Instance, Int, Bool, \
 from traitsui.api import View, Handler, Action, Item, TextEditor, VGroup, \
                          UItem, InstanceEditor, VSplit, HSplit, HGroup, \
                          BooleanEditor
-from pyface.api import GUI, FileDialog, OK
+from pyface.api import GUI, FileDialog, OK, ProgressDialog
 
 from version import VERSION as CONSOLE_VERSION
 import bootload
@@ -47,6 +47,7 @@ icon = ImageResource('icon',
 
 INDEX_URL = 'http://downloads.swiftnav.com/index.json'
 
+
 class IntelHexFileDialog(HasTraits):
 
   file_wildcard = String("Intel HEX File (*.hex)|*.hex|All files|*")
@@ -59,21 +60,47 @@ class IntelHexFileDialog(HasTraits):
              )
 
   def __init__(self, flash_type):
+    """
+    Pop-up file dialog to choose an IntelHex file, with status and button to
+    display in traitsui window.
+
+    Parameters
+    ----------
+    flash_type : string
+      Which Piksi flash to interact with ("M25" or "STM").
+    """
     if not flash_type=='M25' and not flash_type=='STM':
       raise ValueError("flash_type must be 'M25' or 'STM'")
     self._flash_type = flash_type
     self.ihx = None
 
-  def set_status(self, status):
+  def clear(self, status):
+    """
+    Set text of status box and clear IntelHex file.
+
+    Parameters
+    ----------
+    status : string
+      Error text to replace status box text with.
+    """
     self.ihx = None
     self.status = status
 
   def load_ihx(self, filepath):
+    """
+    Load IntelHex file and set status to indicate if file was
+    successfully loaded.
+
+    Parameters
+    ----------
+    filepath : string
+      Path to IntelHex file.
+    """
     try:
       self.ihx = IntelHex(filepath)
       self.status = os.path.split(filepath)[1]
     except HexRecordError:
-      self.set_status('Error: File is not a valid Intel HEX File')
+      self.clear('Error: File is not a valid Intel HEX File')
 
     # Check that address ranges are valid for self._flash_type.
     ihx_addrs = flash.ihx_ranges(self.ihx)
@@ -81,16 +108,17 @@ class IntelHexFileDialog(HasTraits):
       try:
         sectors = flash.sectors_used(ihx_addrs, flash.m25_addr_sector_map)
       except IndexError:
-        self.set_status('Error: HEX File contains restricted address ' + \
+        self.clear('Error: HEX File contains restricted address ' + \
                         '(STM Firmware File Chosen?)')
     elif self._flash_type == "STM":
       try:
         sectors = flash.sectors_used(ihx_addrs, flash.stm_addr_sector_map)
       except:
-        self.set_status('Error: HEX File contains restricted address ' + \
+        self.clear('Error: HEX File contains restricted address ' + \
                         '(NAP Firmware File Chosen?)')
 
   def _choose_fw_fired(self):
+    """ Activate file dialog window to choose IntelHex firmware file. """
     dialog = FileDialog(label='Choose Firmware File',
                         action='open', wildcard=self.file_wildcard)
     dialog.open()
@@ -98,7 +126,50 @@ class IntelHexFileDialog(HasTraits):
       filepath = os.path.join(dialog.directory, dialog.filename)
       self.load_ihx(filepath)
     else:
-      self.set_status('Error while selecting file')
+      self.clear('Error while selecting file')
+
+class PulsableProgressDialog(ProgressDialog):
+
+  def __init__(self, max, pulsed=False):
+    """
+    Pop-up window for showing a process's progress.
+
+    Parameters
+    ----------
+    max : int
+      Maximum value of the progress bar.
+    pulsed : bool
+      Show non-partial progress initially.
+    """
+    super(PulsableProgressDialog, self).__init__()
+    self.min = 0
+    self.max = 0
+    self.pulsed = pulsed
+    self.passed_max = max
+
+  def progress(self, count):
+    """
+    Update progress of progress bar. If pulsing initially, wait until count
+    is at least 12 before changing to discrete progress bar.
+
+    Parameters
+    ----------
+    count : int
+      Current value of progress.
+    """
+    # Provide user feedback initially via pulse for slow sector erases.
+    if self.pulsed:
+      if count > 12:
+        self.max = 100
+        GUI.invoke_later(self.update, int(100*float(count)/self.passed_max))
+    else:
+      self.max = 100
+      GUI.invoke_later(self.update, int(100*float(count)/self.passed_max))
+
+  def close(self):
+    """ Close progress bar window. """
+    GUI.invoke_after(0.1, super(PulsableProgressDialog, self).close)
+    sleep(0.2)
 
 class UpdateView(HasTraits):
 
@@ -157,6 +228,16 @@ class UpdateView(HasTraits):
   )
 
   def __init__(self, link, prompt=True):
+    """
+    Traits tab with UI for updating Piksi firmware.
+
+    Parameters
+    ----------
+    link : serial_link.SerialLink
+      Link for SBP transfer to/from Piksi.
+    prompt : bool
+      Prompt user to update console/firmware if out of date.
+    """
     self.link = link
     self.settings = {}
     self.prompt = prompt
@@ -173,6 +254,7 @@ class UpdateView(HasTraits):
     self.get_latest_version_info()
 
   def _manage_enables(self):
+    """ Manages whether traits widgets are enabled in the UI or not. """
     if self.updating == True or self.downloading == True:
       self.update_en = False
       self.download_fw_en = False
@@ -189,17 +271,32 @@ class UpdateView(HasTraits):
       self.erase_en = True
 
   def _updating_changed(self):
+    """ Handles self.updating trait being changed. """
     self._manage_enables()
 
   def _downloading_changed(self):
+    """ Handles self.downloading trait being changed. """
     self._manage_enables()
 
   def _write(self, text):
+    """
+    Stream style write function. Allows flashing debugging messages to be
+    routed to embedded text console.
+
+    Parameters
+    ----------
+    text : string
+      Text to be written to screen.
+    """
     self.stream.write(text)
     self.stream.write('\n')
     self.stream.flush()
 
   def _update_firmware_fired(self):
+    """
+    Handle update_firmware button. Starts thread so as not to block the GUI
+    thread.
+    """
     try:
       if self._firmware_update_thread.is_alive():
         return
@@ -210,7 +307,7 @@ class UpdateView(HasTraits):
     self._firmware_update_thread.start()
 
   def _download_firmware(self):
-
+    """ Download latest firmware from swiftnav.com. """
     self._write('')
 
     # Check that we received the index file from the website.
@@ -221,8 +318,8 @@ class UpdateView(HasTraits):
     self.downloading = True
 
     status = 'Downloading Newest Firmware...'
-    self.nap_fw.set_status(status)
-    self.stm_fw.set_status(status)
+    self.nap_fw.clear(status)
+    self.stm_fw.clear(status)
     self._write(status)
 
     # Get firmware files from Swift Nav's website, save to disk, and load.
@@ -232,13 +329,13 @@ class UpdateView(HasTraits):
       self._write('Saved file to %s' % filepath)
       self.nap_fw.load_ihx(filepath)
     except AttributeError:
-      self.nap_fw.set_status("Error downloading firmware")
+      self.nap_fw.clear("Error downloading firmware")
       self._write("Error downloading firmware: index file not downloaded yet")
     except KeyError:
-      self.nap_fw.set_status("Error downloading firmware")
+      self.nap_fw.clear("Error downloading firmware")
       self._write("Error downloading firmware: URL not present in index")
     except URLError:
-      self.nap_fw.set_status("Error downloading firmware")
+      self.nap_fw.clear("Error downloading firmware")
       self._write("Error: Failed to download latest NAP firmware from Swift Navigation's website")
 
     try:
@@ -247,18 +344,22 @@ class UpdateView(HasTraits):
       self._write('Saved file to %s' % filepath)
       self.stm_fw.load_ihx(filepath)
     except AttributeError:
-      self.stm_fw.set_status("Error downloading firmware")
+      self.stm_fw.clear("Error downloading firmware")
       self._write("Error downloading firmware: index file not downloaded yet")
     except KeyError:
-      self.stm_fw.set_status("Error downloading firmware")
+      self.stm_fw.clear("Error downloading firmware")
       self._write("Error downloading firmware: URL not present in index")
     except URLError:
-      self.stm_fw.set_status("Error downloading firmware")
+      self.stm_fw.clear("Error downloading firmware")
       self._write("Error: Failed to download latest STM firmware from Swift Navigation's website")
 
     self.downloading = False
 
   def _download_firmware_fired(self):
+    """
+    Handle download_firmware button. Starts thread so as not to block the GUI
+    thread.
+    """
     try:
       if self._download_firmware_thread.is_alive():
         return
@@ -269,6 +370,11 @@ class UpdateView(HasTraits):
     self._download_firmware_thread.start()
 
   def compare_versions(self):
+    """
+    To be called after latest Piksi firmware info has been received from
+    device, to decide if current firmware on Piksi is out of date. Starts a
+    thread so as not to block GUI thread.
+    """
     try:
       if self._compare_versions_thread.is_alive():
         return
@@ -279,7 +385,11 @@ class UpdateView(HasTraits):
     self._compare_versions_thread.start()
 
   def _compare_versions(self):
-
+    """
+    Compares version info between received firmware version / current console
+    and firmware / console info from website to decide if current firmware or
+    console is out of date. Prompt user to update if so.
+    """
     # Check that settings received from Piksi contain FW versions.
     try:
       self.piksi_stm_vers = \
@@ -355,7 +465,10 @@ class UpdateView(HasTraits):
         fw_update_prompt.run()
 
   def get_latest_version_info(self):
-
+    """
+    Get latest firmware / console version from website. Starts thread so as not
+    to block the GUI thread.
+    """
     try:
       if self._get_latest_version_info_thread.is_alive():
         return
@@ -366,7 +479,7 @@ class UpdateView(HasTraits):
     self._get_latest_version_info_thread.start()
 
   def _get_latest_version_info(self):
-
+    """ Get latest firmware / console version from website. """
     try:
       self.update_dl = UpdateDownloader()
     except URLError:
@@ -384,25 +497,71 @@ class UpdateView(HasTraits):
 
   # Executed in GUI thread, called from Handler.
   def manage_firmware_updates(self):
+    """
+    Update Piksi firmware. Erase entire STM flash (other than bootloader)
+    if so directed. Flash NAP only if new firmware is available.
+    """
     self.updating = True
 
     self._write('')
 
-    # Erase STM if so directed.
+    # Erase all of STM's flash (other than bootloader) if box is checked.
     if self.erase_stm:
-      self._write("Erasing STM flash...")
-      self.erase_flash("STM")
+      text = "Erasing STM"
+      self._write(text)
+      self.create_flash("STM")
+      sectors_to_erase = set(range(self.pk_flash.n_sectors)).difference(set(self.pk_flash.restricted_sectors))
+      progress_dialog = PulsableProgressDialog(len(sectors_to_erase), False)
+      progress_dialog.title = text
+      GUI.invoke_later(progress_dialog.open)
+      erase_count = 0
+      for s in sorted(sectors_to_erase):
+        progress_dialog.progress(erase_count)
+        self._write('Erasing %s sector %d' % (self.pk_flash.flash_type,s))
+        self.pk_flash.erase_sector(s)
+        erase_count += 1
+      self.stop_flash()
       self._write("")
+      progress_dialog.close()
 
     # Flash STM.
-    self._write("Updating STM firmware...")
-    self.update_flash(self.stm_fw.ihx, "STM")
+    text = "Updating STM"
+    self._write(text)
+    self.create_flash("STM")
+    stm_n_ops = self.pk_flash.ihx_n_ops(self.stm_fw.ihx, \
+                                        erase = not self.erase_stm)
+    progress_dialog = PulsableProgressDialog(stm_n_ops, True)
+    progress_dialog.title = text
+    GUI.invoke_later(progress_dialog.open)
+    # Don't erase sectors if we've already done so above.
+    self.pk_flash.write_ihx(self.stm_fw.ihx, self.stream, mod_print=0x40, \
+                            elapsed_ops_cb = progress_dialog.progress, \
+                            erase = not self.erase_stm)
+    self.stop_flash()
     self._write("")
+    progress_dialog.close()
 
-    # Flash NAP.
-    self._write("Updating SwiftNAP firmware...")
-    self.update_flash(self.nap_fw.ihx, "M25")
-    self._write("")
+    # Flash NAP if out of date.
+    try:
+      local_nap_version = parse_version(
+          self.settings['system_info']['nap_version'].value)
+      remote_nap_version = parse_version(self.newest_nap_vers)
+      nap_out_of_date = local_nap_version != remote_nap_version
+    except KeyError:
+      nap_out_of_date = True
+    if nap_out_of_date:
+      text = "Updating NAP"
+      self._write(text)
+      self.create_flash("M25")
+      nap_n_ops = self.pk_flash.ihx_n_ops(self.nap_fw.ihx)
+      progress_dialog = PulsableProgressDialog(nap_n_ops, True)
+      progress_dialog.title = text
+      GUI.invoke_later(progress_dialog.open)
+      self.pk_flash.write_ihx(self.nap_fw.ihx, self.stream, mod_print=0x40, \
+                              elapsed_ops_cb = progress_dialog.progress)
+      self.stop_flash()
+      self._write("")
+      progress_dialog.close()
 
     # Must tell Piksi to jump to application after updating firmware.
     self.link.send_message(SBP_MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
@@ -411,28 +570,16 @@ class UpdateView(HasTraits):
 
     self.updating = False
 
-  def erase_flash(self, flash_type):
-
-    self.create_flash(flash_type)
-
-    sectors_to_erase = \
-        set(range(self.pk_flash.n_sectors)).difference(set(self.pk_flash.restricted_sectors))
-    for s in sorted(sectors_to_erase):
-      self._write('Erasing %s sector %d' % (self.pk_flash.flash_type,s))
-      self.pk_flash.erase_sector(s)
-
-    self.stop_flash()
-
-  def update_flash(self, ihx, flash_type):
-
-    self.create_flash(flash_type)
-
-    self.pk_flash.write_ihx(ihx, self.stream, mod_print = 0x10)
-
-    self.stop_flash()
-
   def create_flash(self, flash_type):
+    """
+    Create flash.Flash instance and set Piksi into bootloader mode, prompting
+    user to reset if necessary.
 
+    Parameter
+    ---------
+    flash_type : string
+      Either "STM" or "M25".
+    """
     # Reset device if the application is running to put into bootloader mode.
     self.link.send_message(SBP_MSG_RESET, '')
 
@@ -471,5 +618,8 @@ class UpdateView(HasTraits):
     self.pk_flash = flash.Flash(self.link, flash_type)
 
   def stop_flash(self):
+    """
+    Stop Flash and Bootloader instances (removes callback from SerialLink).
+    """
     self.pk_flash.stop()
     self.pk_boot.stop()
