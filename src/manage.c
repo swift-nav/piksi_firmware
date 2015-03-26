@@ -161,7 +161,6 @@ u8 best_prn(void)
 {
   s8 best_prn = -1;
   s8 best_score = -1;
-  manage_calc_scores();
   for (u8 prn=0; prn<32; prn++) {
     if ((acq_prn_param[prn].state != ACQ_PRN_TRACKING) &&
         (acq_prn_param[prn].state != ACQ_PRN_TRIED) &&
@@ -179,6 +178,7 @@ u8 best_prn(void)
         acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
     }
     log_info("acq: restarting PRN search\n");
+    manage_calc_scores();
     return -1;
   }
   return best_prn;
@@ -243,7 +243,12 @@ void manage_acq()
      * later using another fine acq.
      */
     log_info("No channels free :(\n");
-    acq_prn_param[prn].state = ACQ_PRN_TRIED;
+    if (snr > ACQ_RETRY_THRESHOLD) {
+      acq_prn_param[prn].score = MIN(snr, 127);
+      acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
+    } else {
+      acq_prn_param[prn].state = ACQ_PRN_TRIED;
+    }
     return;
   }
   /* Transition to tracking. */
