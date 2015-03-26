@@ -358,41 +358,39 @@ extern ephemeris_t es[32];
 static void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
-    if (tracking_channel[i].state == TRACKING_RUNNING) {
 
-      if (es[tracking_channel[i].prn].valid &&
-          !es[tracking_channel[i].prn].healthy) {
-        acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_UNHEALTHY;
-        log_info("Dropping unhealthy PRN%d\n", tracking_channel[i].prn+1);
-        tracking_channel_disable(i);
-        continue;
-      }
+    tracking_channel_t *ch = &tracking_channel[i];
+    if (ch->state != TRACKING_RUNNING)
+      continue;
 
-      if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
-        /* SNR has dropped below threshold, indicate that the carrier phase
-         * ambiguity is now unknown as cycle slips are likely. */
-        tracking_channel_ambiguity_unknown(i);
-        /* Update the latest time we were below the threshold. */
-        tracking_channel[i].snr_below_threshold_count =
-          tracking_channel[i].update_count;
-        /* Have we have been below the threshold for longer than
-         * `TRACK_SNR_THRES_COUNT`? */
-        if (tracking_channel[i].update_count > TRACK_SNR_INIT_COUNT &&
-            tracking_channel[i].update_count -
-              tracking_channel[i].snr_above_threshold_count >
-              TRACK_SNR_THRES_COUNT) {
-          /* This tracking channel has lost its satellite. */
-          log_info("Disabling channel %d\n", i);
-          tracking_channel_disable(i);
-          acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_TRIED;
-        }
-      } else {
-        /* SNR is good. */
-        tracking_channel[i].snr_above_threshold_count =
-          tracking_channel[i].update_count;
-      }
-
+    if (es[ch->prn].valid && !es[ch->prn].healthy) {
+      acq_prn_param[ch->prn].state = ACQ_PRN_UNHEALTHY;
+      log_info("Dropping unhealthy PRN%d\n", ch->prn+1);
+      tracking_channel_disable(i);
+      continue;
     }
+
+    if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
+      /* SNR has dropped below threshold, indicate that the carrier phase
+       * ambiguity is now unknown as cycle slips are likely. */
+      tracking_channel_ambiguity_unknown(i);
+      /* Update the latest time we were below the threshold. */
+      ch->snr_below_threshold_count = ch->update_count;
+      /* Have we have been below the threshold for longer than
+       * `TRACK_SNR_THRES_COUNT`? */
+      if (ch->update_count > TRACK_SNR_INIT_COUNT &&
+          ch->update_count - ch->snr_above_threshold_count >
+            TRACK_SNR_THRES_COUNT) {
+        /* This tracking channel has lost its satellite. */
+        log_info("Disabling channel %d\n", i);
+        tracking_channel_disable(i);
+        acq_prn_param[ch->prn].state = ACQ_PRN_TRIED;
+      }
+    } else {
+      /* SNR is good. */
+      ch->snr_above_threshold_count = ch->update_count;
+    }
+
   }
 }
 
