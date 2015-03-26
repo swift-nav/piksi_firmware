@@ -549,7 +549,6 @@ class UpdateView(HasTraits):
       nap_out_of_date = local_nap_version != remote_nap_version
     except KeyError:
       nap_out_of_date = True
-    nap_out_of_date = True
     if nap_out_of_date:
       text = "Updating NAP"
       self._write(text)
