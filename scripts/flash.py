@@ -24,7 +24,7 @@ from sbp.piksi import *
 # 0.5 * ADDRS_PER_OP * MAX_QUEUED_OPS (plus SBP overhead) is how much each of
 # the STM32 TX/RX buffers will be filled by the program/read callback messages.
 ADDRS_PER_OP = 128
-MAX_QUEUED_OPS = 20
+MAX_QUEUED_OPS = 5
 
 M25_SR_SRWD = 1 << 7
 M25_SR_BP2  = 1 << 4
