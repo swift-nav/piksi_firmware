@@ -112,6 +112,26 @@ static msg_t nav_msg_thread(void *arg)
   return 0;
 }
 
+static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)context;
+
+  if (len != sizeof(ephemeris_t)) {
+    log_warn("Received bad ephemeris from peer\n");
+    return;
+  }
+
+  gps_time_t t = get_current_time();
+  ephemeris_t e = *(ephemeris_t *)msg;
+  if (!ephemeris_good(&es[e.prn], t) &&
+       ephemeris_good(&e, t)) {
+    log_info("New ephemeris for PRN%d from peer\n", e.prn+1);
+    __asm__("CPSID i;");
+    es[e.prn] = e;
+    __asm__("CPSIE i;");
+  }
+}
+
 /** Compare version strings.
  * Compares a version of the form 'vX.Y-Z-'. If the first character of the
  * version is not 'v' then that string will be considered older than any
@@ -279,6 +299,12 @@ int main(void)
                       TYPE_INT);
   READ_ONLY_PARAMETER("system_info", "nap_fft_index_bits", nap_acq_fft_index_bits, TYPE_INT);
 
+  static sbp_msg_callbacks_node_t ephemeris_msg_node;
+  sbp_register_cbk(
+    SBP_MSG_EPHEMERIS,
+    &ephemeris_msg_callback,
+    &ephemeris_msg_node
+  );
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);
 
