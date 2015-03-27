@@ -434,7 +434,10 @@ if __name__ == "__main__":
         time.sleep(0.1)
     else:
       # Wait until the timeout has elapsed
-      time.sleep(float(args.timeout[0]))
+      expire = time.time() + float(args.timeout[0])
+      while time.time() < expire:
+        time.sleep(0.1)
+      sys.stdout.write("Timer expired!\n")
   except KeyboardInterrupt:
     # Callbacks, such as the watchdog timer on SBP_HEARTBEAT call
     # thread.interrupt_main(), which throw a KeyboardInterrupt
