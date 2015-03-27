@@ -378,7 +378,7 @@ static void manage_track()
 
     if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
       ch->snr_below_threshold_count = ch->update_count;
-      if (ch->update_count > TRACK_SNR_INIT_COUNT &&
+      if (ch->update_count < TRACK_SNR_INIT_COUNT ||
           ch->update_count - ch->snr_above_threshold_count >
             TRACK_SNR_THRES_COUNT) {
         /* This tracking channel has lost its satellite. */
