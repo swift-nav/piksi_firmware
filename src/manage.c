@@ -32,6 +32,7 @@
 #include "sbp.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
+#include "peripherals/random.h"
 
 /** \defgroup manage Manage
  * Manage acquisition and tracking.
@@ -56,8 +57,6 @@ enum acq_hint {
 typedef struct {
   enum {
     ACQ_PRN_SKIP = 0,
-    ACQ_PRN_UNTRIED,
-    ACQ_PRN_TRIED,
     ACQ_PRN_ACQUIRING,
     ACQ_PRN_TRACKING
   } state;                 /**< Management status of PRN. */
@@ -66,6 +65,12 @@ typedef struct {
   float dopp_hint_high;    /**< High bound of doppler search hint. */
 } acq_prn_t;
 acq_prn_t acq_prn_param[32];
+
+#define SCORE_DEFAULT 100
+#define SCORE_ALMANAC 200
+#define SCORE_ACQ     100
+#define SCORE_TRACK   200
+#define SCORE_OBS     200
 
 almanac_t almanac[32];
 
@@ -114,7 +119,7 @@ static msg_t manage_acq_thread(void *arg)
 void manage_acq_setup()
 {
   for (u8 prn=0; prn<32; prn++) {
-    acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
+    acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
     for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
       acq_prn_param[prn].score[hint] = 0;
     acq_prn_param[prn].dopp_hint_low = ACQ_FULL_CF_MIN;
@@ -150,7 +155,7 @@ void manage_acq_setup()
   );
 }
 
-static void manage_calc_scores(void)
+static void manage_calc_almanac_scores(void)
 {
   double az, el;
   gps_time_t t = get_current_time();
@@ -166,43 +171,48 @@ static void manage_calc_scores(void)
       calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024, position_solution.pos_ecef, &az, &el);
       float dopp = -calc_sat_doppler_almanac(&almanac[prn], t.tow, t.wn,
                                              position_solution.pos_ecef);
-      acq_prn_param[prn].score[ACQ_HINT_ALMANAC] = el > 0 ? (u8)(el/D2R) : 0;
+      acq_prn_param[prn].score[ACQ_HINT_ALMANAC] =
+            el > 0 ? (u16)(SCORE_ALMANAC * 2 * el / M_PI) : 0;
       acq_prn_param[prn].dopp_hint_low = dopp - 4000;
       acq_prn_param[prn].dopp_hint_high = dopp + 4000;
     }
   }
 }
 
-static u8 best_prn(void)
+static u8 choose_prn(void)
 {
-  s8 best_prn = -1;
-  s16 best_score = -1;
+  u32 total_score = 0;
+
+  manage_calc_almanac_scores();
+
   for (u8 prn=0; prn<32; prn++) {
+    if (acq_prn_param[prn].state != ACQ_PRN_ACQUIRING)
+      continue;
 
-    u16 score = 0;
+    total_score += SCORE_DEFAULT;
     for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
-      score += acq_prn_param[prn].score[hint];
+      total_score += acq_prn_param[prn].score[hint];
+  }
 
-    if ((acq_prn_param[prn].state != ACQ_PRN_TRACKING) &&
-        (acq_prn_param[prn].state != ACQ_PRN_TRIED) &&
-        (score > best_score)) {
-      best_prn = prn;
-      best_score = score;
+  u32 pick = random_int() % total_score;
+
+  for (u8 prn=0; prn<32; prn++) {
+    if (acq_prn_param[prn].state != ACQ_PRN_ACQUIRING)
+      continue;
+
+    u32 sat_score = SCORE_DEFAULT;
+    for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
+      sat_score += acq_prn_param[prn].score[hint];
+    if (pick < sat_score) {
+      return prn;
+    } else {
+      pick -= sat_score;
     }
   }
 
-  if (best_score < 0) {
-    /* No good satellites right now. Set all back to untried and try again
-     * later. */
-    for (u8 prn=0; prn<32; prn++) {
-      if (acq_prn_param[prn].state == ACQ_PRN_TRIED)
-        acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
-    }
-    log_info("acq: restarting PRN search\n");
-    manage_calc_scores();
-    return -1;
-  }
-  return best_prn;
+  log_error("Failed to pick a sat for acquisition!\n");
+
+  return -1;
 }
 
 /* Force a focus on specific satellites from Rover/Base observations
@@ -233,14 +243,14 @@ void manage_prod_acq(u8 prn)
   if (prn >= 32) /* check range */
     return;
 
-  acq_prn_param[prn].score[ACQ_HINT_OBS] = 90; /* 90 Degrees, want this to be a priority */
+  acq_prn_param[prn].score[ACQ_HINT_OBS] = SCORE_OBS;
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
 static void manage_acq()
 {
   /* Decide which PRN to try and then start it acquiring. */
-  u8 prn = best_prn();
+  u8 prn = choose_prn();
   if (prn == (u8)-1)
     return;
 
@@ -253,7 +263,6 @@ static void manage_acq()
    * into the acquisition ram on the Swift NAP for
    * an initial coarse acquisition.
    */
-  acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
   do {
     timer_count = nap_timing_count() + 20000;
     /* acq_load could timeout if we're preempted and miss the timing strobe */
@@ -280,7 +289,6 @@ static void manage_acq()
     acq_prn_param[prn].dopp_hint_low =
         MAX(acq_prn_param[prn].dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
     acq_prn_param[prn].score[ACQ_HINT_ACQ] = 0;
-    acq_prn_param[prn].state = ACQ_PRN_TRIED;
     return;
   }
 
@@ -294,12 +302,9 @@ static void manage_acq()
      */
     log_info("No channels free :(\n");
     if (snr > ACQ_RETRY_THRESHOLD) {
-      acq_prn_param[prn].score[ACQ_HINT_ACQ] = MIN(snr, 127);
+      acq_prn_param[prn].score[ACQ_HINT_ACQ] = SCORE_ACQ + (snr - 20) / 20;
       acq_prn_param[prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
       acq_prn_param[prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
-      acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
-    } else {
-      acq_prn_param[prn].state = ACQ_PRN_TRIED;
     }
     return;
   }
@@ -380,12 +385,12 @@ static void manage_track()
         log_info("Disabling channel %d\n", i);
         tracking_channel_disable(i);
         if (ch->snr_above_threshold_count > TRACK_SNR_THRES_COUNT) {
-          acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = 90;
+          acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = SCORE_TRACK;
           float cf = ch->carrier_freq;
           acq_prn_param[ch->prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
           acq_prn_param[ch->prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
         }
-        acq_prn_param[ch->prn].state = ACQ_PRN_TRIED;
+        acq_prn_param[ch->prn].state = ACQ_PRN_ACQUIRING;
       }
     } else {
       ch->snr_above_threshold_count = ch->update_count;
