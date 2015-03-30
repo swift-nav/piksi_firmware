@@ -408,6 +408,7 @@ if __name__ == "__main__":
   args = parser.parse_args()
   serial_port = args.port[0]
   baud = args.baud[0]
+  lock = threading.Lock()
   link = SerialLink(serial_port, baud, use_ftdi=args.ftdi,
                     print_unhandled=args.verbose)
   link.add_callback(SBP_MSG_PRINT, default_print_callback)
@@ -447,8 +448,8 @@ if __name__ == "__main__":
     sys.exit(1)
   finally:
     if log_file:
-      log_file.acquire()
+      lock.acquire()
       log_file.flush()
       log_file.close()
-      log_file.release()
+      lock.release()
     link.close()
