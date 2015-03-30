@@ -447,5 +447,8 @@ if __name__ == "__main__":
     sys.exit(1)
   finally:
     if log_file:
+      log_file.acquire()
+      log_file.flush()
       log_file.close()
+      log_file.release()
     link.close()
