@@ -10,7 +10,6 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import serial_link
 import struct
 import time
 import sys
@@ -192,7 +191,7 @@ def _stm_lock_sector(self, sector):
     raise ValueError("Must have 0 <= sector <= 11, received %d" % sector)
   msg_buf = struct.pack("B", sector)
   self.inc_n_queued_ops()
-  self.link.send_message(SBP_MSG_STM_FLASH_LOCK_SECTOR, msg_buf)
+  self.link.send(SBP_MSG_STM_FLASH_LOCK_SECTOR, msg_buf)
   while self.get_n_queued_ops() > 0:
     time.sleep(0.001)
 
@@ -209,7 +208,7 @@ def _stm_unlock_sector(self, sector):
     raise ValueError("Must have 0 <= sector <= 11, received %d" % sector)
   msg_buf = struct.pack("B", sector)
   self.inc_n_queued_ops()
-  self.link.send_message(SBP_MSG_STM_FLASH_UNLOCK_SECTOR, msg_buf)
+  self.link.send(SBP_MSG_STM_FLASH_UNLOCK_SECTOR, msg_buf)
   while self.get_n_queued_ops() > 0:
     time.sleep(0.001)
 
@@ -226,7 +225,7 @@ def _m25_write_status(self, sr):
     raise ValueError("Must have 0 <= sr <= 255, received %d" % sr)
   msg_buf = struct.pack("B", sr)
   self.inc_n_queued_ops()
-  self.link.send_message(SBP_MSG_M25_FLASH_WRITE_STATUS, msg_buf)
+  self.link.send(SBP_MSG_M25_FLASH_WRITE_STATUS, msg_buf)
   while self.get_n_queued_ops() > 0:
     time.sleep(0.001)
 
@@ -239,8 +238,8 @@ class Flash():
 
     Parameters
     ----------
-    link : serial_link.SerialLink
-      SerialLink to send messages to Piksi over and register callbacks with.
+    link : sbp.client.handler.Handler
+      Handler to send messages to Piksi over and register callbacks with.
     flash_type : string
       Which Piksi flash to interact with ("M25" or "STM").
 
@@ -256,8 +255,8 @@ class Flash():
     self.flash_type = flash_type
     # IntelHex object to store read flash data in that was read from device.
     self._read_callback_ihx = IntelHex()
-    self.link.add_callback(SBP_MSG_FLASH_DONE, self._done_callback)
-    self.link.add_callback(SBP_MSG_FLASH_READ, self._read_callback)
+    self.link.add_callback(self._done_callback, SBP_MSG_FLASH_DONE)
+    self.link.add_callback(self._read_callback, SBP_MSG_FLASH_READ)
     self.ihx_elapsed_ops = 0 # N operations finished in self.write_ihx
     if self.flash_type == "STM":
       self.flash_type_byte = 0
@@ -340,10 +339,10 @@ class Flash():
     return self._n_queued_ops
 
   def stop(self):
-    """ Remove instance callbacks from serial_link.SerialLink. """
+    """ Remove instance callbacks from sbp.client.handler.Handler. """
     self.stopped = True
-    self.link.rm_callback(SBP_MSG_FLASH_DONE, self._done_callback)
-    self.link.rm_callback(SBP_MSG_FLASH_READ, self._read_callback)
+    self.link.remove_callback(self._done_callback, SBP_MSG_FLASH_DONE)
+    self.link.remove_callback(self._read_callback, SBP_MSG_FLASH_READ)
 
   def __str__(self):
     """ Return flashing status. """
@@ -366,7 +365,7 @@ class Flash():
       raise Warning(text)
     msg_buf = struct.pack("BB", self.flash_type_byte, sector)
     self.inc_n_queued_ops()
-    self.link.send_message(SBP_MSG_FLASH_ERASE, msg_buf)
+    self.link.send(SBP_MSG_FLASH_ERASE, msg_buf)
     while self.get_n_queued_ops() > 0:
       time.sleep(0.001)
 
@@ -385,7 +384,7 @@ class Flash():
     msg_buf += struct.pack("<I", address)
     msg_buf += struct.pack("B", len(data))
     self.inc_n_queued_ops()
-    self.link.send_message(SBP_MSG_FLASH_PROGRAM, msg_buf + data)
+    self.link.send(SBP_MSG_FLASH_PROGRAM, msg_buf + data)
 
   def read(self, address, length):
     """
@@ -402,7 +401,7 @@ class Flash():
     msg_buf += struct.pack("<I", address)
     msg_buf += struct.pack("B", length)
     self.inc_n_queued_ops()
-    self.link.send_message(SBP_MSG_FLASH_READ, msg_buf)
+    self.link.send(SBP_MSG_FLASH_READ, msg_buf)
 
   def _done_callback(self, sbp_msg):
     """

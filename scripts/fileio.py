@@ -11,7 +11,6 @@
 
 import struct
 import sys
-import serial_link
 import threading
 
 from sbp.piksi import *
@@ -38,8 +37,8 @@ class FileIO(object):
     buf = ''
     while True:
       msg = struct.pack("<IB", len(buf), chunksize) + filename + '\0'
-      self.link.send_message(SBP_MSG_FILEIO_READ, msg)
-      data = self.link.wait_message(SBP_MSG_FILEIO_READ, timeout=1.0)
+      self.link.send(SBP_MSG_FILEIO_READ, msg)
+      data = self.link.wait(SBP_MSG_FILEIO_READ, timeout=1.0)
       if not data:
         raise Exception("Timeout waiting for FILEIO_READ reply")
       if data[:len(msg)] != msg:
@@ -66,8 +65,8 @@ class FileIO(object):
     files = []
     while True:
       msg = struct.pack("<I", len(files)) + dirname + '\0'
-      self.link.send_message(SBP_MSG_FILEIO_READ_DIR, msg)
-      data = self.link.wait_message(SBP_MSG_FILEIO_READ_DIR, timeout=1.0)
+      self.link.send(SBP_MSG_FILEIO_READ_DIR, msg)
+      data = self.link.wait(SBP_MSG_FILEIO_READ_DIR, timeout=1.0)
       if not data:
         raise Exception("Timeout waiting for FILEIO_READ_DIR reply")
       if data[:len(msg)] != msg:
@@ -86,7 +85,7 @@ class FileIO(object):
     filename : str
         Name of the file to delete.
     """
-    self.link.send_message(SBP_MSG_FILEIO_REMOVE, filename + '\0')
+    self.link.send(SBP_MSG_FILEIO_REMOVE, filename + '\0')
 
   def write(self, filename, data, offset=0, trunc=True):
     """
@@ -118,8 +117,8 @@ class FileIO(object):
       chunk = data[:chunksize]
       data = data[chunksize:]
       header = struct.pack("<I", offset) + filename + '\0'
-      self.link.send_message(SBP_MSG_FILEIO_WRITE, header + chunk)
-      reply = self.link.wait_message(SBP_MSG_FILEIO_WRITE, timeout=1.0)
+      self.link.send(SBP_MSG_FILEIO_WRITE, header + chunk)
+      reply = self.link.wait(SBP_MSG_FILEIO_WRITE, timeout=1.0)
       if not reply:
         raise Exception("Timeout waiting for FILEIO_WRITE reply")
       if reply != header:
@@ -175,10 +174,10 @@ if __name__ == "__main__":
   parser.add_argument('-d', '--delete', nargs=1,
                      help='delete a file')
   parser.add_argument('-p', '--port',
-                     default=[serial_link.DEFAULT_PORT], nargs=1,
+                     default=[SERIAL_PORT], nargs=1,
                      help='specify the serial port to use.')
   parser.add_argument("-b", "--baud",
-                     default=[serial_link.DEFAULT_BAUD], nargs=1,
+                     default=[SERIAL_BAUD], nargs=1,
                      help="specify the baud rate to use.")
   parser.add_argument("-v", "--verbose",
                      help="print extra debugging information.",
@@ -192,25 +191,24 @@ if __name__ == "__main__":
   args = parser.parse_args()
   serial_port = args.port[0]
   baud = args.baud[0]
-  link = serial_link.SerialLink(serial_port, baud, use_ftdi=args.ftdi,
-                                print_unhandled=args.verbose)
+  with get_driver(args.ftdi, serial_port, baud) as driver:
+    with Handler(driver.read, driver.write, args.verbose) as link:
+      f = FileIO(link)
 
-  f = FileIO(link)
-
-  try:
-    if args.read:
-      data = f.read(args.read[0])
-      if args.hex:
-        print hexdump(data)
-      else:
-        print data
-    elif args.delete:
-      f.remove(args.delete[0])
-    elif args.list is not None:
-      print_dir_listing(f.readdir(args.list[0]))
-    else:
-      print "No command given, listing root directory:"
-      print_dir_listing(f.readdir())
-  except KeyboardInterrupt:
-    pass
+      try:
+        if args.read:
+          data = f.read(args.read[0])
+          if args.hex:
+            print hexdump(data)
+          else:
+            print data
+        elif args.delete:
+          f.remove(args.delete[0])
+        elif args.list is not None:
+          print_dir_listing(f.readdir(args.list[0]))
+        else:
+          print "No command given, listing root directory:"
+          print_dir_listing(f.readdir())
+      except KeyboardInterrupt:
+        pass
 

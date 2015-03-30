@@ -6,17 +6,18 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 from traits.etsconfig.api import ETSConfig
 ETSConfig.toolkit = 'null'
 
-import serial_link
 import settings_view
 import argparse
 import time
 
+from sbp.client.main import *
+
 parser = argparse.ArgumentParser(description='Print Piksi device details.')
 parser.add_argument('-p', '--port',
-	     default=[serial_link.DEFAULT_PORT], nargs=1,
+	     default=[SERIAL_PORT], nargs=1,
 	     help='specify the serial port to use.')
 parser.add_argument("-b", "--baud",
-	     default=[serial_link.DEFAULT_BAUD], nargs=1,
+	     default=[SERIAL_BAUD], nargs=1,
 	     help="specify the baud rate to use.")
 parser.add_argument("-v", "--verbose",
 	     help="print extra debugging information.",
@@ -27,8 +28,8 @@ parser.add_argument("-f", "--ftdi",
 args = parser.parse_args()
 serial_port = args.port[0]
 baud = args.baud[0]
-link = serial_link.SerialLink(serial_port, baud, use_ftdi=args.ftdi,
-	    print_unhandled=args.verbose)
+driver = get_driver(args.ftdi, serial_port, baud)
+link = Handler(driver.read, driver.write, args.verbose)
 
 settings_read = False
 def callback():

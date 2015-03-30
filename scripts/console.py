@@ -9,15 +9,15 @@
 # EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
-import serial_link
 from version import VERSION as CONSOLE_VERSION
 from sbp.piksi import *
+from sbp.client.main import *
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
 parser.add_argument('-p', '--port', nargs=1, default=[None],
                     help='specify the serial port to use.')
-parser.add_argument('-b', '--baud', nargs=1, default=[serial_link.DEFAULT_BAUD],
+parser.add_argument('-b', '--baud', nargs=1, default=[SERIAL_BAUD],
                     help='specify the baud rate to use.')
 parser.add_argument("-v", "--verbose",
                     help="print extra debugging information.",
@@ -119,7 +119,7 @@ class ConsoleHandler(Handler):
       info.ui.title = CONSOLE_TITLE + ' : ' + info.object.device_serial
 
 class SwiftConsole(HasTraits):
-  link = Instance(serial_link.SerialLink)
+  link = Instance(Handler)
   console_output = Instance(OutputStream)
   python_console_env = Dict
   device_serial = Str('')

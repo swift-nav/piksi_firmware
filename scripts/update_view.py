@@ -233,7 +233,7 @@ class UpdateView(HasTraits):
 
     Parameters
     ----------
-    link : serial_link.SerialLink
+    link : sbp.client.Handler
       Link for SBP transfer to/from Piksi.
     prompt : bool
       Prompt user to update console/firmware if out of date.
@@ -564,7 +564,7 @@ class UpdateView(HasTraits):
       progress_dialog.close()
 
     # Must tell Piksi to jump to application after updating firmware.
-    self.link.send_message(SBP_MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
+    self.link.send(SBP_MSG_BOOTLOADER_JUMP_TO_APP, '\x00')
     self._write("Firmware updates finished.")
     self._write("")
 
@@ -581,7 +581,7 @@ class UpdateView(HasTraits):
       Either "STM" or "M25".
     """
     # Reset device if the application is running to put into bootloader mode.
-    self.link.send_message(SBP_MSG_RESET, '')
+    self.link.send(SBP_MSG_RESET, '')
 
     self.pk_boot = bootload.Bootloader(self.link)
 

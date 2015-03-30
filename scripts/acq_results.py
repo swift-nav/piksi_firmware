@@ -10,15 +10,16 @@
 # WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 
 
-import serial_link
 import argparse
 import sys
 import time
 import struct
 
-from numpy           import mean
-from sbp.acquisition import SBP_MSG_ACQ_RESULT
-from sbp.piksi       import SBP_MSG_PRINT
+from numpy              import mean
+from sbp.acquisition    import SBP_MSG_ACQ_RESULT
+from sbp.piksi          import SBP_MSG_PRINT
+from sbp.client.main    import *
+from sbp.client.handler import *
 
 N_RECORD = 0 # Number of results to keep in memory, 0 = no limit.
 N_PRINT = 32
@@ -30,7 +31,7 @@ class AcqResults():
   def __init__(self, link):
     self.acqs = []
     self.link = link
-    self.link.add_callback(SBP_MSG_ACQ_RESULT, self._receive_acq_result)
+    self.link.add_callback(self._receive_acq_result, SBP_MSG_ACQ_RESULT)
     self.max_corr = 0
 
   def __str__(self):
@@ -80,38 +81,26 @@ if __name__ == "__main__":
                       help="use pylibftdi instead of pyserial.",
                       action="store_true")
   parser.add_argument('-p', '--port',
-                      default=[serial_link.DEFAULT_PORT], nargs=1,
+                      default=[SERIAL_PORT], nargs=1,
                       help='specify the serial port to use.')
+  parser.add_argument("-b", "--baud",
+                      default=[SERIAL_BAUD], nargs=1,
+                      help="specify the baud rate to use.")
   args = parser.parse_args()
   serial_port = args.port[0]
+  baud = args.baud[0]
+  use_ftdi = args.ftdi
 
-  print "Waiting for device to be plugged in ...",
-  sys.stdout.flush()
-  found_device = False
-  while not found_device:
-    try:
-      link = serial_link.SerialLink(serial_port, use_ftdi=args.ftdi)
-      found_device = True
-    except KeyboardInterrupt:
-      # Clean up and exit.
-      link.close()
-      sys.exit()
-    except:
-      # Couldn't find device.
-      time.sleep(0.01)
-  print "link with device successfully created."
-  link.add_callback(SBP_MSG_PRINT, serial_link.default_print_callback)
+  with get_driver(use_ftdi, serial_port, baud) as driver:
+    with Handler(driver.read, driver.write) as link:
+      link.add_callback(printer, SBP_MSG_PRINT)
+      acq_results = AcqResults(link)
+      link.start()
 
-  acq_results = AcqResults(link)
-
-  # Wait for ctrl+C before exiting.
-  try:
-    while True:
-      print acq_results
-      time.sleep(0.1)
-  except KeyboardInterrupt:
-    pass
-
-  # Clean up and exit.
-  link.close()
-  sys.exit()
+      # Wait for ctrl+C before exiting.
+      try:
+        while True:
+          print acq_results
+          time.sleep(0.1)
+      except KeyboardInterrupt:
+        pass
