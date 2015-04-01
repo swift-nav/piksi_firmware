@@ -18,6 +18,7 @@
 
 #include "sbp.h"
 #include "track.h"
+#include "timing.h"
 #include "ephemeris.h"
 
 MUTEX_DECL(es_mutex);
@@ -92,6 +93,39 @@ static msg_t nav_msg_thread(void *arg)
   return 0;
 }
 
+static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)context;
+
+  if (len != sizeof(ephemeris_t)) {
+    log_warn("Received bad ephemeris from peer\n");
+    return;
+  }
+
+  ephemeris_t e = *(ephemeris_t *)msg;
+  if (e.prn >= MAX_SATS) {
+    log_warn("Ignoring ephemeris for invalid sat\n");
+    return;
+  }
+
+  if (memcmp(&e, &es[e.prn], sizeof(e)) == 0) {
+    /* Peer's ephemeris matches ours, we now have confidence. */
+    es_confidence[e.prn] = true;
+    return;
+  }
+
+  gps_time_t t = get_current_time();
+  if (!es_confidence[e.prn] && ephemeris_good(&e, t)) {
+    log_info("New ephemeris for PRN%d from peer\n", e.prn+1);
+    chMtxLock(&es_mutex);
+    es_old[e.prn] = es[e.prn];
+    es[e.prn] = e;
+    es_confidence[e.prn] = false;
+    chMtxUnlock();
+    
+  }
+}
+
 void ephemeris_setup(void)
 {
   memset(es_confidence, 0, sizeof(es_confidence));
@@ -100,6 +134,13 @@ void ephemeris_setup(void)
   for (u8 i=0; i<32; i++) {
     es[i].prn = i;
   }
+
+  static sbp_msg_callbacks_node_t ephemeris_msg_node;
+  sbp_register_cbk(
+    SBP_MSG_EPHEMERIS,
+    &ephemeris_msg_callback,
+    &ephemeris_msg_node
+  );
 
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);
