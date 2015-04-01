@@ -43,39 +43,35 @@ static msg_t nav_msg_thread(void *arg)
 
     for (u8 i=0; i<nap_track_n_channels; i++) {
       chThdSleepMilliseconds(100);
+      tracking_channel_t *ch = &tracking_channel[i];
+
       /* Check if there is a new nav msg subframe to process.
        * TODO: move this into a function */
-      if (tracking_channel[i].state == TRACKING_RUNNING &&
-          tracking_channel[i].nav_msg.subframe_start_index) {
+      if ((ch->state != TRACKING_RUNNING) ||
+          (ch->nav_msg.subframe_start_index == 0))
+        continue;
 
-        /* Save old ephemeris before potentially updating. */
-        memcpy(&es_old[tracking_channel[i].prn],
-               &es[tracking_channel[i].prn],
-               sizeof(ephemeris_t));
+      /* Save old ephemeris before potentially updating. */
+      memcpy(&es_old[ch->prn], &es[ch->prn], sizeof(ephemeris_t));
 
-        __asm__("CPSID i;");
-        s8 ret = process_subframe(&tracking_channel[i].nav_msg,
-                                  &es[tracking_channel[i].prn]);
-        __asm__("CPSIE i;");
+      __asm__("CPSID i;");
+      s8 ret = process_subframe(&ch->nav_msg, &es[ch->prn]);
+      __asm__("CPSIE i;");
 
-        if (ret < 0) {
-          log_info("PRN %02d ret %d\n", tracking_channel[i].prn+1, ret);
-        } else if (ret == 1) {
-          /* Decoded a new ephemeris. */
+      if (ret < 0) {
+        log_info("PRN %02d ret %d\n", ch->prn+1, ret);
+      } else if (ret == 1) {
+        /* Decoded a new ephemeris. */
 
-          if (memcmp(&es[tracking_channel[i].prn],
-                     &es_old[tracking_channel[i].prn],
-                     sizeof(ephemeris_t))) {
-            log_info("New ephemeris for PRN %02d\n", tracking_channel[i].prn+1);
-          }
+        if (memcmp(&es[ch->prn], &es_old[ch->prn], sizeof(ephemeris_t))) {
+          log_info("New ephemeris for PRN %02d\n", ch->prn+1);
+        }
 
-          if (!es[tracking_channel[i].prn].healthy) {
-            log_info("PRN %02d unhealthy\n", tracking_channel[i].prn+1);
-          } else {
-            sbp_send_msg(SBP_MSG_EPHEMERIS,
-                         sizeof(ephemeris_t),
-                         (u8 *)&es[tracking_channel[i].prn]);
-          }
+        if (!es[ch->prn].healthy) {
+          log_info("PRN %02d unhealthy\n", ch->prn+1);
+        } else {
+          sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(ephemeris_t),
+                       (u8 *)&es[ch->prn]);
         }
       }
     }
