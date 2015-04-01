@@ -23,17 +23,13 @@
 MUTEX_DECL(es_mutex);
 ephemeris_t es[MAX_SATS] _CCM;
 static ephemeris_t es_old[MAX_SATS] _CCM;
+static bool es_confidence[MAX_SATS] _CCM;
 
 static WORKING_AREA_CCM(wa_nav_msg_thread, 3000);
 static msg_t nav_msg_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("nav msg");
-
-  memset(es, 0, sizeof(es));
-  for (u8 i=0; i<32; i++) {
-    es[i].prn = i;
-  }
 
   while (TRUE) {
 
@@ -44,6 +40,7 @@ static msg_t nav_msg_thread(void *arg)
     for (u8 i=0; i<nap_track_n_channels; i++) {
       chThdSleepMilliseconds(100);
       tracking_channel_t *ch = &tracking_channel[i];
+      ephemeris_t e = {.prn = ch->prn};
 
       /* Check if there is a new nav msg subframe to process.
        * TODO: move this into a function */
@@ -51,22 +48,35 @@ static msg_t nav_msg_thread(void *arg)
           (ch->nav_msg.subframe_start_index == 0))
         continue;
 
-      /* Save old ephemeris before potentially updating. */
-      memcpy(&es_old[ch->prn], &es[ch->prn], sizeof(ephemeris_t));
-
-      chMtxLock(&es_mutex);
+      /* Decode ephemeris to temporary struct */
       __asm__("CPSID i;");
-      s8 ret = process_subframe(&ch->nav_msg, &es[ch->prn]);
+      s8 ret = process_subframe(&ch->nav_msg, &e);
       __asm__("CPSIE i;");
-      chMtxUnlock();
 
       if (ret < 0) {
         log_info("PRN %02d ret %d\n", ch->prn+1, ret);
       } else if (ret == 1) {
         /* Decoded a new ephemeris. */
 
-        if (memcmp(&es[ch->prn], &es_old[ch->prn], sizeof(ephemeris_t))) {
-          log_info("New ephemeris for PRN %02d\n", ch->prn+1);
+        if (memcmp(&es[ch->prn], &e, sizeof(e))) {
+          if ((e.iode != es[ch->prn].iode) || /* IODE has changed, as expected */
+              !es_confidence[ch->prn]) {      /* Or we lack confidnce... */
+            log_info("New ephemeris for PRN %02d\n", ch->prn+1);
+            /* Back up old ephemeris in case this turns out to be bad. */
+            chMtxLock(&es_mutex);
+            /* Use the new ephemeris without confidence. */
+            es_old[ch->prn] = es[ch->prn];
+            es[ch->prn] = e;
+            es_confidence[ch->prn] = false;
+            chMtxUnlock();
+          } else {
+            log_info("Ignoring new ephemeris for PRN %02d "
+                     "due to lack of confidence\n", ch->prn+1);
+          }
+        } else {
+          /* This is the second time we've decoded the same ephemeris, so
+           * we now have confidence. */
+          es_confidence[ch->prn] = true;
         }
 
         if (!es[ch->prn].healthy) {
@@ -84,6 +94,13 @@ static msg_t nav_msg_thread(void *arg)
 
 void ephemeris_setup(void)
 {
+  memset(es_confidence, 0, sizeof(es_confidence));
+  memset(es_old, 0, sizeof(es_old));
+  memset(es, 0, sizeof(es));
+  for (u8 i=0; i<32; i++) {
+    es[i].prn = i;
+  }
+
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);
 }
