@@ -16,6 +16,7 @@
 #include <libswiftnav/constants.h>
 #include <libswiftnav/ephemeris.h>
 
+extern Mutex es_mutex;
 extern ephemeris_t es[MAX_SATS];
 
 void ephemeris_setup(void);

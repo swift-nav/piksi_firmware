@@ -20,9 +20,9 @@
 #include "track.h"
 #include "ephemeris.h"
 
-/* TODO: Think about thread safety when updating ephemerides. */
+MUTEX_DECL(es_mutex);
 ephemeris_t es[MAX_SATS] _CCM;
-ephemeris_t es_old[MAX_SATS] _CCM;
+static ephemeris_t es_old[MAX_SATS] _CCM;
 
 static WORKING_AREA_CCM(wa_nav_msg_thread, 3000);
 static msg_t nav_msg_thread(void *arg)
@@ -54,9 +54,11 @@ static msg_t nav_msg_thread(void *arg)
       /* Save old ephemeris before potentially updating. */
       memcpy(&es_old[ch->prn], &es[ch->prn], sizeof(ephemeris_t));
 
+      chMtxLock(&es_mutex);
       __asm__("CPSID i;");
       s8 ret = process_subframe(&ch->nav_msg, &es[ch->prn]);
       __asm__("CPSIE i;");
+      chMtxUnlock();
 
       if (ret < 0) {
         log_info("PRN %02d ret %d\n", ch->prn+1, ret);
