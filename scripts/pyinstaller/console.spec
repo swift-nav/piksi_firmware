@@ -4,6 +4,7 @@
 
 a = Analysis(['../console.py'],
              hiddenimports = [
+              'PySide.QtOpenGL', 
               'pyface.ui.qt4.init',
               'pyface.ui.qt4.action.menu_manager',
               'pyface.ui.qt4.action.menu_bar_manager',
