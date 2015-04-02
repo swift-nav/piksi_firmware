@@ -3,7 +3,6 @@
 # Settings for PyInstaller
 
 a = Analysis(['../console.py'],
-             pathex=['../../libswiftnav/sbp_generate', '../'],
              hiddenimports = [
               'pyface.ui.qt4.init',
               'pyface.ui.qt4.action.menu_manager',
@@ -40,7 +39,7 @@ a = Analysis(['../console.py'],
              runtime_hooks=['rthook_pyqt4.py'])
 
 resources = [
-  ('sbp_piksi.h', '../../src/sbp_piksi.h', 'DATA'),
+  ('settings.yaml', '../settings.yaml', 'DATA'),
   ('RELEASE-VERSION', '../RELEASE-VERSION', 'DATA'),
 ]
 resources += Tree('../images', prefix='images')
