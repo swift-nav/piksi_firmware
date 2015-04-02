@@ -3,13 +3,50 @@ Piksi Firmware Release Notes
 
 Contents
 --------
-
+ * [v0.15](#v0.15)
  * [v0.14](#v0.14)
  * [v0.13](#v0.13)
  * [v0.12](#v0.12)
  * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.15 <a name="v0.15"></a>
+-----
+
+ * Fixes to setup script for new and untracked dependencies
+
+#### Core
+
+ * Fixes to libswiftnav to improve firmware stability
+   * Fix for known crash when receiver drops from 5->4 satellites
+   * Fix "LD Factorization" message  & bug
+   * Fix for suddden large baseline bug when dropping & reacquiring sats
+ * Send RTK absolute positions as outputs over the MSG_POS_LLH (id 0x0201) and
+   MSG_POS_ECEF (id 0x0200) SBP messages - (Please review the SBP documentation
+   of the flags field for both messages)
+    * A flag of 0 represents single point position
+    * A flag of 1 represents the float solution
+    * A flag of 2 represents the fixed RTK solution
+ * Add log level prefixes to messages prints (ERROR, WARN, INFO & DEBUG)
+ * Remove SBP functionality from libswiftnav and use libsbp instead to handle
+   communication
+ * Piksi's messages, defined by Swift Binary Protocol (SBP), are now more fully
+   documented at http://github.com/swift-nav/libsbp. See the libsbp README for
+   more details.
+
+#### Console / serial_link.py
+
+ * Add display of psuedo absolute positions on solution tab
+ * Annotate settings to provide a description and notes for each setting
+ * Add Json serialization option to serial link functionality
+ * Provide a progress indicator for firmware updates
+ * Add a pause and clear button to the console log
+ * Add Piksi serial number to the console window header
+ * Use libsbp to decode messages from Piksi
+ * Watchdog timer option on Piksi heartbeat messages
+ * If running console from the source, update dependencies or rerun the setup.sh
+   script to grab the necessary dependencies
 
 v0.14 <a name="v0.14"></a>
 -----
