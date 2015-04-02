@@ -54,38 +54,36 @@ static msg_t nav_msg_thread(void *arg)
       s8 ret = process_subframe(&ch->nav_msg, &e);
       __asm__("CPSIE i;");
 
-      if (ret < 0) {
-        log_info("PRN %02d ret %d\n", ch->prn+1, ret);
-      } else if (ret == 1) {
-        /* Decoded a new ephemeris. */
+      if (ret <= 0)
+        continue;
 
-        if (memcmp(&es[ch->prn], &e, sizeof(e))) {
-          if ((e.iode != es[ch->prn].iode) || /* IODE has changed, as expected */
-              !es_confidence[ch->prn]) {      /* Or we lack confidnce... */
-            log_info("New ephemeris for PRN %02d\n", ch->prn+1);
-            /* Back up old ephemeris in case this turns out to be bad. */
-            chMtxLock(&es_mutex);
-            /* Use the new ephemeris without confidence. */
-            es_old[ch->prn] = es[ch->prn];
-            es[ch->prn] = e;
-            es_confidence[ch->prn] = false;
-            chMtxUnlock();
-          } else {
-            log_info("Ignoring new ephemeris for PRN %02d "
-                     "due to lack of confidence\n", ch->prn+1);
-          }
+      /* Decoded a new ephemeris. */
+      if (memcmp(&es[ch->prn], &e, sizeof(e))) {
+        if ((e.iode != es[ch->prn].iode) || /* IODE has changed, as expected */
+            !es_confidence[ch->prn]) {      /* Or we lack confidnce... */
+          log_info("New ephemeris for PRN %02d\n", ch->prn+1);
+          /* Back up old ephemeris in case this turns out to be bad. */
+          chMtxLock(&es_mutex);
+          /* Use the new ephemeris without confidence. */
+          es_old[ch->prn] = es[ch->prn];
+          es[ch->prn] = e;
+          es_confidence[ch->prn] = false;
+          chMtxUnlock();
         } else {
-          /* This is the second time we've decoded the same ephemeris, so
-           * we now have confidence. */
-          es_confidence[ch->prn] = true;
+          log_info("Ignoring new ephemeris for PRN %02d "
+                   "due to lack of confidence\n", ch->prn+1);
         }
+      } else {
+        /* This is the second time we've decoded the same ephemeris, so
+         * we now have confidence. */
+        es_confidence[ch->prn] = true;
+      }
 
-        if (!es[ch->prn].healthy) {
-          log_info("PRN %02d unhealthy\n", ch->prn+1);
-        } else {
-          sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(ephemeris_t),
-                       (u8 *)&es[ch->prn]);
-        }
+      if (!es[ch->prn].healthy) {
+        log_info("PRN %02d unhealthy\n", ch->prn+1);
+      } else {
+        sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(ephemeris_t),
+                     (u8 *)&es[ch->prn]);
       }
     }
   }
