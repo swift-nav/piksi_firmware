@@ -146,3 +146,19 @@ void ephemeris_setup(void)
                     NORMALPRIO-1, nav_msg_thread, NULL);
 }
 
+/* This is called if the solution failed to converge.  We'll look for a
+ * suspect ephemeris, and revert to the last one we had if found.
+ */
+void ephemeris_check_fix(void)
+{
+  for (u8 i = 0; i < MAX_SATS; i++) {
+    if (es_confidence[i] || !es_old[i].valid)
+      continue;
+
+    log_warn("Reverting to old ephemeris for PRN%d\n", i+1);
+    chMtxLock(&es_mutex);
+    es[i] = es_old[i];
+    chMtxUnlock();
+  }
+}
+

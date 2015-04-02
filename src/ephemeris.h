@@ -20,6 +20,7 @@ extern Mutex es_mutex;
 extern ephemeris_t es[MAX_SATS];
 
 void ephemeris_setup(void);
+void ephemeris_check_fix(void);
 
 #endif
 
