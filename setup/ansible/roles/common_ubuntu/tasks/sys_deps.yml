@@ -52,7 +52,7 @@
   sudo: True
   command: >
              pip install traits traitsui pyserial pylibftdi
-             pyparsing==1.5.7 pygments intelhex sbp==0.25
+             pyparsing==1.5.7 pygments intelhex six construct sbp==0.27
              --allow-unverified PIL
              --allow-external intelhex
              --allow-unverified intelhex
