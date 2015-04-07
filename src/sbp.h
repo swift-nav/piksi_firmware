@@ -14,11 +14,13 @@
 #define SWIFTNAV_SBP_H
 
 #include <libsbp/acquisition.h>
+#include <libsbp/bootload.h>
 #include <libsbp/common.h>
 #include <libsbp/observation.h>
+#include <libsbp/logging.h>
 #include <libsbp/piksi.h>
-#include <libsbp/tracking.h>
 #include <libsbp/sbp.h>
+#include <libsbp/tracking.h>
 
 #include "peripherals/usart.h"
 

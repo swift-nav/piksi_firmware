@@ -10,12 +10,14 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <stdio.h>
+#include <string.h>
+
+#include <libsbp/file_io.h>
+
 #include "sbp.h"
 #include "sbp_fileio.h"
 #include "cfs/cfs.h"
-
-#include <stdio.h>
-#include <string.h>
 
 static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context);
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context);
