@@ -17,7 +17,7 @@ import struct
 import argparse
 import sys
 
-from sbp.piksi import SBP_MSG_SETTINGS, SBP_MSG_SETTINGS_SAVE
+from sbp.settings import SBP_MSG_SETTINGS, SBP_MSG_SETTINGS_SAVE
 
 def send_setting(link, section, name, value):
   link.send_message(SBP_MSG_SETTINGS, '%s\0%s\0%s\0' % (section, name, value))

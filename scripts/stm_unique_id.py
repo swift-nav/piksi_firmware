@@ -14,7 +14,7 @@ import struct
 import sys
 import serial_link
 
-from sbp.piksi import SBP_MSG_STM_UNIQUE_ID
+from sbp.flash import SBP_MSG_STM_UNIQUE_ID
 
 class STMUniqueID:
 

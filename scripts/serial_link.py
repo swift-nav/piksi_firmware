@@ -19,8 +19,9 @@ import calendar
 import json
 
 from sbp          import crc16, SBP, SBP_PREAMBLE
-from sbp.piksi    import SBP_MSG_PRINT, SBP_MSG_RESET
-from sbp.standard import SBP_MSG_HEARTBEAT
+from sbp.logging  import SBP_MSG_PRINT
+from sbp.piksi    import SBP_MSG_RESET
+from sbp.system   import SBP_MSG_HEARTBEAT
 
 DEFAULT_PORT = '/dev/ttyUSB0'
 DEFAULT_BAUD = 1000000

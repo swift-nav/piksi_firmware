@@ -20,7 +20,7 @@ import numpy as np
 import datetime
 
 from sbp.piksi    import SBP_MSG_THREAD_STATE, SBP_MSG_UART_STATE
-from sbp.standard import SBP_MSG_HEARTBEAT
+from sbp.system   import SBP_MSG_HEARTBEAT
 
 class SimpleAdapter(TabularAdapter):
     columns = [('Thread Name', 0), ('CPU %',  1), ('Stack Free',  2)]
