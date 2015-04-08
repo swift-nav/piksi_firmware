@@ -35,7 +35,8 @@ from fileio import FileIO
 import callback_prompt as prompt
 
 from sbp.piksi    import *
-from sbp.standard import SBP_MSG_STARTUP
+from sbp.settings import *
+from sbp.system   import SBP_MSG_STARTUP
 
 from settings_list import SettingsList
 

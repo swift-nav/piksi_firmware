@@ -21,7 +21,9 @@
 import time
 import struct
 
-from sbp.piksi import *
+from sbp.logging  import *
+from sbp.bootload import *
+from sbp.piksi    import *
 
 class Bootloader():
 

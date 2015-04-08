@@ -15,7 +15,8 @@ from time import sleep
 from intelhex import IntelHex, HexRecordError, HexReaderError
 from pkg_resources import parse_version
 
-from sbp.piksi import SBP_MSG_BOOTLOADER_JUMP_TO_APP, SBP_MSG_RESET
+from sbp.bootload import SBP_MSG_BOOTLOADER_JUMP_TO_APP
+from sbp.piksi import SBP_MSG_RESET
 
 from threading import Thread
 

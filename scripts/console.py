@@ -11,7 +11,8 @@
 
 import serial_link
 from version import VERSION as CONSOLE_VERSION
-from sbp.piksi import *
+from sbp.logging import SBP_MSG_DEBUG_VAR, SBP_MSG_PRINT
+from sbp.piksi import SBP_MSG_RESET
 
 import argparse
 parser = argparse.ArgumentParser(description='Swift Nav Console.')
