@@ -573,3 +573,18 @@
   enumerated possible values:
   Description: The baudrate for the uart
   Notes:
+
+- group: ext_events
+  name: edge_trigger
+  type: enum
+  units:
+  default value: None
+  enumerated possible values: None,Rising,Falling,Both
+  Description: Select DEBUG0 edges to trigger timestamped event capture.
+  Notes: You can use this to record the exact time that some external
+    event in your system occurred, e.g. camera shutter time.  Upon
+    detecting the event, Piksi will generate a MSG_EXT_EVENT message
+    reporting the event, including a timestamp accurate to better than
+    a microsecond.
+    Requires NAP firmware v0.12 or later.
+  

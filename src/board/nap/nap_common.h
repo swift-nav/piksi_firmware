@@ -22,6 +22,7 @@
 /* NAP Register Addresses. */
 #define NAP_REG_IRQ                 0x00
 #define NAP_REG_ERROR               0x01
+#define NAP_REG_EXT_EVENT_TIME      0xF6
 #define NAP_REG_TIMING_COMPARE      0xF8
 #define NAP_REG_TIMING_COUNT        0xF9
 #define NAP_REG_TIMING_COUNT_LATCH  0xFA
@@ -29,7 +30,6 @@
 #define NAP_REG_DNA                 0xFD
 #define NAP_REG_RDWR                0xFE
 #define NAP_REG_DECEASED_COW        0xFF
-
 /* Status of NAP authentication hash comparison. */
 /* TODO: change NAP_HASH_MATCH to non 0x00/0xFF value so it is more reliable */
 #define NAP_HASH_MATCH              0
@@ -66,6 +66,17 @@ void nap_conf_b_clear(void);
 void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[],
                        const u8 data_out[]);
 
+/** Convenience function to read 4 bytes from a register (writing zeros) and
+ * convert to host byte order (i.e. little-endian).
+ * \param reg_id   NAP register ID.
+ * \return u32 register value
+ */
+inline u32 nap_read_u32(u8 reg_id) {
+  u32 val = 0;
+  nap_xfer_blocking(reg_id, 4, (u8 *)&val, (u8 *)&val);
+  return __builtin_bswap32(val);
+}
+
 u32 nap_error_rd_blocking(void);
 
 u8 nap_hash_status(void);
@@ -78,6 +89,8 @@ u64 nap_timing_count(void);
 u32 nap_timing_count_latched(void);
 void nap_timing_strobe(u32 falling_edge_count);
 bool nap_timing_strobe_wait(u32 timeout);
+
+u32 nap_ext_event_time(void);
 
 #endif  /* SWIFTNAV_NAP_COMMON_H */
 

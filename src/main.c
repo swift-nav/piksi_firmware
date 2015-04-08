@@ -21,6 +21,7 @@
 #include "board/leds.h"
 #include "board/max2769.h"
 #include "board/nap/nap_conf.h"
+#include "board/nap/nap_ext_event.h"
 #include "board/nap/acq_channel.h"
 #include "board/max2769.h"
 #include "sbp.h"
@@ -178,6 +179,7 @@ int main(void)
 
   max2769_setup();
   timing_setup();
+  ext_event_setup();
   position_setup();
 
   manage_acq_setup();

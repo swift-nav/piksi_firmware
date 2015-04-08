@@ -240,6 +240,19 @@ u64 nap_timing_count(void)
   return (u64)count | ((u64)rollover_count << 32);
 }
 
+/** Get the count of NAP's internal sample clock counter that was latched on
+ * the most recent rising edge of the external event input pin (DEBUG0).
+ * 
+ * \return NAP's internal sample clock count at most recent edge
+ */
+u32 nap_ext_event_time(void)
+{
+  u8 temp[4] = { 0, 0, 0, 0 };
+
+  nap_xfer_blocking(NAP_REG_EXT_EVENT_TIME, 4, temp, temp);
+  return (temp[0] << 24) | (temp[1] << 16) | (temp[2] << 8) | temp[3];
+}
+
 /** Get the count of NAP's internal sample clock counter at the clock cycle the
  * last timing_strobe went high.
  *
