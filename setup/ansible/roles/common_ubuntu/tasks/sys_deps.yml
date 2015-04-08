@@ -48,14 +48,11 @@
   sudo: Yes
   apt: update_cache=yes
 
-- name: Install python Enthought dependencies
+- name: Install python dependencies
   sudo: True
   command: >
              pip install traits traitsui pyserial pylibftdi
              pyparsing==1.5.7 pygments intelhex six construct sbp==0.27
-             --allow-unverified PIL
-             --allow-external intelhex
-             --allow-unverified intelhex
 
 # Set up conditional installation for ARM GCC tooling later.
 - name: Checking for arm gcc
