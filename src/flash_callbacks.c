@@ -11,6 +11,8 @@
  */
 
 #include <string.h>
+
+#include <libsbp/flash.h>
 #include <libsbp/sbp.h>
 
 #include "sbp.h"
