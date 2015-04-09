@@ -23,8 +23,33 @@
 
 MUTEX_DECL(es_mutex);
 ephemeris_t es[MAX_SATS] _CCM;
-static ephemeris_t es_old[MAX_SATS] _CCM;
-static bool es_confidence[MAX_SATS] _CCM;
+static ephemeris_t es_candidate[MAX_SATS] _CCM;
+
+static void ephemeris_new(ephemeris_t *e)
+{
+  gps_time_t t = get_current_time();
+  if (!ephemeris_good(&es[e->prn], t)) {
+    /* Our currently used ephemeris is bad, so we assume this is better. */
+    log_info("New untrusted ephemeris for PRN %02d\n", e->prn+1);
+    chMtxLock(&es_mutex);
+    es[e->prn] = es_candidate[e->prn] = *e;
+    chMtxUnlock();
+
+  } else if (memcmp(&es_candidate[e->prn], &e, sizeof(e))) {
+    /* The received ephemeris matches our candidate, so we trust it. */
+    log_info("New trusted ephemeris for PRN %02d\n", e->prn+1);
+    chMtxLock(&es_mutex);
+    es[e->prn] = *e;
+    chMtxUnlock();
+  } else {
+    /* This is our first reception of this new ephemeris, so treat it with
+     * suspicion and call it the new candidate. */
+    log_info("New ephemeris candidate for PRN %02d\n", e->prn+1);
+    chMtxLock(&es_mutex);
+    es_candidate[e->prn] = *e;
+    chMtxUnlock();
+  }
+}
 
 static WORKING_AREA_CCM(wa_nav_msg_thread, 3000);
 static msg_t nav_msg_thread(void *arg)
@@ -58,26 +83,7 @@ static msg_t nav_msg_thread(void *arg)
         continue;
 
       /* Decoded a new ephemeris. */
-      if (memcmp(&es[ch->prn], &e, sizeof(e))) {
-        if ((e.iode != es[ch->prn].iode) || /* IODE has changed, as expected */
-            !es_confidence[ch->prn]) {      /* Or we lack confidnce... */
-          log_info("New ephemeris for PRN %02d\n", ch->prn+1);
-          /* Back up old ephemeris in case this turns out to be bad. */
-          chMtxLock(&es_mutex);
-          /* Use the new ephemeris without confidence. */
-          es_old[ch->prn] = es[ch->prn];
-          es[ch->prn] = e;
-          es_confidence[ch->prn] = false;
-          chMtxUnlock();
-        } else {
-          log_info("Ignoring new ephemeris for PRN %02d "
-                   "due to lack of confidence\n", ch->prn+1);
-        }
-      } else {
-        /* This is the second time we've decoded the same ephemeris, so
-         * we now have confidence. */
-        es_confidence[ch->prn] = true;
-      }
+      ephemeris_new(&e);
 
       if (!es[ch->prn].healthy) {
         log_info("PRN %02d unhealthy\n", ch->prn+1);
@@ -106,28 +112,12 @@ static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void* contex
     return;
   }
 
-  if (memcmp(&e, &es[e.prn], sizeof(e)) == 0) {
-    /* Peer's ephemeris matches ours, we now have confidence. */
-    es_confidence[e.prn] = true;
-    return;
-  }
-
-  gps_time_t t = get_current_time();
-  if (!es_confidence[e.prn] && ephemeris_good(&e, t)) {
-    log_info("New ephemeris for PRN%d from peer\n", e.prn+1);
-    chMtxLock(&es_mutex);
-    es_old[e.prn] = es[e.prn];
-    es[e.prn] = e;
-    es_confidence[e.prn] = false;
-    chMtxUnlock();
-    
-  }
+  ephemeris_new(&e);
 }
 
 void ephemeris_setup(void)
 {
-  memset(es_confidence, 0, sizeof(es_confidence));
-  memset(es_old, 0, sizeof(es_old));
+  memset(es_candidate, 0, sizeof(es_candidate));
   memset(es, 0, sizeof(es));
   for (u8 i=0; i<32; i++) {
     es[i].prn = i;
@@ -142,21 +132,5 @@ void ephemeris_setup(void)
 
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
                     NORMALPRIO-1, nav_msg_thread, NULL);
-}
-
-/* This is called if the solution failed to converge.  We'll look for a
- * suspect ephemeris, and revert to the last one we had if found.
- */
-void ephemeris_check_fix(void)
-{
-  for (u8 i = 0; i < MAX_SATS; i++) {
-    if (es_confidence[i] || !es_old[i].valid)
-      continue;
-
-    log_warn("Reverting to old ephemeris for PRN%d\n", i+1);
-    chMtxLock(&es_mutex);
-    es[i] = es_old[i];
-    chMtxUnlock();
-  }
 }
 

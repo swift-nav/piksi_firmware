@@ -456,9 +456,6 @@ static msg_t solution_thread(void *arg)
           log_warn("PVT solver: %s (%d)\n", err_msg[-ret-1], ret);
         );
 
-        /* Revert to old ephemeris if any are suspect. */
-        ephemeris_check_fix();
-
         /* Send just the DOPs */
         solution_send_sbp(0, &dops);
       }
