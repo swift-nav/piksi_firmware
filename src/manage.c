@@ -43,7 +43,6 @@
  * \{ */
 
 /** Different hints on satellite info to aid the acqusition */
-/* XXX add me **/
 enum acq_hint {
   ACQ_HINT_ALMANAC,  /**< Almanac information. */
   ACQ_HINT_ACQ,      /**< Previous successful acqusition. */
@@ -72,6 +71,8 @@ acq_prn_t acq_prn_param[32];
 #define SCORE_ACQ     100
 #define SCORE_TRACK   200
 #define SCORE_OBS     200
+
+#define ALMANAC_DOPPLER_WINDOW 4000
 
 almanac_t almanac[32];
 
@@ -174,8 +175,8 @@ static void manage_calc_almanac_scores(void)
                                              position_solution.pos_ecef);
       acq_prn_param[prn].score[ACQ_HINT_ALMANAC] =
             el > 0 ? (u16)(SCORE_ALMANAC * 2 * el / M_PI) : 0;
-      acq_prn_param[prn].dopp_hint_low = dopp - 4000;
-      acq_prn_param[prn].dopp_hint_high = dopp + 4000;
+      acq_prn_param[prn].dopp_hint_low = dopp - ALMANAC_DOPPLER_WINDOW;
+      acq_prn_param[prn].dopp_hint_high = dopp + ALMANAC_DOPPLER_WINDOW;
     }
   }
 }
@@ -217,7 +218,7 @@ static u8 choose_prn(void)
   return -1;
 }
 
-/* Force a focus on specific satellites from Rover/Base observations
+/** Hint acqusition at satellites observed by peer.
 
 RTK relies on a common set of measurements, have the receivers focus search
 efforts on satellites both are likely to be able to see. Receiver will need
@@ -225,22 +226,9 @@ to be sufficiently close for RTK to function, and so should have a similar
 view of the constellation, even if obstructed this may change if the receivers
 move or the satellite arcs across the sky.
 
-I haven't tested how this behaves in all conditions, but should be self limiting
-in that satellites that roll out of view will stop getting promoted, and spare
-channels will get tasked with general hunting tasks. Satellites not in view to
-both due to big separation aren't going to hurt anyways.
-
-Prior to this flagging my Piksi's would perhaps both see 7 satellites, of these
-only 5 would be in common. By sharing viable/visibles birds mutually between the
-receivers we now have 9 common measurements to leverage into the RTK solution.
-
-This could be augmented further by sharing ephemeris/alamanc, here the rapidity of
-just tagging the PRN is a cheap win-win.
-
 cturvey 10-Feb-2015
 */
-
-void manage_prod_acq(u8 prn)
+void manage_set_obs_hint(u8 prn)
 {
   if (prn >= 32) /* check range */
     return;
@@ -284,12 +272,17 @@ static void manage_acq()
   acq_send_result(prn, snr, cp, cf);
   if (snr < ACQ_THRESHOLD) {
     /* Didn't find the satellite :( */
+    /* Double the size of the doppler search space for next time. */
     float dilute = (acq_prn_param[prn].dopp_hint_high -
                     acq_prn_param[prn].dopp_hint_low) / 2;
     acq_prn_param[prn].dopp_hint_high =
         MIN(acq_prn_param[prn].dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
     acq_prn_param[prn].dopp_hint_low =
         MAX(acq_prn_param[prn].dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
+    /* Decay hint scores */
+    for (u8 i = 0; i < ACQ_HINT_NUM; i++)
+      acq_prn_param[prn].score[i] = (acq_prn_param[prn].score[i] * 3) / 4;
+    /* Reset hint score for acuisition. */
     acq_prn_param[prn].score[ACQ_HINT_ACQ] = 0;
     return;
   }

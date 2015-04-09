@@ -277,7 +277,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     }
 
     /* Flag this as visible/viable to acquisition/search */
-    manage_prod_acq(obs[i].prn);
+    manage_set_obs_hint(obs[i].prn);
 
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
