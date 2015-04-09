@@ -32,8 +32,7 @@
 #include "settings.h"
 #include "timing.h"
 #include "base_obs.h"
-
-extern ephemeris_t es[MAX_SATS];
+#include "ephemeris.h"
 
 /** \defgroup base_obs Base station observation handling
  * \{ */
@@ -278,6 +277,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     }
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
+    chMtxLock(&es_mutex);
     if (ephemeris_good(&es[obs[i].prn], t)) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
@@ -304,6 +304,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       base_obss_rx.nm[base_obss_rx.n].tot = t;
       base_obss_rx.n++;
     }
+    chMtxUnlock();
   }
 
   /* If we can, and all the obs have been received, update to using the new
