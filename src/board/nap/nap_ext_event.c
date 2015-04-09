@@ -11,7 +11,7 @@
  */
 
 #include <libswiftnav/logging.h>
-#include <libsbp/ext_events.h>
+//#include <libsbp/ext_events.h>
 
 #include "./nap_common.h"
 #include "../../settings.h"
