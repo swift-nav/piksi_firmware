@@ -283,15 +283,14 @@ u8 manage_track_new_acq(float snr)
   return MANAGE_NO_CHANNELS_FREE;
 }
 
+/** Clear unhealthy flags after some time.  Flags are reset one per day. */
 static void check_clear_unhealthy(void)
 {
-  static u16 wn;
-  gps_time_t t = get_current_time();
-
-  if (t.wn == wn)
+  static systime_t ticks;
+  if (chTimeElapsedSince(ticks) < S2ST(24*60*60))
     return;
 
-  wn = t.wn;
+  ticks = chTimeNow();
 
   for (u8 prn=0; prn<32; prn++) {
     if (acq_prn_param[prn].state == ACQ_PRN_UNHEALTHY)
