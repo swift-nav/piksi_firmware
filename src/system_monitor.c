@@ -14,7 +14,7 @@
 
 #include <ch.h>
 
-#include <libsbp/standard.h>
+#include <libsbp/system.h>
 #include <libswiftnav/logging.h>
 #include <libswiftnav/dgnss_management.h>
 

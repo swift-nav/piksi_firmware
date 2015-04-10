@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <libsbp/standard.h>
+#include <libsbp/system.h>
 #include <libswiftnav/logging.h>
 
 #include <ch.h>

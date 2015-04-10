@@ -14,7 +14,7 @@ import sys
 import serial_link
 import threading
 
-from sbp.piksi import *
+from sbp.file_io import *
 
 class FileIO(object):
   def __init__(self, link):

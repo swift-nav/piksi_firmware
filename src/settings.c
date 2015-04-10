@@ -12,6 +12,7 @@
 
 #include <string.h>
 
+#include <libsbp/settings.h>
 #include <libswiftnav/logging.h>
 
 #include "peripherals/usart.h"
