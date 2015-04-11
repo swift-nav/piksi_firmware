@@ -11,10 +11,12 @@
  */
 
 #include <libswiftnav/logging.h>
-//#include <libsbp/ext_events.h>
+#include <libsbp/ext_events.h>
 
 #include "./nap_common.h"
 #include "../../settings.h"
+#include "../../timing.h"
+#include "../../sbp.h"
 
 /** \defgroup ext_events External Events
  * Capture accurate timestamps of external pin events
@@ -26,7 +28,7 @@ typedef enum {
   FALLING,
   BOTH
 } trigger_type_t;
-trigger_type_t trigger = NONE;
+static trigger_type_t trigger = NONE;
 
 static bool trigger_changed(struct setting *s, const char *val)
 {
@@ -35,13 +37,12 @@ static bool trigger_changed(struct setting *s, const char *val)
     u8 v[5]={0};
     v[4] = trigger;
     nap_xfer_blocking(NAP_REG_EXT_EVENT_TIME, 5, v, v);
-    log_info("External event trigger setting: %s\n", val);
     return true;
   }
   return false;
 }
 
-/** Setup the external event detection system
+/** Set up the external event detection system
  *
  * Informs the NAP of the desired trigger mode, and registers a settings callback
  * to update the NAP if the trigger mode is changed.
@@ -70,13 +71,27 @@ void ext_event_service(void)
     } d;
     u8 b[5];
   } v;
-  v.b[4] = trigger;  // Set for next time
+  v.b[4] = trigger;  // We have to reset the trigger for next time
   nap_xfer_blocking(NAP_REG_EXT_EVENT_TIME, 5, v.b, v.b);
-  u32 event_nap_time = __builtin_bswap32(v.d.time);
-  bool edge = v.d.edge_pin & 0x80;
-  u8 pin = v.d.edge_pin & 0x0F;
-  log_info("%s edge on DEBUG%d @ %u\n", edge ? "Rising" : "Falling",
-           pin, (unsigned int)event_nap_time);
+
+  // Extract the time of the event
+  u64 event_nap_time = __builtin_bswap32(v.d.time);
+  // We have to infer the most sig word (i.e. # of 262-second rollovers)
+  u64 tc = nap_timing_count();
+  if ((tc & 0xFFFFFFFF) < event_nap_time) // Rollover occurred since event
+    tc -= UINT64_C(0x100000000);
+  event_nap_time |= tc & UINT64_C(0xFFFFFFFF00000000);
+
+  gps_time_t gpst = rx2gpstime(event_nap_time);
+  msg_ext_event_t msg;
+  msg.wn = gpst.wn;
+  msg.tow = gpst.tow * 1E3;
+  msg.ns = gpst.tow * 1E9 - msg.tow * 1E6;
+  msg.flags = (v.d.edge_pin & 0x80) ? 1 : 0;
+  if (time_quality == TIME_FINE)
+    msg.flags |= (1 << 1);
+  msg.pin = v.d.edge_pin & 0x0F;
+  sbp_send_msg(SBP_MSG_EXT_EVENT, sizeof(msg), (u8 *)&msg);
 }
 
 /** \} */
