@@ -57,6 +57,11 @@ typedef struct {
   corr_t cs[3];                /**< EPL correlation results in correlation period. */
   nav_msg_t nav_msg;           /**< Navigation message of channel SV. */
   u16 lock_counter;            /**< Lock counter. Increments when tracking new signal. */
+  u8 int_ms;                   /**< Integration length. */
+  u8 next_int_ms;              /**< Integration length for the next cycle. */
+  bool short_cycle;            /**< Set to true when a short 1ms integration is requested. */
+  bool output_iq;              /**< Set if this channel should output I/Q samples on SBP. */
+  alias_detect_t alias_detect; /**< Alias lock detector. */
 } tracking_channel_t;
 
 /** \} */
