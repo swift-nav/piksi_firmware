@@ -57,7 +57,8 @@ typedef struct __attribute__((packed)) {
     ACQ_PRN_UNTRIED,
     ACQ_PRN_TRIED,
     ACQ_PRN_ACQUIRING,
-    ACQ_PRN_TRACKING
+    ACQ_PRN_TRACKING,
+    ACQ_PRN_UNHEALTHY,
   } state;  /**< Management status of PRN. */
   s8 score; /**< Acquisition preference of PRN. */
 } acq_prn_t;

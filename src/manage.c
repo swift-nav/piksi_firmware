@@ -162,8 +162,7 @@ u8 best_prn(void)
   s8 best_prn = -1;
   s8 best_score = -1;
   for (u8 prn=0; prn<32; prn++) {
-    if ((acq_prn_param[prn].state != ACQ_PRN_TRACKING) &&
-        (acq_prn_param[prn].state != ACQ_PRN_TRIED) &&
+    if ((acq_prn_param[prn].state == ACQ_PRN_UNTRIED) &&
         (acq_prn_param[prn].score > best_score)) {
       best_prn = prn;
       best_score = acq_prn_param[prn].score;
@@ -284,6 +283,21 @@ u8 manage_track_new_acq(float snr)
   return MANAGE_NO_CHANNELS_FREE;
 }
 
+/** Clear unhealthy flags after some time.  Flags are reset one per day. */
+static void check_clear_unhealthy(void)
+{
+  static systime_t ticks;
+  if (chTimeElapsedSince(ticks) < S2ST(24*60*60))
+    return;
+
+  ticks = chTimeNow();
+
+  for (u8 prn=0; prn<32; prn++) {
+    if (acq_prn_param[prn].state == ACQ_PRN_UNHEALTHY)
+      acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
+  }
+}
+
 static WORKING_AREA_CCM(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
 static msg_t manage_track_thread(void *arg)
 {
@@ -292,6 +306,7 @@ static msg_t manage_track_thread(void *arg)
   while (TRUE) {
     chThdSleepMilliseconds(200);
     DO_EVERY(5,
+      check_clear_unhealthy();
       manage_track();
       nmea_gpgsa(tracking_channel, 0);
     );
@@ -313,11 +328,22 @@ void manage_track_setup()
   );
 }
 
+extern ephemeris_t es[32];
+
 /** Disable any tracking channel whose SNR is below a certain margin. */
 void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracking_channel[i].state == TRACKING_RUNNING) {
+
+      if (es[tracking_channel[i].prn].valid &&
+          !es[tracking_channel[i].prn].healthy) {
+        acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_UNHEALTHY;
+        log_info("Dropping unhealthy PRN%d\n", tracking_channel[i].prn+1);
+        tracking_channel_disable(i);
+        continue;
+      }
+
       if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
         tracking_channel[i].snr_below_threshold_count =
           tracking_channel[i].update_count;
@@ -338,7 +364,6 @@ void manage_track()
   }
 }
 
-extern ephemeris_t es[32];
 s8 use_tracking_channel(u8 i)
 {
   return (tracking_channel[i].state == TRACKING_RUNNING)
