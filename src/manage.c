@@ -345,8 +345,14 @@ void manage_track()
       }
 
       if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
+        /* SNR has dropped below threshold, indicate that the carrier phase
+         * ambiguity is now unknown as cycle slips are likely. */
+        tracking_channel_ambiguity_unknown(i);
+        /* Update the latest time we were below the threshold. */
         tracking_channel[i].snr_below_threshold_count =
           tracking_channel[i].update_count;
+        /* Have we have been below the threshold for longer than
+         * `TRACK_SNR_THRES_COUNT`? */
         if (tracking_channel[i].update_count > TRACK_SNR_INIT_COUNT &&
             tracking_channel[i].update_count -
               tracking_channel[i].snr_above_threshold_count >
@@ -357,9 +363,11 @@ void manage_track()
           acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_TRIED;
         }
       } else {
+        /* SNR is good. */
         tracking_channel[i].snr_above_threshold_count =
           tracking_channel[i].update_count;
       }
+
     }
   }
 }

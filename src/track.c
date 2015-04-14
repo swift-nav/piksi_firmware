@@ -295,12 +295,29 @@ void tracking_channel_update(u8 channel)
  * Change tracking channel state to TRACKING_DISABLED and write 0 to SwiftNAP
  * tracking channel code / carrier frequencies to stop channel from raising
  * interrupts.
+ *
  * \param channel Tracking channel to disable.
  */
 void tracking_channel_disable(u8 channel)
 {
   nap_track_update_wr_blocking(channel, 0, 0, 0, 0);
   tracking_channel[channel].state = TRACKING_DISABLED;
+}
+
+/** Sets a channel's carrier phase ambiguity to unknown.
+ * Changes the lock counter to indicate to the consumer of the tracking channel
+ * observations that the carrier phase ambiguity may have changed. Also
+ * invalidates the time of week to indicate that the half cycle ambiguity must
+ * be resolved again by the navigation message processing. Should be called if
+ * a cycle slip is suspected.
+ *
+ * \param channel Tracking channel to disable.
+ */
+void tracking_channel_ambiguity_unknown(u8 channel)
+{
+  u8 prn = tracking_channel[channel].prn;
+  tracking_channel[channel].TOW_ms = TOW_INVALID;
+  tracking_channel[channel].lock_counter = ++tracking_lock_counters[prn];
 }
 
 /** Update channel measurement for a tracking channel.
