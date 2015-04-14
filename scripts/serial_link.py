@@ -419,12 +419,14 @@ if __name__ == "__main__":
     log_name = generate_log_filename()
     log_file = open(log_name, 'w+')
     print "Logging at %s." % log_name
+    link.add_global_callback(default_log_callback(log_file))
     if args.json:
-      link.add_global_callback(default_log_json_callback(log_file))
-    else:
-      link.add_global_callback(default_log_callback(log_file))
-    if args.reset:
-      link.send_message(SBP_MSG_RESET, '')
+      log_json_name = log_name + ".json"
+      log_json_file = open(log_json_name, 'w+')
+      print "Logging JSON at %s." % log_json_name
+      link.add_global_callback(default_log_json_callback(log_json_file))
+  if args.reset:
+    link.send_message(SBP_MSG_RESET, '')
   # Setup watchdog
   watchdog = args.watchdog[0]
   if watchdog:
