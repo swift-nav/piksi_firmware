@@ -240,17 +240,39 @@ u64 nap_timing_count(void)
   return (u64)count | ((u64)rollover_count << 32);
 }
 
-/** Get the count of NAP's internal sample clock counter that was latched on
- * the most recent rising edge of the external event input pin (DEBUG0).
+/** Read and write the NAP's external events register
  * 
- * \return NAP's internal sample clock count at most recent edge
+ * Reads the trigger edge, pin number and time of the most recently detected
+ * external event.  Simultaneously refreshes the NAP trigger mode, which
+ * clears the subsystem IRQ (NAP logic).
+ * 
+ * \param event_pin  If not null, pin identifier from most recent event will
+ *                   be saved here.
+ * \param event_trig If not null, edge sense from most recent event will be
+ *                   saved here.
+ * \param next_trig  Specify trigger edge sensitivity that the NAP should use
+ *                   for the next event.
+ * \return Count of NAP's internal timer, as latched by NAP on the cycle that
+ * the event was detected.
  */
-u32 nap_ext_event_time(void)
+u32 nap_rw_ext_event(u8 *event_pin, ext_event_trigger_t *event_trig,
+		     ext_event_trigger_t next_trig)
 {
-  u8 temp[4] = { 0, 0, 0, 0 };
+  union {
+    struct __attribute__((packed)) {
+      u8 edge_pin;
+      u32 time;
+    } d;
+    u8 b[5];
+  } v;
+  v.b[4] = next_trig;
+  nap_xfer_blocking(NAP_REG_EXT_EVENT_TIME, 5, v.b, v.b);
 
-  nap_xfer_blocking(NAP_REG_EXT_EVENT_TIME, 4, temp, temp);
-  return (temp[0] << 24) | (temp[1] << 16) | (temp[2] << 8) | temp[3];
+  if (event_pin)
+    *event_pin = v.d.edge_pin & 0x0F;
+  if (event_trig)
+    *event_trig = (v.d.edge_pin & 0x80) ? TRIG_RISING : TRIG_FALLING;
+  return __builtin_bswap32(v.d.time);
 }
 
 /** Get the count of NAP's internal sample clock counter at the clock cycle the

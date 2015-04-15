@@ -14,31 +14,25 @@
 #include <libsbp/navigation.h>
 #include <libsbp/ext_events.h>
 
-#include "./nap_common.h"
-#include "../../settings.h"
-#include "../../timing.h"
-#include "../../sbp.h"
-#include "../../sbp_utils.h"
+#include "board/nap/nap_common.h"
+#include "./settings.h"
+#include "./timing.h"
+#include "./sbp.h"
+#include "./sbp_utils.h"
+#include "./ext_events.h"
 
 /** \defgroup ext_events External Events
  * Capture accurate timestamps of external pin events
  * \{ */
 
-typedef enum {
-  NONE    = 0x00,
-  RISING  = 0x01,
-  FALLING = 0x02,
-  BOTH    = 0x03
-} trigger_type_t;
-static trigger_type_t trigger = NONE;
+static ext_event_trigger_t trigger = TRIG_NONE;
 
+/** Settings callback to inform NAP which trigger mode is desired */
 static bool trigger_changed(struct setting *s, const char *val)
 {
   if (s->type->from_string(s->type->priv, s->addr, s->len, val))
   {
-    u8 v[5]={0};
-    v[4] = trigger;
-    nap_xfer_blocking(NAP_REG_EXT_EVENT_TIME, 5, v, v);
+    nap_rw_ext_event(NULL, NULL, trigger);
     return true;
   }
   return false;
@@ -52,48 +46,53 @@ static bool trigger_changed(struct setting *s, const char *val)
  */
 void ext_event_setup(void)
 {
-  static const char const *trigger_enum[] = {"None", "Rising", "Falling", "Both", NULL};
+  static const char const *trigger_enum[] =
+    {"None", "Rising", "Falling", "Both", NULL};
   static struct setting_type trigger_setting;
-  int TYPE_TRIGGER = settings_type_register_enum(trigger_enum, &trigger_setting);
-  SETTING_NOTIFY("ext_events", "edge_trigger", trigger, TYPE_TRIGGER, trigger_changed);
+  int TYPE_TRIGGER = settings_type_register_enum(trigger_enum,
+						 &trigger_setting);
+  SETTING_NOTIFY("ext_events", "edge_trigger", trigger, TYPE_TRIGGER,
+		 trigger_changed);
+  /* trigger_changed() will be called at setup time (i.e. immediately) as well
+     as if user changes the setting later. */
 }
 
 /** Service an external event interrupt
  *
- * Read the trigger edge, pin and time from the NAP.  Simultaneously refresh the NAP
- * trigger mode and clear the IRQ.
+ * When an event occurs (i.e. pin edge) that matches the NAP's trigger
+ * condition, the NAP will latch the time, pin number and trigger direction.
+ * It will also set an IRQ bit which will lead to an EXTI.  The firmware
+ * EXTI handling routine handle_nap_exti() will call this function, which
+ * reads out the details and spits them out as an SBP message to our host.
  *
  */
 void ext_event_service(void)
 {
-  union {
-    struct __attribute__((packed)) {
-      u8 edge_pin;
-      u32 time;
-    } d;
-    u8 b[5];
-  } v;
-  v.b[4] = trigger;  /* We have to reset the trigger for next time */
-  nap_xfer_blocking(NAP_REG_EXT_EVENT_TIME, 5, v.b, v.b);
+  u8 event_pin;
+  ext_event_trigger_t event_trig;
 
-  /* Extract the time of the event */
-  u64 event_nap_time = __builtin_bswap32(v.d.time);
-
+  /* Read the details, and also clear IRQ + set up for next time */
+  u32 event_nap_time = nap_rw_ext_event(&event_pin, &event_trig, trigger);
+  
   /* We have to infer the most sig word (i.e. # of 262-second rollovers) */
-  u64 tc = nap_timing_count();
-  if ((tc & 0xFFFFFFFF) < event_nap_time)  /* Rollover occurred since event */
-    tc -= UINT64_C(0x100000000);
-  event_nap_time |= tc & UINT64_C(0xFFFFFFFF00000000);
+  union {
+    u32 half[2];
+    u64 full;
+  } tc;
+  tc.full = nap_timing_count();
+  if (tc.half[0] < event_nap_time)  /* Rollover occurred since event */
+    tc.half[1]--;
+  tc.half[0] = event_nap_time;
 
   /* Prepare the MSG_EXT_EVENT */
   msg_ext_event_t msg;
-  msg.flags = (v.d.edge_pin & 0x80) ? (1<<0) : (0<<0);
+  msg.flags = (event_trig == TRIG_RISING) ? (1<<0) : (0<<0);
   if (time_quality == TIME_FINE)
     msg.flags |= (1 << 1);
-  msg.pin = v.d.edge_pin & 0x0F;
+  msg.pin = event_pin;
 
   /* Convert to the SBP convention of rounded ms + signed ns residual */
-  gps_time_t gpst = rx2gpstime(event_nap_time);
+  gps_time_t gpst = rx2gpstime(tc.full);
   msg_gps_time_t mgt;
   sbp_make_gps_time(&mgt, &gpst, 0);
   msg.wn = mgt.wn;

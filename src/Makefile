@@ -93,7 +93,6 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/board/nap/acq_channel.o \
         $(SWIFTNAV_ROOT)/src/board/nap/track_channel.o \
         $(SWIFTNAV_ROOT)/src/board/nap/cw_channel.o \
-        $(SWIFTNAV_ROOT)/src/board/nap/nap_ext_event.o \
         $(SWIFTNAV_ROOT)/src/board/m25_flash.o \
         $(SWIFTNAV_ROOT)/src/board/max2769.o \
         $(SWIFTNAV_ROOT)/src/board/leds.o \
@@ -120,6 +119,7 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/manage.o \
         $(SWIFTNAV_ROOT)/src/settings.o \
         $(SWIFTNAV_ROOT)/src/timing.o \
+        $(SWIFTNAV_ROOT)/src/ext_events.o \
         $(SWIFTNAV_ROOT)/src/position.o \
         $(SWIFTNAV_ROOT)/src/solution.o \
         $(SWIFTNAV_ROOT)/src/base_obs.o \

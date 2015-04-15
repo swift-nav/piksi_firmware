@@ -10,10 +10,17 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_NAP_EXT_EVENT_H
-#define SWIFTNAV_NAP_EXT_EVENT_H
+#ifndef SWIFTNAV_EXT_EVENTS_H
+#define SWIFTNAV_EXT_EVENTS_H
+
+typedef enum {
+  TRIG_NONE    = 0x00,
+  TRIG_RISING  = 0x01,
+  TRIG_FALLING = 0x02,
+  TRIG_BOTH    = 0x03
+} ext_event_trigger_t;
 
 void ext_event_setup(void);
 void ext_event_service(void);
 
-#endif  // SWIFTNAV_NAP_EXT_EVENT_H
+#endif  // SWIFTNAV_EXT_EVENTS_H

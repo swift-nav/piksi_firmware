@@ -24,7 +24,7 @@
 #include "../../track.h"
 #include "nap_common.h"
 #include "track_channel.h"
-#include "nap_ext_event.h"
+#include "../../ext_events.h"
 
 /** \addtogroup nap
  * \{ */
