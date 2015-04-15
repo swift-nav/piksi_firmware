@@ -119,10 +119,10 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   tracking_channel[channel].state = TRACKING_RUNNING;
   tracking_channel[channel].prn = prn;
   tracking_channel[channel].update_count = 0;
-  tracking_channel[channel].lock_counter = ++tracking_lock_counters[prn];
 
-  /* Use -1 to indicate an uninitialised value. */
-  tracking_channel[channel].TOW_ms = -1;
+  /* Initialize TOW_ms and lock_count. */
+  tracking_channel_ambiguity_unknown(channel);
+
   tracking_channel[channel].snr_above_threshold_count = 0;
   tracking_channel[channel].snr_below_threshold_count = 0;
 

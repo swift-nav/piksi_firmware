@@ -380,7 +380,7 @@ s8 use_tracking_channel(u8 i)
       && (tracking_channel[i].update_count
             - tracking_channel[i].snr_below_threshold_count
             > TRACK_SNR_THRES_COUNT)
-      && (tracking_channel[i].TOW_ms > 0);
+      && (tracking_channel[i].TOW_ms >= 0);
 }
 
 u8 tracking_channels_ready()
