@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Copyright (C) 2011-2014 Swift Navigation Inc.
-# Contact: Fergus Noble <fergus@swift-nav.com>
+# Contact: Fergus Noble <fergus@swift-nav.cogps>
 #
 # This source is subject to the license found in the file 'LICENSE' which must
 # be be distributed together with this source. All other rights reserved.
@@ -13,6 +13,7 @@ import math as m
 import numpy as n
 import time
 import urllib2
+import StringIO
 
 NAV_GM = 3.986005e14
 NAV_OMEGAE_DOT = 7.2921151467e-005
@@ -20,10 +21,10 @@ GPS_L1_HZ = 1.57542e9
 NAV_C = 299792458.0
 
 RANDOM_SUNDAY = 1283644784
+START_OF_GPS_EPOCH_IN_UNIX_TIME = 315964800
 WPR = (-2712219.0, -4316338.0, 3820996.0)
 
-def time_of_week():
-  return (time.time() - RANDOM_SUNDAY) % (7*24*60*60)
+
 
 class Sat:
   def __init__(self, yuma_block):
@@ -134,14 +135,50 @@ class Sat:
 
 class Almanac:
   sats = None
+  def time_of_week(self):
+    if(self.tow == None):
+      return (time.time() - RANDOM_SUNDAY) % (7*24*60*60)
+    else:
+      return self.tow
+
+  def get_week_number(self):
+    if(self.week_number == None):
+      return int((time.time() - START_OF_GPS_EPOCH_IN_UNIX_TIME ) / (7*24*60*60)) %1024
+    else:
+      return self.week_number
+
+  def min_sat_item(self,field):
+    minweek = 1000000000
+    for each in self.sats:
+      minweek = min(minweek,getattr(each,field))
+    return minweek
 
   def almanac_valid(self):
-    return (self.sats != None)
+    if self.sats != None:
+      if int(self.get_week_number()) == int(self.sats[0].week):
+        return True
+    return False
 
   def download_almanac(self):
-    u = urllib2.urlopen('http://www.navcen.uscg.gov/?pageName=currentAlmanac&format=yuma')
+    if(self.week_number==None):
+      u = urllib2.urlopen('http://www.navcen.uscg.gov/?pageName=currentAlmanac&format=yuma')
+      print "no week number provided so using the latest almanac"
+    else:
+      year = 1999 + self.week_number/52 + 1
+      # almanac is update at least every six days, so it is reasonable to start at the year's week number when searching for the almanac
+      start_search = self.week_number%52
+      i=start_search
+      while i <1000:
+        u = urllib2.urlopen('http://www.navcen.uscg.gov/?Do=getAlmanac&almanac=' + str(i) + '&year=' +str(year))
+        week_num = u.readline().split(' ')[2]
+        if int(week_num) == int(self.week_number):
+          print "Retrieved first alamanc with week number " + week_num
+          break
+        else:
+          i += self.week_number-int(week_num)
     if u:
       self.process_yuma(u.readlines())
+    return
 
   def load_almanac_file(self, filename):
     fp = open(filename, 'r')
@@ -149,9 +186,16 @@ class Almanac:
       self.process_yuma(fp.readlines())
     fp.close()
 
+  def save_almanac_file(self,filename):
+    fp = open(filename, 'w+')
+    if fp and self.text:
+      fp.write(self.text)
+    fp.close()
+
   def process_yuma(self, yuma):
     if yuma:
       blocks = []
+      self.text = ''.join(yuma)
       for (n, line) in enumerate(yuma):
         if line[:3] == "ID:":
           blocks += [yuma[n:n+13]]
@@ -161,8 +205,7 @@ class Almanac:
 
   def get_dopps(self, tow=None, location=WPR):
     if not tow:
-      tow = time_of_week()
-
+      tow = self.time_of_week()
     if self.sats:
       dopps = map(lambda s: (s.prn,)+s.calc_vis_dopp(tow, location, elevation_mask=0.0), self.sats)
       dopps = filter(lambda (prn, dopp, el): (dopp != None), dopps)
@@ -170,9 +213,22 @@ class Almanac:
     else:
       return None
 
+  def __init__(self,week=None,tow=None):
+    self.week_number=week
+    self.tow=tow
+    text = ''
+
 if __name__ == "__main__":
-  alm = Almanac()
-  print "Downloading current almanac"
-  alm.download_almanac()
+  alm = Almanac(813,1)
+  try:
+    alm.load_almanac_file('almanac.txt')
+  except IOError:
+    print "No saved alamanac file found"
+  if not alm.almanac_valid():
+    print "Downloading current almanac"
+    alm.download_almanac()
+    alm.save_almanac_file('almanac.txt')
   print "Dopplers:"
   print alm.get_dopps()
+  # print alm.year
+
