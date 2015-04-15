@@ -30,6 +30,8 @@
 
 /* Time between sending system monitor and heartbeat messages in milliseconds */
 uint32_t heartbeat_period_milliseconds = 1000;
+/* Use watchdog timer or not */
+bool_t use_wdt = true;
 
 /* Base station mode settings. */
 /* TODO: Relocate to a different file? */
@@ -173,12 +175,14 @@ void system_monitor_setup()
   DWT_CTRL |= 1 ; /* Enable the counter. */
 
   SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
+  SETTING("system_monitor", "watchdog", use_wdt, TYPE_BOOL);
 
   SETTING("surveyed_position", "broadcast", broadcast_surveyed_position, TYPE_BOOL);
   SETTING("surveyed_position", "surveyed_lat", base_llh[0], TYPE_FLOAT);
   SETTING("surveyed_position", "surveyed_lon", base_llh[1], TYPE_FLOAT);
   SETTING("surveyed_position", "surveyed_alt", base_llh[2], TYPE_FLOAT);
 
+  
   chThdCreateStatic(
       wa_system_monitor_thread,
       sizeof(wa_system_monitor_thread),
