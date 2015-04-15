@@ -28,10 +28,13 @@
 #define NAP_IRQ_CW_DONE       (1 << 29)
 #define NAP_IRQ_CW_LOAD_DONE  (1 << 28)
 #define NAP_IRQ_TIMING_STROBE (1 << 27)
+#define NAP_IRQ_EXT_EVENT     (1 << 26)
 #define NAP_IRQ_TRACK_MASK    (~(NAP_IRQ_ACQ_DONE | \
                                  NAP_IRQ_ACQ_LOAD_DONE | \
                                  NAP_IRQ_CW_DONE | \
-                                 NAP_IRQ_CW_LOAD_DONE))
+                                 NAP_IRQ_CW_LOAD_DONE | \
+				 NAP_IRQ_TIMING_STROBE | \
+				 NAP_IRQ_EXT_EVENT ))
 
 /** \} */
 

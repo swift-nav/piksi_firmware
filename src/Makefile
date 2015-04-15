@@ -119,6 +119,7 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/manage.o \
         $(SWIFTNAV_ROOT)/src/settings.o \
         $(SWIFTNAV_ROOT)/src/timing.o \
+        $(SWIFTNAV_ROOT)/src/ext_events.o \
         $(SWIFTNAV_ROOT)/src/position.o \
         $(SWIFTNAV_ROOT)/src/solution.o \
         $(SWIFTNAV_ROOT)/src/base_obs.o \

@@ -24,6 +24,7 @@
 #include "../../track.h"
 #include "nap_common.h"
 #include "track_channel.h"
+#include "../../ext_events.h"
 
 /** \addtogroup nap
  * \{ */
@@ -80,6 +81,7 @@ void exti1_isr(void)
   CH_IRQ_EPILOGUE();
 }
 
+
 static void handle_nap_exti(void)
 {
   /* XXX Including ch.h in nap_common.h for an extern declaration causes
@@ -94,14 +96,18 @@ static void handle_nap_exti(void)
   if (irq & NAP_IRQ_ACQ_LOAD_DONE)
     acq_service_load_done();
 
-  if (irq & NAP_IRQ_TIMING_STROBE)
+  if (irq & NAP_IRQ_TIMING_STROBE) {
     chBSemReset(&timing_strobe_sem, TRUE);
+  }
 
   if (irq & NAP_IRQ_CW_DONE)
     cw_service_irq();
 
   if (irq & NAP_IRQ_CW_LOAD_DONE)
     cw_service_load_done();
+
+  if (irq & NAP_IRQ_EXT_EVENT)
+    ext_event_service();
 
   /* Mask off everything but tracking irqs. */
   irq &= NAP_IRQ_TRACK_MASK;

@@ -28,6 +28,7 @@
 #include "manage.h"
 #include "track.h"
 #include "timing.h"
+#include "ext_events.h"
 #include "solution.h"
 #include "base_obs.h"
 #include "position.h"
@@ -178,6 +179,7 @@ int main(void)
 
   max2769_setup();
   timing_setup();
+  ext_event_setup();
   position_setup();
 
   manage_acq_setup();
