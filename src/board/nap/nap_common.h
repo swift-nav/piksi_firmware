@@ -71,7 +71,8 @@ void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[],
  * \param reg_id   NAP register ID.
  * \return u32 register value
  */
-inline u32 nap_read_u32(u8 reg_id) {
+inline u32 nap_read_u32(u8 reg_id)
+{
   u32 val = 0;
   nap_xfer_blocking(reg_id, 4, (u8 *)&val, (u8 *)&val);
   return __builtin_bswap32(val);

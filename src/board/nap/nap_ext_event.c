@@ -11,22 +11,24 @@
  */
 
 #include <libswiftnav/logging.h>
+#include <libsbp/navigation.h>
 #include <libsbp/ext_events.h>
 
 #include "./nap_common.h"
 #include "../../settings.h"
 #include "../../timing.h"
 #include "../../sbp.h"
+#include "../../sbp_utils.h"
 
 /** \defgroup ext_events External Events
  * Capture accurate timestamps of external pin events
  * \{ */
 
 typedef enum {
-  NONE,
-  RISING,
-  FALLING,
-  BOTH
+  NONE    = 0x00,
+  RISING  = 0x01,
+  FALLING = 0x02,
+  BOTH    = 0x03
 } trigger_type_t;
 static trigger_type_t trigger = NONE;
 
@@ -71,26 +73,33 @@ void ext_event_service(void)
     } d;
     u8 b[5];
   } v;
-  v.b[4] = trigger;  // We have to reset the trigger for next time
+  v.b[4] = trigger;  /* We have to reset the trigger for next time */
   nap_xfer_blocking(NAP_REG_EXT_EVENT_TIME, 5, v.b, v.b);
 
-  // Extract the time of the event
+  /* Extract the time of the event */
   u64 event_nap_time = __builtin_bswap32(v.d.time);
-  // We have to infer the most sig word (i.e. # of 262-second rollovers)
+
+  /* We have to infer the most sig word (i.e. # of 262-second rollovers) */
   u64 tc = nap_timing_count();
-  if ((tc & 0xFFFFFFFF) < event_nap_time) // Rollover occurred since event
+  if ((tc & 0xFFFFFFFF) < event_nap_time)  /* Rollover occurred since event */
     tc -= UINT64_C(0x100000000);
   event_nap_time |= tc & UINT64_C(0xFFFFFFFF00000000);
 
-  gps_time_t gpst = rx2gpstime(event_nap_time);
+  /* Prepare the MSG_EXT_EVENT */
   msg_ext_event_t msg;
-  msg.wn = gpst.wn;
-  msg.tow = gpst.tow * 1E3;
-  msg.ns = gpst.tow * 1E9 - msg.tow * 1E6;
-  msg.flags = (v.d.edge_pin & 0x80) ? 1 : 0;
+  msg.flags = (v.d.edge_pin & 0x80) ? (1<<0) : (0<<0);
   if (time_quality == TIME_FINE)
     msg.flags |= (1 << 1);
   msg.pin = v.d.edge_pin & 0x0F;
+
+  /* Convert to the SBP convention of rounded ms + signed ns residual */
+  gps_time_t gpst = rx2gpstime(event_nap_time);
+  msg_gps_time_t mgt;
+  sbp_make_gps_time(&mgt, &gpst, 0);
+  msg.wn = mgt.wn;
+  msg.tow = mgt.tow;
+  msg.ns = mgt.ns;
+
   sbp_send_msg(SBP_MSG_EXT_EVENT, sizeof(msg), (u8 *)&msg);
 }
 
