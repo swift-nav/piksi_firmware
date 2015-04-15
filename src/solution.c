@@ -36,6 +36,7 @@
 #include "settings.h"
 #include "timing.h"
 #include "base_obs.h"
+#include "ephemeris.h"
 
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
@@ -171,8 +172,6 @@ void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
   chMtxUnlock();
 }
 
-extern ephemeris_t es[MAX_SATS];
-
 u16 lock_counters[MAX_SATS];
 
 /* Checks to see if any lock_counters have incremented or re-randomized.
@@ -302,8 +301,10 @@ static msg_t solution_thread(void *arg)
       static u8 n_ready_old = 0;
       u64 nav_tc = nap_timing_count();
       static navigation_measurement_t nav_meas[MAX_CHANNELS];
+      chMtxLock(&es_mutex);
       calc_navigation_measurement(n_ready, meas, nav_meas,
                                   (double)((u32)nav_tc)/SAMPLE_FREQ, es);
+      chMtxUnlock();
 
       static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
       u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
@@ -345,13 +346,14 @@ static msg_t solution_thread(void *arg)
             /* Hook in low-latency filter here. */
             if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
                 base_obss.has_pos) {
-              /* TODO lock the ephemerides for this operation */
+              chMtxLock(&es_mutex);
               sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
               u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                       base_obss.n, base_obss.nm,
                                       base_obss.sat_dists, base_obss.pos_ecef,
                                       es, position_solution.time,
                                       sdiffs);
+              chMtxUnlock();
               double prop_baseline[3];
               u8 num_sds_used;
               s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
