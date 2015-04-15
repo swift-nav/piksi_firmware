@@ -76,6 +76,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 void tracking_channel_get_corrs(u8 channel);
 void tracking_channel_update(u8 channel);
 void tracking_channel_disable(u8 channel);
+void tracking_channel_ambiguity_unknown(u8 channel);
 void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
 float tracking_channel_snr(u8 channel);
 void tracking_send_state(void);
