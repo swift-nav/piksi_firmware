@@ -323,6 +323,12 @@ int _write(int file, char *ptr, int len)
     return len;
 
   case 22:
+    /* File descriptor 22: Raw UART output.
+
+       TODO: This isn't currently used, so it could be removed, but
+       maybe some users would like a file-descriptorish raw UART
+       output function for one of the other (non-USB) UARTs.
+    */
     if (len > 255) len = 255;   /* Send maximum of 255 chars at a time */
     usart_write_dma(&ftdi_state.tx, (u8 *)ptr, len);
     return len;
