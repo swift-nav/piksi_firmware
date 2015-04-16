@@ -27,8 +27,8 @@
 #include "simulator.h"
 #include "system_monitor.h"
 
-#define WATCHDOG_PERIOD_MS 3000
-#define WATCHDOG_FLAGS_TIMEOUT_MS 1000
+#define WATCHDOG_HARDWARE_PERIOD_MS 3000  /* Actual period may vary +88% -32% */
+#define WATCHDOG_THREAD_PERIOD_MS 1500
 
 /* Time between sending system monitor and heartbeat messages in milliseconds */
 static uint32_t heartbeat_period_milliseconds = 1000;
@@ -39,7 +39,7 @@ static bool_t use_wdt = true;
    EVENT_MASK(0) | EVENT_MASK(1) | ... | EVENT_MASK(WD_NOTIFY_NUM_THREADS) */
 static eventmask_t thread_activity_mask = ((1UL << WD_NOTIFY_NUM_THREADS) - 1);
 
-static Thread *sys_mon_thread_handle;
+static Thread *watchdog_thread_handle;
 
 /* Base station mode settings. */
 /* TODO: Relocate to a different file? */
@@ -166,22 +166,41 @@ static msg_t system_monitor_thread(void *arg)
       log_error("SwiftNAP Error: 0x%08X\n", (unsigned int)err);
     }
 
-    /* Wait for all threads to set a flag indicating they are still
-       alive and performing their function */
-    if (chEvtWaitAllTimeout(thread_activity_mask,
-                            MS2ST(WATCHDOG_FLAGS_TIMEOUT_MS))) {
-      if (use_wdt)
-        watchdog_clear();
-    } else {  /* Timed out */
-      eventmask_t threads_dead = thread_activity_mask
-                               ^ chEvtGetAndClearEvents(thread_activity_mask);
-      log_error("One or more threads appear to be dead: %08X. "
-                "Watchdog reset imminent.\n", (unsigned int)threads_dead);
-    }
-
     sleep_until(&time, MS2ST(heartbeat_period_milliseconds));
   }
+  return 0;
+}
 
+static WORKING_AREA_CCM(wa_watchdog_thread, 1024);
+static msg_t watchdog_thread(void *arg)
+{
+  (void)arg;
+  chRegSetThreadName("Watchdog");
+
+  /* Allow an extra period at startup since some of the other threads
+     take a little while to get going */
+  chThdSleepMilliseconds(WATCHDOG_THREAD_PERIOD_MS);
+
+  if (use_wdt)
+    watchdog_enable(WATCHDOG_HARDWARE_PERIOD_MS);
+
+  while (TRUE) {
+    /* Wait for all threads to set a flag indicating they are still
+       alive and performing their function */
+    chThdSleepMilliseconds(WATCHDOG_THREAD_PERIOD_MS);
+    eventmask_t threads_dead = thread_activity_mask
+                             ^ chEvtGetAndClearEvents(thread_activity_mask);
+    if (threads_dead) {
+      log_error("One or more threads appear to be dead: 0x%08X. "
+                "Watchdog reset %s.\n",
+                (unsigned int)threads_dead,
+                use_wdt ? "imminent" : "disabled");
+    } else {
+      if (use_wdt)
+        watchdog_clear();
+    }
+
+  }
   return 0;
 }
 
@@ -195,16 +214,13 @@ void system_monitor_setup()
   SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
   SETTING("system_monitor", "watchdog", use_wdt, TYPE_BOOL);
 
-  if (use_wdt)
-    watchdog_enable(WATCHDOG_PERIOD_MS);
-
   SETTING("surveyed_position", "broadcast", broadcast_surveyed_position, TYPE_BOOL);
   SETTING("surveyed_position", "surveyed_lat", base_llh[0], TYPE_FLOAT);
   SETTING("surveyed_position", "surveyed_lon", base_llh[1], TYPE_FLOAT);
   SETTING("surveyed_position", "surveyed_alt", base_llh[2], TYPE_FLOAT);
 
   
-  sys_mon_thread_handle = chThdCreateStatic(
+  chThdCreateStatic(
       wa_system_monitor_thread,
       sizeof(wa_system_monitor_thread),
       LOWPRIO+10,
@@ -216,6 +232,12 @@ void system_monitor_setup()
       LOWPRIO+9,
       track_status_thread, NULL
   );
+  watchdog_thread_handle = chThdCreateStatic(
+      wa_watchdog_thread,
+      sizeof(wa_watchdog_thread),
+      HIGHPRIO,
+      watchdog_thread, NULL
+  );
 }
 
 /** Called by each important system thread after doing its important
@@ -225,7 +247,7 @@ void system_monitor_setup()
  **/
 void watchdog_notify(watchdog_notify_t thread_id)
 {
-  chEvtSignal(sys_mon_thread_handle, EVENT_MASK(thread_id));
+  chEvtSignal(watchdog_thread_handle, EVENT_MASK(thread_id));
 }
 
 /** \} */

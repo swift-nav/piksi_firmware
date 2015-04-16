@@ -189,9 +189,9 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
     if ((RCC_CSR & 0xFF000000) != RCC_CSR_PINRSTF) {
       log_info("Reset reason: %02X\n", (unsigned int)(RCC_CSR >> 24));
       if (RCC_CSR & RCC_CSR_IWDGRSTF)
-        log_error("Watchdog reset detected.\n");
+        log_warn("Watchdog reset detected.\n");
       if (RCC_CSR & RCC_CSR_LPWRRSTF)
-        log_info("Low power reset detected.\n");
+        log_warn("Low power reset detected.\n");
       if (RCC_CSR & RCC_CSR_SFTRSTF)
         log_info("Software reset detected.\n");
     }

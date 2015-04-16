@@ -148,8 +148,8 @@ int main(void)
   STBase->CVR = 0;
   STBase->CSR = CLKSOURCE_CORE_BITS | ENABLE_ON_BITS | TICKINT_ENABLED_BITS;
 
-  /* Kernel initialization, the main() function becomes a thread and the RTOS
-   * is active. */
+  /* Kernel initialization, the main() function becomes a thread with
+   * priority NORMALPRIO and the RTOS is active. */
   chSysInit();
 
   /* Piksi hardware initialization. */
