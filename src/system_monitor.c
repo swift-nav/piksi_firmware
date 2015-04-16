@@ -20,6 +20,7 @@
 
 #include "board/nap/nap_common.h"
 #include "board/leds.h"
+#include "peripherals/watchdog.h"
 #include "main.h"
 #include "sbp.h"
 #include "manage.h"
@@ -162,6 +163,8 @@ static msg_t system_monitor_thread(void *arg)
     }
 
     sleep_until(&time, MS2ST(heartbeat_period_milliseconds));
+    if (use_wdt)
+      watchdog_clear();
   }
 
   return 0;
@@ -176,6 +179,9 @@ void system_monitor_setup()
 
   SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
   SETTING("system_monitor", "watchdog", use_wdt, TYPE_BOOL);
+
+  if (use_wdt)
+    watchdog_enable(2000);
 
   SETTING("surveyed_position", "broadcast", broadcast_surveyed_position, TYPE_BOOL);
   SETTING("surveyed_position", "surveyed_lat", base_llh[0], TYPE_FLOAT);
