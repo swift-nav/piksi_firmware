@@ -119,6 +119,7 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/manage.o \
         $(SWIFTNAV_ROOT)/src/settings.o \
         $(SWIFTNAV_ROOT)/src/timing.o \
+        $(SWIFTNAV_ROOT)/src/ext_events.o \
         $(SWIFTNAV_ROOT)/src/position.o \
         $(SWIFTNAV_ROOT)/src/solution.o \
         $(SWIFTNAV_ROOT)/src/base_obs.o \
@@ -127,6 +128,7 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/nmea.o \
         $(SWIFTNAV_ROOT)/src/system_monitor.o \
         $(SWIFTNAV_ROOT)/src/flash_callbacks.o \
+        $(SWIFTNAV_ROOT)/src/ephemeris.o \
         main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
