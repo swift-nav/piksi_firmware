@@ -77,6 +77,24 @@ void _screaming_death(const char *pos, const char *msg)
   }
 }
 
-/** \} */
 
+/* Required by exit() which is (hopefully not) called from BLAS/LAPACK. */
+void _fini(void)
+{
+  return;
+}
+
+/** _exit(2) syscall handler.  Called by (at least) abort() and exit().
+ * Calls screaming_death() to repeatedly print an ERROR until WDT reset.
+ */
+void _exit(int status)
+{
+  (void)status;
+  /* TODO: Perhaps print a backtrace; let's see if this ever actually
+     occurs before implementing that. */
+  screaming_death("abort() or exit() was called");
+}
+
+
+/** \} */
 /** \} */

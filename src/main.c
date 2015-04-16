@@ -44,12 +44,6 @@ extern void ext_setup(void);
 #define SYSTEM_CLOCK 130944000
 #endif
 
-/* Required by exit() which is called from BLAS/LAPACK. */
-void _fini(void)
-{
-  return;
-}
-
 /** Compare version strings.
  * Compares a version of the form 'vX.Y-Z-'. If the first character of the
  * version is not 'v' then that string will be considered older than any
