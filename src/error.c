@@ -53,19 +53,17 @@ void _screaming_death(const char *pos, const char *msg)
   DMA2_S7CR = 0;                  /* Disable USART TX DMA */
   USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
 
-  #define SPEAKING_MSG_N 76       /* Maximum length of error message */
+  #define SPEAKING_MSG_N 128       /* Maximum length of error message */
 
-  static char err_msg[SPEAKING_MSG_N] = "Error (";
-  const char spacer[] = "): ";
+  static char err_msg[SPEAKING_MSG_N] = "ERROR: ";
 
-  memcpy(err_msg+strlen(err_msg), pos, strlen(pos));
-  memcpy(err_msg+strlen(err_msg), spacer, strlen(spacer));
-  memcpy(err_msg+strlen(err_msg), msg, strlen(msg));
+  strncat(err_msg, pos, SPEAKING_MSG_N - 8);
+  strncat(err_msg, " : ", SPEAKING_MSG_N - strlen(err_msg) - 1);
+  strncat(err_msg, msg, SPEAKING_MSG_N - strlen(err_msg) - 1);
+  strncat(err_msg, "\n", SPEAKING_MSG_N - strlen(err_msg) - 1);
   u8 len = strlen(err_msg);
-  err_msg[len++] = '\n';
-  err_msg[len++] = 0;
 
-  sbp_state_t sbp_state;
+  static sbp_state_t sbp_state;
   sbp_state_init(&sbp_state);
 
   /* Continuously send error message */
@@ -73,7 +71,7 @@ void _screaming_death(const char *pos, const char *msg)
   while (1) {
     sbp_send_message(&sbp_state, SBP_MSG_PRINT, 0, len, (u8*)err_msg, &fallback_write);
     led_toggle(LED_RED);
-    for (u32 d = 0; d < 5*APPROX_ONE_SEC; d++) {
+    for (u32 d = 0; d < APPROX_ONE_SEC; d++) {
       __asm__("nop");
     }
   }

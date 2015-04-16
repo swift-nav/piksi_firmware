@@ -19,7 +19,7 @@
 #define STRINGIZE(x) STRINGIZE_DETAIL(x)
 
 #define screaming_death(x) _screaming_death(__FILE__ ":" STRINGIZE(__LINE__), (x))
-void _screaming_death(const char *pos, const char *msg);
+__attribute__((noreturn)) void _screaming_death(const char *pos, const char *msg);
 
 #endif  /* SWIFTNAV_ERROR_H */
 
