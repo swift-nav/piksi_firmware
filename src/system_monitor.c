@@ -64,10 +64,7 @@ void send_thread_states()
     strncpy(tp_state.name, chRegGetThreadName(tp), sizeof(tp_state.name));
     sbp_send_msg(SBP_MSG_THREAD_STATE, sizeof(tp_state), (u8 *)&tp_state);
 
-    /* This works because chThdGetTicks is actually a define that pulls out a
-     * value from a struct, hopefully if that fact changes then this statement
-     * will no longer compile. */
-    tp->p_ctime = 0;
+    tp->p_ctime = 0;  /* Reset thread CPU cycle count */
     tp = chRegNextThread(tp);
   }
   g_ctime = 0;
