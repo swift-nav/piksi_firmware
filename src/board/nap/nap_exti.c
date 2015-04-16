@@ -25,6 +25,7 @@
 #include "nap_common.h"
 #include "track_channel.h"
 #include "../../ext_events.h"
+#include "../../system_monitor.h"
 
 /** \addtogroup nap
  * \{ */
@@ -128,6 +129,7 @@ static void handle_nap_exti(void)
     }
   }
 
+  watchdog_notify(WD_NOTIFY_NAP_ISR);
   nap_exti_count++;
 }
 

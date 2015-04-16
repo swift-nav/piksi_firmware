@@ -33,6 +33,7 @@
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
 #include "peripherals/random.h"
+#include "./system_monitor.h"
 
 /** \defgroup manage Manage
  * Manage acquisition and tracking.
@@ -113,6 +114,7 @@ static msg_t manage_acq_thread(void *arg)
   chRegSetThreadName("manage acq");
   while (TRUE) {
     manage_acq();
+    watchdog_notify(WD_NOTIFY_ACQ_MGMT);
   }
 
   return 0;
@@ -360,6 +362,7 @@ static msg_t manage_track_thread(void *arg)
       check_clear_unhealthy();
       manage_track();
       nmea_gpgsa(tracking_channel, 0);
+      watchdog_notify(WD_NOTIFY_TRACKING_MGMT);
     );
     tracking_send_state();
   }

@@ -37,6 +37,7 @@
 #include "timing.h"
 #include "base_obs.h"
 #include "ephemeris.h"
+#include "./system_monitor.h"
 
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
@@ -506,6 +507,7 @@ static msg_t solution_thread(void *arg)
         }
       }
     }
+    watchdog_notify(WD_NOTIFY_SOLUTION);
   }
   return 0;
 }

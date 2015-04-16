@@ -17,4 +17,20 @@
 
 void system_monitor_setup(void);
 
+/* Notification flags: system_monitor_thread will only clear the
+ * hardware watchdog if watchdog_notify() is called with *each* of
+ * these flags.  The idea is that every important thread will have at
+ * least one flag listed here, corresponding to the important work
+ * that that thread is doing.
+ */
+typedef enum {
+  WD_NOTIFY_NAP_ISR,
+  WD_NOTIFY_TRACKING_MGMT,
+  WD_NOTIFY_ACQ_MGMT,
+  WD_NOTIFY_SOLUTION,
+  WD_NOTIFY_NUM_THREADS  /* Maximum 32 of these! */
+} watchdog_notify_t;
+
+void watchdog_notify(watchdog_notify_t thread_id);
+
 #endif
