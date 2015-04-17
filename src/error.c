@@ -11,9 +11,6 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-/* #define TRAP_UNALIGNED_ACCESS */
-#define TRAP_INT_DIV_ZERO yes
-
 #include <libopencm3/stm32/f4/dma.h>
 #include <libopencm3/stm32/f4/usart.h>
 #include <stdlib.h>
@@ -28,6 +25,12 @@
 #include "error.h"
 #include "sbp.h"
 
+#define TRAP_INT_DIV_ZERO
+/* A lot of the SBP packet packing/unpacking fails involves unligned
+   access at the moment, so the following is disabled for now*/
+#undef TRAP_UNALIGNED_ACCESS
+
+
 /** \addtogroup error
  * System low-level error handling and reporting
  * \{ */
@@ -36,6 +39,7 @@
  * \{ */
 
 /** A simple DMA/interrupt-free UART write function, for use by screaming_death */
+/* TODO: Move to peripherals/usart.c? */
 static u32 fallback_write_ftdi(u8 *buff, u32 n, void *context)
 {
   (void)context;
@@ -80,6 +84,7 @@ void _screaming_death(const char *pos, const char *msg)
     for (u32 d = 0; d < APPROX_ONE_SEC; d++) {
       __asm__("nop");
     }
+    /* TODO: Send to other UARTs? */
     sbp_send_message(&sbp_state, SBP_MSG_PRINT, 0, len, (u8*)err_msg, &fallback_write_ftdi);
   }
 }
@@ -151,19 +156,19 @@ void NMIVector(void)
 
 void HardFaultVector(void)
 {
-  static char msg[256];
-
-  sprintf(msg, "HFSR=%08X CFSR=%08X MMFAR=%08X BFAR=%08X",
-          (unsigned int)SCB_HFSR, (unsigned int)SCB_CFSR,
-          (unsigned int)SCB_MMFAR, (unsigned int)SCB_BFAR);
-
   /* TODO: Stack trace / register dump per
      http://www.freertos.org/Debugging-Hard-Faults-On-Cortex-M-Microcontrollers.html
      https://blog.feabhas.com/2013/02/developing-a-generic-hard-fault-handler-for-arm-cortex-m3cortex-m4/
      http://koti.kapsi.fi/jpa/stuff/other/stm32-hardfault-backtrace.html
-     + ChibiOS thread status dump
+     TODO: ChibiOS thread status dump
+     TODO: Use MSG_PANIC to avoid sprintf
+     TODO: If stack is fucked, try to relocate it somewhere safe before pushing more things onto it.
   */
 
+  static char msg[256];
+  sprintf(msg, "HFSR=%08X CFSR=%08X MMFAR=%08X BFAR=%08X",
+          (unsigned int)SCB_HFSR, (unsigned int)SCB_CFSR,
+          (unsigned int)SCB_MMFAR, (unsigned int)SCB_BFAR);
   _screaming_death(__func__, msg);
 };
 

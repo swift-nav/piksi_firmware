@@ -191,6 +191,7 @@ static msg_t watchdog_thread(void *arg)
     eventmask_t threads_dead = thread_activity_mask
                              ^ chEvtGetAndClearEvents(thread_activity_mask);
     if (threads_dead) {
+      /* TODO: ChibiOS thread state dump */
       log_error("One or more threads appear to be dead: 0x%08X. "
                 "Watchdog reset %s.\n",
                 (unsigned int)threads_dead,
