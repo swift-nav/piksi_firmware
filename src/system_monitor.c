@@ -100,14 +100,41 @@ static msg_t track_status_thread(void *arg)
   return 0;
 }
 
+/** Sleep thread until a period has elapsed.
+ * Keeps track of the previous wake-up time to ensure that a periodic task is
+ * woken up on time even if there is jitter in the time the task takes to
+ * execute (e.g. due to preemption by higher priority tasks).
+ *
+ * References:
+ *  -# https://www.rfc1149.net/blog/2013/04/03/sleeping-just-the-right-amount-of-time/
+ *
+ * \param previous Time that the thread was previously woken up
+ * \param period Period in system time ticks
+ */
+void sleep_until(systime_t *previous, systime_t period)
+{
+  systime_t future = *previous + period;
+  chSysLock();
+  systime_t now = chTimeNow();
+  int must_delay = now < *previous ?
+    (now < future && future < *previous) :
+    (now < future || future < *previous);
+  if (must_delay) {
+    chThdSleepS(future - now);
+  }
+  chSysUnlock();
+  *previous = future;
+}
+
 static WORKING_AREA_CCM(wa_system_monitor_thread, 3000);
 static msg_t system_monitor_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("system monitor");
 
+  systime_t time = chTimeNow();
+
   while (TRUE) {
-    chThdSleepMilliseconds(heartbeat_period_milliseconds);
 
     u32 status_flags = 0;
     sbp_send_msg(SBP_MSG_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
@@ -131,6 +158,8 @@ static msg_t system_monitor_thread(void *arg)
     if (err) {
       log_error("SwiftNAP Error: 0x%08X\n", (unsigned int)err);
     }
+
+    sleep_until(&time, MS2ST(heartbeat_period_milliseconds));
   }
 
   return 0;
