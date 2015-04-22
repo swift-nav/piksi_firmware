@@ -32,6 +32,7 @@
 #include "sbp.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
+#include "peripherals/random.h"
 
 /** \defgroup manage Manage
  * Manage acquisition and tracking.
@@ -41,12 +42,46 @@
  * tracking channels that have lost lock on their satellites.
  * \{ */
 
+/** Different hints on satellite info to aid the acqusition */
+enum acq_hint {
+  ACQ_HINT_ALMANAC,  /**< Almanac information. */
+  ACQ_HINT_ACQ,      /**< Previous successful acqusition. */
+  ACQ_HINT_TRACK,    /**< Previously tracked satellite. */
+  ACQ_HINT_OBS,      /**< Observation from reference station. */
+
+  ACQ_HINT_NUM
+};
+
+/** Status of acquisition for a particular PRN. */
+typedef struct {
+  enum {
+    ACQ_PRN_SKIP = 0,
+    ACQ_PRN_ACQUIRING,
+    ACQ_PRN_TRACKING,
+    ACQ_PRN_UNHEALTHY
+  } state;                 /**< Management status of PRN. */
+  u16 score[ACQ_HINT_NUM]; /**< Acquisition preference of PRN. */
+  float dopp_hint_low;     /**< Low bound of doppler search hint. */
+  float dopp_hint_high;    /**< High bound of doppler search hint. */
+} acq_prn_t;
 acq_prn_t acq_prn_param[32];
+
+#define SCORE_DEFAULT 100
+#define SCORE_ALMANAC 200
+#define SCORE_ACQ     100
+#define SCORE_TRACK   200
+#define SCORE_OBS     200
+
+#define ALMANAC_DOPPLER_WINDOW 4000
+
 almanac_t almanac[32];
 
+static u8 manage_track_new_acq(void);
+static void manage_acq(void);
+static void manage_track(void);
 
-sbp_msg_callbacks_node_t almanac_callback_node;
-void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static sbp_msg_callbacks_node_t almanac_callback_node;
+static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void) context;
 
@@ -86,8 +121,11 @@ static msg_t manage_acq_thread(void *arg)
 void manage_acq_setup()
 {
   for (u8 prn=0; prn<32; prn++) {
-    acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
-    acq_prn_param[prn].score = 0;
+    acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
+    for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
+      acq_prn_param[prn].score[hint] = 0;
+    acq_prn_param[prn].dopp_hint_low = ACQ_FULL_CF_MIN;
+    acq_prn_param[prn].dopp_hint_high = ACQ_FULL_CF_MAX;
   }
 
   int fd = cfs_open("almanac", CFS_READ);
@@ -119,13 +157,10 @@ void manage_acq_setup()
   );
 }
 
-static void manage_calc_scores(void)
+static void manage_calc_almanac_scores(void)
 {
   double az, el;
-  gps_time_t t;
-
-  if (time_quality != TIME_UNKNOWN)
-    t = get_current_time();
+  gps_time_t t = get_current_time();
 
   for (u8 prn=0; prn<32; prn++) {
     if (!almanac[prn].valid ||
@@ -133,61 +168,79 @@ static void manage_calc_scores(void)
         position_quality == POSITION_UNKNOWN) {
       /* No almanac or position/time information, give it the benefit of the
        * doubt. */
-      acq_prn_param[prn].score = 0;
+      acq_prn_param[prn].score[ACQ_HINT_ALMANAC] = 0;
     } else {
       calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024, position_solution.pos_ecef, &az, &el);
-      acq_prn_param[prn].score = (s8)(el/D2R);
-
-      gps_time_t toa;
-      toa.wn = almanac[prn].week + 1024;
-      toa.tow = almanac[prn].toa;
-
-      double dt_alm = fabs(gpsdifftime(t, toa));
-      double dt_pos = fabs(gpsdifftime(t, position_solution.time));
-
-      if (time_quality == TIME_GUESS ||
-          dt_pos > 1*24*3600 ||
-          dt_alm > 4*24*3600) {
-        /* Don't exclude other sats if our time is just a guess, our last
-         * position solution was ages ago or our almanac is old. */
-        if (acq_prn_param[prn].score < 0)
-          acq_prn_param[prn].score = 0;
-      }
+      float dopp = -calc_sat_doppler_almanac(&almanac[prn], t.tow, t.wn,
+                                             position_solution.pos_ecef);
+      acq_prn_param[prn].score[ACQ_HINT_ALMANAC] =
+            el > 0 ? (u16)(SCORE_ALMANAC * 2 * el / M_PI) : 0;
+      acq_prn_param[prn].dopp_hint_low = dopp - ALMANAC_DOPPLER_WINDOW;
+      acq_prn_param[prn].dopp_hint_high = dopp + ALMANAC_DOPPLER_WINDOW;
     }
   }
 }
 
-u8 best_prn(void)
+static u8 choose_prn(void)
 {
-  s8 best_prn = -1;
-  s8 best_score = -1;
+  u32 total_score = 0;
+
+  manage_calc_almanac_scores();
+
   for (u8 prn=0; prn<32; prn++) {
-    if ((acq_prn_param[prn].state == ACQ_PRN_UNTRIED) &&
-        (acq_prn_param[prn].score > best_score)) {
-      best_prn = prn;
-      best_score = acq_prn_param[prn].score;
+    if (acq_prn_param[prn].state != ACQ_PRN_ACQUIRING)
+      continue;
+
+    total_score += SCORE_DEFAULT;
+    for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++) {
+      total_score += acq_prn_param[prn].score[hint];
     }
   }
 
-  if (best_score < 0) {
-    /* No good satellites right now. Set all back to untried and try again
-     * later. */
-    for (u8 prn=0; prn<32; prn++) {
-      if (acq_prn_param[prn].state == ACQ_PRN_TRIED)
-        acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
+  u32 pick = random_int() % total_score;
+
+  for (u8 prn=0; prn<32; prn++) {
+    if (acq_prn_param[prn].state != ACQ_PRN_ACQUIRING)
+      continue;
+
+    u32 sat_score = SCORE_DEFAULT;
+    for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
+      sat_score += acq_prn_param[prn].score[hint];
+    if (pick < sat_score) {
+      return prn;
+    } else {
+      pick -= sat_score;
     }
-    log_info("acq: restarting PRN search\n");
-    manage_calc_scores();
-    return -1;
   }
-  return best_prn;
+
+  log_error("Failed to pick a sat for acquisition!\n");
+
+  return -1;
+}
+
+/** Hint acqusition at satellites observed by peer.
+
+RTK relies on a common set of measurements, have the receivers focus search
+efforts on satellites both are likely to be able to see. Receiver will need
+to be sufficiently close for RTK to function, and so should have a similar
+view of the constellation, even if obstructed this may change if the receivers
+move or the satellite arcs across the sky.
+
+cturvey 10-Feb-2015
+*/
+void manage_set_obs_hint(u8 prn)
+{
+  if (prn >= 32) /* check range */
+    return;
+
+  acq_prn_param[prn].score[ACQ_HINT_OBS] = SCORE_OBS;
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
-void manage_acq()
+static void manage_acq()
 {
   /* Decide which PRN to try and then start it acquiring. */
-  u8 prn = best_prn();
+  u8 prn = choose_prn();
   if (prn == (u8)-1)
     return;
 
@@ -200,24 +253,14 @@ void manage_acq()
    * into the acquisition ram on the Swift NAP for
    * an initial coarse acquisition.
    */
-  acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
   do {
     timer_count = nap_timing_count() + 20000;
     /* acq_load could timeout if we're preempted and miss the timing strobe */
   } while (!acq_load(timer_count));
 
-  /* Done loading, now lets set that coarse acquisition going. */
-  if (almanac[prn].valid && time_quality == TIME_COARSE) {
-    gps_time_t t = rx2gpstime(timer_count);
-
-    double dopp = -calc_sat_doppler_almanac(&almanac[prn], t.tow, t.wn, position_solution.pos_ecef);
-    /* TODO: look into accuracy of prediction and possibilities for
-     * improvement, e.g. use clock bias estimated by PVT solution. */
-    /*log_info("Expecting PRN %02d @ %.1f\n", prn+1, dopp);*/
-    acq_search(dopp - 4000, dopp + 4000, ACQ_FULL_CF_STEP);
-  } else {
-    acq_search(ACQ_FULL_CF_MIN, ACQ_FULL_CF_MAX, ACQ_FULL_CF_STEP);
-  }
+  acq_search(acq_prn_param[prn].dopp_hint_low,
+             acq_prn_param[prn].dopp_hint_high,
+             ACQ_FULL_CF_STEP);
 
   /* Done with the coarse acquisition, check if we have found a
    * satellite, if so save the results and start the loading
@@ -229,13 +272,24 @@ void manage_acq()
   acq_send_result(prn, snr, cp, cf);
   if (snr < ACQ_THRESHOLD) {
     /* Didn't find the satellite :( */
-    acq_prn_param[prn].state = ACQ_PRN_TRIED;
+    /* Double the size of the doppler search space for next time. */
+    float dilute = (acq_prn_param[prn].dopp_hint_high -
+                    acq_prn_param[prn].dopp_hint_low) / 2;
+    acq_prn_param[prn].dopp_hint_high =
+        MIN(acq_prn_param[prn].dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
+    acq_prn_param[prn].dopp_hint_low =
+        MAX(acq_prn_param[prn].dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
+    /* Decay hint scores */
+    for (u8 i = 0; i < ACQ_HINT_NUM; i++)
+      acq_prn_param[prn].score[i] = (acq_prn_param[prn].score[i] * 3) / 4;
+    /* Reset hint score for acuisition. */
+    acq_prn_param[prn].score[ACQ_HINT_ACQ] = 0;
     return;
   }
 
   log_info("acq: PRN %d found @ %d Hz, %d SNR\n", prn + 1, (int)cf, (int)snr);
 
-  u8 chan = manage_track_new_acq(snr);
+  u8 chan = manage_track_new_acq();
   if (chan == MANAGE_NO_CHANNELS_FREE) {
     /* No channels are free to accept our new satellite :( */
     /* TODO: Perhaps we can try to warm start this one
@@ -243,10 +297,9 @@ void manage_acq()
      */
     log_info("No channels free :(\n");
     if (snr > ACQ_RETRY_THRESHOLD) {
-      acq_prn_param[prn].score = MIN(snr, 127);
-      acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
-    } else {
-      acq_prn_param[prn].state = ACQ_PRN_TRIED;
+      acq_prn_param[prn].score[ACQ_HINT_ACQ] = SCORE_ACQ + (snr - 20) / 20;
+      acq_prn_param[prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
+      acq_prn_param[prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
     }
     return;
   }
@@ -267,10 +320,8 @@ void manage_acq()
  * \param snr SNR of the acquisition.
  * \return Index of first unused tracking channel.
  */
-u8 manage_track_new_acq(float snr)
+static u8 manage_track_new_acq(void)
 {
-  (void)snr;
-
   /* Decide which (if any) tracking channel to put
    * a newly acquired satellite into.
    */
@@ -294,7 +345,7 @@ static void check_clear_unhealthy(void)
 
   for (u8 prn=0; prn<32; prn++) {
     if (acq_prn_param[prn].state == ACQ_PRN_UNHEALTHY)
-      acq_prn_param[prn].state = ACQ_PRN_UNTRIED;
+      acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
   }
 }
 
@@ -331,44 +382,48 @@ void manage_track_setup()
 extern ephemeris_t es[32];
 
 /** Disable any tracking channel whose SNR is below a certain margin. */
-void manage_track()
+static void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
-    if (tracking_channel[i].state == TRACKING_RUNNING) {
 
-      if (es[tracking_channel[i].prn].valid &&
-          !es[tracking_channel[i].prn].healthy) {
-        acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_UNHEALTHY;
-        log_info("Dropping unhealthy PRN%d\n", tracking_channel[i].prn+1);
-        tracking_channel_disable(i);
-        continue;
-      }
+    tracking_channel_t *ch = &tracking_channel[i];
+    if (ch->state != TRACKING_RUNNING)
+      continue;
 
-      if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
-        /* SNR has dropped below threshold, indicate that the carrier phase
-         * ambiguity is now unknown as cycle slips are likely. */
-        tracking_channel_ambiguity_unknown(i);
-        /* Update the latest time we were below the threshold. */
-        tracking_channel[i].snr_below_threshold_count =
-          tracking_channel[i].update_count;
-        /* Have we have been below the threshold for longer than
-         * `TRACK_SNR_THRES_COUNT`? */
-        if (tracking_channel[i].update_count > TRACK_SNR_INIT_COUNT &&
-            tracking_channel[i].update_count -
-              tracking_channel[i].snr_above_threshold_count >
-              TRACK_SNR_THRES_COUNT) {
-          /* This tracking channel has lost its satellite. */
-          log_info("Disabling channel %d\n", i);
-          tracking_channel_disable(i);
-          acq_prn_param[tracking_channel[i].prn].state = ACQ_PRN_TRIED;
-        }
-      } else {
-        /* SNR is good. */
-        tracking_channel[i].snr_above_threshold_count =
-          tracking_channel[i].update_count;
-      }
-
+    if (es[ch->prn].valid && !es[ch->prn].healthy) {
+      acq_prn_param[ch->prn].state = ACQ_PRN_UNHEALTHY;
+      log_info("Dropping unhealthy PRN%d\n", ch->prn+1);
+      tracking_channel_disable(i);
+      continue;
     }
+
+    if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
+      /* SNR has dropped below threshold, indicate that the carrier phase
+       * ambiguity is now unknown as cycle slips are likely. */
+      tracking_channel_ambiguity_unknown(i);
+      /* Update the latest time we were below the threshold. */
+      ch->snr_below_threshold_count = ch->update_count;
+      /* Have we have been below the threshold for longer than
+       * `TRACK_SNR_THRES_COUNT`? */
+      if (ch->update_count > TRACK_SNR_INIT_COUNT &&
+          ch->update_count - ch->snr_above_threshold_count >
+            TRACK_SNR_THRES_COUNT) {
+        /* This tracking channel has lost its satellite. */
+        log_info("Disabling channel %d\n", i);
+        tracking_channel_disable(i);
+        if (ch->snr_above_threshold_count > TRACK_SNR_THRES_COUNT) {
+          acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = SCORE_TRACK;
+          float cf = ch->carrier_freq;
+          acq_prn_param[ch->prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
+          acq_prn_param[ch->prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
+        }
+        acq_prn_param[ch->prn].state = ACQ_PRN_ACQUIRING;
+      }
+    } else {
+      /* SNR is good. */
+      ch->snr_above_threshold_count = ch->update_count;
+    }
+
   }
 }
 
