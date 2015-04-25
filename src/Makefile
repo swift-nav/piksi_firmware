@@ -222,7 +222,6 @@ DINCDIR =
 DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
           $(SWIFTNAV_ROOT)/libsbp/c/build/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src \
-          $(SWIFTNAV_ROOT)/libswiftnav/build/lapacke \
           $(SWIFTNAV_ROOT)/libswiftnav/build/CBLAS/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/BLAS/SRC \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/SRC \
@@ -231,7 +230,7 @@ DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
 
 # List all default libraries here
 DLIBS = -lopencm3_stm32f4 -lsbp-static -lswiftnav-static \
-        -llapacke -llapack -lcblas -lblas \
+        -llapack -lcblas -lblas \
         -lf2c -lm -lc -lnosys
 
 #
