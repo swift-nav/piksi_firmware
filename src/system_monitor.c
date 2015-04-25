@@ -27,8 +27,8 @@
 #include "simulator.h"
 #include "system_monitor.h"
 
-#define WATCHDOG_HARDWARE_PERIOD_MS 3000  /* Actual period may vary +88% -32% */
-#define WATCHDOG_THREAD_PERIOD_MS 1500
+#define WATCHDOG_HARDWARE_PERIOD_MS 30000  /* Actual period may vary +88% -32% */
+#define WATCHDOG_THREAD_PERIOD_MS 15000
 
 /* Time between sending system monitor and heartbeat messages in milliseconds */
 static uint32_t heartbeat_period_milliseconds = 1000;
