@@ -104,6 +104,7 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/peripherals/usart_rx.o \
         $(SWIFTNAV_ROOT)/src/peripherals/usart_chat.o \
         $(SWIFTNAV_ROOT)/src/peripherals/random.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/watchdog.o \
         $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee.o \
         $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee-arch.o \
         $(SWIFTNAV_ROOT)/src/minIni/minIni.o \

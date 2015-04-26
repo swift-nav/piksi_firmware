@@ -20,24 +20,35 @@
 
 #include "board/nap/nap_common.h"
 #include "board/leds.h"
+#include "peripherals/watchdog.h"
 #include "main.h"
 #include "sbp.h"
 #include "manage.h"
 #include "simulator.h"
 #include "system_monitor.h"
 
-
+#define WATCHDOG_HARDWARE_PERIOD_MS 30000  /* Actual period may vary +88% -32% */
+#define WATCHDOG_THREAD_PERIOD_MS 15000
 
 /* Time between sending system monitor and heartbeat messages in milliseconds */
-uint32_t heartbeat_period_milliseconds = 1000;
+static uint32_t heartbeat_period_milliseconds = 1000;
+/* Use watchdog timer or not */
+static bool_t use_wdt = true;
+
+/* Build up the event mask for the thread activity watchdog.  Equivalent to
+   EVENT_MASK(0) | EVENT_MASK(1) | ... | EVENT_MASK(WD_NOTIFY_NUM_THREADS) */
+static eventmask_t thread_activity_mask = ((1UL << WD_NOTIFY_NUM_THREADS) - 1);
+
+static Thread *watchdog_thread_handle;
 
 /* Base station mode settings. */
 /* TODO: Relocate to a different file? */
-bool_t broadcast_surveyed_position = false;
-double base_llh[3];
+static bool_t broadcast_surveyed_position = false;
+static double base_llh[3];
 
 /* Global CPU time accumulator, used to measure thread CPU usage. */
 u64 g_ctime = 0;
+
 
 u32 check_stack_free(Thread *tp)
 {
@@ -61,10 +72,7 @@ void send_thread_states()
     strncpy(tp_state.name, chRegGetThreadName(tp), sizeof(tp_state.name));
     sbp_send_msg(SBP_MSG_THREAD_STATE, sizeof(tp_state), (u8 *)&tp_state);
 
-    /* This works because chThdGetTicks is actually a define that pulls out a
-     * value from a struct, hopefully if that fact changes then this statement
-     * will no longer compile. */
-    tp->p_ctime = 0;
+    tp->p_ctime = 0;  /* Reset thread CPU cycle count */
     tp = chRegNextThread(tp);
   }
   g_ctime = 0;
@@ -135,7 +143,6 @@ static msg_t system_monitor_thread(void *arg)
   systime_t time = chTimeNow();
 
   while (TRUE) {
-
     u32 status_flags = 0;
     sbp_send_msg(SBP_MSG_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
 
@@ -161,7 +168,40 @@ static msg_t system_monitor_thread(void *arg)
 
     sleep_until(&time, MS2ST(heartbeat_period_milliseconds));
   }
+  return 0;
+}
 
+static WORKING_AREA_CCM(wa_watchdog_thread, 1024);
+static msg_t watchdog_thread(void *arg)
+{
+  (void)arg;
+  chRegSetThreadName("Watchdog");
+
+  /* Allow an extra period at startup since some of the other threads
+     take a little while to get going */
+  chThdSleepMilliseconds(WATCHDOG_THREAD_PERIOD_MS);
+
+  if (use_wdt)
+    watchdog_enable(WATCHDOG_HARDWARE_PERIOD_MS);
+
+  while (TRUE) {
+    /* Wait for all threads to set a flag indicating they are still
+       alive and performing their function */
+    chThdSleepMilliseconds(WATCHDOG_THREAD_PERIOD_MS);
+    eventmask_t threads_dead = thread_activity_mask
+                             ^ chEvtGetAndClearEvents(thread_activity_mask);
+    if (threads_dead) {
+      /* TODO: ChibiOS thread state dump */
+      log_error("One or more threads appear to be dead: 0x%08X. "
+                "Watchdog reset %s.\n",
+                (unsigned int)threads_dead,
+                use_wdt ? "imminent" : "disabled");
+    } else {
+      if (use_wdt)
+        watchdog_clear();
+    }
+
+  }
   return 0;
 }
 
@@ -173,12 +213,14 @@ void system_monitor_setup()
   DWT_CTRL |= 1 ; /* Enable the counter. */
 
   SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
+  SETTING("system_monitor", "watchdog", use_wdt, TYPE_BOOL);
 
   SETTING("surveyed_position", "broadcast", broadcast_surveyed_position, TYPE_BOOL);
   SETTING("surveyed_position", "surveyed_lat", base_llh[0], TYPE_FLOAT);
   SETTING("surveyed_position", "surveyed_lon", base_llh[1], TYPE_FLOAT);
   SETTING("surveyed_position", "surveyed_alt", base_llh[2], TYPE_FLOAT);
 
+  
   chThdCreateStatic(
       wa_system_monitor_thread,
       sizeof(wa_system_monitor_thread),
@@ -191,6 +233,22 @@ void system_monitor_setup()
       LOWPRIO+9,
       track_status_thread, NULL
   );
+  watchdog_thread_handle = chThdCreateStatic(
+      wa_watchdog_thread,
+      sizeof(wa_watchdog_thread),
+      HIGHPRIO,
+      watchdog_thread, NULL
+  );
+}
+
+/** Called by each important system thread after doing its important
+ * work, to notify the system monitor that it's functioning normally.
+ *
+ * \param thread_id Unique identifier for the thread.
+ **/
+void watchdog_notify(watchdog_notify_t thread_id)
+{
+  chEvtSignal(watchdog_thread_handle, EVENT_MASK(thread_id));
 }
 
 /** \} */

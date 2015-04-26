@@ -25,6 +25,7 @@
 #include "nap_common.h"
 #include "track_channel.h"
 #include "../../ext_events.h"
+#include "../../system_monitor.h"
 
 /** \addtogroup nap
  * \{ */
@@ -59,7 +60,7 @@ void nap_exti_setup(void)
   exti_enable_request(EXTI1);
 
   /* Enable EXTI1 interrupt */
-  chThdCreateStatic(wa_nap_exti, sizeof(wa_nap_exti), HIGHPRIO, nap_exti_thread, NULL);
+  chThdCreateStatic(wa_nap_exti, sizeof(wa_nap_exti), HIGHPRIO-1, nap_exti_thread, NULL);
   nvicEnableVector(NVIC_EXTI1_IRQ, CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+2));
 }
 
@@ -128,6 +129,7 @@ static void handle_nap_exti(void)
     }
   }
 
+  watchdog_notify(WD_NOTIFY_NAP_ISR);
   nap_exti_count++;
 }
 

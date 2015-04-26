@@ -44,12 +44,6 @@ extern void ext_setup(void);
 #define SYSTEM_CLOCK 130944000
 #endif
 
-/* Required by exit() which is called from BLAS/LAPACK. */
-void _fini(void)
-{
-  return;
-}
-
 /** Compare version strings.
  * Compares a version of the form 'vX.Y-Z-'. If the first character of the
  * version is not 'v' then that string will be considered older than any
@@ -148,8 +142,8 @@ int main(void)
   STBase->CVR = 0;
   STBase->CSR = CLKSOURCE_CORE_BITS | ENABLE_ON_BITS | TICKINT_ENABLED_BITS;
 
-  /* Kernel initialization, the main() function becomes a thread and the RTOS
-   * is active. */
+  /* Kernel initialization, the main() function becomes a thread with
+   * priority NORMALPRIO and the RTOS is active. */
   chSysInit();
 
   /* Piksi hardware initialization. */

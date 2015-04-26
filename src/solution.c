@@ -37,6 +37,7 @@
 #include "timing.h"
 #include "base_obs.h"
 #include "ephemeris.h"
+#include "./system_monitor.h"
 
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
@@ -506,6 +507,7 @@ static msg_t solution_thread(void *arg)
         }
       }
     }
+    watchdog_notify(WD_NOTIFY_SOLUTION);
   }
   return 0;
 }
@@ -739,7 +741,7 @@ void solution_setup()
   chBSemInit(&solution_wakeup_sem, TRUE);
   /* Start solution thread */
   chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread),
-                    HIGHPRIO-1, solution_thread, NULL);
+                    HIGHPRIO-2, solution_thread, NULL);
   /* Enable TIM5 clock. */
   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM5EN);
   nvicEnableVector(NVIC_TIM5_IRQ,

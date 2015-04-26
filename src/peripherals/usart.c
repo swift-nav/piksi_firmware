@@ -184,7 +184,18 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
 
   if (do_preconfigure_hooks) {
 
+    /* TODO: Should this really be here? */
+    if ((RCC_CSR & 0xFF000000) != RCC_CSR_PINRSTF) {
+      if (RCC_CSR & RCC_CSR_IWDGRSTF)
+        log_error("Piksi has reset due to a watchdog timeout.\n");
+      if (RCC_CSR & RCC_CSR_LPWRRSTF)
+        log_error("Low power reset detected.\n");
+      if (RCC_CSR & RCC_CSR_SFTRSTF)
+        log_info("Software reset detected.\n");
+      log_info("Reset reason: %02X\n", (unsigned int)(RCC_CSR >> 24));
+    }
     log_info("Piksi Starting...\n");
+    RCC_CSR |= RCC_CSR_RMVF;
     log_info("Firmware Version: " GIT_VERSION "\n");
     log_info("Built: " __DATE__ " " __TIME__ "\n");
 
