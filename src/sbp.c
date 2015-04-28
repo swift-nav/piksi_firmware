@@ -356,7 +356,7 @@ void log_obs_latency(float latency_ms)
   latency_accum_ms += (double) latency_ms;
   latency_count += 1;
 
-  uart_state_msg.latency.current = (s32) ((LATENCY_SMOOTHING * ((float)latency_ms)) + 
+  uart_state_msg.latency.current = (s32) ((LATENCY_SMOOTHING * ((float)latency_ms)) +
     ((1 - LATENCY_SMOOTHING) * (float) (uart_state_msg.latency.current)));
 
   /* Don't change the min and max latencies if we appear to have a zero latency
