@@ -54,6 +54,8 @@ u32 obs_output_divisor = 2;
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
 
+static bool prev_sol_was_fixed = false;
+
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
   if (soln) {
@@ -560,8 +562,14 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
                                      &num_used, b);
         if (flags == 0) {
           /* Fixed baseline could not be calculated. */
+          if (prev_sol_was_fixed) {
+            log_error("Fixed to float transition detected\n");
+          }
           dgnss_new_float_baseline(n_sds, sds,
               position_solution.pos_ecef, &num_used, b);
+          prev_sol_was_fixed = 0;
+        } else {
+          prev_sol_was_fixed = 1;
         }
         break;
       case FILTER_FLOAT:
