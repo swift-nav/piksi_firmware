@@ -16,6 +16,7 @@
 #include <ch.h>
 
 #include <libsbp/sbp.h>
+#include <libsbp/piksi.h>
 #include <libswiftnav/logging.h>
 #include <libswiftnav/almanac.h>
 #include <libswiftnav/constants.h>
@@ -61,6 +62,7 @@ typedef struct {
     ACQ_PRN_TRACKING,
     ACQ_PRN_UNHEALTHY
   } state;                 /**< Management status of PRN. */
+  bool masked;             /**< Prevent acquisition. */
   u16 score[ACQ_HINT_NUM]; /**< Acquisition preference of PRN. */
   float dopp_hint_low;     /**< Low bound of doppler search hint. */
   float dopp_hint_high;    /**< High bound of doppler search hint. */
@@ -102,6 +104,28 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     cfs_close(fd);
   } else {
     log_error("Error opening almanac file\n");
+  }
+}
+
+static sbp_msg_callbacks_node_t mask_sat_callback_node;
+static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void) context;
+  enum {
+    MASK_ACQUISITION = 1,
+    MASK_TRACKING = 2,
+  };
+
+  msg_mask_satellite_t *m = (msg_mask_satellite_t *)msg;
+
+  log_info("Mask for PRN %02d = 0x%02x\n", m->prn+1, m->mask);
+  if (m->mask & MASK_ACQUISITION) {
+    acq_prn_param[m->prn].masked = true;
+  } else {
+    acq_prn_param[m->prn].masked = false;
+  }
+  if (m->mask & MASK_TRACKING) {
+    tracking_drop_satellite(m->prn);
   }
 }
 
@@ -151,6 +175,12 @@ void manage_acq_setup()
     &almanac_callback_node
   );
 
+  sbp_register_cbk(
+    SBP_MSG_MASK_SATELLITE,
+    &mask_sat_callback,
+    &mask_sat_callback_node
+  );
+
   chThdCreateStatic(
       wa_manage_acq_thread,
       sizeof(wa_manage_acq_thread),
@@ -190,7 +220,8 @@ static u8 choose_prn(void)
   manage_calc_almanac_scores();
 
   for (u8 prn=0; prn<32; prn++) {
-    if (acq_prn_param[prn].state != ACQ_PRN_ACQUIRING)
+    if ((acq_prn_param[prn].state != ACQ_PRN_ACQUIRING) ||
+         acq_prn_param[prn].masked)
       continue;
 
     total_score += SCORE_DEFAULT;
@@ -202,7 +233,8 @@ static u8 choose_prn(void)
   u32 pick = random_int() % total_score;
 
   for (u8 prn=0; prn<32; prn++) {
-    if (acq_prn_param[prn].state != ACQ_PRN_ACQUIRING)
+    if ((acq_prn_param[prn].state != ACQ_PRN_ACQUIRING) ||
+         acq_prn_param[prn].masked)
       continue;
 
     u32 sat_score = SCORE_DEFAULT;
