@@ -276,7 +276,7 @@ void tracking_channel_update(u8 channel)
       corr_t* cs = chan->cs;
 
       /* Update C/N0 estimate */
-      chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I);
+      chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I/chan->int_ms);
 
       /* Run the loop filters. */
 
@@ -314,6 +314,8 @@ void tracking_channel_update(u8 channel)
         log_info("Increasing integration time for PRN %d\n", chan->prn+1);
         chan->int_ms = LONG_INTEGRATION_INTERVAL;
         chan->short_cycle = true;
+
+        cn0_est_init(&chan->cn0_est, 1e3/chan->int_ms, chan->cn0, 5, 1e3);
 
         /* Recalculate filter coefficients */
         aided_tl_init(&chan->tl_state, 1e3 / chan->int_ms,
