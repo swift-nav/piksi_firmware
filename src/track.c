@@ -242,7 +242,9 @@ void tracking_channel_update(u8 channel)
 
       if (chan->int_ms > 1) {
         /* If we're doing long integrations alternate between short and long
-         * cycles.
+         * cycles.  This is because of FPGA pipelining and latency.  The
+         * loop parameters can only be updated at the end of the second
+         * integration interval and waiting a whole 20ms is too long.
          */
         chan->short_cycle = !chan->short_cycle;
 
@@ -317,7 +319,7 @@ void tracking_channel_update(u8 channel)
 
         cn0_est_init(&chan->cn0_est, 1e3/chan->int_ms, chan->cn0, 5, 1e3);
 
-        /* Recalculate filter coefficients */
+        /* Recalculate filter coefficients: now pure PLL */
         aided_tl_init(&chan->tl_state, 1e3 / chan->int_ms,
                       chan->tl_state.code_freq, 1, 0.7, 1,
                       chan->tl_state.carr_freq, 10, 0.7, 1,

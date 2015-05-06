@@ -370,7 +370,7 @@ static msg_t manage_track_thread(void *arg)
   return 0;
 }
 
-static u16 iq_output_mask;
+static u16 iq_output_mask = 0;
 bool track_iq_output_notify(struct setting *s, const char *val)
 {
   if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
