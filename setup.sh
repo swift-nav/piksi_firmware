@@ -42,8 +42,7 @@ function log_error () {
 
 function build () {
     # Pulls down git submodules and builds the project, assuming that
-    # all other system, ARM GCC, and python dependencies have been
-    # installed.
+    # all other system, and ARM GCC have been installed.
     log_info "Initializing Git submodules for ChibiOS, libopencm3, libsbp and libswiftnav..."
     git submodule init
     git submodule update
@@ -114,16 +113,6 @@ function bootstrap_osx () {
         log_info "Installing homebrew..."
         homebrew_install
     fi
-    # Download and install Homebrew Python
-    if [[ ! -x /usr/local/bin/python ]]; then
-        log_info "Installing homebrew python..."
-        brew install python --framework --with-brewed-openssl 2> /dev/null
-        # Check for bash profile and add Homebrew Python to path.
-        touch ~/.bash_profile
-        echo '' >> ~/.bash_profile
-        echo 'export PATH=/usr/local/bin:/usr/local/sbin:$PATH' >> ~/.bash_profile
-        source ~/.bash_profile
-    fi
     # Download and install Ansible
     if [[ ! -x /usr/local/bin/ansible ]]; then
         log_info "Installing Ansible..."
@@ -162,7 +151,6 @@ function run_all_platforms () {
         log_info "Updating..."
         sudo apt-get update
         sudo apt-get install -y curl
-        sudo apt-get install python python-dev python-pip
         sudo pip install ansible
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         piksi_splash_osx
