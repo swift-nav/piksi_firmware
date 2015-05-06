@@ -143,7 +143,7 @@ void max2769_configure(void)
 
 }
 
-antenna_type_t antenna = AUTO;
+antenna_type_t antenna = EXTERNAL;
 
 bool antenna_changed(struct setting *s, const char *val)
 {
