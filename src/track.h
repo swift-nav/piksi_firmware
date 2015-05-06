@@ -54,6 +54,11 @@ typedef struct {
   u16 lock_counter;            /**< Lock counter. Increments when tracking new signal. */
   cn0_est_state_t cn0_est;     /**< C/N0 Estimator. */
   float cn0;                   /**< Current estimate of C/N0. */
+  u8 int_ms;                   /**< Integration length. */
+  u8 next_int_ms;              /**< Integration length for the next cycle. */
+  bool short_cycle;            /**< Set to true when a short 1ms integration is requested. */
+  bool output_iq;              /**< Set if this channel should output I/Q samples on SBP. */
+  alias_detect_t alias_detect; /**< Alias lock detector. */
 } tracking_channel_t;
 
 /** \} */
