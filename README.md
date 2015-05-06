@@ -24,7 +24,9 @@ There are a few options:
 
 * **Normal usage**. If you're only using the Piksi console, binary
   installers (Windows and OS X) are
-  [here](http://downloads.swiftnav.com/piksi_console/).
+  [here](http://downloads.swiftnav.com/piksi_console/) and source
+  for the console can be found in
+  [piksi_tools](https://github.com/swift-nav/piksi_tools).
 
 * **Development (native)**. To install dependencies for the
   development tools on your platform (OS X, Ubuntu, or Debian), run
