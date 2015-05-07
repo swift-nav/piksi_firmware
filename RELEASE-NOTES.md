@@ -3,6 +3,7 @@ Piksi Firmware Release Notes
 
 Contents
 --------
+ * [v0.16](#v0.16)
  * [v0.15](#v0.15)
  * [v0.14](#v0.14)
  * [v0.13](#v0.13)
@@ -10,6 +11,29 @@ Contents
  * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.16 <a name="v0.16"></a>
+-----
+
+#### Core
+
+ * Acquisition / Tracking
+   * Increased sensitivity: correlate for 20ms intervals (rather than 1ms) after nav bit sync
+   * Avoid bad ephemerides by treating new ephemerides as candidates until received a second time
+   * Reset carrier phase ambiguity for a tracking channel if its SNR falls below a threshold
+   * Prioritize satellites the base station is tracking in the acquisition management
+   * Now using true C/N0 SNR estimator
+ * Fault Handling
+   * Watchdog and hard fault handling
+ * External Event Capture
+   * Add external event timing input to DEBUG header (documentation for this feature coming soon)
+ * Miscellaneous
+   * Use external antenna as default rather than gated depending on external antenna current draw
+
+#### Piksi Console / Scripts
+
+ * Python scripts (Piksi Console, bootload script, etc) have been moved to https://github.com/swift-nav/piksi_tools
+ * Remove Python / Piksi Console dependencies from toolchain provisioning
 
 v0.15 <a name="v0.15"></a>
 -----
