@@ -89,7 +89,7 @@ static msg_t nav_msg_thread(void *arg)
         log_info("PRN %02d unhealthy\n", ch->prn+1);
       } else {
         msg_ephemeris_t e;
-        pack_ephemeris(&e, (ephemeris_t *) &es[ch->prn]);
+        pack_ephemeris(&e, &es[ch->prn]);
         sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(msg_ephemeris_t),
                      (u8 *) &e);
       }
