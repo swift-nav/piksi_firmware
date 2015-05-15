@@ -50,6 +50,7 @@ systime_t last_dgnss;
 double soln_freq = 10.0;
 u32 obs_output_divisor = 2;
 
+dgnss_state_t dgnss_state _CCM;
 
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
@@ -357,7 +358,7 @@ static msg_t solution_thread(void *arg)
               chMtxUnlock();
               double prop_baseline[3];
               u8 num_sds_used;
-              s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
+              s8 ll_err_code = dgnss_low_latency_baseline(&dgnss_state, num_sdiffs, sdiffs,
                       position_solution.pos_ecef, &num_sds_used, prop_baseline);
               if (ll_err_code != -1) {
                 /* reminder, ll_err_code is -1 if no baseline, 2 if float, 1 if fixed */
@@ -525,7 +526,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
       double known_baseline_ecef[3];
       wgsned2ecef(known_baseline, position_solution.pos_ecef,
                   known_baseline_ecef);
-      dgnss_init_known_baseline(n_sds, sds, position_solution.pos_ecef,
+      dgnss_init_known_baseline(&dgnss_state, n_sds, sds, position_solution.pos_ecef,
                                 known_baseline_ecef);
       init_known_base = false;
     } else {
@@ -536,16 +537,16 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
     if (n_sds > 4) {
       /* Initialize filters. */
       log_info("Initializing DGNSS filters\n");
-      dgnss_init(n_sds, sds, position_solution.pos_ecef);
+      dgnss_init(&dgnss_state, n_sds, sds, position_solution.pos_ecef);
       init_done = 1;
     }
   } else {
     if (reset_iar) {
-      dgnss_reset_iar();
+      dgnss_reset_iar(&dgnss_state);
       reset_iar = false;
     }
     /* Update filters. */
-    dgnss_update(n_sds, sds, position_solution.pos_ecef);
+    dgnss_update(&dgnss_state, n_sds, sds, position_solution.pos_ecef);
     /* If we are in time matched mode then calculate and output the baseline
      * for this observation. */
     if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED &&
@@ -556,17 +557,17 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
       default:
       case FILTER_FIXED:
         /* Calculate least squares solution using ambiguities from IAR. */
-        flags = dgnss_fixed_baseline(n_sds, sds, position_solution.pos_ecef,
+        flags = dgnss_fixed_baseline(&dgnss_state, n_sds, sds, position_solution.pos_ecef,
                                      &num_used, b);
         if (flags == 0) {
           /* Fixed baseline could not be calculated. */
-          dgnss_new_float_baseline(n_sds, sds,
+          dgnss_new_float_baseline(&dgnss_state, n_sds, sds,
               position_solution.pos_ecef, &num_used, b);
         }
         break;
       case FILTER_FLOAT:
         flags = 0;
-        dgnss_new_float_baseline(n_sds, sds,
+        dgnss_new_float_baseline(&dgnss_state, n_sds, sds,
             position_solution.pos_ecef, &num_used, b);
         break;
       }
@@ -721,13 +722,13 @@ void solution_setup()
   SETTING("solution", "known_baseline_e", known_baseline[1], TYPE_FLOAT);
   SETTING("solution", "known_baseline_d", known_baseline[2], TYPE_FLOAT);
 
-  SETTING("iar", "phase_var", dgnss_settings.phase_var_test, TYPE_FLOAT);
-  SETTING("iar", "code_var", dgnss_settings.code_var_test, TYPE_FLOAT);
+  SETTING("iar", "phase_var", dgnss_state.settings.phase_var_test, TYPE_FLOAT);
+  SETTING("iar", "code_var", dgnss_state.settings.code_var_test, TYPE_FLOAT);
 
-  SETTING("float_kf", "phase_var", dgnss_settings.phase_var_kf, TYPE_FLOAT);
-  SETTING("float_kf", "code_var", dgnss_settings.code_var_kf, TYPE_FLOAT);
-  SETTING("float_kf", "amb_init_var", dgnss_settings.amb_init_var, TYPE_FLOAT);
-  SETTING("float_kf", "new_amb_var", dgnss_settings.new_int_var, TYPE_FLOAT);
+  SETTING("float_kf", "phase_var", dgnss_state.settings.phase_var_kf, TYPE_FLOAT);
+  SETTING("float_kf", "code_var", dgnss_state.settings.code_var_kf, TYPE_FLOAT);
+  SETTING("float_kf", "amb_init_var", dgnss_state.settings.amb_init_var, TYPE_FLOAT);
+  SETTING("float_kf", "new_amb_var", dgnss_state.settings.new_int_var, TYPE_FLOAT);
 
   SETTING("sbp", "obs_msg_max_size", msg_obs_max_size, TYPE_INT);
 

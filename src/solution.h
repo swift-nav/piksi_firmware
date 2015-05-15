@@ -18,6 +18,7 @@
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/track.h>
 #include <libswiftnav/gpstime.h>
+#include <libswiftnav/dgnss_management.h>
 
 typedef enum {
   SOLN_MODE_LOW_LATENCY,
@@ -42,6 +43,8 @@ typedef enum {
 
 extern double soln_freq;
 extern u32 obs_output_divisor;
+
+extern dgnss_state_t dgnss_state;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops);
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
