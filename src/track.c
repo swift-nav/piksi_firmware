@@ -23,7 +23,7 @@
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
 
-#define LONG_INTEGRATION_INTERVAL 20
+#define LONG_INTEGRATION_INTERVAL 5
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
@@ -128,7 +128,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 
   aided_tl_init(&(chan->tl_state), 1e3,
                 code_phase_rate-1.023e6, 1, 0.7, 1,
-                carrier_freq, 25, 0.7, 1,
+                carrier_freq, 25, 0.7, 0.25,
                 5);
 
   chan->code_phase_early = 0;
@@ -322,7 +322,7 @@ void tracking_channel_update(u8 channel)
         /* Recalculate filter coefficients: now pure PLL */
         aided_tl_init(&chan->tl_state, 1e3 / chan->int_ms,
                       chan->tl_state.code_freq, 1, 0.7, 1,
-                      chan->tl_state.carr_freq, 10, 0.7, 1,
+                      chan->tl_state.carr_freq, 15, 2.0, 0.25,
                       0);
       }
 
