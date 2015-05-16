@@ -128,7 +128,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 
   aided_tl_init(&(chan->tl_state), 1e3,
                 code_phase_rate-1.023e6, 1, 0.7, 1,
-                carrier_freq, 25, 0.7, 0.25,
+                carrier_freq, 25, 0.7, 1,
                 5);
 
   chan->code_phase_early = 0;
