@@ -24,6 +24,7 @@
 #include <libswiftnav/logging.h>
 
 #define LONG_INTEGRATION_INTERVAL 20
+#define LONG_INTEGRATION_SNR_THRESH 36 /* C/N0 */
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
@@ -151,8 +152,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   cn0 += 10 * log10(1000); /* Bandwidth */
   cn0_est_init(&chan->cn0_est, 1e3, cn0, 5, 1e3);
 
-  alias_detect_init(&chan->alias_detect, 50,
-                    (LONG_INTEGRATION_INTERVAL-1)*1e-3);
+  /*alias_detect_init(&chan->alias_detect, 50,
+                    (LONG_INTEGRATION_INTERVAL-1)*1e-3);*/
 
   /* Starting carrier phase is set to zero as we don't
    * know the carrier freq well enough to calculate it.
@@ -240,7 +241,7 @@ void tracking_channel_update(u8 channel)
         chan->TOW_ms %= 7*24*60*60*1000;
       }
 
-      if (chan->int_ms > 1) {
+     if (chan->int_ms > 1) {
         /* If we're doing long integrations alternate between short and long
          * cycles.  This is because of FPGA pipelining and latency.  The
          * loop parameters can only be updated at the end of the second
@@ -312,8 +313,8 @@ void tracking_channel_update(u8 channel)
 
       if ((chan->TOW_ms > 0) && (chan->int_ms == 1) &&
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
-        /* Now that we have TOW we can transition to longer integration */
-        log_info("Increasing integration time for PRN %d\n", chan->prn+1);
+        /* If we have TOW, transition to longer integration. */
+        /*log_info("Increasing integration time for PRN %d\n", chan->prn+1);*/
         chan->int_ms = LONG_INTEGRATION_INTERVAL;
         chan->short_cycle = true;
 
@@ -324,6 +325,29 @@ void tracking_channel_update(u8 channel)
                       chan->tl_state.code_freq, 1, 0.7, 1,
                       chan->tl_state.carr_freq, 10, 0.7, 1,
                       0);
+
+        nav_msg_init(&chan->nav_msg);
+
+        alias_detect_init(&chan->alias_detect, 50,
+                          (LONG_INTEGRATION_INTERVAL-1)*1e-3);
+
+      } else if ((chan->int_ms !=1 ) &&
+                 (chan->cn0 < LONG_INTEGRATION_SNR_THRESH)) {
+        /* If we are in long integration and SNR drops too far,
+         * return to short integration.
+         */
+        /*log_info("Decreasing integration time for PRN %d\n", chan->prn+1);*/
+
+        chan->int_ms = 1;
+        chan->short_cycle = true;
+
+        aided_tl_init(&chan->tl_state, 1e3,
+                      chan->tl_state.code_freq, 1, 0.7, 1,
+                      chan->tl_state.carr_freq, 25, 0.7, 1,
+                      5);
+
+        cn0_est_init(&chan->cn0_est, 1e3, chan->cn0, 5, 1e3);
+
       }
 
       nap_track_update_wr_blocking(
