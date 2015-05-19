@@ -24,7 +24,7 @@
 #include <libswiftnav/logging.h>
 
 #define LONG_INTEGRATION_INTERVAL 20
-#define LONG_INTEGRATION_SNR_THRESH 39 /* C/N0 */
+#define LONG_INTEGRATION_SNR_THRESH 36 /* C/N0 */
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
