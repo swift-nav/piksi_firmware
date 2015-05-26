@@ -724,6 +724,10 @@ void solution_setup()
   SETTING("iar", "phase_var", dgnss_settings.phase_var_test, TYPE_FLOAT);
   SETTING("iar", "code_var", dgnss_settings.code_var_test, TYPE_FLOAT);
 
+  /* Override default covariances for new satellite initialization. */
+  dgnss_settings.amb_init_var = 1e25;
+  dgnss_settings.new_int_var = 1e25;
+
   SETTING("float_kf", "phase_var", dgnss_settings.phase_var_kf, TYPE_FLOAT);
   SETTING("float_kf", "code_var", dgnss_settings.code_var_kf, TYPE_FLOAT);
   SETTING("float_kf", "amb_init_var", dgnss_settings.amb_init_var, TYPE_FLOAT);
