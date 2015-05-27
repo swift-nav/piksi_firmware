@@ -448,12 +448,21 @@ static void manage_track()
 s8 use_tracking_channel(u8 i)
 {
   return (tracking_channel[i].state == TRACKING_RUNNING)
+      /* Check ephemeris is useable. */
+      /* TODO: Use libswiftnav function here. */
       && (es[tracking_channel[i].prn].valid == 1)
       && (es[tracking_channel[i].prn].healthy == 1)
+      /* Check SNR has been above threshold for the minimum time. */
       && (tracking_channel[i].update_count
             - tracking_channel[i].snr_below_threshold_count
             > TRACK_SNR_THRES_COUNT)
-      && (tracking_channel[i].TOW_ms >= 0);
+      /* Check the channel time of week has been decoded. */
+      && (tracking_channel[i].TOW_ms >= 0)
+      /* Check the current SNR.
+       * NOTE: `snr_below_threshold_count` will not be reset immediately if the
+       * SNR drops, only once `manage_track()` is called, so this additional
+       * test is required here. */
+      && (tracking_channel_snr(i) >= TRACK_THRESHOLD);
 }
 
 u8 tracking_channels_ready()
