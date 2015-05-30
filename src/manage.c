@@ -456,6 +456,11 @@ s8 use_tracking_channel(u8 i)
       && (tracking_channel[i].update_count
             - tracking_channel[i].snr_below_threshold_count
             > TRACK_SNR_THRES_COUNT)
+      /* Check that a minimum time has elapsed since the last tracking channel
+       * mode change, to allow any transients to stabilize. */
+      && (tracking_channel[i].update_count
+            - tracking_channel[i].mode_change_count
+            > TRACK_STABILIZATION_COUNT)
       /* Check the channel time of week has been decoded. */
       && (tracking_channel[i].TOW_ms >= 0)
       /* Check the current SNR.
