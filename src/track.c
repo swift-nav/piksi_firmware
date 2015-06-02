@@ -119,6 +119,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   chan->state = TRACKING_RUNNING;
   chan->prn = prn;
   chan->update_count = 0;
+  chan->mode_change_count = 0;
 
   /* Initialize TOW_ms and lock_count. */
   tracking_channel_ambiguity_unknown(channel);
@@ -305,6 +306,10 @@ void tracking_channel_update(u8 channel)
         float err = alias_detect_second(&chan->alias_detect, I, Q);
         if (fabs(err) > 10) {
           log_warn("False phase lock detect PRN%d: err=%f\n", chan->prn+1, err);
+
+          /* Indicate that a mode change has ocurred. */
+          chan->mode_change_count = chan->update_count;
+
           chan->tl_state.carr_freq += err;
           chan->tl_state.carr_filt.y = chan->tl_state.carr_freq;
         }
@@ -324,6 +329,9 @@ void tracking_channel_update(u8 channel)
                       chan->tl_state.code_freq, 1, 0.7, 1,
                       chan->tl_state.carr_freq, 10, 0.7, 1,
                       0);
+
+        /* Indicate that a mode change has ocurred. */
+        chan->mode_change_count = chan->update_count;
       }
 
       nap_track_update_wr_blocking(

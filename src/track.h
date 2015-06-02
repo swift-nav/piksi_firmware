@@ -34,6 +34,7 @@ typedef struct {
   u8 state;                    /**< Tracking channel state. */
   /* TODO : u32's big enough? */
   u32 update_count;            /**< Total number of tracking channel ms updates. */
+  u32 mode_change_count;       /**< update_count at last mode change. */
   s32 TOW_ms;                  /**< TOW in ms. */
   u32 snr_above_threshold_count;     /**< update_count value when SNR was last above a certain margin. */
   u32 snr_below_threshold_count;     /**< update_count value when SNR was last below a certain margin. */

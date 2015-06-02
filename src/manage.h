@@ -25,6 +25,9 @@
 #define TRACK_THRESHOLD 33.0
 #define TRACK_SNR_INIT_COUNT 1000
 #define TRACK_SNR_THRES_COUNT 2000
+/** How many milliseconds to wait for the tracking loops to
+ * stabilize after any mode change. */
+#define TRACK_STABILIZATION_COUNT 5000
 
 #define ACQ_FULL_CF_MIN  -8500
 #define ACQ_FULL_CF_MAX   8500
