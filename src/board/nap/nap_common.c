@@ -179,13 +179,9 @@ void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 void nap_callbacks_setup(void)
 {
   static sbp_msg_callbacks_node_t nap_dna_node;
-  static sbp_msg_callbacks_node_t nap_dna_device_node;
 
   sbp_register_cbk(SBP_MSG_NAP_DEVICE_DNA_HOST, &nap_rd_dna_callback,
                    &nap_dna_node);
-  /* TODO: This is deprecated. Replaced by above SBP_MSG_NAP_DEVICE_DNA_HOST. */
-  sbp_register_cbk(SBP_MSG_NAP_DEVICE_DNA_DEVICE, &nap_rd_dna_callback,
-                   &nap_dna_device_node);
 }
 
 /** Do an SPI transfer to/from one of the NAP's internal registers.

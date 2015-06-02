@@ -219,9 +219,7 @@ void flash_callbacks_register(void)
 {
   static sbp_msg_callbacks_node_t flash_erase_sector_node;
   static sbp_msg_callbacks_node_t flash_read_node;
-  static sbp_msg_callbacks_node_t flash_read_device_node;
   static sbp_msg_callbacks_node_t flash_program_node;
-  static sbp_msg_callbacks_node_t flash_done_node;
 
   static sbp_msg_callbacks_node_t stm_flash_lock_sector_node;
   static sbp_msg_callbacks_node_t stm_flash_unlock_sector_node;
@@ -234,17 +232,9 @@ void flash_callbacks_register(void)
   sbp_register_cbk(SBP_MSG_FLASH_READ_HOST,
                         &flash_read_callback,
                         &flash_read_node);
-  /* TODO: This is deprecated. Replaced by above SBP_MSG_FLASH_READ_HOST. */
-  sbp_register_cbk(SBP_MSG_FLASH_READ_DEVICE,
-                        &flash_read_callback,
-                        &flash_read_device_node);
   sbp_register_cbk(SBP_MSG_FLASH_PROGRAM,
                         &flash_program_callback,
                         &flash_program_node);
-  /* TODO: This is deprecated. Replaced by above SBP_MSG_FLASH_PROGRAM. */
-  sbp_register_cbk(SBP_MSG_FLASH_DONE,
-                        &flash_program_callback,
-                        &flash_done_node);
 
   sbp_register_cbk(SBP_MSG_STM_FLASH_LOCK_SECTOR,
                         &stm_flash_lock_sector_callback,
@@ -272,14 +262,9 @@ void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 void stm_unique_id_callback_register(void)
 {
   static sbp_msg_callbacks_node_t stm_unique_id_node;
-  static sbp_msg_callbacks_node_t stm_unique_id_device_node;
 
   sbp_register_cbk(SBP_MSG_STM_UNIQUE_ID_HOST,
                         &stm_unique_id_callback,
                         &stm_unique_id_node);
-  /* TODO: This is deprecated. Replaced by above SBP_MSG_STM_UNIQUE_ID_HOST. */
-  sbp_register_cbk(SBP_MSG_STM_UNIQUE_ID_DEVICE,
-                        &stm_unique_id_callback,
-                        &stm_unique_id_device_node);
 }
 
