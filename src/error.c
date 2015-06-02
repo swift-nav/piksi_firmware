@@ -64,7 +64,7 @@ void _screaming_death(const char *pos, const char *msg)
   DMA2_S7CR = 0;                  /* Disable USART TX DMA */
   USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
 
-  #define SPEAKING_MSG_N 128       /* Maximum length of error message */
+  #define SPEAKING_MSG_N 222       /* Maximum length of error message */
 
   static char err_msg[SPEAKING_MSG_N] = "ERROR: ";
 
@@ -154,21 +154,35 @@ void NMIVector(void)
   screaming_death("NMI - RCC CSS?");
 };
 
+
+void HardFaultVector(void) __attribute__((noreturn));
 void HardFaultVector(void)
 {
-  /* TODO: Stack trace / register dump per
-     http://www.freertos.org/Debugging-Hard-Faults-On-Cortex-M-Microcontrollers.html
-     https://blog.feabhas.com/2013/02/developing-a-generic-hard-fault-handler-for-arm-cortex-m3cortex-m4/
-     http://koti.kapsi.fi/jpa/stuff/other/stm32-hardfault-backtrace.html
-     TODO: ChibiOS thread status dump
+  /* TODO: ChibiOS thread status dump
      TODO: Use MSG_PANIC to avoid sprintf
-     TODO: If stack is fucked, try to relocate it somewhere safe before pushing more things onto it.
+     TODO: Check that the master stack is in a sensible place, i.e. unlikely
+           to conflict with the process stack
   */
 
+  /* Retrieve the Process Stack Pointer, upon which is stacked important info
+     (this handler is executing using the Master Stack Pointer instead).
+     Get the Link Register as well, which is probably 0xFFFFFFED (see
+     PM0214 section 2.3)
+  */
+  static uint32_t *psp, *lr;
+  asm("mrs %0, psp" : "=r"(psp) : : );
+  asm("mov %0, lr" : "=r"(lr) : : );
+  
   static char msg[256];
-  sprintf(msg, "HFSR=%08X CFSR=%08X MMFAR=%08X BFAR=%08X",
+  sprintf(msg, "HFSR=%08X CFSR=%08X MMFAR=%08X BFAR=%08X PSP=%08X LR=%08X "
+          "r0=%08X r1=%08X r2=%08X r3=%08X r12=%08X lr=%08X pc=%08X psr=%08X",
           (unsigned int)SCB_HFSR, (unsigned int)SCB_CFSR,
-          (unsigned int)SCB_MMFAR, (unsigned int)SCB_BFAR);
+          (unsigned int)SCB_MMFAR, (unsigned int)SCB_BFAR,
+          (unsigned int)psp, (unsigned int)lr,
+          (unsigned int)psp[0], (unsigned int)psp[1],
+          (unsigned int)psp[2], (unsigned int)psp[3],
+          (unsigned int)psp[4], (unsigned int)psp[5],
+          (unsigned int)psp[6], (unsigned int)psp[7]);
   _screaming_death(__func__, msg);
 };
 
