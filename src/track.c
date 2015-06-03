@@ -23,7 +23,7 @@
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
 
-#define LONG_INTEGRATION_INTERVAL 20
+#define LONG_INTEGRATION_INTERVAL 10
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
@@ -152,7 +152,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   cn0 += 10 * log10(1000); /* Bandwidth */
   cn0_est_init(&chan->cn0_est, 1e3, cn0, 5, 1e3);
 
-  alias_detect_init(&chan->alias_detect, 50,
+  alias_detect_init(&chan->alias_detect, 500/LONG_INTEGRATION_INTERVAL,
                     (LONG_INTEGRATION_INTERVAL-1)*1e-3);
 
   /* Starting carrier phase is set to zero as we don't
@@ -300,11 +300,12 @@ void tracking_channel_update(u8 channel)
       chan->carrier_freq_fp = chan->carrier_freq
         * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
+#if 1
       if (chan->int_ms != 1) {
-        s32 I = (cs[1].I - chan->alias_detect.first_I) / (LONG_INTEGRATION_INTERVAL-1);
-        s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (LONG_INTEGRATION_INTERVAL-1);
+        s32 I = (cs[1].I - chan->alias_detect.first_I) / (chan->int_ms - 1);
+        s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
         float err = alias_detect_second(&chan->alias_detect, I, Q);
-        if (fabs(err) > 10) {
+        if (fabs(err) > (250 / chan->int_ms)) {
           log_warn("False phase lock detect PRN%d: err=%f\n", chan->prn+1, err);
 
           /* Indicate that a mode change has ocurred. */
@@ -314,8 +315,10 @@ void tracking_channel_update(u8 channel)
           chan->tl_state.carr_filt.y = chan->tl_state.carr_freq;
         }
       }
+#endif
 
-      if ((chan->TOW_ms > 0) && (chan->int_ms == 1) &&
+      if ((LONG_INTEGRATION_INTERVAL > 1) &&
+          (chan->TOW_ms > 0) && (chan->int_ms == 1) &&
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
         /* Now that we have TOW we can transition to longer integration */
         log_info("Increasing integration time for PRN %d\n", chan->prn+1);
@@ -327,7 +330,7 @@ void tracking_channel_update(u8 channel)
         /* Recalculate filter coefficients: now pure PLL */
         aided_tl_init(&chan->tl_state, 1e3 / chan->int_ms,
                       chan->tl_state.code_freq, 1, 0.7, 1,
-                      chan->tl_state.carr_freq, 10, 0.7, 1,
+                      chan->tl_state.carr_freq, 35, 0.7, 1,
                       0);
 
         /* Indicate that a mode change has ocurred. */
