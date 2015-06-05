@@ -35,7 +35,7 @@ static void ephemeris_new(ephemeris_t *e)
     es[e->prn] = es_candidate[e->prn] = *e;
     chMtxUnlock();
 
-  } else if (memcmp(&es_candidate[e->prn], &e, sizeof(e))) {
+  } else if (ephemeris_equal(&es_candidate[e->prn], e)) {
     /* The received ephemeris matches our candidate, so we trust it. */
     log_info("New trusted ephemeris for PRN %02d\n", e->prn+1);
     chMtxLock(&es_mutex);
