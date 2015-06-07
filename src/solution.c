@@ -18,7 +18,7 @@
 #include <libswiftnav/constants.h>
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/coord_system.h>
-#include <libswiftnav/single_diff.h>
+#include <libswiftnav/observation.h>
 #include <libswiftnav/dgnss_management.h>
 #include <libswiftnav/linear_algebra.h>
 
@@ -45,11 +45,15 @@ Mailbox obs_mailbox;
 dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_LOW_LATENCY;
 dgnss_filter_t dgnss_filter = FILTER_FIXED;
 
+/** RTK integer ambiguity states. */
+ambiguity_state_t amb_state;
+/** Mutex to control access to the ambiguity states. */
+Mutex amb_state_lock;
+
 systime_t last_dgnss;
 
 double soln_freq = 10.0;
 u32 obs_output_divisor = 2;
-
 
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
@@ -123,7 +127,7 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
  * for conversion from ECEF to local NED coordinates (meters)
  * \param flags u8 RTK solution flags. 1 if float, 0 if fixed
  */
-void solution_send_baseline(gps_time_t *t, u8 n_sats, double b_ecef[3],
+void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
                             double ref_ecef[3], u8 flags)
 {
   double* base_station_pos;
@@ -193,6 +197,45 @@ u8 check_lock_counters(u8 *sats_to_drop)
     }
   }
   return num_sats_to_drop;
+}
+
+static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
+                            const gps_time_t *t)
+{
+  double b[3];
+  u8 num_used, flags;
+  s8 ret;
+
+  switch (dgnss_filter) {
+  default:
+  case FILTER_FIXED:
+    chMtxLock(&amb_state_lock);
+    ret = dgnss_baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
+                         &amb_state, &num_used, b);
+    chMtxUnlock();
+    if (ret > 0) {
+      /* ret is <0 on error, 2 if float, 1 if fixed */
+      flags = (ret == 1) ? 1 : 0;
+    } else {
+      log_warn("dgnss_baseline returned error: %d\n", ret);
+      return;
+    }
+    break;
+
+  case FILTER_FLOAT:
+    flags = 0;
+    chMtxLock(&amb_state_lock);
+    ret = baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
+                   &amb_state.float_ambs, &num_used, b);
+    chMtxUnlock();
+    if (ret < 0) {
+      log_warn("dgnss_float_baseline returned error: %d\n", ret);
+      return;
+    }
+    break;
+  }
+
+  solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
 }
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
@@ -355,17 +398,7 @@ static msg_t solution_thread(void *arg)
                                       es, position_solution.time,
                                       sdiffs);
               chMtxUnlock();
-              double prop_baseline[3];
-              u8 num_sds_used;
-              s8 ll_err_code = dgnss_low_latency_baseline(num_sdiffs, sdiffs,
-                      position_solution.pos_ecef, &num_sds_used, prop_baseline);
-              if (ll_err_code != -1) {
-                /* reminder, ll_err_code is -1 if no baseline, 2 if float, 1 if fixed */
-                solution_send_baseline(&position_solution.time,
-                                       num_sds_used, prop_baseline,
-                                       position_solution.pos_ecef,
-                                       (ll_err_code == 1) ? 1 : 0);
-              }
+              output_baseline(num_sdiffs, sdiffs, &position_solution.time);
             }
 
           }
@@ -537,6 +570,9 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
       /* Initialize filters. */
       log_info("Initializing DGNSS filters\n");
       dgnss_init(n_sds, sds, position_solution.pos_ecef);
+      /* Initialize ambiguity states. */
+      ambiguities_init(&amb_state.fixed_ambs);
+      ambiguities_init(&amb_state.float_ambs);
       init_done = 1;
     }
   } else {
@@ -546,31 +582,15 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
     }
     /* Update filters. */
     dgnss_update(n_sds, sds, position_solution.pos_ecef);
+    /* Update ambiguity states. */
+    chMtxLock(&amb_state_lock);
+    dgnss_update_ambiguity_state(&amb_state);
+    chMtxUnlock();
     /* If we are in time matched mode then calculate and output the baseline
      * for this observation. */
     if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED &&
         !simulation_enabled() && n_sds >= 4) {
-      double b[3];
-      u8 num_used, flags;
-      switch (dgnss_filter) {
-      default:
-      case FILTER_FIXED:
-        /* Calculate least squares solution using ambiguities from IAR. */
-        flags = dgnss_fixed_baseline(n_sds, sds, position_solution.pos_ecef,
-                                     &num_used, b);
-        if (flags == 0) {
-          /* Fixed baseline could not be calculated. */
-          dgnss_new_float_baseline(n_sds, sds,
-              position_solution.pos_ecef, &num_used, b);
-        }
-        break;
-      case FILTER_FLOAT:
-        flags = 0;
-        dgnss_new_float_baseline(n_sds, sds,
-            position_solution.pos_ecef, &num_used, b);
-        break;
-      }
-      solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
+      output_baseline(n_sds, sds, t);
     }
   }
 }
@@ -605,6 +625,7 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
+        chMtxUnlock();
         u8 sats_to_drop[MAX_SATS];
         u8 num_sats_to_drop = check_lock_counters(sats_to_drop);
         if (num_sats_to_drop > 0) {
@@ -614,12 +635,6 @@ static msg_t time_matched_obs_thread(void *arg)
           n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
         }
         process_matched_obs(n_sds, &obss->t, sds);
-        /* TODO: If we can move this unlock up between the call to single_diff()
-         * and process_matched_obs() then we can significantly reduce the amount
-         * of time this lock is held. Currently holding this lock so long is
-         * causing the solution thread to exceed its timing deadline under heavy
-         * load (non a critical issue but should be fixed). */
-        chMtxUnlock();
         chPoolFree(&obs_buff_pool, obss);
         break;
       } else {
@@ -736,6 +751,8 @@ void solution_setup()
   chPoolInit(&obs_buff_pool, sizeof(obss_t), NULL);
   static obss_t obs_buff[OBS_N_BUFF] _CCM;
   chPoolLoadArray(&obs_buff_pool, obs_buff, OBS_N_BUFF);
+
+  chMtxInit(&amb_state_lock);
 
   /* Initialise solution thread wakeup semaphore */
   chBSemInit(&solution_wakeup_sem, TRUE);
