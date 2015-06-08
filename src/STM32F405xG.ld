@@ -122,7 +122,6 @@ SECTIONS
 
     .ccmram (NOLOAD) : {
       *(.ccmram*)
-      *(.bss.nkf)
     } > ccmram
 
     .data :
