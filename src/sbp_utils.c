@@ -222,5 +222,70 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
   return 0;
 }
 
+void pack_ephemeris(msg_ephemeris_t *msg, ephemeris_t *eph)
+{
+  gps_time_t toe = eph->toe;
+  gps_time_t toc = eph->toc;
+  msg->tgd       = eph->tgd;
+  msg->c_rs      = eph->crs;
+  msg->c_rc      = eph->crc;
+  msg->c_uc      = eph->cuc;
+  msg->c_us      = eph->cus;
+  msg->c_ic      = eph->cic;
+  msg->c_is      = eph->cis;
+  msg->dn        = eph->dn;
+  msg->m0        = eph->m0;
+  msg->ecc       = eph->ecc;
+  msg->sqrta     = eph->sqrta;
+  msg->omega0    = eph->omega0;
+  msg->omegadot  = eph->omegadot;
+  msg->w         = eph->w;
+  msg->inc       = eph->inc;
+  msg->inc_dot   = eph->inc_dot;
+  msg->af0       = eph->af0;
+  msg->af1       = eph->af1;
+  msg->af2       = eph->af2;
+  msg->toe_tow   = toe.tow;
+  msg->toe_wn    = toe.wn;
+  msg->toc_tow   = toc.tow;
+  msg->toe_wn    = toc.wn;
+  msg->valid     = eph->valid;
+  msg->healthy   = eph->healthy;
+  msg->prn       = eph->prn;
+  msg->iode      = eph->iode;
+}
+
+void unpack_ephemeris(msg_ephemeris_t *msg, ephemeris_t *eph)
+{
+   eph->tgd       =  msg->tgd;
+   eph->crs       =  msg->c_rs;
+   eph->crc       =  msg->c_rc;
+   eph->cuc       =  msg->c_uc;
+   eph->cus       =  msg->c_us;
+   eph->cic       =  msg->c_ic;
+   eph->cis       =  msg->c_is;
+   eph->dn        =  msg->dn;
+   eph->m0        =  msg->m0;
+   eph->ecc       =  msg->ecc;
+   eph->sqrta     =  msg->sqrta;
+   eph->omega0    =  msg->omega0;
+   eph->omegadot  =  msg->omegadot;
+   eph->w         =  msg->w;
+   eph->inc       =  msg->inc;
+   eph->inc_dot   =  msg->inc_dot;
+   eph->af0       =  msg->af0;
+   eph->af1       =  msg->af1;
+   eph->af2       =  msg->af2;
+   eph->toe.tow   =  msg->toe_tow;
+   eph->toe.wn    =  msg->toe_wn;
+   eph->toc.tow   =  msg->toc_tow;
+   eph->toc.wn    =  msg->toe_wn;
+   eph->valid     =  msg->valid;
+   eph->healthy   =  msg->healthy;
+   eph->prn       =  msg->prn;
+   eph->iode      =  msg->iode;
+}
+
+
 /** \} */
 /** \} */

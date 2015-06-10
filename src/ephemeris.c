@@ -88,8 +88,10 @@ static msg_t nav_msg_thread(void *arg)
       if (!es[ch->prn].healthy) {
         log_info("PRN %02d unhealthy\n", ch->prn+1);
       } else {
-        sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(ephemeris_t),
-                     (u8 *)&es[ch->prn]);
+        msg_ephemeris_t e;
+        pack_ephemeris(&e, &es[ch->prn]);
+        sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(msg_ephemeris_t),
+                     (u8 *) &e);
       }
     }
   }
@@ -106,12 +108,12 @@ static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void* contex
     return;
   }
 
-  ephemeris_t e = *(ephemeris_t *)msg;
+  ephemeris_t e;
+  unpack_ephemeris((msg_ephemeris_t*) msg, &e);
   if (e.prn >= MAX_SATS) {
     log_warn("Ignoring ephemeris for invalid sat\n");
     return;
   }
-
   ephemeris_new(&e);
 }
 
