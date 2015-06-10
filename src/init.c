@@ -95,8 +95,6 @@ void init(void)
 
   reset_callback_register();
 
-  flash_callbacks_register();
-
   stm_unique_id_callback_register();
 }
 
