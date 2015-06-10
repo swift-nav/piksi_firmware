@@ -17,7 +17,7 @@
 #include "../peripherals/spi.h"
 #include "../peripherals/usart.h"
 #include "../sbp.h"
-#include "../flash_callbacks.h"
+#include "../flash.h"
 #include "m25_flash.h"
 #include "main.h"
 

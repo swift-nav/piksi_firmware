@@ -19,7 +19,7 @@
 #include "main.h"
 #include "../sbp.h"
 #include "../peripherals/stm_flash.h"
-#include "../flash_callbacks.h"
+#include "../flash.h"
 
 /** \defgroup peripherals Peripherals
  * Functions to interact with the on-chip STM32F4 peripherals.
