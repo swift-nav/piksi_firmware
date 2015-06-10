@@ -128,7 +128,6 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/simulator_data.o \
         $(SWIFTNAV_ROOT)/src/nmea.o \
         $(SWIFTNAV_ROOT)/src/system_monitor.o \
-        $(SWIFTNAV_ROOT)/src/flash_callbacks.o \
         $(SWIFTNAV_ROOT)/src/ephemeris.o \
         main.c
 

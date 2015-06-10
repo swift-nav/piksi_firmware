@@ -25,6 +25,4 @@
 
 #define FLASH_ADDRS_PER_OP 128
 
-void stm_unique_id_callback_register(void);
-
 #endif /* SWIFTNAV_FLASH_CALLBACKS_H */

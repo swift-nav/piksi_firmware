@@ -12,10 +12,14 @@
 
 #include <libopencm3/stm32/f4/flash.h>
 
+#include <libsbp/flash.h>
+
 #include "stm_flash.h"
 #include "../error.h"
-#include "../flash_callbacks.h"
 #include "main.h"
+#include "../sbp.h"
+#include "../peripherals/stm_flash.h"
+#include "../flash_callbacks.h"
 
 /** \defgroup peripherals Peripherals
  * Functions to interact with the on-chip STM32F4 peripherals.
@@ -115,6 +119,26 @@ u8 stm_flash_program(u32 address, u8 data[], u8 length)
   flash_lock();
 
   return FLASH_OK;
+}
+
+/** Callback to read STM32F4's hardcoded unique ID.
+ * Sends STM32F4 unique ID (12 bytes) back to host.
+ */
+void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void)msg; (void) context;
+
+  sbp_send_msg(SBP_MSG_STM_UNIQUE_ID, 12, (u8*)STM_UNIQUE_ID_ADDR);
+}
+
+/** Register callback to read Device's Unique ID. */
+void stm_unique_id_callback_register(void)
+{
+  static sbp_msg_callbacks_node_t stm_unique_id_node;
+
+  sbp_register_cbk(SBP_MSG_STM_UNIQUE_ID,
+                        &stm_unique_id_callback,
+                        &stm_unique_id_node);
 }
 
 /** \} */

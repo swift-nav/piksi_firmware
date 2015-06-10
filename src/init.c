@@ -24,7 +24,6 @@
 #include "board/nap/nap_conf.h"
 #include "sbp.h"
 #include "error.h"
-#include "flash_callbacks.h"
 
 /** Clock settings for 130.944 MHz from 16.368 MHz HSE. */
 const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
