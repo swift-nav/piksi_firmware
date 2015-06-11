@@ -23,7 +23,7 @@
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
 
-#define LONG_INTEGRATION_INTERVAL 10
+#define LONG_INTEGRATION_INTERVAL 5
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
