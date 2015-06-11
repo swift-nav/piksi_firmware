@@ -34,6 +34,4 @@ u8 stm_flash_unlock_sector(u8 sector);
 u8 stm_flash_erase_sector(u8 sector);
 u8 stm_flash_program(u32 address, u8 data[], u8 length);
 
-void stm_unique_id_callback_register(void);
-
 #endif

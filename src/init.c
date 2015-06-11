@@ -13,7 +13,9 @@
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
+#include <libsbp/flash.h>
 #include <libsbp/sbp.h>
+
 #include <libswiftnav/logging.h>
 
 #include "main.h"
@@ -69,6 +71,26 @@ static void reset_callback_register(void)
     &reset_callback,
     &reset_node
   );
+}
+
+/** Callback to read STM32F4's hardcoded unique ID.
+ * Sends STM32F4 unique ID (12 bytes) back to host.
+ */
+void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void)msg; (void) context;
+
+  sbp_send_msg(SBP_MSG_STM_UNIQUE_ID, 12, (u8*)STM_UNIQUE_ID_ADDR);
+}
+
+/** Register callback to read Device's Unique ID. */
+void stm_unique_id_callback_register(void)
+{
+  static sbp_msg_callbacks_node_t stm_unique_id_node;
+
+  sbp_register_cbk(SBP_MSG_STM_UNIQUE_ID,
+                        &stm_unique_id_callback,
+                        &stm_unique_id_node);
 }
 
 void init(void)
