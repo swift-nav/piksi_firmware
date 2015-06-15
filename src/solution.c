@@ -20,6 +20,7 @@
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/observation.h>
 #include <libswiftnav/dgnss_management.h>
+#include <libswiftnav/baseline.h>
 #include <libswiftnav/linear_algebra.h>
 
 #include <libopencm3/stm32/f4/timer.h>
@@ -59,6 +60,8 @@ double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
 
 static u16 lock_counters[MAX_SATS];
+
+bool disable_raim = false;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -188,7 +191,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
   case FILTER_FIXED:
     chMtxLock(&amb_state_lock);
     ret = dgnss_baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
-                         &amb_state, &num_used, b);
+                         &amb_state, &num_used, b, disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock();
     if (ret > 0) {
       /* ret is <0 on error, 2 if float, 1 if fixed */
@@ -203,7 +206,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     flags = 0;
     chMtxLock(&amb_state_lock);
     ret = baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
-                   &amb_state.float_ambs, &num_used, b);
+                   &amb_state.float_ambs, &num_used, b, disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock();
     if (ret < 0) {
       log_warn("dgnss_float_baseline returned error: %d\n", ret);
@@ -335,7 +338,7 @@ static void solution_simulation()
   }
 }
 
-static WORKING_AREA_CCM(wa_solution_thread, 10000);
+static WORKING_AREA_CCM(wa_solution_thread, 12004);
 static msg_t solution_thread(void *arg)
 {
   (void)arg;
@@ -398,8 +401,9 @@ static msg_t solution_thread(void *arg)
 
     dops_t dops;
     s8 ret;
-    if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp,
-                        &position_solution, &dops)) == 0) {
+    /* disable_raim controlled by external setting. Defaults to false. */
+    if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp, disable_raim,
+                        &position_solution, &dops)) >= 0) {
 
       /* Update global position solution state. */
       position_updated();
@@ -514,17 +518,11 @@ static msg_t solution_thread(void *arg)
 
     } else {
       /* An error occurred with calc_PVT! */
-      /* TODO: Move these error messages into libswiftnav. */
-      static const char *err_msg[] = {
-        "PDOP too high",
-        "Altitude unreasonable",
-        "ITAR lockout",
-        "Took too long to converge",
-      };
       /* TODO: Make this based on time since last error instead of a simple
        * count. */
+      /* pvt_err_msg defined in libswiftnav/pvt.c */
       DO_EVERY((u32)soln_freq,
-        log_warn("PVT solver: %s (%d)\n", err_msg[-ret-1], ret);
+        log_warn("PVT solver: %s (code %d)\n", pvt_err_msg[-ret-1], ret);
       );
 
       /* Send just the DOPs */
@@ -570,7 +568,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
       reset_iar = false;
     }
     /* Update filters. */
-    dgnss_update(n_sds, sds, position_solution.pos_ecef);
+    dgnss_update(n_sds, sds, position_solution.pos_ecef, disable_raim, DEFAULT_RAIM_THRESHOLD);
     /* Update ambiguity states. */
     chMtxLock(&amb_state_lock);
     dgnss_update_ambiguity_state(&amb_state);
@@ -584,7 +582,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
   }
 }
 
-static WORKING_AREA(wa_time_matched_obs_thread, 20000);
+static WORKING_AREA(wa_time_matched_obs_thread, 22000);
 static msg_t time_matched_obs_thread(void *arg)
 {
   (void)arg;
@@ -735,6 +733,8 @@ void solution_setup()
   SETTING("float_kf", "new_amb_var", dgnss_settings.new_int_var, TYPE_FLOAT);
 
   SETTING("sbp", "obs_msg_max_size", msg_obs_max_size, TYPE_INT);
+
+  SETTING("solution", "disable_raim", disable_raim, TYPE_BOOL);
 
   nmea_setup();
 

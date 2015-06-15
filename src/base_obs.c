@@ -34,6 +34,8 @@
 #include "base_obs.h"
 #include "ephemeris.h"
 
+extern bool disable_raim;
+
 /** \defgroup base_obs Base station observation handling
  * \{ */
 
@@ -135,9 +137,10 @@ static void update_obss(obss_t *new_obss)
     dops_t dops;
 
     /* Calculate a position solution. */
-    s32 ret = calc_PVT(base_obss.n, base_obss.nm, &soln, &dops);
+    /* disable_raim controlled by external setting (see solution.c). */
+    s32 ret = calc_PVT(base_obss.n, base_obss.nm, disable_raim, &soln, &dops);
 
-    if (ret == 0 && soln.valid) {
+    if (ret >= 0 && soln.valid) {
       /* The position solution calculation was sucessful. Unfortunately the
        * single point position solution is very noisy so lets smooth it if we
        * have the previous position available. */
@@ -156,8 +159,9 @@ static void update_obss(obss_t *new_obss)
       }
       base_obss.has_pos = 1;
     } else {
+      // TODO(dsk) check for repair failure
       /* There was an error calculating the position solution. */
-      log_error("Error calculating base station position (%ld)\n", ret);
+      log_warn("Error calculating base station position: (%ld). See solution.c or calc_PVT for info.\n", ret);
     }
   }
   /* If the base station position is known then calculate the satellite ranges.
