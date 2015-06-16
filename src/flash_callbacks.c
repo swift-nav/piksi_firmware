@@ -104,10 +104,10 @@ void flash_program_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 }
 
 /** Callback to read a set of addresses of either the STM or M25 flash.
- * Replies with a SBP_MSG_FLASH_READ message containing the read data on success or
- * a SBP_MSG_FLASH_DONE message containing the return code FLASH_INVALID_LEN if the
- * maximum read size is exceeded or FLASH_INVALID_ADDR if the address is
- * outside of the allowed range.
+ * Replies with a SBP_MSG_FLASH_READ_DEVICE message containing the read data on
+ * success or a SBP_MSG_FLASH_DONE message containing the return code
+ * FLASH_INVALID_LEN if the maximum read size is exceeded or FLASH_INVALID_ADDR
+ * if the address is outside of the allowed range.
  *
  * \param buff Array of u8 (length 5) :
  *             - [0]   Flash to read (FLASH_STM or FLASH_M25)
@@ -161,7 +161,7 @@ void flash_read_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   if (ret != 0)
     sbp_send_msg(SBP_MSG_FLASH_DONE, 1, &ret);
   else
-    sbp_send_msg(SBP_MSG_FLASH_READ, length + 5, callback_data);
+    sbp_send_msg(SBP_MSG_FLASH_READ_DEVICE, length + 5, callback_data);
 }
 
 /** Callback to write to the 8-bit M25 flash status register.
@@ -229,7 +229,7 @@ void flash_callbacks_register(void)
   sbp_register_cbk(SBP_MSG_FLASH_ERASE,
                         &flash_erase_sector_callback,
                         &flash_erase_sector_node);
-  sbp_register_cbk(SBP_MSG_FLASH_READ,
+  sbp_register_cbk(SBP_MSG_FLASH_READ_HOST,
                         &flash_read_callback,
                         &flash_read_node);
   sbp_register_cbk(SBP_MSG_FLASH_PROGRAM,
@@ -255,7 +255,7 @@ void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void)msg; (void) context;
 
-  sbp_send_msg(SBP_MSG_STM_UNIQUE_ID, 12, (u8*)STM_UNIQUE_ID_ADDR);
+  sbp_send_msg(SBP_MSG_STM_UNIQUE_ID_DEVICE, 12, (u8*)STM_UNIQUE_ID_ADDR);
 }
 
 /** Register callback to read Device's Unique ID. */
@@ -263,7 +263,7 @@ void stm_unique_id_callback_register(void)
 {
   static sbp_msg_callbacks_node_t stm_unique_id_node;
 
-  sbp_register_cbk(SBP_MSG_STM_UNIQUE_ID,
+  sbp_register_cbk(SBP_MSG_STM_UNIQUE_ID_HOST,
                         &stm_unique_id_callback,
                         &stm_unique_id_node);
 }
