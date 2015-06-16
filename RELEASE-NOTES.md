@@ -3,6 +3,7 @@ Piksi Firmware Release Notes
 
 Contents
 --------
+ * [v0.17](#v0.17)
  * [v0.16](#v0.16)
  * [v0.15](#v0.15)
  * [v0.14](#v0.14)
@@ -11,6 +12,19 @@ Contents
  * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.17 <a name="v0.17"></a>
+-----
+
+ * More robust nav bit / Ephemeris decoding - reduces number of position
+   outliers and Fixed to Float transitions
+ * Improve C/N0 estimation filter and reduce tracking integration length -
+   reduces mechanical flexing / heat sensitivity
+ * Use a larger initial covariance in Kalman filter - decreases chance of
+   an incorrect Fixed point solution
+ * Uses highest elevation satellite for nominal pseudorange
+ * More robust checks on tracking channel measurements before using
+   in PVT solution
 
 v0.16 <a name="v0.16"></a>
 -----
