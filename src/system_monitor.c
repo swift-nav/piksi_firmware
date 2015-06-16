@@ -171,6 +171,34 @@ static msg_t system_monitor_thread(void *arg)
   return 0;
 }
 
+static void debug_threads()
+{
+  const char* state[] = {
+    "READY",
+    "CURRENT",
+    "SUSPENDED",
+    "WTSEM",
+    "WTMTX",
+    "WTCOND",
+    "SLEEPING",
+    "WTEXIT",
+    "WTOREVT",
+    "WTANDEVT",
+    "SNDMSGQ",
+    "SNDMSG",
+    "WTMSG",
+    "WTQUEUE",
+    "FINAL"
+  };
+  Thread *tp = chRegFirstThread();
+  while (tp) {
+  log_info("%s (%u: %s): prio: %lu, flags: %u, wtobjp: %p\n",
+           tp->p_name, tp->p_state, state[tp->p_state], tp->p_prio,
+           tp->p_flags, tp->p_u.wtobjp);
+    tp = chRegNextThread(tp);
+  }
+}
+
 static WORKING_AREA_CCM(wa_watchdog_thread, 1024);
 static msg_t watchdog_thread(void *arg)
 {
@@ -196,6 +224,7 @@ static msg_t watchdog_thread(void *arg)
                 "Watchdog reset %s.\n",
                 (unsigned int)threads_dead,
                 use_wdt ? "imminent" : "disabled");
+      debug_threads();
     } else {
       if (use_wdt)
         watchdog_clear();
@@ -220,7 +249,7 @@ void system_monitor_setup()
   SETTING("surveyed_position", "surveyed_lon", base_llh[1], TYPE_FLOAT);
   SETTING("surveyed_position", "surveyed_alt", base_llh[2], TYPE_FLOAT);
 
-  
+
   chThdCreateStatic(
       wa_system_monitor_thread,
       sizeof(wa_system_monitor_thread),

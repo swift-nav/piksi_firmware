@@ -92,6 +92,17 @@ void _screaming_death(const char *pos, const char *msg)
 
 /* OS syscall implementations related to error conditions */
 
+/** Custom assert() failure function. Calls screaming_death(). */
+void __assert_func(const char *_file, int _line, const char *_func,
+                   const char *_expr)
+{
+  char pos[255];
+  char msg[255];
+  sprintf(pos, "%s:%s():%d", _file, _func, _line);
+  sprintf(msg, "assertion '%s' failed", _expr);
+  _screaming_death(pos, msg);
+}
+
 /** Required by exit() which is (hopefully not) called from BLAS/LAPACK. */
 void _fini(void)
 {
