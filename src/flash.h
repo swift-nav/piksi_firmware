@@ -10,11 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_FLASH_CALLBACKS_H
-#define SWIFTNAV_FLASH_CALLBACKS_H
-
-#define FLASH_STM 0 /**< Value to pass flash callbacks to use STM Flash */
-#define FLASH_M25 1 /**< Value to pass flash callbacks to use M25 Flash */
+#ifndef SWIFTNAV_FLASH_H
+#define SWIFTNAV_FLASH_H
 
 #define FLASH_OK             0
 #define FLASH_INVALID_FLASH  1
@@ -23,9 +20,4 @@
 #define FLASH_INVALID_RANGE  4
 #define FLASH_INVALID_SECTOR 5
 
-#define FLASH_ADDRS_PER_OP 128
-
-void flash_callbacks_register(void);
-void stm_unique_id_callback_register(void);
-
-#endif /* SWIFTNAV_FLASH_CALLBACKS_H */
+#endif /* SWIFTNAV_FLASH_H */

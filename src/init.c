@@ -13,18 +13,18 @@
 #include <libopencm3/stm32/f4/flash.h>
 #include <libopencm3/stm32/f4/rcc.h>
 
+#include <libsbp/flash.h>
 #include <libsbp/sbp.h>
+
 #include <libswiftnav/logging.h>
 
 #include "main.h"
 #include "board/leds.h"
 #include "board/m25_flash.h"
-#include "peripherals/stm_flash.h"
 #include "board/nap/nap_common.h"
 #include "board/nap/nap_conf.h"
 #include "sbp.h"
 #include "error.h"
-#include "flash_callbacks.h"
 
 /** Clock settings for 130.944 MHz from 16.368 MHz HSE. */
 const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
@@ -43,7 +43,7 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
 
 #define AIRCR_SYSRESETREQ			(1 << 2)
 /** Resets the device back into the bootloader. */
-void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void)msg; (void) context;
 
@@ -72,6 +72,27 @@ static void reset_callback_register(void)
   );
 }
 
+#define STM_UNIQUE_ID_ADDR 0x1FFF7A10
+/** Callback to read STM32F4's hardcoded unique ID.
+ * Sends STM32F4 unique ID (12 bytes) back to host.
+ */
+static void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void)msg; (void) context;
+
+  sbp_send_msg(SBP_MSG_STM_UNIQUE_ID_DEVICE, 12, (u8*)STM_UNIQUE_ID_ADDR);
+}
+
+/** Register callback to read Device's Unique ID. */
+static void stm_unique_id_callback_register(void)
+{
+  static sbp_msg_callbacks_node_t stm_unique_id_node;
+
+  sbp_register_cbk(SBP_MSG_STM_UNIQUE_ID_HOST,
+                   &stm_unique_id_callback,
+                   &stm_unique_id_node);
+}
+
 void init(void)
 {
   /* Delay on start-up as some programmers reset the STM twice. */
@@ -94,8 +115,6 @@ void init(void)
   nap_callbacks_setup();
 
   reset_callback_register();
-
-  flash_callbacks_register();
 
   stm_unique_id_callback_register();
 }

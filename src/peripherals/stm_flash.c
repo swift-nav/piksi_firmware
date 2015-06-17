@@ -12,10 +12,13 @@
 
 #include <libopencm3/stm32/f4/flash.h>
 
-#include "stm_flash.h"
+#include <libsbp/flash.h>
+
 #include "../error.h"
-#include "../flash_callbacks.h"
-#include "main.h"
+#include "../main.h"
+#include "../flash.h"
+
+#include "stm_flash.h"
 
 /** \defgroup peripherals Peripherals
  * Functions to interact with the on-chip STM32F4 peripherals.
