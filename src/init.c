@@ -80,7 +80,7 @@ static void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[], void* contex
 {
   (void)sender_id; (void)len; (void)msg; (void) context;
 
-  sbp_send_msg(SBP_MSG_STM_UNIQUE_ID, 12, (u8*)STM_UNIQUE_ID_ADDR);
+  sbp_send_msg(SBP_MSG_STM_UNIQUE_ID_DEVICE, 12, (u8*)STM_UNIQUE_ID_ADDR);
 }
 
 /** Register callback to read Device's Unique ID. */
@@ -88,7 +88,7 @@ static void stm_unique_id_callback_register(void)
 {
   static sbp_msg_callbacks_node_t stm_unique_id_node;
 
-  sbp_register_cbk(SBP_MSG_STM_UNIQUE_ID,
+  sbp_register_cbk(SBP_MSG_STM_UNIQUE_ID_HOST,
                    &stm_unique_id_callback,
                    &stm_unique_id_node);
 }
