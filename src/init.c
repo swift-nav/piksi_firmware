@@ -21,7 +21,6 @@
 #include "main.h"
 #include "board/leds.h"
 #include "board/m25_flash.h"
-#include "peripherals/stm_flash.h"
 #include "board/nap/nap_common.h"
 #include "board/nap/nap_conf.h"
 #include "sbp.h"
@@ -73,6 +72,7 @@ static void reset_callback_register(void)
   );
 }
 
+#define STM_UNIQUE_ID_ADDR 0x1FFF7A10
 /** Callback to read STM32F4's hardcoded unique ID.
  * Sends STM32F4 unique ID (12 bytes) back to host.
  */
@@ -89,8 +89,8 @@ void stm_unique_id_callback_register(void)
   static sbp_msg_callbacks_node_t stm_unique_id_node;
 
   sbp_register_cbk(SBP_MSG_STM_UNIQUE_ID,
-                        &stm_unique_id_callback,
-                        &stm_unique_id_node);
+                   &stm_unique_id_callback,
+                   &stm_unique_id_node);
 }
 
 void init(void)
