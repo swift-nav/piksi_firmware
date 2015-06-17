@@ -43,7 +43,7 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
 
 #define AIRCR_SYSRESETREQ			(1 << 2)
 /** Resets the device back into the bootloader. */
-void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void)msg; (void) context;
 
@@ -76,7 +76,7 @@ static void reset_callback_register(void)
 /** Callback to read STM32F4's hardcoded unique ID.
  * Sends STM32F4 unique ID (12 bytes) back to host.
  */
-void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void)msg; (void) context;
 
@@ -84,7 +84,7 @@ void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 }
 
 /** Register callback to read Device's Unique ID. */
-void stm_unique_id_callback_register(void)
+static void stm_unique_id_callback_register(void)
 {
   static sbp_msg_callbacks_node_t stm_unique_id_node;
 
