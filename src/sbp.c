@@ -303,14 +303,6 @@ void sbp_process_messages()
   }
 }
 
-void __assert_func(const char *_file, int _line, const char *_func,
-                   const char *_expr)
-{
-  log_error("assertion '%s' failed: file '%s', line %d, function: %s\n",
-            _expr, _file, _line, _func);
-  abort();
-}
-
 /** Directs printf's output to the SBP interface */
 int _write(int file, char *ptr, int len)
 {
