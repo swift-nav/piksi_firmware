@@ -93,8 +93,8 @@ u8 nmea_checksum(char *s)
  * \param soln Pointer to gnss_solution struct.
  * \param dops Pointer to dops_t struct.
  */
-void nmea_gpgga(double pos_llh[3], gps_time_t *gps_t, u8 n_used, u8 fix_type,
-                double hdop)
+void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
+                u8 fix_type, double hdop)
 {
   time_t unix_t;
   struct tm t;
@@ -137,7 +137,7 @@ void nmea_gpgga(double pos_llh[3], gps_time_t *gps_t, u8 n_used, u8 fix_type,
  * \param chans Pointer to tracking_channel_t struct.
  * \param dops  Pointer to dops_t struct.
  */
-void nmea_gpgsa(tracking_channel_t *chans, dops_t *dops)
+void nmea_gpgsa(const tracking_channel_t *chans, const dops_t *dops)
 {
   char buf[80] = "$GPGSA,A,3,";
   char *bufp = buf + strlen(buf);
@@ -168,8 +168,8 @@ void nmea_gpgsa(tracking_channel_t *chans, dops_t *dops)
  * \param nav_meas Pointer to navigation_measurement struct.
  * \param soln     Pointer to gnss_solution struct.
  */
-void nmea_gpgsv(u8 n_used, navigation_measurement_t *nav_meas,
-                gnss_solution *soln)
+void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
+                const gnss_solution *soln)
 {
   if (n_used == 0)
     return;
