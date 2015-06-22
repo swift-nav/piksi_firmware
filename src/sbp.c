@@ -331,16 +331,6 @@ int _write(int file, char *ptr, int len)
   }
 }
 
-void debug_variable(char *name, double x)
-{
-  u8 sl = strlen(name);
-  u8* buff = malloc(sl + sizeof(double));
-  memcpy(buff, &x, sizeof(double));
-  memcpy(&buff[8], name, sl);
-  sbp_send_msg(SBP_MSG_DEBUG_VAR, sl + sizeof(double), buff);
-  free(buff);
-}
-
 void log_obs_latency(float latency_ms)
 {
   last_obs_msg_ticks = chTimeNow();
