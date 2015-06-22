@@ -34,11 +34,4 @@ u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[]);
 u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id);
 void sbp_process_messages(void);
 
-void debug_variable(char *name, double x);
-
-#define DEBUG_VAR(name, x, rate) { \
-  DO_EVERY_TICKS(TICK_FREQ/rate,   \
-      debug_variable((name), (x)); \
-  ); }
-
 #endif
