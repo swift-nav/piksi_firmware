@@ -147,6 +147,8 @@ antenna_type_t antenna = EXTERNAL;
 
 bool antenna_changed(struct setting *s, const char *val)
 {
+  bool ant_status;
+  ant_status = max2769_ant_status();
   if (s->type->from_string(s->type->priv, s->addr, s->len, val))
   {
     max2769_conf1 &= MAX2769_CONF1_LNAMODE_MASK;
@@ -158,9 +160,17 @@ bool antenna_changed(struct setting *s, const char *val)
       break;
     case PATCH:
       max2769_conf1 |= MAX2769_CONF1_LNAMODE_LNA1;
+      if (ant_status) {
+        log_warn("Patch antenna selected, but an external "
+                 "antenna appears to be connected.\n"); 
+      }
       break;
     case EXTERNAL:
       max2769_conf1 |= MAX2769_CONF1_LNAMODE_LNA2;
+      if (!ant_status) { 
+        log_warn("External antenna selected, but no external " 
+                 "antenna appears to be connected.\n"); 
+      }
       break;
     }
     max2769_write(MAX2769_CONF1, max2769_conf1);
@@ -178,8 +188,21 @@ void max2769_setup(void)
   static struct setting_type antenna_setting;
   int TYPE_ANTENNA = settings_type_register_enum(antenna_enum, &antenna_setting);
   SETTING_NOTIFY("frontend", "antenna_selection", antenna, TYPE_ANTENNA, antenna_changed);
+
+  /* Enable GPIO5 to read antenna status */
+  RCC_AHB1ENR |= RCC_AHB1ENR;
+  gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO5);
 }
 
+bool max2769_ant_status(void)
+{
+  return gpio_get(GPIOC, GPIO5);
+}
+
+antenna_type_t max2769_ant_setting(void)
+{
+  return antenna;
+}
 /** \} */
 
 /** \} */

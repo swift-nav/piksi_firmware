@@ -190,6 +190,8 @@ typedef enum {
 void max2769_write(u8 addr, u32 data);
 void max2769_configure(void);
 void max2769_setup(void);
+bool max2769_ant_status(void);
+antenna_type_t max2769_ant_setting(void);
 
 #endif
 

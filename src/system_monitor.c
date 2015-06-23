@@ -20,6 +20,7 @@
 #include <libswiftnav/dgnss_management.h>
 
 #include "board/nap/nap_common.h"
+#include "board/max2769.h"
 #include "board/leds.h"
 #include "peripherals/watchdog.h"
 #include "main.h"
@@ -142,9 +143,21 @@ static msg_t system_monitor_thread(void *arg)
   chRegSetThreadName("system monitor");
 
   systime_t time = chTimeNow();
+  
+  bool ant_status = 0;
 
   while (TRUE) {
-    u32 status_flags = SBP_MAJOR_VERSION << 8 | SBP_MINOR_VERSION;
+
+    if (ant_status != max2769_ant_status()) {
+      ant_status = max2769_ant_status();
+      if (ant_status && max2769_ant_setting() == AUTO) {
+        log_info("Now using external antenna.\n");
+      }
+      else if (max2769_ant_setting() == AUTO) {
+        log_info("Now using patch antenna.\n");
+      }
+    }
+    u32 status_flags = ant_status << 31 | SBP_MAJOR_VERSION << 16 | SBP_MINOR_VERSION << 8;
     sbp_send_msg(SBP_MSG_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
 
     /* If we are in base station mode then broadcast our known location. */
