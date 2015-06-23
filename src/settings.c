@@ -12,6 +12,7 @@
 
 #include <string.h>
 
+#include <libsbp/deprecated.h>
 #include <libsbp/settings.h>
 #include <libswiftnav/logging.h>
 
@@ -185,7 +186,7 @@ void settings_setup(void)
 
   static sbp_msg_callbacks_node_t settings_msg_node;
   sbp_register_cbk(
-    SBP_MSG_SETTINGS,
+    SBP_MSG_SETTINGS_DEPRECATED,
     &settings_msg_callback,
     &settings_msg_node
   );
@@ -197,7 +198,7 @@ void settings_setup(void)
   );
   static sbp_msg_callbacks_node_t settings_read_by_index_node;
   sbp_register_cbk(
-    SBP_MSG_SETTINGS_READ_BY_INDEX,
+    SBP_MSG_SETTINGS_READ_BY_INDEX_DEPRECATED,
     &settings_read_by_index_callback,
     &settings_read_by_index_node
   );
@@ -330,7 +331,7 @@ static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context
   }
 
   buflen = settings_format_setting(s, buf, sizeof(buf));
-  sbp_send_msg(SBP_MSG_SETTINGS, buflen, (void*)buf);
+  sbp_send_msg(SBP_MSG_SETTINGS_DEPRECATED, buflen, (void*)buf);
   return;
 
 error:
@@ -355,7 +356,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
     ;
 
   if (s == NULL) {
-    sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX, 0, NULL);
+    sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX_DEPRECATED, 0, NULL);
     return;
   }
 
@@ -363,7 +364,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   buf[buflen++] = msg[0];
   buf[buflen++] = msg[1];
   buflen += settings_format_setting(s, buf + buflen, sizeof(buf) - buflen);
-  sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX, buflen, (void*)buf);
+  sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX_DEPRECATED, buflen, (void*)buf);
 }
 
 static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* context)
