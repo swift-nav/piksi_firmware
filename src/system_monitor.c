@@ -144,7 +144,7 @@ static msg_t system_monitor_thread(void *arg)
   systime_t time = chTimeNow();
 
   while (TRUE) {
-    u32 status_flags = SBP_MAJOR_VERSION << 8 | SBP_MINOR_VERSION;
+    u32 status_flags = SBP_MAJOR_VERSION << 16 | SBP_MINOR_VERSION << 8;
     sbp_send_msg(SBP_MSG_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
 
     /* If we are in base station mode then broadcast our known location. */
