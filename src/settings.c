@@ -160,8 +160,9 @@ static const struct setting_type type_int = {
   int_to_string, int_from_string, NULL, NULL, &type_float,
 };
 
-static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context);
 static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* context);
+static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* context);
+static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* context);
 static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void* context);
 
 int settings_type_register_enum(const char * const enumnames[], struct setting_type *type)
@@ -183,21 +184,27 @@ void settings_setup(void)
 {
   TYPE_BOOL = settings_type_register_enum(bool_enum, &bool_settings_type);
 
-  static sbp_msg_callbacks_node_t settings_msg_node;
-  sbp_register_cbk(
-    SBP_MSG_SETTINGS,
-    &settings_msg_callback,
-    &settings_msg_node
-  );
   static sbp_msg_callbacks_node_t settings_save_node;
   sbp_register_cbk(
     SBP_MSG_SETTINGS_SAVE,
     &settings_save_callback,
     &settings_save_node
   );
+  static sbp_msg_callbacks_node_t settings_write_node;
+  sbp_register_cbk(
+    SBP_MSG_SETTINGS_WRITE,
+    &settings_write_callback,
+    &settings_write_node
+  );
+  static sbp_msg_callbacks_node_t settings_read_node;
+  sbp_register_cbk(
+    SBP_MSG_SETTINGS_READ_REQUEST,
+    &settings_read_callback,
+    &settings_read_node
+  );
   static sbp_msg_callbacks_node_t settings_read_by_index_node;
   sbp_register_cbk(
-    SBP_MSG_SETTINGS_READ_BY_INDEX,
+    SBP_MSG_SETTINGS_READ_BY_INDEX_REQUEST,
     &settings_read_by_index_callback,
     &settings_read_by_index_node
   );
@@ -275,62 +282,107 @@ static int settings_format_setting(struct setting *s, char *buf, int len)
   return buflen;
 }
 
-static void settings_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void) context;
+  (void) context;
+
+  if (sender_id != 0x42)
+    return;
 
   static struct setting *s = NULL;
   const char *section = NULL, *setting = NULL, *value = NULL;
-  char buf[256];
-  u8 buflen;
 
-  if (len == 0) {
-    /* Empty message is for parameter enumeration */
-    if (s && s->next)
-      s = s->next;
-    else
-      s = settings_head;
-  } else {
-    if (msg[len-1] != '\0')
-      goto error;
-    /* Extract parameters from message:
-     * 2 or 3 null terminated strings: section, setting and (optional) value
-     * If value is present the message is an assignment.
-     */
-    section = (const char *)msg;
-    for (int i = 0, tok = 0; i < len; i++) {
-      if (msg[i] == '\0') {
-        tok++;
-        switch (tok) {
-        case 1:
-          setting = (const char *)&msg[i+1];
+  if (len == 0)
+    goto error;
+
+  if (msg[len-1] != '\0')
+    goto error;
+
+  /* Extract parameters from message:
+   * 3 null terminated strings: section, setting and value
+   */
+  section = (const char *)msg;
+  for (int i = 0, tok = 0; i < len; i++) {
+    if (msg[i] == '\0') {
+      tok++;
+      switch (tok) {
+      case 1:
+        setting = (const char *)&msg[i+1];
+        break;
+      case 2:
+        if (i + 1 < len)
+          value = (const char *)&msg[i+1];
+        break;
+      case 3:
+        if (i == len-1)
           break;
-        case 2:
-          if (i + 1 < len)
-            value = (const char *)&msg[i+1];
-          break;
-        case 3:
-          if (i == len-1)
-            break;
-        default:
-          goto error;
-        }
+      default:
+        goto error;
       }
     }
-    s = settings_lookup(section, setting);
   }
+
+  if (value == NULL)
+    goto error;
+
+  s = settings_lookup(section, setting);
   if (s == NULL)
     goto error;
 
-  if (value != NULL) {
-    /* This is an assignment, call notify function */
-    if (!s->notify(s, value))
-      goto error;
-    s->dirty = true;
+  /* This is an assignment, call notify function */
+  if (!s->notify(s, value))
+    goto error;
+  s->dirty = true;
+  return;
+
+error:
+  log_error("Error in settings write message\n");
+}
+
+static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void) context;
+
+  if (sender_id != 0x42)
+    return;
+
+  static struct setting *s = NULL;
+  const char *section = NULL, *setting = NULL;
+  char buf[256];
+  u8 buflen;
+
+  if (len == 0)
+    goto error;
+
+  if (msg[len-1] != '\0')
+    goto error;
+
+  /* Extract parameters from message:
+   * 2 null terminated strings: section, and setting
+   */
+  section = (const char *)msg;
+  for (int i = 0, tok = 0; i < len; i++) {
+    if (msg[i] == '\0') {
+      tok++;
+      switch (tok) {
+      case 1:
+        setting = (const char *)&msg[i+1];
+        break;
+      case 2:
+        if (i == len-1)
+          break;
+      default:
+        goto error;
+      }
+    }
   }
 
+  s = settings_lookup(section, setting);
+  if (s == NULL)
+    goto error;
+
   buflen = settings_format_setting(s, buf, sizeof(buf));
-  sbp_send_msg(SBP_MSG_SETTINGS, buflen, (void*)buf);
+  sbp_send_msg(SBP_MSG_SETTINGS_READ_RESPONSE, buflen, (void*)buf);
   return;
 
 error:
@@ -339,7 +391,10 @@ error:
 
 static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void) context;
+  (void) context;
+
+  if (sender_id != 0x42)
+    return;
 
   struct setting *s = settings_head;
   char buf[256];
@@ -355,7 +410,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
     ;
 
   if (s == NULL) {
-    sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX, 0, NULL);
+    sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX_DONE, 0, NULL);
     return;
   }
 
@@ -363,7 +418,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   buf[buflen++] = msg[0];
   buf[buflen++] = msg[1];
   buflen += settings_format_setting(s, buf + buflen, sizeof(buf) - buflen);
-  sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX, buflen, (void*)buf);
+  sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX_RESPONSE, buflen, (void*)buf);
 }
 
 static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* context)
