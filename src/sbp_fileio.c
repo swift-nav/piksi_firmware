@@ -17,6 +17,7 @@
 
 #include "sbp.h"
 #include "sbp_fileio.h"
+#include "sbp_utils.h"
 #include "cfs/cfs.h"
 
 static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context);
@@ -75,7 +76,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 
   u32 offset = ((u32)msg[3] << 24) | ((u32)msg[2] << 16) | (msg[1] << 8) | msg[0];
-  u8 readlen = msg[4];
+  u8 readlen = MIN(msg[4], SBP_FRAMING_MAX_PAYLOAD_SIZE - len);
   u8 buf[256];
   memcpy(buf, msg, len);
   int f = cfs_open((char*)&msg[5], CFS_READ);
@@ -118,12 +119,12 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   while (offset && (cfs_readdir(&dir, &dirent) == 0))
     offset--;
 
-  while ((cfs_readdir(&dir, &dirent) == 0) && (len < 255)) {
-    strncpy((char*)buf + len, dirent.name, 255 - len);
+  while ((cfs_readdir(&dir, &dirent) == 0) && (len < SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
+    strncpy((char*)buf + len, dirent.name, SBP_FRAMING_MAX_PAYLOAD_SIZE - len);
     len += strlen(dirent.name) + 1;
   }
 
-  if (len < 255)
+  if (len < SBP_FRAMING_MAX_PAYLOAD_SIZE)
     buf[len++] = 0xff;
 
   cfs_closedir(&dir);
