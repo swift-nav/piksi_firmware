@@ -15,6 +15,7 @@
 #include "nap_common.h"
 
 #include <libswiftnav/prns.h>
+#include <libswiftnav/logging.h>
 
 /** \addtogroup nap
  * \{ */
@@ -31,6 +32,14 @@
 u8 nap_acq_fft_index_bits;
 u8 nap_acq_downsample_stages;
 
+void nap_check_acq_idle(const char *func)
+{
+  u32 err = (nap_error_rd_blocking() >> 24) & 0xf;
+  if (err) {
+    log_error("%s acq not idle state=%d\n", func, (unsigned int)err);
+  }
+}
+
 /** Set the LOAD ENABLE bit of the NAP acquisition channel's LOAD register.
  * When the LOAD ENABLE bit is set, the acquisition channel will start loading
  * samples into its sample ram, starting at the first clock cycle after the
@@ -40,6 +49,7 @@ void nap_acq_load_wr_enable_blocking(void)
 {
   u8 temp[1] = { 0xFF };
 
+  nap_check_acq_idle(__func__);
   nap_xfer_blocking(NAP_REG_ACQ_LOAD, 1, 0, temp);
 }
 
@@ -77,6 +87,7 @@ void nap_acq_init_wr_params_blocking(s16 carrier_freq)
   u8 temp[2];
 
   nap_acq_init_pack(temp, carrier_freq);
+  nap_check_acq_idle(__func__);
   nap_xfer_blocking(NAP_REG_ACQ_INIT, sizeof(temp), 0, temp);
 }
 
@@ -131,6 +142,7 @@ void nap_acq_corr_rd_blocking(u16 *index, u16 *max, u16 *ave)
  */
 void nap_acq_code_wr_blocking(u8 prn)
 {
+  nap_check_acq_idle(__func__);
   nap_xfer_blocking(NAP_REG_ACQ_CODE, 128, 0, ca_code(prn));
 }
 

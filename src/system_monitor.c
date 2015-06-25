@@ -176,7 +176,7 @@ static msg_t system_monitor_thread(void *arg)
     send_thread_states();
 
     u32 err = nap_error_rd_blocking();
-    if (err) {
+    if (err & 0xf0ffffff) {
       log_error("SwiftNAP Error: 0x%08X\n", (unsigned int)err);
     }
 

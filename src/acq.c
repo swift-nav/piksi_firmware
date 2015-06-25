@@ -28,12 +28,14 @@
 
 static BinarySemaphore load_wait_sem;
 
+static void acq_timeout_complain(int line);
+
 void acq_set_prn(u8 prn)
 {
   chBSemInit(&load_wait_sem, TRUE);
   nap_acq_code_wr_blocking(prn);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
-    log_warn("acq: Timeout waiting for code load!\n");
+    acq_timeout_complain(__LINE__);
   }
 }
 
@@ -76,7 +78,7 @@ bool acq_load(u32 count)
   nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
-    log_warn("acq: Timeout waiting for sample load!\n");
+    acq_timeout_complain(__LINE__);
     return false;
   }
   return true;
@@ -141,7 +143,8 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
 
   for (s16 cf = cf_min; cf < cf_max; cf += cf_step) {
     if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
-      log_warn("acq: Timeout waiting for search!\n");
+      log_warn("acq: Timeout cf = %d, nap_err = 0x%" PRIx32 "\n",
+               cf, nap_error_rd_blocking());
     }
     acq_state.pipeline[acq_state.p_head].cf = cf;
     acq_state.p_head = (acq_state.p_head + 1) % NAP_ACQ_PIPELINE_STAGES;
@@ -150,7 +153,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
 
   for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {
     if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
-      log_warn("acq: Timeout waiting for search!\n");
+      acq_timeout_complain(__LINE__);
     }
   }
 }
@@ -192,6 +195,12 @@ void acq_get_results(float* cp, float* cf, float* snr)
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   *snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
+}
+
+void acq_timeout_complain(int line)
+{
+    log_warn("acq: Timeout line %d, nap_err = 0x%" PRIx32 "\n",
+             line, nap_error_rd_blocking());
 }
 
 /** \} */
