@@ -427,7 +427,7 @@ static void manage_track()
           ch->update_count - ch->snr_above_threshold_count >
             TRACK_SNR_THRES_COUNT) {
         /* This tracking channel has lost its satellite. */
-        log_info("Disabling channel %d\n", i);
+        log_info("Disabling channel %d (PRN %02d)\n", i, ch->prn+1);
         tracking_channel_disable(i);
         if (ch->snr_above_threshold_count > TRACK_SNR_THRES_COUNT) {
           acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = SCORE_TRACK;
