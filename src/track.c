@@ -124,6 +124,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   chan->prn = prn;
   chan->update_count = 0;
   chan->mode_change_count = 0;
+  chan->stage = 0;
 
   /* Initialize TOW_ms and lock_count. */
   tracking_channel_ambiguity_unknown(channel);
@@ -131,9 +132,6 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   chan->snr_above_threshold_count = 0;
   chan->snr_below_threshold_count = 0;
 
-  /* Note: The only coherent integration interval currently supported
-     for first-stage tracking (i.e. loop_params_stage[0].coherent_ms)
-     is 1. */
   const struct loop_params *l = &loop_params_stage[0];
   aided_tl_init(&(chan->tl_state), 1e3 / l->coherent_ms,
                 code_phase_rate - GPS_CA_CHIPPING_RATE,
@@ -142,6 +140,10 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
                 carrier_freq,
                 l->carr_bw, l->carr_zeta, l->carr_k,
                 l->carr_fll_aid_gain);
+  /* Note: The only coherent integration interval currently supported
+     for first-stage tracking (i.e. loop_params_stage[0].coherent_ms)
+     is 1. */
+  chan->int_ms = l->coherent_ms;
 
   chan->code_phase_early = 0;
   chan->code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
@@ -155,7 +157,6 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 
   nav_msg_init(&chan->nav_msg);
 
-  chan->int_ms = 1;
   chan->short_cycle = true;
 
   /* Initialise C/N0 estimator */
@@ -247,7 +248,7 @@ void tracking_channel_update(u8 channel)
       chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
 
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
-      if (chan->TOW_ms > 0) {
+      if (chan->TOW_ms != TOW_INVALID) {
         /* Have a valid time of week. */
         chan->TOW_ms += chan->short_cycle ? 1 : (chan->int_ms-1);
         chan->TOW_ms %= 7*24*60*60*1000;
@@ -277,8 +278,8 @@ void tracking_channel_update(u8 channel)
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
 
-      if (TOW_ms >= 0 && chan->TOW_ms != TOW_ms) {
-        if (chan->TOW_ms > 0) {
+      if ((TOW_ms > 0) && chan->TOW_ms != TOW_ms) {
+        if (chan->TOW_ms != TOW_INVALID) {
           log_error("PRN %d TOW mismatch: %ld, %lu\n",
                     chan->prn+1, chan->TOW_ms, TOW_ms);
         }
@@ -327,11 +328,14 @@ void tracking_channel_update(u8 channel)
         }
       }
 #endif
-      /* TODO use separate var to record whether we're in stage 1 or 2 */
-      if ((chan->TOW_ms != TOW_INVALID) && (chan->int_ms == 1) &&
+      if ((chan->stage == 0) &&
+          (chan->int_ms == 1) &&
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
-        /* Now that we have TOW we can transition to longer integration */
-        log_info("PRN %d entering second-stage tracking\n", chan->prn+1);
+        /* This means we have nav bit sync, and just finished a nav bit.
+           So, we can transition to longer integration and/or tighter NBW. */
+        log_info("PRN %d entering second-stage tracking after %u ms\n",
+                 chan->prn+1, (unsigned int)chan->update_count);
+        chan->stage = 1;
         struct loop_params *l = &loop_params_stage[1];
         chan->int_ms = l->coherent_ms;
         chan->short_cycle = true;
@@ -340,14 +344,14 @@ void tracking_channel_update(u8 channel)
         cn0_est_init(&chan->cn0_est, 1e3 / l->coherent_ms, chan->cn0, 5,
                      1e3 / l->coherent_ms);
 
-        /* Recalculate filter coefficients*/
+        /* Recalculate filter coefficients */
         aided_tl_retune(&chan->tl_state, 1e3 / l->coherent_ms,
                         l->code_bw, l->code_zeta, l->code_k,
                         l->carr_to_code,
                         l->carr_bw, l->carr_zeta, l->carr_k,
                         l->carr_fll_aid_gain);
 
-        /* Indicate that a mode change has ocurred. */
+        /* Indicate that a mode change has occurred. */
         chan->mode_change_count = chan->update_count;
       }
 
