@@ -51,7 +51,6 @@ OBJS += \
 	$(SWIFTNAV_ROOT)/src/timing.o \
 	$(SWIFTNAV_ROOT)/src/position.o \
 	$(SWIFTNAV_ROOT)/src/nmea.o \
-	$(SWIFTNAV_ROOT)/src/rtcm.o \
 	$(SWIFTNAV_ROOT)/src/flash_callbacks.o
 
 CFLAGS += -O0 -g -Wall -Wextra -Werror -std=gnu99 \
