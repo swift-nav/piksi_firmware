@@ -3,7 +3,7 @@ Piksi Firmware Release Notes
 
 Contents
 --------
- * [v0.18](#v0.17)
+ * [v0.18](#v0.18)
  * [v0.17](#v0.17)
  * [v0.16](#v0.16)
  * [v0.15](#v0.15)
