@@ -19,11 +19,21 @@
 #include "track.h"
 #include "simulator.h"
 #include "peripherals/random.h"
+#include "settings.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
 
-#define LONG_INTEGRATION_INTERVAL 5
+char loop_params_string[120] =
+ /* Stage 1: coherent_ms, code params, carrier params */
+  "(1 ms, (1, 0.7, 1, 1540), (10, 0.7, 1, 5)), "
+ /* Stage 2: coherent_ms, code params, carrier params */
+  "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))";
+struct loop_params {
+  float code_bw, code_zeta, code_k, carr_to_code;
+  float carr_bw, carr_zeta, carr_k, carr_fll_aid_gain;
+  u8 coherent_ms;
+} loop_params_stage[2];
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
@@ -32,13 +42,7 @@
  * tracking measurements each integration period.
  * \{ */
 
-/* Initialiser using GNU extension, see
- * http://gcc.gnu.org/onlinedocs/gcc/Designated-Inits.html
- * tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS] = \
- *   {[0 ... nap_track_n_channels-1] = {.state = TRACKING_DISABLED}};
- */
-
-/* Initialiser actually not needed, static array inits to zero
+/* Initialiser not needed, static array inits to zero
  * and TRACKING_DISABLED = 0.
  */
 tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
@@ -127,10 +131,17 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   chan->snr_above_threshold_count = 0;
   chan->snr_below_threshold_count = 0;
 
-  aided_tl_init(&(chan->tl_state), 1e3,
-                code_phase_rate-1.023e6, 1, 0.7, 1,
-                carrier_freq, 25, 0.7, 1,
-                5);
+  /* Note: The only coherent integration interval currently supported
+     for first-stage tracking (i.e. loop_params_stage[0].coherent_ms)
+     is 1. */
+  const struct loop_params *l = &loop_params_stage[0];
+  aided_tl_init(&(chan->tl_state), 1e3 / l->coherent_ms,
+                code_phase_rate - GPS_CA_CHIPPING_RATE,
+                l->code_bw, l->code_zeta, l->code_k,
+                l->carr_to_code,
+                carrier_freq,
+                l->carr_bw, l->carr_zeta, l->carr_k,
+                l->carr_fll_aid_gain);
 
   chan->code_phase_early = 0;
   chan->code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
@@ -152,8 +163,9 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   cn0 += 10 * log10(1000); /* Bandwidth */
   cn0_est_init(&chan->cn0_est, 1e3, cn0, 5, 1e3);
 
-  alias_detect_init(&chan->alias_detect, 500/LONG_INTEGRATION_INTERVAL,
-                    (LONG_INTEGRATION_INTERVAL-1)*1e-3);
+  /* TODO: Reconfigure alias detection between stages */
+  alias_detect_init(&chan->alias_detect, 500/loop_params_stage[1].coherent_ms,
+                    (loop_params_stage[1].coherent_ms-1)*1e-3);
 
   /* Starting carrier phase is set to zero as we don't
    * know the carrier freq well enough to calculate it.
@@ -242,7 +254,7 @@ void tracking_channel_update(u8 channel)
       }
 
       if (chan->int_ms > 1) {
-        /* If we're doing long integrations alternate between short and long
+        /* If we're doing long integrations, alternate between short and long
          * cycles.  This is because of FPGA pipelining and latency.  The
          * loop parameters can only be updated at the end of the second
          * integration interval and waiting a whole 20ms is too long.
@@ -262,14 +274,13 @@ void tracking_channel_update(u8 channel)
 
       chan->update_count += chan->int_ms;
 
-
       /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
 
-      if (TOW_ms > 0 && chan->TOW_ms != TOW_ms) {
+      if (TOW_ms >= 0 && chan->TOW_ms != TOW_ms) {
         if (chan->TOW_ms > 0) {
-          log_warn("PRN %d TOW mismatch: %ld, %lu\n",
-                   chan->prn+1, chan->TOW_ms, TOW_ms);
+          log_error("PRN %d TOW mismatch: %ld, %lu\n",
+                    chan->prn+1, chan->TOW_ms, TOW_ms);
         }
         chan->TOW_ms = TOW_ms;
       }
@@ -291,7 +302,7 @@ void tracking_channel_update(u8 channel)
       }
       aided_tl_update(&(chan->tl_state), cs2);
       chan->carrier_freq = chan->tl_state.carr_freq;
-      chan->code_phase_rate = chan->tl_state.code_freq + 1.023e6;
+      chan->code_phase_rate = chan->tl_state.code_freq + GPS_CA_CHIPPING_RATE;
 
       chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
       chan->code_phase_rate_fp = chan->code_phase_rate
@@ -316,22 +327,25 @@ void tracking_channel_update(u8 channel)
         }
       }
 #endif
-
-      if ((LONG_INTEGRATION_INTERVAL > 1) &&
-          (chan->TOW_ms > 0) && (chan->int_ms == 1) &&
+      /* TODO use separate var to record whether we're in stage 1 or 2 */
+      if ((chan->TOW_ms != TOW_INVALID) && (chan->int_ms == 1) &&
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
         /* Now that we have TOW we can transition to longer integration */
-        log_info("Increasing integration time for PRN %d\n", chan->prn+1);
-        chan->int_ms = LONG_INTEGRATION_INTERVAL;
+        log_info("PRN %d entering second-stage tracking\n", chan->prn+1);
+        struct loop_params *l = &loop_params_stage[1];
+        chan->int_ms = l->coherent_ms;
         chan->short_cycle = true;
 
-        cn0_est_init(&chan->cn0_est, 1e3/chan->int_ms, chan->cn0, 5, 1e3);
+        /* TODO What is BW for C/N0 estimation? */
+        cn0_est_init(&chan->cn0_est, 1e3 / l->coherent_ms, chan->cn0, 5,
+                     1e3 / l->coherent_ms);
 
-        /* Recalculate filter coefficients: now pure PLL */
-        aided_tl_init(&chan->tl_state, 1e3 / chan->int_ms,
-                      chan->tl_state.code_freq, 1, 0.7, 1,
-                      chan->tl_state.carr_freq, 35, 0.7, 1,
-                      0);
+        /* Recalculate filter coefficients*/
+        aided_tl_retune(&chan->tl_state, 1e3 / l->coherent_ms,
+                        l->code_bw, l->code_zeta, l->code_k,
+                        l->carr_to_code,
+                        l->carr_bw, l->carr_zeta, l->carr_k,
+                        l->carr_fll_aid_gain);
 
         /* Indicate that a mode change has ocurred. */
         chan->mode_change_count = chan->update_count;
@@ -451,6 +465,56 @@ void tracking_send_state()
 
   sbp_send_msg(SBP_MSG_TRACKING_STATE, sizeof(states), (u8*)states);
 
+}
+
+/** Parse a string describing the tracking loop filter parameters into
+    the loop_params_stage structs. */
+static bool parse_loop_params(struct setting *s, const char *val)
+{
+  /** The string contains loop parameters for either one or two
+      stages.  If the second is omitted, we'll use the same parameters
+      as the first stage.*/
+
+  struct loop_params loop_params_parse[2];
+
+  const char *str = val;
+  for (int stage = 0; stage < 2; stage++) {
+    struct loop_params *l = &loop_params_parse[stage];
+
+    int n_chars_read = 0;
+    if (sscanf(str, "( %hhu ms , ( %f , %f , %f , %f ) , ( %f , %f , %f , %f ) ) , %n",
+               &l->coherent_ms,
+               &l->code_bw, &l->code_zeta, &l->code_k, &l->carr_to_code,
+               &l->carr_bw, &l->carr_zeta, &l->carr_k, &l->carr_fll_aid_gain,
+               &n_chars_read) < 9) {
+      log_error("Ill-formatted tracking loop param string.\n");
+      return false;
+    }
+
+    /* If string omits second-stage parameters, then after the first
+       stage has been parsed, n_chars_read == 0 because of missing
+       comma and we'll parse the string again into loop_params_parse[1]. */
+    str += n_chars_read;
+
+    if ((l->coherent_ms == 0)
+        || ((20 % l->coherent_ms) != 0) /* i.e. not 1, 2, 4, 5, 10 or 20 */
+        || (stage == 0 && l->coherent_ms != 1)) {
+      log_error("Invalid coherent integration length.\n");
+      return false;
+    }
+  }
+  /* Successfully parsed both stages.  Save to memory. */
+  strncpy(s->addr, val, s->len);
+  memcpy(loop_params_stage, loop_params_parse, sizeof(loop_params_stage));
+  return true;
+}
+
+/** Set up tracking subsystem - presently just hooks for settings
+ */
+void tracking_setup()
+{
+  SETTING_NOTIFY("track", "loop_params", loop_params_string, TYPE_STRING,
+		 parse_loop_params);
 }
 
 /** \} */

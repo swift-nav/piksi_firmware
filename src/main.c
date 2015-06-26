@@ -175,7 +175,7 @@ int main(void)
   timing_setup();
   ext_event_setup();
   position_setup();
-
+  tracking_setup();
   manage_acq_setup();
   manage_track_setup();
   system_monitor_setup();
