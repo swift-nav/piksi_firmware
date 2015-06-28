@@ -418,7 +418,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->time_of_week_ms = chan->TOW_ms;
   meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
   meas->snr = tracking_channel_snr(channel);
-  if (chan->nav_msg.inverted) {
+  if (chan->nav_msg.bit_polarity == BIT_POLARITY_INVERTED) {
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = chan->lock_counter;
