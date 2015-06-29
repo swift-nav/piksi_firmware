@@ -3,6 +3,7 @@ Piksi Firmware Release Notes
 
 Contents
 --------
+ * [v0.18](#v0.18)
  * [v0.17](#v0.17)
  * [v0.16](#v0.16)
  * [v0.15](#v0.15)
@@ -12,6 +13,28 @@ Contents
  * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.18 <a name="v0.18"></a>
+-----
+
+#### Core
+
+ * Fixed flash corruption bug - increases % of time device reaches the
+   correct Fixed RTK solution and reduces device crashes
+ * Fixed bug in acquisition core in SwiftNAP that caused device crashes
+
+#### libswiftnav
+
+ * Float filter robustness improvements
+ * Refactor of baseline / differential positioning management code
+
+#### libsbp
+
+ * Ephemeris and bootloader handshake messages have been changed and the
+   old versions deprecated
+ * See [https://github.com/swift-nav/libsbp/blob/master/docs/sbp.pdf](https://github.com/swift-nav/libsbp/blob/master/docs/sbp.pdf)
+   for documentation on current version of SBP messages
+ * Numerous changes to other messages, which are supported by piksi_tools
 
 v0.17 <a name="v0.17"></a>
 -----
