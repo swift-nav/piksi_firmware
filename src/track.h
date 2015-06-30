@@ -37,7 +37,6 @@ typedef struct {
   u32 mode_change_count;       /**< update_count at last mode change. */
   s32 TOW_ms;                  /**< TOW in ms. */
   u32 snr_above_threshold_count;     /**< update_count value when SNR was last above a certain margin. */
-  u32 snr_below_threshold_count;     /**< update_count value when SNR was last below a certain margin. */
   u8 prn;                      /**< CA Code (0-31) channel is tracking. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   u32 code_phase_early;        /**< Early code phase. */
@@ -60,6 +59,7 @@ typedef struct {
   bool short_cycle;            /**< Set to true when a short 1ms integration is requested. */
   bool output_iq;              /**< Set if this channel should output I/Q samples on SBP. */
   alias_detect_t alias_detect; /**< Alias lock detector. */
+  lock_detect_t lock_detect;   /**< Phase-lock detector state. */
 } tracking_channel_t;
 
 /** \} */

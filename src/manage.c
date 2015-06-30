@@ -415,17 +415,8 @@ static void manage_track()
       continue;
     }
 
-    if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
-      /* SNR has dropped below threshold, indicate that the carrier phase
-       * ambiguity is now unknown as cycle slips are likely. */
-      tracking_channel_ambiguity_unknown(i);
-      /* Update the latest time we were below the threshold. */
-      ch->snr_below_threshold_count = ch->update_count;
-      /* Have we have been below the threshold for longer than
-       * `TRACK_SNR_THRES_COUNT`? */
-      if (ch->update_count > TRACK_SNR_INIT_COUNT &&
-          ch->update_count - ch->snr_above_threshold_count >
-            TRACK_SNR_THRES_COUNT) {
+    if (!ch->lock_detect.outo) {
+      if (ch->update_count > TRACK_SNR_INIT_COUNT)  {
         /* This tracking channel has lost its satellite. */
         log_info("Disabling channel %d\n", i);
         tracking_channel_disable(i);
@@ -452,10 +443,6 @@ s8 use_tracking_channel(u8 i)
       /* TODO: Use libswiftnav function here. */
       && (es[tracking_channel[i].prn].valid == 1)
       && (es[tracking_channel[i].prn].healthy == 1)
-      /* Check SNR has been above threshold for the minimum time. */
-      && (tracking_channel[i].update_count
-            - tracking_channel[i].snr_below_threshold_count
-            > TRACK_SNR_THRES_COUNT)
       /* Check that a minimum time has elapsed since the last tracking channel
        * mode change, to allow any transients to stabilize. */
       && (tracking_channel[i].update_count
@@ -463,11 +450,8 @@ s8 use_tracking_channel(u8 i)
             > TRACK_STABILIZATION_COUNT)
       /* Check the channel time of week has been decoded. */
       && (tracking_channel[i].TOW_ms >= 0)
-      /* Check the current SNR.
-       * NOTE: `snr_below_threshold_count` will not be reset immediately if the
-       * SNR drops, only once `manage_track()` is called, so this additional
-       * test is required here. */
-      && (tracking_channel_snr(i) >= TRACK_THRESHOLD);
+      /* Check the pessimistic lock detect indicator. */
+      && (tracking_channel[i].lock_detect.outp);
 }
 
 u8 tracking_channels_ready()
