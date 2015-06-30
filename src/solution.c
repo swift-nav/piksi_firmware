@@ -58,6 +58,8 @@ u32 obs_output_divisor = 2;
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
 
+double pole_offset = 0;
+
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
   if (soln) {
@@ -133,10 +135,13 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
   double* base_station_pos;
   msg_baseline_ecef_t sbp_ecef;
   sbp_make_baseline_ecef(&sbp_ecef, t, n_sats, b_ecef, flags);
-  sbp_send_msg(SBP_MSG_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
 
   double b_ned[3];
   wgsecef2ned(b_ecef, ref_ecef, b_ned);
+  b_ned[2] += pole_offset;
+  wgsned2ecef(b_ned, ref_ecef, b_ecef);
+
+  sbp_send_msg(SBP_MSG_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
 
   msg_baseline_ned_t sbp_ned;
   sbp_make_baseline_ned(&sbp_ned, t, n_sats, b_ned, flags);
@@ -735,6 +740,7 @@ void solution_setup()
   SETTING("solution", "known_baseline_n", known_baseline[0], TYPE_FLOAT);
   SETTING("solution", "known_baseline_e", known_baseline[1], TYPE_FLOAT);
   SETTING("solution", "known_baseline_d", known_baseline[2], TYPE_FLOAT);
+  SETTING("solution", "pole_offset", pole_offset, TYPE_FLOAT);
 
   SETTING("iar", "phase_var", dgnss_settings.phase_var_test, TYPE_FLOAT);
   SETTING("iar", "code_var", dgnss_settings.code_var_test, TYPE_FLOAT);
