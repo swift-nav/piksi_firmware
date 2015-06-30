@@ -324,10 +324,16 @@ void tracking_channel_update(u8 channel)
 
       /* Update PLL lock detector */
       bool last_outp = chan->lock_detect.outp;
+      bool last_outo = chan->lock_detect.outo;
       lock_detect_update(&chan->lock_detect, cs[1].I, cs[1].Q, chan->int_ms);
       /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
-      if (last_outp && (last_outp != chan->lock_detect.outp))
+      if (last_outp && (last_outp != chan->lock_detect.outp)) {
+          log_info("track: outp low PRN%d\n", chan->prn+1);
           tracking_channel_ambiguity_unknown(chan->prn);
+      }
+      if (last_outo && (last_outo != chan->lock_detect.outo)) {
+          log_info("track: outo low PRN%d\n", chan->prn+1);
+      }
 
       /* Run the loop filters. */
 
