@@ -314,6 +314,50 @@ static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
   __asm__("CPSIE i;");
 }
 
+static void simulation_thread()
+{
+  /* Set the timer period appropriately. */
+  timer_set_period_check(TIM5, round(65472000 * (1.0/soln_freq)));
+
+  simulation_step();
+
+  /* TODO: The simulator's handling of time is a bit crazy. This is a hack
+   * for now but the simulator should be refactored so that it can give the
+   * exact correct solution time output without this nonsense. */
+  gnss_solution *soln = simulation_current_gnss_solution();
+  double expected_tow = \
+    round(soln->time.tow * soln_freq) / soln_freq;
+  soln->time.tow = expected_tow;
+  soln->time = normalize_gps_time(soln->time);
+
+  if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
+    /* Then we send fake messages. */
+    solution_send_sbp(soln, simulation_current_dops_solution());
+    solution_send_nmea(soln, simulation_current_dops_solution(),
+                       simulation_current_num_sats(),
+                       simulation_current_navigation_measurements(),
+                       NMEA_GGA_FIX_GPS);
+
+  }
+
+  if (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
+      simulation_enabled_for(SIMULATION_MODE_RTK)) {
+
+    u8 flags = simulation_enabled_for(SIMULATION_MODE_RTK) ? 1 : 0;
+
+    solution_send_baseline(&(soln->time),
+      simulation_current_num_sats(),
+      simulation_current_baseline_ecef(),
+      simulation_ref_ecef(), flags);
+
+    double t_check = expected_tow * (soln_freq / obs_output_divisor);
+    if (fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+      send_observations(simulation_current_num_sats(),
+        &(soln->time), simulation_current_navigation_measurements());
+    }
+  }
+}
+
 static WORKING_AREA_CCM(wa_solution_thread, 10000);
 static msg_t solution_thread(void *arg)
 {
@@ -325,6 +369,13 @@ static msg_t solution_thread(void *arg)
   while (TRUE) {
     /* Waiting for the timer IRQ fire.*/
     chBSemWait(&solution_wakeup_sem);
+
+    watchdog_notify(WD_NOTIFY_SOLUTION);
+
+    /* Here we do all the nice simulation-related stuff. */
+    if (simulation_enabled()) {
+      simulation_thread();
+    }
 
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
@@ -493,54 +544,7 @@ static msg_t solution_thread(void *arg)
         /* Send just the DOPs */
         solution_send_sbp(0, &dops);
       }
-
     }
-
-    /* Here we do all the nice simulation-related stuff. */
-    if (simulation_enabled()) {
-
-      /* Set the timer period appropriately. */
-      timer_set_period_check(TIM5, round(65472000 * (1.0/soln_freq)));
-
-      simulation_step();
-
-      /* TODO: The simulator's handling of time is a bit crazy. This is a hack
-       * for now but the simulator should be refactored so that it can give the
-       * exact correct solution time output without this nonsense. */
-      gnss_solution *soln = simulation_current_gnss_solution();
-      double expected_tow = \
-        round(soln->time.tow * soln_freq) / soln_freq;
-      soln->time.tow = expected_tow;
-      soln->time = normalize_gps_time(soln->time);
-
-      if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
-        /* Then we send fake messages. */
-        solution_send_sbp(soln, simulation_current_dops_solution());
-        solution_send_nmea(soln, simulation_current_dops_solution(),
-                           simulation_current_num_sats(),
-                           simulation_current_navigation_measurements(),
-                           NMEA_GGA_FIX_GPS);
-
-      }
-
-      if (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
-          simulation_enabled_for(SIMULATION_MODE_RTK)) {
-
-        u8 flags = simulation_enabled_for(SIMULATION_MODE_RTK) ? 1 : 0;
-
-        solution_send_baseline(&(soln->time),
-          simulation_current_num_sats(),
-          simulation_current_baseline_ecef(),
-          simulation_ref_ecef(), flags);
-
-        double t_check = expected_tow * (soln_freq / obs_output_divisor);
-        if (fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
-          send_observations(simulation_current_num_sats(),
-            &(soln->time), simulation_current_navigation_measurements());
-        }
-      }
-    }
-    watchdog_notify(WD_NOTIFY_SOLUTION);
   }
   return 0;
 }
