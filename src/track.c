@@ -35,6 +35,12 @@ struct loop_params {
   u8 coherent_ms;
 } loop_params_stage[2];
 
+char lock_detect_params_string[24] = "0.05, 1.4, 150, 50";
+struct lock_detect_params {
+  float k1, k2;
+  u16 lp, lo;
+} lock_detect_params;
+
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
  * Initialize SwiftNAP tracking channels. Run loop filters and update
@@ -131,7 +137,6 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   chan->TOW_ms = TOW_INVALID;
 
   chan->snr_above_threshold_count = 0;
-  chan->snr_below_threshold_count = 0;
 
   const struct loop_params *l = &loop_params_stage[0];
   aided_tl_init(&(chan->tl_state), 1e3 / l->coherent_ms,
@@ -164,6 +169,10 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   float cn0 = 10 * log10(snr);
   cn0 += 10 * log10(1000); /* Bandwidth */
   cn0_est_init(&chan->cn0_est, 1e3, cn0, 5, 1e3);
+
+  lock_detect_init(&chan->lock_detect,
+                   lock_detect_params.k1, lock_detect_params.k2,
+                   lock_detect_params.lp, lock_detect_params.lo);
 
   /* TODO: Reconfigure alias detection between stages */
   alias_detect_init(&chan->alias_detect, 500/loop_params_stage[1].coherent_ms,
@@ -309,6 +318,20 @@ void tracking_channel_update(u8 channel)
       /* Update C/N0 estimate */
       chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I/chan->int_ms, cs[1].Q/chan->int_ms);
 
+      /* Update PLL lock detector */
+      bool last_outp = chan->lock_detect.outp;
+      bool last_outo = chan->lock_detect.outo;
+      lock_detect_update(&chan->lock_detect, cs[1].I, cs[1].Q, chan->int_ms);
+      /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
+      if (last_outp != chan->lock_detect.outp) {
+        log_info("PRN%d LD pess = %d\n", chan->prn+1, chan->lock_detect.outp);
+        if (chan->lock_detect.outp == 0)
+          tracking_channel_ambiguity_unknown(chan->prn);
+      }
+      if (last_outo && (last_outo != chan->lock_detect.outo)) {
+        /*        log_info("PRN%d ld opti = %d\n", chan->prn+1, chan->lock_detect.outo); */
+      }
+
       /* Run the loop filters. */
 
       /* TODO: Make this more elegant. */
@@ -343,7 +366,7 @@ void tracking_channel_update(u8 channel)
         * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
 #if 1
-      if (chan->int_ms != 1) {
+      if (chan->stage > 0 && chan->lock_detect.outp) {
         s32 I = (cs[1].I - chan->alias_detect.first_I) / (chan->int_ms - 1);
         s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
         float err = alias_detect_second(&chan->alias_detect, I, Q);
@@ -370,7 +393,6 @@ void tracking_channel_update(u8 channel)
         chan->int_ms = l->coherent_ms;
         chan->short_cycle = true;
 
-        /* TODO What is BW for C/N0 estimation? */
         cn0_est_init(&chan->cn0_est, 1e3 / l->coherent_ms, chan->cn0, 5,
                      1e3 / l->coherent_ms);
 
@@ -380,6 +402,12 @@ void tracking_channel_update(u8 channel)
                         l->carr_to_code,
                         l->carr_bw, l->carr_zeta, l->carr_k,
                         l->carr_fll_aid_gain);
+
+        lock_detect_reinit(&chan->lock_detect,
+                           lock_detect_params.k1 * l->coherent_ms,
+                           lock_detect_params.k2,
+                           /* TODO: Should also adjust lp and lo? */
+                           lock_detect_params.lp, lock_detect_params.lo);
 
         /* Indicate that a mode change has occurred. */
         chan->mode_change_count = chan->update_count;
@@ -542,12 +570,31 @@ static bool parse_loop_params(struct setting *s, const char *val)
   return true;
 }
 
+/** Parse a string describing the tracking loop phase lock detector
+    parameters into the lock_detect_params structs. */
+static bool parse_lock_detect_params(struct setting *s, const char *val)
+{
+  struct lock_detect_params p;
+
+  if (sscanf(val, "%f , %f , %" SCNu16 " , %" SCNu16,
+             &p.k1, &p.k2, &p.lp, &p.lo) < 4) {
+      log_error("Ill-formatted lock detect param string.\n");
+      return false;
+  }
+  /* Successfully parsed.  Save to memory. */
+  strncpy(s->addr, val, s->len);
+  memcpy(&lock_detect_params, &p, sizeof(lock_detect_params));
+  return true;
+}
+
 /** Set up tracking subsystem - presently just hooks for settings
  */
 void tracking_setup()
 {
-  SETTING_NOTIFY("track", "loop_params", loop_params_string, TYPE_STRING,
-		 parse_loop_params);
+  SETTING_NOTIFY("track", "loop_params", loop_params_string,
+                 TYPE_STRING, parse_loop_params);
+  SETTING_NOTIFY("track", "lock_detect_params", lock_detect_params_string,
+                 TYPE_STRING, parse_lock_detect_params);
 }
 
 /** \} */
