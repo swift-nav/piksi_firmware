@@ -451,17 +451,8 @@ static void manage_track()
       continue;
     }
 
-    if (tracking_channel_snr(i) < track_cn0_threshold) {
-      /* SNR has dropped below threshold, indicate that the carrier phase
-       * ambiguity is now unknown as cycle slips are likely. */
-      tracking_channel_ambiguity_unknown(i);
-      /* Update the latest time we were below the threshold. */
-      ch->snr_below_threshold_count = ch->update_count;
-      /* Have we have been below the threshold for longer than
-       * `TRACK_SNR_THRES_COUNT`? */
-      if (ch->update_count > TRACK_SNR_INIT_COUNT &&
-          ch->update_count - ch->snr_above_threshold_count >
-            TRACK_SNR_THRES_COUNT) {
+    if (!ch->lock_detect.outo) {
+      if (ch->update_count > TRACK_SNR_INIT_COUNT)  {
         /* This tracking channel has lost its satellite. */
         log_info("Disabling channel %d (PRN %02d)\n", i, ch->prn+1);
         tracking_channel_disable(i);
@@ -484,10 +475,8 @@ static void manage_track()
 s8 use_tracking_channel(u8 i)
 {
   if ((tracking_channel[i].state == TRACKING_RUNNING)
-      /* Check SNR has been above threshold for the minimum time. */
-      && (tracking_channel[i].update_count
-            - tracking_channel[i].snr_below_threshold_count
-            > TRACK_SNR_THRES_COUNT)
+      /* Check the pessimistic lock detect indicator. */
+      && (tracking_channel[i].lock_detect.outp)
       /* Check that a minimum time has elapsed since the last tracking channel
        * mode change, to allow any transients to stabilize. */
       && (tracking_channel[i].update_count

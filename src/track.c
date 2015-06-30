@@ -35,6 +35,17 @@ struct loop_params {
   u8 coherent_ms;
 } loop_params_stage[2];
 
+/* Kaplan gives magic parameters for the loop detect algorithm:
+ * DT = 20ms, K1 = 0.0247, K2 = 1.5, Lp = 50, Lo = 240
+ * This corresponds to a low-pass filter time constant of 1.25s
+ * The relation between K1 and time constant is exponential, but
+ * K1 is close enough to zero to treat it as linear.
+ *
+ * Recalculating K1 to keep this time constant at DT = 1ms gives:
+ */
+#define LOCK_DETECT_K1_1MS 0.00125
+#define LOCK_DETECT_K2 3.0
+
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
  * Initialize SwiftNAP tracking channels. Run loop filters and update
@@ -131,7 +142,6 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   chan->TOW_ms = TOW_INVALID;
 
   chan->snr_above_threshold_count = 0;
-  chan->snr_below_threshold_count = 0;
 
   const struct loop_params *l = &loop_params_stage[0];
   aided_tl_init(&(chan->tl_state), 1e3 / l->coherent_ms,
@@ -164,6 +174,9 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   float cn0 = 10 * log10(snr);
   cn0 += 10 * log10(1000); /* Bandwidth */
   cn0_est_init(&chan->cn0_est, 1e3, cn0, 5, 1e3);
+
+  lock_detect_init(&chan->lock_detect, LOCK_DETECT_K1_1MS,
+                   LOCK_DETECT_K2, 50, 240);
 
   /* TODO: Reconfigure alias detection between stages */
   alias_detect_init(&chan->alias_detect, 500/loop_params_stage[1].coherent_ms,
@@ -309,6 +322,13 @@ void tracking_channel_update(u8 channel)
       /* Update C/N0 estimate */
       chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I/chan->int_ms, cs[1].Q/chan->int_ms);
 
+      /* Update PLL lock detector */
+      bool last_outp = chan->lock_detect.outp;
+      lock_detect_update(&chan->lock_detect, cs[1].I, cs[1].Q, chan->int_ms);
+      /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
+      if (last_outp && (last_outp != chan->lock_detect.outp))
+          tracking_channel_ambiguity_unknown(chan->prn);
+
       /* Run the loop filters. */
 
       /* TODO: Make this more elegant. */
@@ -356,7 +376,6 @@ void tracking_channel_update(u8 channel)
         chan->int_ms = l->coherent_ms;
         chan->short_cycle = true;
 
-        /* TODO What is BW for C/N0 estimation? */
         cn0_est_init(&chan->cn0_est, 1e3 / l->coherent_ms, chan->cn0, 5,
                      1e3 / l->coherent_ms);
 
@@ -366,6 +385,10 @@ void tracking_channel_update(u8 channel)
                         l->carr_to_code,
                         l->carr_bw, l->carr_zeta, l->carr_k,
                         l->carr_fll_aid_gain);
+
+        lock_detect_reinit(&chan->lock_detect,
+                           LOCK_DETECT_K1_1MS * l->coherent_ms,
+                           LOCK_DETECT_K2, 50, 240);
 
         /* Indicate that a mode change has occurred. */
         chan->mode_change_count = chan->update_count;
