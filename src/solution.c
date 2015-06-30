@@ -314,7 +314,7 @@ static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
   __asm__("CPSIE i;");
 }
 
-static void simulation_thread()
+static void solution_simulation()
 {
   /* Set the timer period appropriately. */
   timer_set_period_check(TIM5, round(65472000 * (1.0/soln_freq)));
@@ -374,7 +374,7 @@ static msg_t solution_thread(void *arg)
 
     /* Here we do all the nice simulation-related stuff. */
     if (simulation_enabled()) {
-      simulation_thread();
+      solution_simulation();
     }
 
     u8 n_ready = 0;
