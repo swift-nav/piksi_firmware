@@ -410,6 +410,11 @@ static msg_t solution_thread(void *arg)
       memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
       n_ready_old = n_ready;
 
+      if (n_ready_tdcp == 0) {
+        /* Not enough sats to compute PVT */
+        continue;
+      }
+
       dops_t dops;
       s8 ret;
       if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp,
