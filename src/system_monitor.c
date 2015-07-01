@@ -18,6 +18,8 @@
 #include <libsbp/version.h>
 #include <libswiftnav/logging.h>
 #include <libswiftnav/dgnss_management.h>
+#include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/coord_system.h>
 
 #include "board/nap/nap_common.h"
 #include "board/max2769.h"
@@ -28,9 +30,15 @@
 #include "manage.h"
 #include "simulator.h"
 #include "system_monitor.h"
+#include "position.h"
 
 #define WATCHDOG_HARDWARE_PERIOD_MS 30000  /* Actual period may vary +88% -32% */
 #define WATCHDOG_THREAD_PERIOD_MS 15000
+
+/* Maximum distance between calculated and surveyed base station single point 
+ * position for error checking.
+ */
+#define BASE_STATION_DISTANCE_THRESHOLD 15000
 
 /* Time between sending system monitor and heartbeat messages in milliseconds */
 static uint32_t heartbeat_period_milliseconds = 1000;
@@ -143,7 +151,7 @@ static msg_t system_monitor_thread(void *arg)
   chRegSetThreadName("system monitor");
 
   systime_t time = chTimeNow();
-  
+
   bool ant_status = 0;
 
   while (TRUE) {
@@ -161,8 +169,22 @@ static msg_t system_monitor_thread(void *arg)
     sbp_send_msg(SBP_MSG_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
 
     /* If we are in base station mode then broadcast our known location. */
-    if (broadcast_surveyed_position) {
-      sbp_send_msg(SBP_MSG_BASE_POS, sizeof(msg_base_pos_t), (u8 *)&base_llh);
+    if (broadcast_surveyed_position && position_quality == POSITION_FIX) {
+      double tmp[3];
+      double base_ecef[3];
+      double base_distance;
+
+      llhdeg2rad(base_llh, tmp);
+      wgsllh2ecef(tmp, base_ecef);
+
+      vector_subtract(3, base_ecef, position_solution.pos_ecef, tmp);
+      base_distance = vector_norm(3, tmp);
+
+      if (base_distance > BASE_STATION_DISTANCE_THRESHOLD) {
+        log_warn("Invalid surveyed position coordinates\n");
+      } else {
+        sbp_send_msg(SBP_MSG_BASE_POS, sizeof(msg_base_pos_t), (u8 *)&base_llh);
+      }
     }
 
     msg_iar_state_t iar_state;
