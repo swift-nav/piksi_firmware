@@ -463,6 +463,8 @@ s8 use_tracking_channel(u8 i)
             > TRACK_STABILIZATION_COUNT)
       /* Check the channel time of week has been decoded. */
       && (tracking_channel[i].TOW_ms >= 0)
+      /* Check the nav bit polarity is known, i.e. half-cycles have been resolved */
+      && (tracking_channel[i].nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
       /* Check the current SNR.
        * NOTE: `snr_below_threshold_count` will not be reset immediately if the
        * SNR drops, only once `manage_track()` is called, so this additional

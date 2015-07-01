@@ -128,6 +128,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 
   /* Initialize TOW_ms and lock_count. */
   tracking_channel_ambiguity_unknown(channel);
+  chan->TOW_ms = TOW_INVALID;
 
   chan->snr_above_threshold_count = 0;
   chan->snr_below_threshold_count = 0;
@@ -388,16 +389,15 @@ void tracking_channel_disable(u8 channel)
 /** Sets a channel's carrier phase ambiguity to unknown.
  * Changes the lock counter to indicate to the consumer of the tracking channel
  * observations that the carrier phase ambiguity may have changed. Also
- * invalidates the time of week to indicate that the half cycle ambiguity must
- * be resolved again by the navigation message processing. Should be called if
- * a cycle slip is suspected.
+ * invalidates the half cycle ambiguity, which must be resolved again by the navigation
+ *  message processing. Should be called if a cycle slip is suspected.
  *
- * \param channel Tracking channel to disable.
+ * \param channel Tracking channel number to mark phase-ambiguous.
  */
 void tracking_channel_ambiguity_unknown(u8 channel)
 {
   u8 prn = tracking_channel[channel].prn;
-  tracking_channel[channel].TOW_ms = TOW_INVALID;
+  tracking_channel[channel].nav_msg.bit_polarity = BIT_POLARITY_UNKNOWN;
   tracking_channel[channel].lock_counter = ++tracking_lock_counters[prn];
 }
 
