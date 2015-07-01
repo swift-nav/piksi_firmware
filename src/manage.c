@@ -77,6 +77,8 @@ acq_prn_t acq_prn_param[32];
 
 almanac_t almanac[32];
 
+float track_cn0_threshold = 33.0;
+
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
 static void manage_track(void);
@@ -386,8 +388,10 @@ void manage_track_setup()
 {
   initialize_lock_counters();
 
-  SETTING_NOTIFY("track", "iq_output_mask", iq_output_mask, TYPE_INT,
+  SETTING_NOTIFY("expert", "iq_output_mask", iq_output_mask, TYPE_INT,
                  track_iq_output_notify);
+
+  SETTING("track", "track_cn0_threshold", track_cn0_threshold, TYPE_FLOAT);
 
   chThdCreateStatic(
       wa_manage_track_thread,
@@ -415,7 +419,7 @@ static void manage_track()
       continue;
     }
 
-    if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
+    if (tracking_channel_snr(i) < track_cn0_threshold) {
       /* SNR has dropped below threshold, indicate that the carrier phase
        * ambiguity is now unknown as cycle slips are likely. */
       tracking_channel_ambiguity_unknown(i);
@@ -469,7 +473,7 @@ s8 use_tracking_channel(u8 i)
        * NOTE: `snr_below_threshold_count` will not be reset immediately if the
        * SNR drops, only once `manage_track()` is called, so this additional
        * test is required here. */
-      && (tracking_channel_snr(i) >= TRACK_THRESHOLD);
+      && (tracking_channel_snr(i) >= track_cn0_threshold);
 }
 
 u8 tracking_channels_ready()
