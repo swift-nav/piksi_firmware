@@ -33,7 +33,7 @@ void acq_set_prn(u8 prn)
   chBSemInit(&load_wait_sem, TRUE);
   nap_acq_code_wr_blocking(prn);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
-    log_warn("acq: Timeout waiting for code load!\n");
+    log_error("acq: Timeout waiting for code load!\n");
   }
 }
 
@@ -76,7 +76,7 @@ bool acq_load(u32 count)
   nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
-    log_warn("acq: Timeout waiting for sample load!\n");
+    log_info("acq: Sample load timeout. Probably set timing strobe in the past.\n");
     return false;
   }
   return true;
@@ -141,7 +141,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
 
   for (s16 cf = cf_min; cf < cf_max; cf += cf_step) {
     if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
-      log_warn("acq: Timeout waiting for search!\n");
+      log_error("acq: Search timeout (cf = %d)!\n", cf);
     }
     acq_state.pipeline[acq_state.p_head].cf = cf;
     acq_state.p_head = (acq_state.p_head + 1) % NAP_ACQ_PIPELINE_STAGES;
@@ -150,7 +150,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
 
   for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {
     if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
-      log_warn("acq: Timeout waiting for search!\n");
+      log_error("acq: Search timeout!\n");
     }
   }
 }
