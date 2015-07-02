@@ -192,6 +192,11 @@ void acq_get_results(float* cp, float* cf, float* snr)
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   *snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
+  if (isnan(*snr)) {
+    log_error("acq: SNR is NaN (best=%" PRIu64 ", acc=%" PRIu64 ", count=%" PRIu32 ")\n",
+              acq_state.best_power, acq_state.power_acc, acq_state.count);
+    *snr = 0;
+  }
 }
 
 /** \} */
