@@ -317,6 +317,17 @@ void tracking_channel_update(u8 channel)
         cs2[i].I = cs[2-i].I;
         cs2[i].Q = cs[2-i].Q;
       }
+
+      /* Output I/Q correlations using SBP if enabled for this channel */
+      if (chan->output_iq && (chan->int_ms > 1)) {
+        msg_tracking_iq_t msg = {
+          .channel = channel,
+          .sid = chan->prn,
+        };
+        memcpy(msg.corrs, chan->cs, sizeof(chan->cs));
+        sbp_send_msg(SBP_MSG_TRACKING_IQ, sizeof(msg), (u8*)&msg);
+      }
+
       aided_tl_update(&(chan->tl_state), cs2);
       chan->carrier_freq = chan->tl_state.carr_freq;
       chan->code_phase_rate = chan->tl_state.code_freq + GPS_CA_CHIPPING_RATE;
