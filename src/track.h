@@ -59,6 +59,10 @@ typedef struct {
   u8 next_int_ms;              /**< Integration length for the next cycle. */
   bool short_cycle;            /**< Set to true when a short 1ms integration is requested. */
   bool output_iq;              /**< Set if this channel should output I/Q samples on SBP. */
+  u8 stage;                    /**< 0 = First-stage. 1 ms integration.
+                                    1 = Second-stage. After nav bit sync,
+                                    retune loop filters and typically (but
+                                    not necessarily) use longer integration. */
   alias_detect_t alias_detect; /**< Alias lock detector. */
 } tracking_channel_t;
 
@@ -83,5 +87,6 @@ void tracking_channel_ambiguity_unknown(u8 channel);
 void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
 float tracking_channel_snr(u8 channel);
 void tracking_send_state(void);
+void tracking_setup(void);
 
 #endif

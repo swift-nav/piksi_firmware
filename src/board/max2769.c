@@ -77,7 +77,7 @@ void max2769_configure(void)
                   MAX2769_CONF1_IMIX(3) |
                   MAX2769_CONF1_MIXPOLE_13MHZ |
                   MAX2769_CONF1_MIXEN |
-                  MAX2769_CONF1_ANTEN |
+                  MAX2769_CONF1_ANTEN |      /* Supply DC bias to external antenna */
                   //MAX2769_CONF1_FCEN(7) |  /* 1 MHz IF filter center freq. */
                   //MAX2769_CONF1_FCEN(43) | /* 2 Mhz IF filter center freq. */
                   MAX2769_CONF1_FCEN(21) |   /* 4 Mhz IF filter center freq. */
@@ -151,26 +151,29 @@ bool antenna_changed(struct setting *s, const char *val)
   ant_status = max2769_ant_status();
   if (s->type->from_string(s->type->priv, s->addr, s->len, val))
   {
-    max2769_conf1 &= MAX2769_CONF1_LNAMODE_MASK;
+    max2769_conf1 &= MAX2769_CONF1_LNAMODE_MASK & ~MAX2769_CONF1_ANTEN;
 
     switch (antenna) {
     default:
     case AUTO:
-      max2769_conf1 |= MAX2769_CONF1_LNAMODE_GATED;
+      max2769_conf1 |= MAX2769_CONF1_LNAMODE_GATED | MAX2769_CONF1_ANTEN;
       break;
     case PATCH:
-      max2769_conf1 |= MAX2769_CONF1_LNAMODE_LNA1;
+      max2769_conf1 |= MAX2769_CONF1_LNAMODE_LNA1 | MAX2769_CONF1_ANTEN;
       if (ant_status) {
         log_warn("Patch antenna selected, but an external "
                  "antenna appears to be connected.\n"); 
       }
       break;
     case EXTERNAL:
-      max2769_conf1 |= MAX2769_CONF1_LNAMODE_LNA2;
+      max2769_conf1 |= MAX2769_CONF1_LNAMODE_LNA2 | MAX2769_CONF1_ANTEN;
       if (!ant_status) { 
         log_warn("External antenna selected, but no external " 
                  "antenna appears to be connected.\n"); 
       }
+      break;
+    case EXTERNAL_AC:
+      max2769_conf1 |= MAX2769_CONF1_LNAMODE_LNA2;
       break;
     }
     max2769_write(MAX2769_CONF1, max2769_conf1);
@@ -184,7 +187,7 @@ bool antenna_changed(struct setting *s, const char *val)
 /* Setup user settings hooks etc. */
 void max2769_setup(void)
 {
-  static const char const *antenna_enum[] = {"Auto", "Patch", "External", NULL};
+  static const char const *antenna_enum[] = {"Auto", "Patch", "External", "External (no bias)", NULL};
   static struct setting_type antenna_setting;
   int TYPE_ANTENNA = settings_type_register_enum(antenna_enum, &antenna_setting);
   SETTING_NOTIFY("frontend", "antenna_selection", antenna, TYPE_ANTENNA, antenna_changed);

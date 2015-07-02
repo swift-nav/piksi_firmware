@@ -182,7 +182,8 @@
 typedef enum {
   AUTO,
   PATCH,
-  EXTERNAL
+  EXTERNAL,
+  EXTERNAL_AC
 } antenna_type_t;
 
 /** \} */

@@ -77,6 +77,8 @@ acq_prn_t acq_prn_param[32];
 
 almanac_t almanac[32];
 
+float track_cn0_threshold = 33.0;
+
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
 static void manage_track(void);
@@ -386,8 +388,10 @@ void manage_track_setup()
 {
   initialize_lock_counters();
 
-  SETTING_NOTIFY("track", "iq_output_mask", iq_output_mask, TYPE_INT,
+  SETTING_NOTIFY("expert", "iq_output_mask", iq_output_mask, TYPE_INT,
                  track_iq_output_notify);
+
+  SETTING("track", "track_cn0_threshold", track_cn0_threshold, TYPE_FLOAT);
 
   chThdCreateStatic(
       wa_manage_track_thread,
@@ -415,7 +419,7 @@ static void manage_track()
       continue;
     }
 
-    if (tracking_channel_snr(i) < TRACK_THRESHOLD) {
+    if (tracking_channel_snr(i) < track_cn0_threshold) {
       /* SNR has dropped below threshold, indicate that the carrier phase
        * ambiguity is now unknown as cycle slips are likely. */
       tracking_channel_ambiguity_unknown(i);
@@ -427,7 +431,7 @@ static void manage_track()
           ch->update_count - ch->snr_above_threshold_count >
             TRACK_SNR_THRES_COUNT) {
         /* This tracking channel has lost its satellite. */
-        log_info("Disabling channel %d\n", i);
+        log_info("Disabling channel %d (PRN %02d)\n", i, ch->prn+1);
         tracking_channel_disable(i);
         if (ch->snr_above_threshold_count > TRACK_SNR_THRES_COUNT) {
           acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = SCORE_TRACK;
@@ -463,11 +467,13 @@ s8 use_tracking_channel(u8 i)
             > TRACK_STABILIZATION_COUNT)
       /* Check the channel time of week has been decoded. */
       && (tracking_channel[i].TOW_ms >= 0)
+      /* Check the nav bit polarity is known, i.e. half-cycles have been resolved */
+      && (tracking_channel[i].nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
       /* Check the current SNR.
        * NOTE: `snr_below_threshold_count` will not be reset immediately if the
        * SNR drops, only once `manage_track()` is called, so this additional
        * test is required here. */
-      && (tracking_channel_snr(i) >= TRACK_THRESHOLD);
+      && (tracking_channel_snr(i) >= track_cn0_threshold);
 }
 
 u8 tracking_channels_ready()
