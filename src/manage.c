@@ -388,7 +388,7 @@ void manage_track_setup()
 {
   initialize_lock_counters();
 
-  SETTING_NOTIFY("expert", "iq_output_mask", iq_output_mask, TYPE_INT,
+  SETTING_NOTIFY("track", "iq_output_mask", iq_output_mask, TYPE_INT,
                  track_iq_output_notify);
 
   SETTING("track", "track_cn0_threshold", track_cn0_threshold, TYPE_FLOAT);
