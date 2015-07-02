@@ -193,7 +193,8 @@ void acq_get_results(float* cp, float* cf, float* cn0)
   /* "SNR" estimated by peak power over mean power. */
   float snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
   if (snr == 0 || snr != snr) {
-    log_error("Acq: bad SNR (%f)\n", snr);
+    log_error("acq: SNR is NaN (best=%" PRIu64 ", acc=%" PRIu64 ", count=%" PRIu32 ")\n",
+              acq_state.best_power, acq_state.power_acc, acq_state.count);
     *cn0 = 0;
   } else {
   *cn0 = 10 * log10(snr)
