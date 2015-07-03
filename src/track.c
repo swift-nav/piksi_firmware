@@ -223,6 +223,21 @@ void tracking_channel_get_corrs(u8 channel)
   }
 }
 
+/** Force a satellite to drop.
+ * This function is used for testing.  It clobbers the code frequency in the
+ * loop filter which destroys the correlations.  The satellite is dropped
+ * by manage.c which checks the SNR.
+ */
+void tracking_drop_satellite(u8 prn)
+{
+  for (u8 i=0; i<nap_track_n_channels; i++) {
+    if (tracking_channel[i].prn != prn)
+      continue;
+
+    tracking_channel[i].tl_state.code_filt.y += 500;
+  }
+}
+
 /** Update tracking channels after the end of an integration period.
  * Update update_count, sample_count, TOW, run loop filters and update
  * SwiftNAP tracking channel frequencies.

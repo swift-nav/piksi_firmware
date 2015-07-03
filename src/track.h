@@ -88,5 +88,6 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
 float tracking_channel_snr(u8 channel);
 void tracking_send_state(void);
 void tracking_setup(void);
+void tracking_drop_satellite(u8 prn);
 
 #endif
