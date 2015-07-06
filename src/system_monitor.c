@@ -80,7 +80,7 @@ void send_thread_states()
   g_ctime = 0;
 }
 
-static WORKING_AREA_CCM(wa_track_status_thread, 128);
+static WORKING_AREA_CCM(wa_track_status_thread, 256);
 static msg_t track_status_thread(void *arg)
 {
   (void)arg;
