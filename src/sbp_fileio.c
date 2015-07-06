@@ -67,7 +67,7 @@ static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)context;
 
-  if (sender_id != 0x42)
+  if (sender_id != SBP_SENDER_ID)
     return;
 
   if ((len < 9) || (msg[len-1] != '\0')) {
@@ -102,7 +102,7 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)context;
 
-  if (sender_id != 0x42)
+  if (sender_id != SBP_SENDER_ID)
     return;
 
   if ((len < 5) || (msg[len-1] != '\0')) {
@@ -139,7 +139,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)context;
 
-  if (sender_id != 0x42)
+  if (sender_id != SBP_SENDER_ID)
     return;
 
   if ((len < 2) || (msg[len-1] != '\0')) {
@@ -161,7 +161,7 @@ static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)context;
 
-  if (sender_id != 0x42)
+  if (sender_id != SBP_SENDER_ID)
     return;
 
   if (len < 6) {
