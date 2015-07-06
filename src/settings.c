@@ -286,17 +286,23 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* conte
 {
   (void) context;
 
-  if (sender_id != SBP_SENDER_ID)
+  if (sender_id != SBP_SENDER_ID) {
+    log_error("Error in settings write message\n");
     return;
+  }
 
   static struct setting *s = NULL;
   const char *section = NULL, *setting = NULL, *value = NULL;
 
-  if (len == 0)
-    goto error;
+  if (len == 0) {
+    log_error("Error in settings write message\n");
+    return;
+  }
 
-  if (msg[len-1] != '\0')
-    goto error;
+  if (msg[len-1] != '\0') {
+    log_error("Error in settings write message\n");
+    return;
+  }
 
   /* Extract parameters from message:
    * 3 null terminated strings: section, setting and value
@@ -317,45 +323,55 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* conte
         if (i == len-1)
           break;
       default:
-        goto error;
+        log_error("Error in settings write message\n");
+        return;
       }
     }
   }
 
-  if (value == NULL)
-    goto error;
+  if (value == NULL) {
+    log_error("Error in settings write message\n");
+    return;
+  }
 
   s = settings_lookup(section, setting);
-  if (s == NULL)
-    goto error;
+  if (s == NULL) {
+    log_error("Error in settings write message\n");
+    return;
+  }
 
   /* This is an assignment, call notify function */
-  if (!s->notify(s, value))
-    goto error;
+  if (!s->notify(s, value)) {
+    log_error("Error in settings write message\n");
+    return;
+  }
   s->dirty = true;
   return;
-
-error:
-  log_error("Error in settings write message\n");
 }
 
 static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context;
 
-  if (sender_id != SBP_SENDER_ID)
+  if (sender_id != SBP_SENDER_ID) {
+    log_error("Error in settings write message\n");
     return;
+  }
 
   static struct setting *s = NULL;
   const char *section = NULL, *setting = NULL;
   char buf[256];
   u8 buflen;
 
-  if (len == 0)
-    goto error;
+  if (len == 0) {
+    log_error("Error in settings read message\n");
+    return;
+  }
 
-  if (msg[len-1] != '\0')
-    goto error;
+  if (msg[len-1] != '\0') {
+    log_error("Error in settings read message\n");
+    return;
+  }
 
   /* Extract parameters from message:
    * 2 null terminated strings: section, and setting
@@ -372,29 +388,31 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* contex
         if (i == len-1)
           break;
       default:
-        goto error;
+        log_error("Error in settings read message\n");
+        return;
       }
     }
   }
 
   s = settings_lookup(section, setting);
-  if (s == NULL)
-    goto error;
+  if (s == NULL) {
+    log_error("Error in settings read message\n");
+    return;
+  }
 
   buflen = settings_format_setting(s, buf, sizeof(buf));
   sbp_send_msg(SBP_MSG_SETTINGS_READ_RESPONSE, buflen, (void*)buf);
   return;
-
-error:
-  log_error("Error in settings read message\n");
 }
 
 static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context;
 
-  if (sender_id != SBP_SENDER_ID)
+  if (sender_id != SBP_SENDER_ID) {
+    log_error("Error in settings read by index message\n");
     return;
+  }
 
   struct setting *s = settings_head;
   char buf[256];
