@@ -287,7 +287,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* conte
   (void) context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Error in settings write message\n");
+    log_error("Invalid sender\n");
     return;
   }
 
@@ -354,7 +354,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* contex
   (void) context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Error in settings write message\n");
+    log_error("Invalid sender\n");
     return;
   }
 
@@ -410,7 +410,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   (void) context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Error in settings read by index message\n");
+    log_error("Invalid sender\n");
     return;
   }
 
