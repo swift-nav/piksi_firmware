@@ -95,7 +95,6 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
     );
   }
 }
-
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm,
                         u8 fix_mode)
@@ -104,10 +103,8 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
     nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
                fix_mode, dops->hdop);
   }
+  nmea_send_msgs(soln, n, nm);
 
-  DO_EVERY(10,
-    nmea_gpgsv(n, nm, soln);
-  );
 }
 
 /** Creates and sends RTK solution.
@@ -757,6 +754,8 @@ void solution_setup()
   SETTING("float_kf", "new_amb_var", dgnss_settings.new_int_var, TYPE_FLOAT);
 
   SETTING("sbp", "obs_msg_max_size", msg_obs_max_size, TYPE_INT);
+
+  nmea_setup();
 
   static msg_t obs_mailbox_buff[OBS_N_BUFF];
   chMBInit(&obs_mailbox, obs_mailbox_buff, OBS_N_BUFF);

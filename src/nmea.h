@@ -32,11 +32,24 @@
 #define NMEA_GGA_FIX_MANUAL  7
 #define NMEA_GGA_FIX_SIM     8
 
+#define MINUTES(X) fabs(60 * (R2D * (X) - ((s16)(R2D * (X)))));
+#define MS2KNOTTS(x,y,z) sqrt((x)*(x) + (y)*(y) + (z)*(z)) * 1.94385
+#define MS2KMHR(x,y,z) sqrt((x)*(x)+(y)*(y)+(z)*(z)) * (3600/1000)
+
+
+void nmea_setup(void);
 void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
                 u8 fix_type, double hdop);
 void nmea_gpgsa(const tracking_channel_t *chans, const dops_t *dops);
 void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
                 const gnss_solution *soln);
+void nmea_gprmc(const navigation_measurement_t *nav_meas,
+                const gnss_solution *soln, const gps_time_t *gps_t);
+void nmea_gpvtg(const navigation_measurement_t *nav_meas,
+                const gnss_solution *soln);
+void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t);
+void nmea_send_msgs(gnss_solution *soln, u8 n, 
+                    navigation_measurement_t *nm);
 
 /** Register a new dispatcher for NMEA messages
  *
