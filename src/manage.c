@@ -483,11 +483,7 @@ static void manage_track()
 
 s8 use_tracking_channel(u8 i)
 {
-  return (tracking_channel[i].state == TRACKING_RUNNING)
-      /* Check ephemeris is useable. */
-      /* TODO: Use libswiftnav function here. */
-      && (es[tracking_channel[i].prn].valid == 1)
-      && (es[tracking_channel[i].prn].healthy == 1)
+  if ((tracking_channel[i].state == TRACKING_RUNNING)
       /* Check SNR has been above threshold for the minimum time. */
       && (tracking_channel[i].update_count
             - tracking_channel[i].snr_below_threshold_count
@@ -498,14 +494,24 @@ s8 use_tracking_channel(u8 i)
             - tracking_channel[i].mode_change_count
             > TRACK_STABILIZATION_COUNT)
       /* Check the channel time of week has been decoded. */
-      && (tracking_channel[i].TOW_ms >= 0)
+      && (tracking_channel[i].TOW_ms != TOW_INVALID)
       /* Check the nav bit polarity is known, i.e. half-cycles have been resolved */
       && (tracking_channel[i].nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
       /* Check the current SNR.
        * NOTE: `snr_below_threshold_count` will not be reset immediately if the
        * SNR drops, only once `manage_track()` is called, so this additional
        * test is required here. */
-      && (tracking_channel_snr(i) >= track_cn0_threshold);
+      && (tracking_channel_snr(i) >= track_cn0_threshold)) {
+
+    /* Check ephemeris is usable. */
+    gps_time_t t = {
+      /* TODO: the following makes the week number check tautological -
+         see issue #475 */
+      .wn = es[tracking_channel[i].prn].toe.wn,
+      .tow = 1e-3 * tracking_channel[i].TOW_ms
+    };
+    return ephemeris_good(&es[tracking_channel[i].prn], t);
+  } else return 0;
 }
 
 u8 tracking_channels_ready()
