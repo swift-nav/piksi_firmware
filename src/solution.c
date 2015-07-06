@@ -314,6 +314,50 @@ static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
   __asm__("CPSIE i;");
 }
 
+static void solution_simulation()
+{
+  /* Set the timer period appropriately. */
+  timer_set_period_check(TIM5, round(65472000 * (1.0/soln_freq)));
+
+  simulation_step();
+
+  /* TODO: The simulator's handling of time is a bit crazy. This is a hack
+   * for now but the simulator should be refactored so that it can give the
+   * exact correct solution time output without this nonsense. */
+  gnss_solution *soln = simulation_current_gnss_solution();
+  double expected_tow = \
+    round(soln->time.tow * soln_freq) / soln_freq;
+  soln->time.tow = expected_tow;
+  soln->time = normalize_gps_time(soln->time);
+
+  if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
+    /* Then we send fake messages. */
+    solution_send_sbp(soln, simulation_current_dops_solution());
+    solution_send_nmea(soln, simulation_current_dops_solution(),
+                       simulation_current_num_sats(),
+                       simulation_current_navigation_measurements(),
+                       NMEA_GGA_FIX_GPS);
+
+  }
+
+  if (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
+      simulation_enabled_for(SIMULATION_MODE_RTK)) {
+
+    u8 flags = simulation_enabled_for(SIMULATION_MODE_RTK) ? 1 : 0;
+
+    solution_send_baseline(&(soln->time),
+      simulation_current_num_sats(),
+      simulation_current_baseline_ecef(),
+      simulation_ref_ecef(), flags);
+
+    double t_check = expected_tow * (soln_freq / obs_output_divisor);
+    if (fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+      send_observations(simulation_current_num_sats(),
+        &(soln->time), simulation_current_navigation_measurements());
+    }
+  }
+}
+
 static WORKING_AREA_CCM(wa_solution_thread, 10000);
 static msg_t solution_thread(void *arg)
 {
@@ -326,6 +370,13 @@ static msg_t solution_thread(void *arg)
     /* Waiting for the timer IRQ fire.*/
     chBSemWait(&solution_wakeup_sem);
 
+    watchdog_notify(WD_NOTIFY_SOLUTION);
+
+    /* Here we do all the nice simulation-related stuff. */
+    if (simulation_enabled()) {
+      solution_simulation();
+    }
+
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
@@ -337,210 +388,171 @@ static msg_t solution_thread(void *arg)
       }
     }
 
-    if (n_ready >= 4) {
-      /* Got enough sats/ephemerides, do a solution. */
-      /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
-       * more intelligent with the solution time.
-       */
-      static u8 n_ready_old = 0;
-      u64 nav_tc = nap_timing_count();
-      static navigation_measurement_t nav_meas[MAX_CHANNELS];
-      chMtxLock(&es_mutex);
-      calc_navigation_measurement(n_ready, meas, nav_meas,
-                                  (double)((u32)nav_tc)/SAMPLE_FREQ, es);
+    if (n_ready < 4) {
+      /* Not enough sats, keep on looping. */
+      continue;
+    }
+
+    /* Got enough sats/ephemerides, do a solution. */
+    /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
+     * more intelligent with the solution time.
+     */
+    static u8 n_ready_old = 0;
+    u64 nav_tc = nap_timing_count();
+    static navigation_measurement_t nav_meas[MAX_CHANNELS];
+    chMtxLock(&es_mutex);
+    calc_navigation_measurement(n_ready, meas, nav_meas,
+                                (double)((u32)nav_tc)/SAMPLE_FREQ, es);
+    chMtxUnlock();
+
+    static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
+    u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
+                                   nav_meas_old, nav_meas_tdcp);
+
+    /* Store current observations for next time for
+     * TDCP Doppler calculation. */
+    memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
+    n_ready_old = n_ready;
+
+    if (n_ready_tdcp == 0) {
+      /* Not enough sats to compute PVT */
+      continue;
+    }
+
+    dops_t dops;
+    s8 ret;
+    if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp,
+                        &position_solution, &dops)) == 0) {
+
+      /* Update global position solution state. */
+      position_updated();
+      set_time_fine(nav_tc, position_solution.time);
+
+      if (!simulation_enabled()) {
+        /* Output solution. */
+        solution_send_sbp(&position_solution, &dops);
+        solution_send_nmea(&position_solution, &dops,
+                           n_ready_tdcp, nav_meas_tdcp,
+                           NMEA_GGA_FIX_GPS);
+      }
+
+      /* If we have a recent set of observations from the base station, do a
+       * differential solution. */
+      double pdt;
+      chMtxLock(&base_obs_lock);
+      if (base_obss.n > 0 && !simulation_enabled()) {
+        if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
+              < MAX_AGE_OF_DIFFERENTIAL) {
+
+          /* Propagate base station observations to the current time and
+           * process a low-latency differential solution. */
+
+          /* Hook in low-latency filter here. */
+          if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
+              base_obss.has_pos) {
+            chMtxLock(&es_mutex);
+            sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
+            u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
+                                    base_obss.n, base_obss.nm,
+                                    base_obss.sat_dists, base_obss.pos_ecef,
+                                    es, position_solution.time,
+                                    sdiffs);
+            chMtxUnlock();
+            output_baseline(num_sdiffs, sdiffs, &position_solution.time);
+          }
+
+        }
+      }
       chMtxUnlock();
 
-      static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
-      u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
-                                     nav_meas_old, nav_meas_tdcp);
+      /* Calculate the time of the nearest solution epoch, were we expected
+       * to be and calculate how far we were away from it. */
+      double expected_tow = round(position_solution.time.tow*soln_freq)
+                              / soln_freq;
+      double t_err = expected_tow - position_solution.time.tow;
 
-      /* Store current observations for next time for
-       * TDCP Doppler calculation. */
-      memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
-      n_ready_old = n_ready;
+      /* Only send observations that are closely aligned with the desired
+       * solution epochs to ensure they haven't been propagated too far. */
+      /* Output obervations only every obs_output_divisor times, taking
+       * care to ensure that the observations are aligned. */
+      double t_check = expected_tow * (soln_freq / obs_output_divisor);
+      if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
+          fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+        /* Propagate observation to desired time. */
+        for (u8 i=0; i<n_ready_tdcp; i++) {
+          nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
+            (GPS_C / GPS_L1_HZ);
+          nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
+        }
 
-      dops_t dops;
-      s8 ret;
-      if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp,
-                          &position_solution, &dops)) == 0) {
-
-        /* Update global position solution state. */
-        position_updated();
-        set_time_fine(nav_tc, position_solution.time);
+        /* Update observation time. */
+        gps_time_t new_obs_time;
+        new_obs_time.wn = position_solution.time.wn;
+        new_obs_time.tow = expected_tow;
 
         if (!simulation_enabled()) {
-          /* Output solution. */
-          solution_send_sbp(&position_solution, &dops);
-          solution_send_nmea(&position_solution, &dops,
-                             n_ready_tdcp, nav_meas_tdcp,
-                             NMEA_GGA_FIX_GPS);
+          send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
         }
 
-        /* If we have a recent set of observations from the base station, do a
-         * differential solution. */
-        double pdt;
-        chMtxLock(&base_obs_lock);
-        if (base_obss.n > 0 && !simulation_enabled()) {
-          if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
-                < MAX_AGE_OF_DIFFERENTIAL) {
+        /* TODO: use a buffer from the pool from the start instead of
+         * allocating nav_meas_tdcp as well. Downside, if we don't end up
+         * pushing the message into the mailbox then we just wasted an
+         * observation from the mailbox for no good reason. */
 
-            /* Propagate base station observations to the current time and
-             * process a low-latency differential solution. */
-
-            /* Hook in low-latency filter here. */
-            if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
-                base_obss.has_pos) {
-              chMtxLock(&es_mutex);
-              sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
-              u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
-                                      base_obss.n, base_obss.nm,
-                                      base_obss.sat_dists, base_obss.pos_ecef,
-                                      es, position_solution.time,
-                                      sdiffs);
-              chMtxUnlock();
-              output_baseline(num_sdiffs, sdiffs, &position_solution.time);
-            }
-
-          }
-        }
-        chMtxUnlock();
-
-        /* Calculate the time of the nearest solution epoch, were we expected
-         * to be and calculate how far we were away from it. */
-        double expected_tow = round(position_solution.time.tow*soln_freq)
-                                / soln_freq;
-        double t_err = expected_tow - position_solution.time.tow;
-
-        /* Only send observations that are closely aligned with the desired
-         * solution epochs to ensure they haven't been propagated too far. */
-        /* Output obervations only every obs_output_divisor times, taking
-         * care to ensure that the observations are aligned. */
-        double t_check = expected_tow * (soln_freq / obs_output_divisor);
-        if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
-            fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
-          /* Propagate observation to desired time. */
-          for (u8 i=0; i<n_ready_tdcp; i++) {
-            nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
-              (GPS_C / GPS_L1_HZ);
-            nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
-          }
-
-          /* Update observation time. */
-          gps_time_t new_obs_time;
-          new_obs_time.wn = position_solution.time.wn;
-          new_obs_time.tow = expected_tow;
-
-          if (!simulation_enabled()) {
-            send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
-          }
-
-          /* TODO: use a buffer from the pool from the start instead of
-           * allocating nav_meas_tdcp as well. Downside, if we don't end up
-           * pushing the message into the mailbox then we just wasted an
-           * observation from the mailbox for no good reason. */
-
-          obss_t *obs = chPoolAlloc(&obs_buff_pool);
-          msg_t ret;
-          if (obs == NULL) {
-            /* Pool is empty, grab a buffer from the mailbox instead, i.e.
-             * overwrite the oldest item in the queue. */
-            ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
-            if (ret != RDY_OK) {
-              log_error("Pool full and mailbox empty!\n");
-            }
-          }
-          obs->t = new_obs_time;
-          obs->n = n_ready_tdcp;
-          memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
-          ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
+        obss_t *obs = chPoolAlloc(&obs_buff_pool);
+        msg_t ret;
+        if (obs == NULL) {
+          /* Pool is empty, grab a buffer from the mailbox instead, i.e.
+           * overwrite the oldest item in the queue. */
+          ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
           if (ret != RDY_OK) {
-            /* We could grab another item from the mailbox, discard it and then
-             * post our obs again but if the size of the mailbox and the pool
-             * are equal then we should have already handled the case where the
-             * mailbox is full when we handled the case that the pool was full.
-             * */
-            log_error("Mailbox should have space!\n");
+            log_error("Pool full and mailbox empty!\n");
           }
         }
-
-        /* Calculate time till the next desired solution epoch. */
-        double dt = expected_tow + (1.0/soln_freq) - position_solution.time.tow;
-
-        /* Limit dt to 2 seconds maximum to prevent hang if dt calculated
-         * incorrectly. */
-        if (dt > 2)
-          dt = 2;
-
-        /* Reset timer period with the count that we will estimate will being
-         * us up to the next solution time. */
-        timer_set_period_check(TIM5, round(65472000 * dt));
-
-      } else {
-        /* An error occurred with calc_PVT! */
-        /* TODO: Move these error messages into libswiftnav. */
-        static const char *err_msg[] = {
-          "PDOP too high",
-          "Altitude unreasonable",
-          "ITAR lockout",
-          "Took too long to converge",
-        };
-        /* TODO: Make this based on time since last error instead of a simple
-         * count. */
-        DO_EVERY((u32)soln_freq,
-          log_warn("PVT solver: %s (%d)\n", err_msg[-ret-1], ret);
-        );
-
-        /* Send just the DOPs */
-        solution_send_sbp(0, &dops);
-      }
-
-    }
-
-    /* Here we do all the nice simulation-related stuff. */
-    if (simulation_enabled()) {
-
-      /* Set the timer period appropriately. */
-      timer_set_period_check(TIM5, round(65472000 * (1.0/soln_freq)));
-
-      simulation_step();
-
-      /* TODO: The simulator's handling of time is a bit crazy. This is a hack
-       * for now but the simulator should be refactored so that it can give the
-       * exact correct solution time output without this nonsense. */
-      gnss_solution *soln = simulation_current_gnss_solution();
-      double expected_tow = \
-        round(soln->time.tow * soln_freq) / soln_freq;
-      soln->time.tow = expected_tow;
-      soln->time = normalize_gps_time(soln->time);
-
-      if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
-        /* Then we send fake messages. */
-        solution_send_sbp(soln, simulation_current_dops_solution());
-        solution_send_nmea(soln, simulation_current_dops_solution(),
-                           simulation_current_num_sats(),
-                           simulation_current_navigation_measurements(),
-                           NMEA_GGA_FIX_GPS);
-
-      }
-
-      if (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
-          simulation_enabled_for(SIMULATION_MODE_RTK)) {
-
-        u8 flags = simulation_enabled_for(SIMULATION_MODE_RTK) ? 1 : 0;
-
-        solution_send_baseline(&(soln->time),
-          simulation_current_num_sats(),
-          simulation_current_baseline_ecef(),
-          simulation_ref_ecef(), flags);
-
-        double t_check = expected_tow * (soln_freq / obs_output_divisor);
-        if (fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
-          send_observations(simulation_current_num_sats(),
-            &(soln->time), simulation_current_navigation_measurements());
+        obs->t = new_obs_time;
+        obs->n = n_ready_tdcp;
+        memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
+        ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
+        if (ret != RDY_OK) {
+          /* We could grab another item from the mailbox, discard it and then
+           * post our obs again but if the size of the mailbox and the pool
+           * are equal then we should have already handled the case where the
+           * mailbox is full when we handled the case that the pool was full.
+           * */
+          log_error("Mailbox should have space!\n");
         }
       }
+
+      /* Calculate time till the next desired solution epoch. */
+      double dt = expected_tow + (1.0/soln_freq) - position_solution.time.tow;
+
+      /* Limit dt to 2 seconds maximum to prevent hang if dt calculated
+       * incorrectly. */
+      if (dt > 2)
+        dt = 2;
+
+      /* Reset timer period with the count that we will estimate will being
+       * us up to the next solution time. */
+      timer_set_period_check(TIM5, round(65472000 * dt));
+
+    } else {
+      /* An error occurred with calc_PVT! */
+      /* TODO: Move these error messages into libswiftnav. */
+      static const char *err_msg[] = {
+        "PDOP too high",
+        "Altitude unreasonable",
+        "ITAR lockout",
+        "Took too long to converge",
+      };
+      /* TODO: Make this based on time since last error instead of a simple
+       * count. */
+      DO_EVERY((u32)soln_freq,
+        log_warn("PVT solver: %s (%d)\n", err_msg[-ret-1], ret);
+      );
+
+      /* Send just the DOPs */
+      solution_send_sbp(0, &dops);
     }
-    watchdog_notify(WD_NOTIFY_SOLUTION);
   }
   return 0;
 }
