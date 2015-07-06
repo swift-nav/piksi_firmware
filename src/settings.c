@@ -286,7 +286,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* conte
 {
   (void) context;
 
-  if (sender_id != 0x42)
+  if (sender_id != SBP_SENDER_ID)
     return;
 
   static struct setting *s = NULL;
@@ -343,7 +343,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* contex
 {
   (void) context;
 
-  if (sender_id != 0x42)
+  if (sender_id != SBP_SENDER_ID)
     return;
 
   static struct setting *s = NULL;
@@ -393,7 +393,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
 {
   (void) context;
 
-  if (sender_id != 0x42)
+  if (sender_id != SBP_SENDER_ID)
     return;
 
   struct setting *s = settings_head;
