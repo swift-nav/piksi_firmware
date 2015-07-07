@@ -18,6 +18,7 @@
 
 #include <ch.h>
 
+#include "peripherals/random.h"
 #include "board/leds.h"
 #include "board/max2769.h"
 #include "board/nap/nap_conf.h"
@@ -176,6 +177,8 @@ int main(void)
   ext_event_setup();
   position_setup();
   tracking_setup();
+
+  rng_setup();
   manage_acq_setup();
   manage_track_setup();
   system_monitor_setup();
