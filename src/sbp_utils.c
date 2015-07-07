@@ -222,5 +222,69 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
   return 0;
 }
 
+void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e)
+{
+   e->tgd       =  msg->tgd;
+   e->crs       =  msg->c_rs;
+   e->crc       =  msg->c_rc;
+   e->cuc       =  msg->c_uc;
+   e->cus       =  msg->c_us;
+   e->cic       =  msg->c_ic;
+   e->cis       =  msg->c_is;
+   e->dn        =  msg->dn;
+   e->m0        =  msg->m0;
+   e->ecc       =  msg->ecc;
+   e->sqrta     =  msg->sqrta;
+   e->omega0    =  msg->omega0;
+   e->omegadot  =  msg->omegadot;
+   e->w         =  msg->w;
+   e->inc       =  msg->inc;
+   e->inc_dot   =  msg->inc_dot;
+   e->af0       =  msg->af0;
+   e->af1       =  msg->af1;
+   e->af2       =  msg->af2;
+   e->toe.tow   =  msg->toe_tow;
+   e->toe.wn    =  msg->toe_wn;
+   e->toc.tow   =  msg->toc_tow;
+   e->toc.wn    =  msg->toe_wn;
+   e->valid     =  msg->valid;
+   e->healthy   =  msg->healthy;
+   e->prn       =  msg->sid & 0x1F; /* TODO prn -> sid */
+   e->iode      =  msg->iode;
+}
+
+void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
+{
+  gps_time_t toe = e->toe;
+  gps_time_t toc = e->toc;
+  msg->tgd       = e->tgd;
+  msg->c_rs      = e->crs;
+  msg->c_rc      = e->crc;
+  msg->c_uc      = e->cuc;
+  msg->c_us      = e->cus;
+  msg->c_ic      = e->cic;
+  msg->c_is      = e->cis;
+  msg->dn        = e->dn;
+  msg->m0        = e->m0;
+  msg->ecc       = e->ecc;
+  msg->sqrta     = e->sqrta;
+  msg->omega0    = e->omega0;
+  msg->omegadot  = e->omegadot;
+  msg->w         = e->w;
+  msg->inc       = e->inc;
+  msg->inc_dot   = e->inc_dot;
+  msg->af0       = e->af0;
+  msg->af1       = e->af1;
+  msg->af2       = e->af2;
+  msg->toe_tow   = toe.tow;
+  msg->toe_wn    = toe.wn;
+  msg->toc_tow   = toc.tow;
+  msg->toe_wn    = toc.wn;
+  msg->valid     = e->valid;
+  msg->healthy   = e->healthy;
+  msg->sid       = e->prn; /* TODO: prn -> sid */
+  msg->iode      = e->iode;
+}
+
 /** \} */
 /** \} */
