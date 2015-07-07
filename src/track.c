@@ -115,9 +115,10 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
  * \param channel            Tracking channel number on the Swift NAP.
  * \param carrier_freq       Carrier frequency (Doppler) at start of tracking in Hz.
  * \param start_sample_count Sample count on which to start tracking.
+ * \param cn0_init           Estimated C/N0 from acquisition
  */
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
-                           u32 start_sample_count, float snr)
+                           u32 start_sample_count, float cn0_init)
 {
   tracking_channel_t *chan = &tracking_channel[channel];
 
@@ -168,9 +169,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   chan->short_cycle = true;
 
   /* Initialise C/N0 estimator */
-  float cn0 = 10 * log10(snr);
-  cn0 += 10 * log10(1000); /* Bandwidth */
-  cn0_est_init(&chan->cn0_est, 1e3, cn0, CN0_EST_LPF_CUTOFF, 1e3);
+  cn0_est_init(&chan->cn0_est, 1e3/l->coherent_ms, cn0_init, CN0_EST_LPF_CUTOFF, 1e3/l->coherent_ms);
 
   lock_detect_init(&chan->lock_detect,
                    lock_detect_params.k1, lock_detect_params.k2,

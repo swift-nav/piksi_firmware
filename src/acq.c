@@ -183,15 +183,17 @@ void acq_service_irq(void)
  *
  * \param cp  Code phase of the acquisition result
  * \param cf  Carrier frequency of the acquisition result
- * \param snr SNR of the acquisition result
+ * \param cn0 Estimated CN0 of the acquisition result
  */
-void acq_get_results(float* cp, float* cf, float* snr)
+void acq_get_results(float* cp, float* cf, float* cn0)
 {
   *cp = 1023.0 - (float)(acq_state.best_cp % (1023 * NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP))
                   / NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP;
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
-  *snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
+  float snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
+  *cn0 = 10 * log10(snr)
+       + 10 * log10(1.0 / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ); /* Bandwidth */
 }
 
 /** \} */

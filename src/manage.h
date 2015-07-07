@@ -20,8 +20,8 @@
 /** \addtogroup manage
  * \{ */
 
-#define ACQ_THRESHOLD 20.0
-#define ACQ_RETRY_THRESHOLD 25.0
+#define ACQ_THRESHOLD 37.0
+#define ACQ_RETRY_THRESHOLD 38.0
 
 /** How many ms to allow tracking channel to converge after
     initialization before we consider dropping it */
