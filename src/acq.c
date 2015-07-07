@@ -102,7 +102,7 @@ static struct {
   u8 p_head;
   u8 p_tail;
 
-  u64 power_acc;      /**< Sum of powers of all acquisition set points. */
+  float power_acc;      /**< Sum of powers of all acquisition set points. */
   u64 best_power;     /**< Highest power of all acquisition set points. */
   s16 best_cf;        /**< Carrier freq corresponding to highest power. */
   u16 best_cp;        /**< Code phase corresponding to highest power. */
@@ -163,7 +163,7 @@ void acq_service_irq(void)
 
   u16 index_max;
   u16 corr_max;
-  u16 ave;
+  float ave;
 
   nap_acq_corr_rd_blocking(&index_max, &corr_max, &ave);
   acq_state.power_acc += ave;
