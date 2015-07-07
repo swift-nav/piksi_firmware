@@ -192,7 +192,7 @@ void acq_get_results(float* cp, float* cf, float* cn0)
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* Only should occur if the the power returned from the HDL is exactly zero in any of the runs 
    * Actual powers here are in the range of 5-10 */
-  if ((acq_state.power_acc / acq_state.count) > 100000) {
+  if ((acq_state.power_acc / acq_state.count) > 1000) {
     log_error("acq: Acquisition power out of range\n");
   }
   /* "SNR" estimated by peak power over mean power. */
