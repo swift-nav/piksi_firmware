@@ -20,8 +20,8 @@
 /** \addtogroup manage
  * \{ */
 
-#define ACQ_THRESHOLD 20.0
-#define ACQ_RETRY_THRESHOLD 25.0
+#define ACQ_THRESHOLD 37.0
+#define ACQ_RETRY_THRESHOLD 38.0
 
 #define TRACK_SNR_INIT_COUNT 1000
 #define TRACK_SNR_THRES_COUNT 2000

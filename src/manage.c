@@ -281,7 +281,7 @@ static void manage_acq()
     return;
 
   u32 timer_count;
-  float snr, cp, cf;
+  float cn0, cp, cf;
 
   acq_set_prn(prn);
 
@@ -312,10 +312,10 @@ static void manage_acq()
    * for the fine acquisition. If not, start again choosing a
    * different PRN.
    */
-  acq_get_results(&cp, &cf, &snr);
+  acq_get_results(&cp, &cf, &cn0);
   /* Send result of an acquisition to the host. */
-  acq_send_result(prn, snr, cp, cf);
-  if (snr < ACQ_THRESHOLD) {
+  acq_send_result(prn, cn0, cp, cf);
+  if (cn0 < ACQ_THRESHOLD) {
     /* Didn't find the satellite :( */
     /* Double the size of the doppler search space for next time. */
     float dilute = (acq_prn_param[prn].dopp_hint_high -
@@ -332,7 +332,7 @@ static void manage_acq()
     return;
   }
 
-  log_info("acq: PRN %d found @ %d Hz, %d SNR\n", prn + 1, (int)cf, (int)snr);
+  log_info("acq: PRN %d found @ %d Hz, %.1f C/N0\n", prn + 1, (int)cf, cn0);
 
   u8 chan = manage_track_new_acq();
   if (chan == MANAGE_NO_CHANNELS_FREE) {
@@ -340,9 +340,9 @@ static void manage_acq()
     /* TODO: Perhaps we can try to warm start this one
      * later using another fine acq.
      */
-    log_info("No channels free :(\n");
-    if (snr > ACQ_RETRY_THRESHOLD) {
-      acq_prn_param[prn].score[ACQ_HINT_ACQ] = SCORE_ACQ + (snr - 20) / 20;
+    log_info("All channels in use\n");
+    if (cn0 > ACQ_RETRY_THRESHOLD) {
+      acq_prn_param[prn].score[ACQ_HINT_ACQ] = SCORE_ACQ + (cn0 - ACQ_THRESHOLD);
       acq_prn_param[prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
       acq_prn_param[prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
     }
@@ -355,14 +355,13 @@ static void manage_acq()
   // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
   track_count += 16*(1023.0-cp)*(1.0 + cf / GPS_L1_HZ);
 
-  tracking_channel_init(chan, prn, cf, track_count, snr);
+  tracking_channel_init(chan, prn, cf, track_count, cn0);
   acq_prn_param[prn].state = ACQ_PRN_TRACKING;
   nap_timing_strobe_wait(100);
 }
 
 /** Find an available tracking channel to start tracking an acquired PRN with.
  *
- * \param snr SNR of the acquisition.
  * \return Index of first unused tracking channel.
  */
 static u8 manage_track_new_acq(void)
