@@ -172,7 +172,7 @@ void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   u8 dna[8];
   nap_rd_dna(dna);
 
-  sbp_send_msg(SBP_MSG_NAP_DEVICE_DNA_RESPONSE, 8, dna);
+  sbp_send_msg(SBP_MSG_NAP_DEVICE_DNA_RESP, 8, dna);
 }
 
 /** Setup NAP callbacks. */
@@ -180,7 +180,7 @@ void nap_callbacks_setup(void)
 {
   static sbp_msg_callbacks_node_t nap_dna_node;
 
-  sbp_register_cbk(SBP_MSG_NAP_DEVICE_DNA_REQUEST, &nap_rd_dna_callback,
+  sbp_register_cbk(SBP_MSG_NAP_DEVICE_DNA_REQ, &nap_rd_dna_callback,
                    &nap_dna_node);
 }
 
