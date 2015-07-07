@@ -55,8 +55,8 @@ static u16 tracking_lock_counters[MAX_SATS];
 
 /* Initialize the lock counters to random numbers
  */
-void initialize_lock_counters(void) {
-  rng_setup();
+void initialize_lock_counters(void)
+{
   for (u8 i=0; i < MAX_SATS; i++) {
     tracking_lock_counters[i] = random_int();
   }
