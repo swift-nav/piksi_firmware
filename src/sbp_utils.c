@@ -169,7 +169,7 @@ void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
   *L   = ((double)msg->L.i) + (((double)msg->L.f) / MSG_OSB_LF_MULTIPLIER);
   *snr = ((double)msg->cn0) / MSG_OBS_SNR_MULTIPLIER;
   *lock_counter = ((u16)msg->lock);
-  *prn = msg->prn;
+  *prn = msg->sid & 0x1F; /* TODO: prn -> sid */
 }
 
 /** Pack GPS observables into a `msg_obs_content_t` struct.
@@ -217,7 +217,7 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
 
   msg->lock = lock_counter;
 
-  msg->prn = prn;
+  msg->sid = prn; /* TODO prn -> sid */
 
   return 0;
 }

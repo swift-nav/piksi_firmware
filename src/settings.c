@@ -198,13 +198,13 @@ void settings_setup(void)
   );
   static sbp_msg_callbacks_node_t settings_read_node;
   sbp_register_cbk(
-    SBP_MSG_SETTINGS_READ_REQUEST,
+    SBP_MSG_SETTINGS_READ_REQ,
     &settings_read_callback,
     &settings_read_node
   );
   static sbp_msg_callbacks_node_t settings_read_by_index_node;
   sbp_register_cbk(
-    SBP_MSG_SETTINGS_READ_BY_INDEX_REQUEST,
+    SBP_MSG_SETTINGS_READ_BY_INDEX_REQ,
     &settings_read_by_index_callback,
     &settings_read_by_index_node
   );
@@ -401,7 +401,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* contex
   }
 
   buflen = settings_format_setting(s, buf, sizeof(buf));
-  sbp_send_msg(SBP_MSG_SETTINGS_READ_RESPONSE, buflen, (void*)buf);
+  sbp_send_msg(SBP_MSG_SETTINGS_READ_RESP, buflen, (void*)buf);
   return;
 }
 
@@ -436,7 +436,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   buf[buflen++] = msg[0];
   buf[buflen++] = msg[1];
   buflen += settings_format_setting(s, buf + buflen, sizeof(buf) - buflen);
-  sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX_RESPONSE, buflen, (void*)buf);
+  sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX_RESP, buflen, (void*)buf);
 }
 
 static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* context)
