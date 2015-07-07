@@ -190,6 +190,11 @@ void acq_get_results(float* cp, float* cf, float* cn0)
   *cp = 1023.0 - (float)(acq_state.best_cp % (1023 * NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP))
                   / NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP;
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
+  /* Only should occur if the the power returned from the HDL is exactly zero in any of the runs 
+   * Actual powers here are in the range of 5-10 */
+  if ((acq_state.power_acc / acq_state.count) > 100000) {
+    log_error("acq: Acquisition power out of range\n");
+  }
   /* "SNR" estimated by peak power over mean power. */
   float snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
   if (snr == 0 || snr != snr) {
