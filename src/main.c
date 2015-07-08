@@ -162,7 +162,7 @@ int main(void)
   const char *required_nap_version = "v0.14";
   if (compare_version(nap_version_string, required_nap_version) < 0) {
     while (1) {
-      log_error("NAP firmware version newer than %s required, please update!\n"
+      log_error("NAP firmware version >= %s required, please update!\n"
                 "(instructions can be found at http://docs.swift-nav.com/)\n",
                 required_nap_version);
       chThdSleepSeconds(2);
