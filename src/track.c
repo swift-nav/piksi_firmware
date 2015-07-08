@@ -41,6 +41,8 @@ struct lock_detect_params {
   u16 lp, lo;
 } lock_detect_params;
 
+#define CN0_EST_LPF_CUTOFF 0.3
+
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
  * Initialize SwiftNAP tracking channels. Run loop filters and update
@@ -168,7 +170,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   /* Initialise C/N0 estimator */
   float cn0 = 10 * log10(snr);
   cn0 += 10 * log10(1000); /* Bandwidth */
-  cn0_est_init(&chan->cn0_est, 1e3, cn0, 5, 1e3);
+  cn0_est_init(&chan->cn0_est, 1e3, cn0, CN0_EST_LPF_CUTOFF, 1e3);
 
   lock_detect_init(&chan->lock_detect,
                    lock_detect_params.k1, lock_detect_params.k2,
@@ -320,16 +322,11 @@ void tracking_channel_update(u8 channel)
 
       /* Update PLL lock detector */
       bool last_outp = chan->lock_detect.outp;
-      bool last_outo = chan->lock_detect.outo;
       lock_detect_update(&chan->lock_detect, cs[1].I, cs[1].Q, chan->int_ms);
       /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
-      if (last_outp != chan->lock_detect.outp) {
-        log_info("PRN%d LD pess = %d\n", chan->prn+1, chan->lock_detect.outp);
-        if (chan->lock_detect.outp == 0)
-          tracking_channel_ambiguity_unknown(chan->prn);
-      }
-      if (last_outo && (last_outo != chan->lock_detect.outo)) {
-        /*        log_info("PRN%d ld opti = %d\n", chan->prn+1, chan->lock_detect.outo); */
+      if (last_outp && !chan->lock_detect.outp) {
+        log_info("PRN %d PLL stress\n", chan->prn+1);
+        tracking_channel_ambiguity_unknown(chan->prn);
       }
 
       /* Run the loop filters. */
@@ -379,8 +376,8 @@ void tracking_channel_update(u8 channel)
         chan->int_ms = l->coherent_ms;
         chan->short_cycle = true;
 
-        cn0_est_init(&chan->cn0_est, 1e3 / l->coherent_ms, chan->cn0, 5,
-                     1e3 / l->coherent_ms);
+        cn0_est_init(&chan->cn0_est, 1e3 / l->coherent_ms, chan->cn0,
+                     CN0_EST_LPF_CUTOFF, 1e3 / l->coherent_ms);
 
         /* Recalculate filter coefficients */
         aided_tl_retune(&chan->tl_state, 1e3 / l->coherent_ms,
@@ -394,6 +391,21 @@ void tracking_channel_update(u8 channel)
                            lock_detect_params.k2,
                            /* TODO: Should also adjust lp and lo? */
                            lock_detect_params.lp, lock_detect_params.lo);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         /* Indicate that a mode change has occurred. */
         chan->mode_change_count = chan->update_count;
