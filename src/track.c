@@ -324,12 +324,12 @@ void tracking_channel_update(u8 channel)
       lock_detect_update(&chan->lock_detect, cs[1].I, cs[1].Q, chan->int_ms);
       /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
       if (last_outp != chan->lock_detect.outp) {
-        log_info("PRN%d ld pess = %d\n", chan->prn+1, chan->lock_detect.outp);
+        log_info("PRN%d LD pess = %d\n", chan->prn+1, chan->lock_detect.outp);
         if (chan->lock_detect.outp == 0)
           tracking_channel_ambiguity_unknown(chan->prn);
       }
       if (last_outo && (last_outo != chan->lock_detect.outo)) {
-        log_info("PRN%d ld opti = %d\n", chan->prn+1, chan->lock_detect.outo);
+        /*        log_info("PRN%d ld opti = %d\n", chan->prn+1, chan->lock_detect.outo); */
       }
 
       /* Run the loop filters. */
@@ -366,7 +366,7 @@ void tracking_channel_update(u8 channel)
         * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
 #if 1
-      if (chan->int_ms != 1) {
+      if (chan->stage > 0 && chan->lock_detect.outp) {
         s32 I = (cs[1].I - chan->alias_detect.first_I) / (chan->int_ms - 1);
         s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
         float err = alias_detect_second(&chan->alias_detect, I, Q);
