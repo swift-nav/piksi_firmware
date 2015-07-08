@@ -192,8 +192,16 @@ void acq_get_results(float* cp, float* cf, float* cn0)
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   float snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
-  if (acq_state.power_acc == 0) {
-    log_error("acq: Power accumulator is 0, will cause SNR to be NaN. "
+
+  /* If there's a failure in chain, which results in the FFT being fed zeros
+   * output power could return zero. Potential failure modes:
+   * 1. GPS Front End is misconfigured and returning zeros or has lifted pin
+   * 2. PRN is incorrect or corrupted to zeros
+   * or if the FPGA has a critical failure 
+   * that causes it to not raise interrupts count could be zero.  Catch
+   * this condition so we don't propagate NaN up through the stack */
+  if ((acq_state.power_acc == 0) || (acq_state.count == 0)) {
+    log_error("acq: Power or frequency bin count is 0, causing SNR to be NaN. "
               "(best=%" PRIu64 ", acc=%f, count=%" PRIu32 ")\n",
               acq_state.best_power, acq_state.power_acc, acq_state.count);
     *cn0 = 0;
