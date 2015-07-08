@@ -58,6 +58,8 @@ u32 obs_output_divisor = 2;
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
 
+static u16 lock_counters[MAX_SATS];
+
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
   if (soln) {
@@ -172,28 +174,6 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
     sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
   }
   chMtxUnlock();
-}
-
-u16 lock_counters[MAX_SATS];
-
-/* Checks to see if any lock_counters have incremented or re-randomized.
- * Return those prns so that they can be dropped.
- *
- * \param sats_to_drop returns list of prns to drop
- * \return number of sats to drop
- */
-u8 check_lock_counters(u8 *sats_to_drop)
-{
-  u8 num_sats_to_drop = 0;
-  for (u8 i = 0; i<base_obss.n; i++) {
-    u8 prn = base_obss.nm[i].prn;
-    u16 new_count = base_obss.nm[i].lock_counter;
-    if (new_count != lock_counters[prn]) {
-      sats_to_drop[num_sats_to_drop++] = prn;
-      lock_counters[prn] = new_count;
-    }
-  }
-  return num_sats_to_drop;
 }
 
 static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
@@ -636,7 +616,8 @@ static msg_t time_matched_obs_thread(void *arg)
         );
         chMtxUnlock();
         u8 sats_to_drop[MAX_SATS];
-        u8 num_sats_to_drop = check_lock_counters(sats_to_drop);
+        u8 num_sats_to_drop = check_lock_counters(n_sds, sds, lock_counters,
+                                                  sats_to_drop);
         if (num_sats_to_drop > 0) {
           /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
            * Dropping an sdiff will cause dgnss_update to drop that sat from
