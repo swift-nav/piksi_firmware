@@ -485,12 +485,8 @@ s8 use_tracking_channel(u8 i)
       /* Check the channel time of week has been decoded. */
       && (tracking_channel[i].TOW_ms != TOW_INVALID)
       /* Check the nav bit polarity is known, i.e. half-cycles have been resolved */
-      && (tracking_channel[i].nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
-      /* Check the current SNR.
-       * NOTE: `snr_below_threshold_count` will not be reset immediately if the
-       * SNR drops, only once `manage_track()` is called, so this additional
-       * test is required here. */
-      && (tracking_channel_snr(i) >= track_cn0_threshold)) {
+      && (tracking_channel[i].nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN))
+      {
 
     /* Check ephemeris is usable. */
     gps_time_t t = {
