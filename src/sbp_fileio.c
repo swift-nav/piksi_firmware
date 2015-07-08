@@ -106,12 +106,12 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender!");
+    log_error("Invalid sender!\n");
     return;
   }
 
   if ((len < 5) || (msg[len-1] != '\0')) {
-    log_error("Invalid fileio read dir message!");
+    log_error("Invalid fileio read dir message!\n");
     return;
   }
 
@@ -145,12 +145,12 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender!");
+    log_error("Invalid sender!\n");
     return;
   }
 
   if ((len < 2) || (msg[len-1] != '\0')) {
-    log_error("Invalid fileio remove message!");
+    log_error("Invalid fileio remove message!\n");
     return;
   }
 
@@ -169,12 +169,12 @@ static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender!");
+    log_error("Invalid sender!\n");
     return;
   }
 
   if (len < 6) {
-    log_error("Invalid fileio write message!");
+    log_error("Invalid fileio write message!\n");
     return;
   }
 
