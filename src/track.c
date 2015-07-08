@@ -35,7 +35,7 @@ struct loop_params {
   u8 coherent_ms;
 } loop_params_stage[2];
 
-char lock_detect_params_string[20] = "0.02, 1.4, 150, 50";
+char lock_detect_params_string[24] = "0.02, 1.4, 150, 50";
 struct lock_detect_params {
   float k1, k2;
   u16 lp, lo;
@@ -591,8 +591,8 @@ static bool parse_lock_detect_params(struct setting *s, const char *val)
  */
 void tracking_setup()
 {
-  SETTING_NOTIFY("track", "loop_params", loop_params_string, TYPE_STRING,
-		 parse_loop_params);
+  SETTING_NOTIFY("track", "loop_params", loop_params_string,
+                 TYPE_STRING, parse_loop_params);
   SETTING_NOTIFY("track", "lock_detect_params", lock_detect_params_string,
                  TYPE_STRING, parse_lock_detect_params);
 }
