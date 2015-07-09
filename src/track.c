@@ -608,7 +608,7 @@ void tracking_setup()
                  TYPE_STRING, parse_loop_params);
   SETTING_NOTIFY("track", "lock_detect_params", lock_detect_params_string,
                  TYPE_STRING, parse_lock_detect_params);
-  SETTING("track", "track_cn0_drop_thres", track_cn0_drop_thres, TYPE_FLOAT);
+  SETTING("track", "cn0_drop", track_cn0_drop_thres, TYPE_FLOAT);
 }
 
 /** \} */
