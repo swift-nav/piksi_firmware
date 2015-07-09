@@ -29,17 +29,19 @@ char loop_params_string[120] =
   "(1 ms, (1, 0.7, 1, 1540), (10, 0.7, 1, 5)), "
  /* Stage 2: coherent_ms, code params, carrier params */
   "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))";
-struct loop_params {
+static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
   float carr_bw, carr_zeta, carr_k, carr_fll_aid_gain;
   u8 coherent_ms;
 } loop_params_stage[2];
 
 char lock_detect_params_string[24] = "0.05, 1.4, 150, 50";
-struct lock_detect_params {
+static struct lock_detect_params {
   float k1, k2;
   u16 lp, lo;
 } lock_detect_params;
+
+static u16 iq_output_mask = 0;
 
 #define CN0_EST_LPF_CUTOFF 0.3
 
@@ -577,10 +579,24 @@ static bool parse_lock_detect_params(struct setting *s, const char *val)
   return true;
 }
 
+bool track_iq_output_notify(struct setting *s, const char *val)
+{
+  if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
+    for (int i = 0; i < NAP_MAX_N_TRACK_CHANNELS; i++) {
+      tracking_channel[i].output_iq = (iq_output_mask & (1 << i)) != 0;
+    }
+    return true;
+  }
+  return false;
+}
+
+
 /** Set up tracking subsystem - presently just hooks for settings
  */
 void tracking_setup()
 {
+  SETTING_NOTIFY("track", "iq_output_mask", iq_output_mask, TYPE_INT,
+                 track_iq_output_notify);
   SETTING_NOTIFY("track", "loop_params", loop_params_string,
                  TYPE_STRING, parse_loop_params);
   SETTING_NOTIFY("track", "lock_detect_params", lock_detect_params_string,
