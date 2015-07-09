@@ -405,24 +405,9 @@ static msg_t manage_track_thread(void *arg)
   return 0;
 }
 
-static u16 iq_output_mask = 0;
-bool track_iq_output_notify(struct setting *s, const char *val)
-{
-  if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
-    for (int i = 0; i < NAP_MAX_N_TRACK_CHANNELS; i++) {
-      tracking_channel[i].output_iq = (iq_output_mask & (1 << i)) != 0;
-    }
-    return true;
-  }
-  return false;
-}
-
 void manage_track_setup()
 {
   initialize_lock_counters();
-
-  SETTING_NOTIFY("track", "iq_output_mask", iq_output_mask, TYPE_INT,
-                 track_iq_output_notify);
 
   SETTING("track", "track_cn0_threshold", track_cn0_threshold, TYPE_FLOAT);
 
