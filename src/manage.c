@@ -78,6 +78,7 @@ acq_prn_t acq_prn_param[32];
 #define ALMANAC_DOPPLER_WINDOW 4000
 
 almanac_t almanac[32];
+extern ephemeris_t es[32];
 
 float track_cn0_threshold = 33.0;
 
@@ -331,7 +332,7 @@ static void manage_acq()
     /* TODO: Perhaps we can try to warm start this one
      * later using another fine acq.
      */
-    log_info("No channels free :(\n");
+    log_info("All channels in use\n");
     if (snr > ACQ_RETRY_THRESHOLD) {
       acq_prn_param[prn].score[ACQ_HINT_ACQ] = SCORE_ACQ + (snr - 20) / 20;
       acq_prn_param[prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
@@ -370,7 +371,7 @@ static u8 manage_track_new_acq(void)
   return MANAGE_NO_CHANNELS_FREE;
 }
 
-/** Clear unhealthy flags after some time.  Flags are reset one per day. */
+/** Clear unhealthy flags after some time.  Flags are reset once per day. */
 static void check_clear_unhealthy(void)
 {
   static systime_t ticks;
@@ -433,7 +434,6 @@ void manage_track_setup()
   );
 }
 
-extern ephemeris_t es[32];
 
 /** Disable any tracking channel whose SNR is below a certain margin. */
 static void manage_track()
