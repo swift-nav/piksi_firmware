@@ -118,9 +118,10 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
                            u32 start_sample_count, float snr)
 {
-  /* Calculate code phase rate with carrier aiding. */
-  float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
   tracking_channel_t *chan = &tracking_channel[channel];
+
+  /* Initialize all fields in the channel to 0 */
+  memset(chan, 0, sizeof(tracking_channel_t));
 
   /* Adjust the channel start time as the start_sample_count passed
    * in corresponds to a PROMPT code phase rollover but we want to
@@ -132,15 +133,13 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   /* Setup tracking_channel struct. */
   chan->state = TRACKING_RUNNING;
   chan->prn = prn;
-  chan->update_count = 0;
-  chan->mode_change_count = 0;
-  chan->stage = 0;
 
   /* Initialize TOW_ms and lock_count. */
   tracking_channel_ambiguity_unknown(channel);
   chan->TOW_ms = TOW_INVALID;
 
-  chan->snr_above_threshold_count = 0;
+  /* Calculate code phase rate with carrier aiding. */
+  float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
 
   const struct loop_params *l = &loop_params_stage[0];
   aided_tl_init(&(chan->tl_state), 1e3 / l->coherent_ms,
@@ -155,11 +154,9 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
      is 1. */
   chan->int_ms = l->coherent_ms;
 
-  chan->code_phase_early = 0;
   chan->code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
   chan->code_phase_rate = code_phase_rate;
-  chan->carrier_phase = 0;
   chan->carrier_freq = carrier_freq;
   chan->carrier_freq_fp = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
   chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
