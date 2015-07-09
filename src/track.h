@@ -33,10 +33,14 @@ extern u8 n_rollovers;
 typedef struct {
   u8 state;                    /**< Tracking channel state. */
   /* TODO : u32's big enough? */
-  u32 update_count;            /**< Total number of tracking channel ms updates. */
+  u32 update_count;            /**< Number of ms channel has been running */
   u32 mode_change_count;       /**< update_count at last mode change. */
+  u32 cn0_above_drop_thres_count;
+                               /**< update_count value when SNR was
+                                  last above a certain margin. */
+  u32 ld_opti_locked_count;    /**< update_count value when optimistic
+                                  phase detector last "locked". */
   s32 TOW_ms;                  /**< TOW in ms. */
-  u32 snr_above_threshold_count;     /**< update_count value when SNR was last above a certain margin. */
   u8 prn;                      /**< CA Code (0-31) channel is tracking. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   u32 code_phase_early;        /**< Early code phase. */

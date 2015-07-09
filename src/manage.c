@@ -80,7 +80,7 @@ acq_prn_t acq_prn_param[32];
 almanac_t almanac[32];
 extern ephemeris_t es[32];
 
-float track_cn0_threshold = 33.0;
+static float track_cn0_use_thres = 28.0;
 
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
@@ -409,7 +409,7 @@ void manage_track_setup()
 {
   initialize_lock_counters();
 
-  SETTING("track", "track_cn0_threshold", track_cn0_threshold, TYPE_FLOAT);
+  SETTING("track", "track_cn0_use", track_cn0_use_thres, TYPE_FLOAT);
 
   chThdCreateStatic(
       wa_manage_track_thread,
@@ -419,68 +419,90 @@ void manage_track_setup()
   );
 }
 
+static void drop_channel(u8 channel_id) {
+  tracking_channel_disable(channel_id);
+  const tracking_channel_t *ch = &tracking_channel[channel_id];
+  if (ch->update_count > TRACK_REACQ_T) {
+    acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = SCORE_TRACK;
+    acq_prn_param[ch->prn].dopp_hint_low = ch->carrier_freq - ACQ_FULL_CF_STEP;
+    acq_prn_param[ch->prn].dopp_hint_high = ch->carrier_freq + ACQ_FULL_CF_STEP;
+  }
+  acq_prn_param[ch->prn].state = ACQ_PRN_ACQUIRING;
+}
 
-/** Disable any tracking channel whose SNR is below a certain margin. */
+/** Disable any tracking channel that has lost phase lock or is
+    flagged unhealthy in ephem. */
 static void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
 
     tracking_channel_t *ch = &tracking_channel[i];
-    if (ch->state != TRACKING_RUNNING)
+    /* Skip channels that aren't in use */
+    if (ch->state != TRACKING_RUNNING ||
+        /* Give newly-initialized channels a chance to converge */
+        ch->update_count < TRACK_INIT_T)
       continue;
 
+    /* Is ephemeris marked unhealthy? */
     if (es[ch->prn].valid && !es[ch->prn].healthy) {
+      log_info("PRN%d unhealthy, dropping\n", ch->prn+1);
+      drop_channel(i);
       acq_prn_param[ch->prn].state = ACQ_PRN_UNHEALTHY;
-      log_info("Dropping unhealthy PRN%d\n", ch->prn+1);
-      tracking_channel_disable(i);
       continue;
     }
 
-    if (!ch->lock_detect.outo) {
-      if (ch->update_count > TRACK_SNR_INIT_COUNT)  {
-        /* This tracking channel has lost its satellite. */
-        log_info("Disabling channel %d (PRN %02d)\n", i, ch->prn+1);
-        tracking_channel_disable(i);
-        if (ch->snr_above_threshold_count > TRACK_SNR_THRES_COUNT) {
-          acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = SCORE_TRACK;
-          float cf = ch->carrier_freq;
-          acq_prn_param[ch->prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
-          acq_prn_param[ch->prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
-        }
-        acq_prn_param[ch->prn].state = ACQ_PRN_ACQUIRING;
-      }
-    } else {
-      /* SNR is good. */
-      ch->snr_above_threshold_count = ch->update_count;
+    /* Do we not have nav bit sync yet? */
+    if (ch->nav_msg.bit_phase_ref == BITSYNC_UNSYNCED) {
+      log_info("PRN%d no nav bit sync, dropping\n", ch->prn+1);
+      drop_channel(i);
+      continue;
     }
 
+    u32 uc = ch->update_count;
+
+    /* Optimistic phase lock detector "unlocked" for a while? */
+    if (uc - ch->ld_opti_locked_count > TRACK_DROP_UNLOCKED_T) {
+      log_info("PRN%d PLL unlocked too long, dropping\n", ch->prn+1);
+      drop_channel(i);
+      continue;
+    }
+
+    /* CN0 below threshold for a while? */
+    if (uc - ch->cn0_above_drop_thres_count > TRACK_DROP_CN0_T) {
+      log_info("PRN%d low CN0 too long, dropping\n", ch->prn+1);
+      drop_channel(i);
+      continue;
+    }
   }
 }
 
 s8 use_tracking_channel(u8 i)
 {
-  if ((tracking_channel[i].state == TRACKING_RUNNING)
-      /* Check the pessimistic lock detect indicator. */
-      && (tracking_channel[i].lock_detect.outp)
-      /* Check that a minimum time has elapsed since the last tracking channel
-       * mode change, to allow any transients to stabilize. */
-      && (tracking_channel[i].update_count
-            - tracking_channel[i].mode_change_count
-            > TRACK_STABILIZATION_COUNT)
-      /* Check the channel time of week has been decoded. */
-      && (tracking_channel[i].TOW_ms != TOW_INVALID)
-      /* Check the nav bit polarity is known, i.e. half-cycles have been resolved */
-      && (tracking_channel[i].nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN))
+  tracking_channel_t *ch = &tracking_channel[i];
+  /* To use a channel's measurements in an SPP or RTK solution, we
+     require the following conditions: */
+  if ((ch->state == TRACKING_RUNNING)
+      /* Pessimistic phase lock detector = "locked". */
+      && (ch->lock_detect.outp)
+      /* Some time has elapsed since the last tracking channel mode
+       * change, to allow any transients to stabilize. */
+      && (ch->update_count - ch->mode_change_count > TRACK_STABILIZATION_T)
+      /* Channel time of week has been decoded. */
+      && (ch->TOW_ms != TOW_INVALID)
+      /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
+      && (ch->nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
+      /* Estimated C/N0 is above some threshold */
+      && (ch->cn0 > track_cn0_use_thres))
       {
-
-    /* Check ephemeris is usable. */
+    /* Ephemeris must be valid and not stale.
+       This also acts as a sanity check on the channel TOW.*/
     gps_time_t t = {
-      /* TODO: the following makes the week number check tautological -
-         see issue #475 */
-      .wn = es[tracking_channel[i].prn].toe.wn,
-      .tow = 1e-3 * tracking_channel[i].TOW_ms
+      /* TODO: the following makes the week number part of the
+         TOW check tautological - see issue #475 */
+      .wn = es[ch->prn].toe.wn,
+      .tow = 1e-3 * ch->TOW_ms
     };
-    return ephemeris_good(&es[tracking_channel[i].prn], t);
+    return ephemeris_good(&es[ch->prn], t);
   } else return 0;
 }
 
