@@ -426,9 +426,12 @@ void tracking_channel_update(u8 channel)
       break;
     }
     case TRACKING_DISABLED:
+      /* TODO: Why do we sometimes have to disable the channel in the
+               NAP repeatedly? */
+      tracking_channel_disable(channel);
+      break;
     default:
-      /* TODO: WTF? */
-      log_error("CH%d (PRN%02d) invalid state\n", channel, chan->prn+1);
+      log_error("CH%d (PRN%02d) invalid state %d\n", channel, chan->prn+1, chan->state);
       tracking_channel_disable(channel);
       break;
   }
