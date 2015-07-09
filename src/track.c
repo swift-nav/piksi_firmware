@@ -325,13 +325,14 @@ void tracking_channel_update(u8 channel)
       /* Update PLL lock detector */
       bool last_outp = chan->lock_detect.outp;
       lock_detect_update(&chan->lock_detect, cs[1].I, cs[1].Q, chan->int_ms);
+      if (chan->lock_detect.outo)
+        chan->ld_opti_locked_count = chan->update_count;
+
       /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
       if (last_outp && !chan->lock_detect.outp) {
         log_info("PRN %d PLL stress\n", chan->prn+1);
         tracking_channel_ambiguity_unknown(chan->prn);
       }
-      if (chan->lock_detect.outo)
-        chan->ld_opti_locked_count = chan->update_count;
 
       /* Run the loop filters. */
 
