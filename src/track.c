@@ -406,21 +406,6 @@ void tracking_channel_update(u8 channel)
                            /* TODO: Should also adjust lp and lo? */
                            lock_detect_params.lp, lock_detect_params.lo);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         /* Indicate that a mode change has occurred. */
         chan->mode_change_count = chan->update_count;
       }
@@ -437,6 +422,7 @@ void tracking_channel_update(u8 channel)
     case TRACKING_DISABLED:
     default:
       /* TODO: WTF? */
+      log_error("CH%d (PRN%02d) invalid state\n", channel, chan->prn+1);
       tracking_channel_disable(channel);
       break;
   }
@@ -486,19 +472,11 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->carrier_freq = chan->carrier_freq;
   meas->time_of_week_ms = chan->TOW_ms;
   meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
-  meas->snr = tracking_channel_snr(channel);
+  meas->snr = chan->cn0;
   if (chan->nav_msg.bit_polarity == BIT_POLARITY_INVERTED) {
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = chan->lock_counter;
-}
-
-/** Calculate a tracking channel's current SNR.
- * \param channel Tracking channel to calculate SNR of.
- */
-float tracking_channel_snr(u8 channel)
-{
-  return tracking_channel[channel].cn0;
 }
 
 /** Send tracking state SBP message.
@@ -529,7 +507,7 @@ void tracking_send_state()
       states[i].state = tracking_channel[i].state;
       states[i].prn = tracking_channel[i].prn;
       if (tracking_channel[i].state == TRACKING_RUNNING)
-        states[i].cn0 = tracking_channel_snr(i);
+        states[i].cn0 = tracking_channel[i].cn0;
       else
         states[i].cn0 = -1;
     }
