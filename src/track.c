@@ -35,7 +35,7 @@ struct loop_params {
   u8 coherent_ms;
 } loop_params_stage[2];
 
-char lock_detect_params_string[24] = "0.02, 1.4, 150, 50";
+char lock_detect_params_string[24] = "0.05, 1.4, 150, 50";
 struct lock_detect_params {
   float k1, k2;
   u16 lp, lo;
