@@ -41,6 +41,7 @@ static struct lock_detect_params {
   u16 lp, lo;
 } lock_detect_params;
 
+static float track_cn0_drop_thres = 25.0;
 static u16 iq_output_mask = 0;
 
 #define CN0_EST_LPF_CUTOFF 0.3
@@ -318,6 +319,8 @@ void tracking_channel_update(u8 channel)
 
       /* Update C/N0 estimate */
       chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I/chan->int_ms, cs[1].Q/chan->int_ms);
+      if (chan->cn0 > track_cn0_drop_thres)
+        chan->cn0_above_drop_thres_count = chan->update_count;
 
       /* Update PLL lock detector */
       bool last_outp = chan->lock_detect.outp;
@@ -327,6 +330,8 @@ void tracking_channel_update(u8 channel)
         log_info("PRN %d PLL stress\n", chan->prn+1);
         tracking_channel_ambiguity_unknown(chan->prn);
       }
+      if (chan->lock_detect.outo)
+        chan->ld_opti_locked_count = chan->update_count;
 
       /* Run the loop filters. */
 
@@ -362,7 +367,7 @@ void tracking_channel_update(u8 channel)
         * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
 #if 1
-      if (chan->stage > 0 && chan->lock_detect.outp) {
+      if (chan->stage > 0 && chan->lock_detect.outo) {
         s32 I = (cs[1].I - chan->alias_detect.first_I) / (chan->int_ms - 1);
         s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
         float err = alias_detect_second(&chan->alias_detect, I, Q);
@@ -377,11 +382,13 @@ void tracking_channel_update(u8 channel)
         }
       }
 #endif
+
+      /* Consider moving from stage 0 (1 ms integration) to stage 1 (longer). */
       if ((chan->stage == 0) &&
-          (chan->int_ms == 1) &&
+          /* Must have (at least optimistic) phase lock */
+          (chan->lock_detect.outo) &&
+          /* Must have nav bit sync, and be correctly aligned */
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
-        /* This means we have nav bit sync, and just finished a nav bit.
-           So, we can transition to longer integration and/or tighter NBW. */
         log_info("PRN %d entering second-stage tracking after %u ms\n",
                  chan->prn+1, (unsigned int)chan->update_count);
         chan->stage = 1;
@@ -598,6 +605,7 @@ void tracking_setup()
                  TYPE_STRING, parse_loop_params);
   SETTING_NOTIFY("track", "lock_detect_params", lock_detect_params_string,
                  TYPE_STRING, parse_lock_detect_params);
+  SETTING("track", "track_cn0_drop_thres", track_cn0_drop_thres, TYPE_FLOAT);
 }
 
 /** \} */
