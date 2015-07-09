@@ -409,7 +409,7 @@ void manage_track_setup()
 {
   initialize_lock_counters();
 
-  SETTING("track", "track_cn0_use", track_cn0_use_thres, TYPE_FLOAT);
+  SETTING("track", "cn0_use", track_cn0_use_thres, TYPE_FLOAT);
 
   chThdCreateStatic(
       wa_manage_track_thread,
