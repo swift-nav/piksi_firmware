@@ -324,7 +324,10 @@ void tracking_channel_update(u8 channel)
           .channel = channel,
           .sid = chan->prn,
         };
-        memcpy(msg.corrs, chan->cs, sizeof(chan->cs));
+        for (u32 i = 0; i < 3; i++) {
+          msg.corrs[i].I = cs[i].I;
+          msg.corrs[i].Q = cs[i].Q;
+        }
         sbp_send_msg(SBP_MSG_TRACKING_IQ, sizeof(msg), (u8*)&msg);
       }
 
