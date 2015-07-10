@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include <libsbp/file_io.h>
+#include <libswiftnav/logging.h>
 
 #include "sbp.h"
 #include "sbp_fileio.h"
@@ -68,12 +69,12 @@ static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    puts("Invalid sender!");
+    log_error("Invalid sender!\n");
     return;
   }
 
   if ((len < 9) || (msg[len-1] != '\0')) {
-    puts("Invalid fileio read message!");
+    log_error("Invalid fileio read message!\n");
     return;
   }
 
@@ -105,12 +106,12 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    puts("Invalid sender!");
+    log_error("Invalid sender!\n");
     return;
   }
 
   if ((len < 5) || (msg[len-1] != '\0')) {
-    puts("Invalid fileio read dir message!");
+    log_error("Invalid fileio read dir message!\n");
     return;
   }
 
@@ -144,12 +145,12 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    puts("Invalid sender!");
+    log_error("Invalid sender!\n");
     return;
   }
 
   if ((len < 2) || (msg[len-1] != '\0')) {
-    puts("Invalid fileio remove message!");
+    log_error("Invalid fileio remove message!\n");
     return;
   }
 
@@ -168,12 +169,12 @@ static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    puts("Invalid sender!");
+    log_error("Invalid sender!\n");
     return;
   }
 
   if (len < 6) {
-    puts("Invalid fileio write message!");
+    log_error("Invalid fileio write message!\n");
     return;
   }
 
