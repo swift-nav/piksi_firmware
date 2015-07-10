@@ -322,6 +322,14 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 }
 
+/** SBP callback for the old style observation messages.
+ * Just logs a deprecation warning. */
+static void deprecated_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void) context; (void) len; (void) msg; (void) sender_id;
+  log_error("Receiving an old deprecated observation message.\n");
+}
+
 /** Setup the base station observation handling subsystem. */
 void base_obs_setup()
 {
@@ -344,6 +352,13 @@ void base_obs_setup()
     SBP_MSG_OBS,
     &obs_callback,
     &obs_packed_node
+  );
+
+  static sbp_msg_callbacks_node_t deprecated_node;
+  sbp_register_cbk(
+    SBP_MSG_OBS_DEP_A,
+    &deprecated_callback,
+    &deprecated_node
   );
 }
 
