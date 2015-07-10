@@ -159,9 +159,9 @@ static void update_obss(obss_t *new_obss)
       }
       base_obss.has_pos = 1;
     } else {
-      // TODO(dsk) check for repair failure
+      /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
-      log_warn("Error calculating base station position: (%ld). See solution.c or calc_PVT for info.\n", ret);
+      log_warn("Error calculating base station position: (%s).\n", pvt_err_msg[-ret-1]);
     }
   }
   /* If the base station position is known then calculate the satellite ranges.

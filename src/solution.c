@@ -191,7 +191,8 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
   case FILTER_FIXED:
     chMtxLock(&amb_state_lock);
     ret = dgnss_baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
-                         &amb_state, &num_used, b, disable_raim, DEFAULT_RAIM_THRESHOLD);
+                         &amb_state, &num_used, b,
+                         disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock();
     if (ret > 0) {
       /* ret is <0 on error, 2 if float, 1 if fixed */
@@ -206,7 +207,8 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     flags = 0;
     chMtxLock(&amb_state_lock);
     ret = baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
-                   &amb_state.float_ambs, &num_used, b, disable_raim, DEFAULT_RAIM_THRESHOLD);
+                   &amb_state.float_ambs, &num_used, b,
+                   disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock();
     if (ret < 0) {
       log_warn("dgnss_float_baseline returned error: %d\n", ret);
@@ -568,7 +570,8 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
       reset_iar = false;
     }
     /* Update filters. */
-    dgnss_update(n_sds, sds, position_solution.pos_ecef, disable_raim, DEFAULT_RAIM_THRESHOLD);
+    dgnss_update(n_sds, sds, position_solution.pos_ecef,
+                 disable_raim, DEFAULT_RAIM_THRESHOLD);
     /* Update ambiguity states. */
     chMtxLock(&amb_state_lock);
     dgnss_update_ambiguity_state(&amb_state);
