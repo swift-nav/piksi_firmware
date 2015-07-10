@@ -58,7 +58,7 @@ sbp_state_t ftdi_sbp_state;
 
 static const char SBP_MODULE[] = "sbp";
 
-static WORKING_AREA_CCM(wa_sbp_thread, 4096);
+static WORKING_AREA_CCM(wa_sbp_thread, 6084);
 static msg_t sbp_thread(void *arg)
 {
   (void)arg;
