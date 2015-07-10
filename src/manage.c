@@ -469,8 +469,12 @@ static void manage_track()
 
     /* CN0 below threshold for a while? */
     if (uc - ch->cn0_above_drop_thres_count > TRACK_DROP_CN0_T) {
-      log_info("PRN%d low CN0 too long, dropping\n", ch->prn+1);
-      drop_channel(i);
+      if (ch->cn0 >= 25.0) {
+        log_error("PRN%d bogus 'low CN0 too long'\n", ch->prn+1);
+      } else {
+        log_info("PRN%d low CN0 too long, dropping\n", ch->prn+1);
+        drop_channel(i);
+      }
       continue;
     }
   }
@@ -485,7 +489,8 @@ s8 use_tracking_channel(u8 i)
       /* Pessimistic phase lock detector = "locked". */
       && (ch->lock_detect.outp)
       /* Some time has elapsed since the last tracking channel mode
-       * change, to allow any transients to stabilize. */
+       * change, to allow any transients to stabilize.
+       * TODO: is this still necessary? */
       && (ch->update_count - ch->mode_change_count > TRACK_STABILIZATION_T)
       /* Channel time of week has been decoded. */
       && (ch->TOW_ms != TOW_INVALID)
