@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <alloca.h>
 
 #include <libsbp/file_io.h>
 #include <libswiftnav/logging.h>
@@ -64,30 +65,35 @@ void sbp_fileio_setup(void)
  * data in a SBP_MSG_FILEIO_READ_RESP message where the message length field
  * indicates how many bytes were succesfully read.
  */
-static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context)
+static void read_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   (void)context;
+  msg_fileio_read_request_t *msg = (msg_fileio_read_request_t *)msg_;
 
   if (sender_id != SBP_SENDER_ID) {
     log_error("Invalid sender!\n");
     return;
   }
 
-  if ((len < 9) || (msg[len-1] != '\0')) {
+  if ((len <= sizeof(*msg)) || (len == SBP_MAX_PAYLOAD_SIZE)) {
     log_error("Invalid fileio read message!\n");
     return;
   }
 
-  u32 offset = ((u32)msg[3] << 24) | ((u32)msg[2] << 16) | (msg[1] << 8) | msg[0];
-  u8 readlen = MIN(msg[4], SBP_FRAMING_MAX_PAYLOAD_SIZE - len);
-  u8 buf[256];
-  memcpy(buf, msg, len);
-  int f = cfs_open((char*)&msg[5], CFS_READ);
-  cfs_seek(f, offset, CFS_SEEK_SET);
-  len += cfs_read(f, buf + len, readlen);
+  /* Add a null termination to filename */
+  msg_[len] = 0;
+
+  msg_fileio_read_response_t *reply;
+  u8 readlen = MIN(msg->chunk_size, SBP_MAX_PAYLOAD_SIZE - sizeof(*reply));
+  reply = alloca(sizeof(msg_fileio_read_response_t) + readlen);
+  reply->sequence = msg->sequence;
+  int f = cfs_open(msg->filename, CFS_READ);
+  cfs_seek(f, msg->offset, CFS_SEEK_SET);
+  readlen = cfs_read(f, &reply->contents, readlen);
   cfs_close(f);
 
-  sbp_send_msg(SBP_MSG_FILEIO_READ_RESP, len, buf);
+  sbp_send_msg(SBP_MSG_FILEIO_READ_RESP,
+               sizeof(*reply) + readlen, (u8*)reply);
 }
 
 /** Directory listing callback.
@@ -101,40 +107,46 @@ static void read_cb(u16 sender_id, u8 len, u8 msg[], void* context)
  * packets and the end of the list is identified by an entry containing just
  * the character 0xFF.
  */
-static void read_dir_cb(u16 sender_id, u8 len, u8 msg[], void* context)
+static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   (void)context;
+  msg_fileio_read_dir_request_t *msg = (msg_fileio_read_dir_request_t *)msg_;
 
   if (sender_id != SBP_SENDER_ID) {
     log_error("Invalid sender!\n");
     return;
   }
 
-  if ((len < 5) || (msg[len-1] != '\0')) {
+  if ((len <= sizeof(*msg)) || (len == SBP_MAX_PAYLOAD_SIZE)) {
     log_error("Invalid fileio read dir message!\n");
     return;
   }
 
-  u32 offset = ((u32)msg[3] << 24) | ((u32)msg[2] << 16) | (msg[1] << 8) | msg[0];
+  /* Add a null termination to dirname */
+  msg_[len] = 0;
+
   struct cfs_dir dir;
   struct cfs_dirent dirent;
-  u8 buf[256];
-  memcpy(buf, msg, len);
-  cfs_opendir(&dir, (char*)&msg[4]);
+  u32 offset = msg->offset;
+  msg_fileio_read_dir_response_t *reply = alloca(SBP_MAX_PAYLOAD_SIZE);
+  reply->sequence = msg->sequence;
+  cfs_opendir(&dir, msg->dirname);
   while (offset && (cfs_readdir(&dir, &dirent) == 0))
     offset--;
 
-  while ((cfs_readdir(&dir, &dirent) == 0) && (len < SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
-    strncpy((char*)buf + len, dirent.name, SBP_FRAMING_MAX_PAYLOAD_SIZE - len);
+  len = 0;
+  size_t max_len = SBP_MAX_PAYLOAD_SIZE - sizeof(*reply);
+  while (cfs_readdir(&dir, &dirent) == 0) {
+    if (strlen(dirent.name) > (max_len - len - 1))
+      break;
+    strcpy((char*)reply->contents + len, dirent.name);
     len += strlen(dirent.name) + 1;
   }
 
-  if (len < SBP_FRAMING_MAX_PAYLOAD_SIZE)
-    buf[len++] = 0xff;
-
   cfs_closedir(&dir);
 
-  sbp_send_msg(SBP_MSG_FILEIO_READ_DIR_RESP, len, buf);
+  sbp_send_msg(SBP_MSG_FILEIO_READ_DIR_RESP,
+               sizeof(*reply) + len, (u8*)reply);
 }
 
 /* Remove file callback.
@@ -149,10 +161,13 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
     return;
   }
 
-  if ((len < 2) || (msg[len-1] != '\0')) {
+  if ((len < 1) || (len == SBP_MAX_PAYLOAD_SIZE)) {
     log_error("Invalid fileio remove message!\n");
     return;
   }
+
+  /* Add a null termination to filename */
+  msg[len] = 0;
 
   cfs_remove((char*)msg);
 }
@@ -164,26 +179,29 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
  * of the original SBP_MSG_FILEIO_WRITE_RESP message to check integrity of
  * the write.
  */
-static void write_cb(u16 sender_id, u8 len, u8 msg[], void* context)
+static void write_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   (void)context;
+  msg_fileio_write_request_t *msg = (msg_fileio_write_request_t *)msg_;
 
   if (sender_id != SBP_SENDER_ID) {
     log_error("Invalid sender!\n");
     return;
   }
 
-  if (len < 6) {
+  if ((len <= sizeof(*msg) + 2) ||
+      (strnlen(msg->filename, SBP_MAX_PAYLOAD_SIZE - sizeof(*msg)) ==
+                              SBP_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
     log_error("Invalid fileio write message!\n");
     return;
   }
 
-  u32 offset = ((u32)msg[3] << 24) | ((u32)msg[2] << 16) | (msg[1] << 8) | msg[0];
-  u8 headerlen = 4 + strlen((char*)&msg[4]) + 1;
-  int f = cfs_open((char*)&msg[4], CFS_WRITE);
-  cfs_seek(f, offset, CFS_SEEK_SET);
-  cfs_write(f, msg + headerlen, len - headerlen);
+  u8 headerlen = sizeof(*msg) + strlen(msg->filename) + 1;
+  int f = cfs_open(msg->filename, CFS_WRITE);
+  cfs_seek(f, msg->offset, CFS_SEEK_SET);
+  cfs_write(f, msg_ + headerlen, len - headerlen);
   cfs_close(f);
 
-  sbp_send_msg(SBP_MSG_FILEIO_WRITE_RESP, headerlen, msg);
+  msg_fileio_write_response_t reply = {.sequence = msg->sequence};
+  sbp_send_msg(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8*)&reply);
 }
