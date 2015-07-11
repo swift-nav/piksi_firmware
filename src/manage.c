@@ -324,15 +324,12 @@ static void manage_acq()
     return;
   }
 
-  log_info("acq: PRN %d found @ %d Hz, %.1f C/N0\n", prn + 1, (int)cf, cn0);
-
   u8 chan = manage_track_new_acq();
   if (chan == MANAGE_NO_CHANNELS_FREE) {
     /* No channels are free to accept our new satellite :( */
     /* TODO: Perhaps we can try to warm start this one
      * later using another fine acq.
      */
-    log_info("All channels in use\n");
     if (cn0 > ACQ_RETRY_THRESHOLD) {
       acq_prn_param[prn].score[ACQ_HINT_ACQ] = SCORE_ACQ + (cn0 - ACQ_THRESHOLD);
       acq_prn_param[prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
@@ -452,7 +449,6 @@ static void manage_track()
 
     /* Do we not have nav bit sync yet? */
     if (ch->nav_msg.bit_phase_ref == BITSYNC_UNSYNCED) {
-      log_info("PRN%d no nav bit sync, dropping\n", ch->prn+1);
       drop_channel(i);
       continue;
     }

@@ -389,8 +389,8 @@ void tracking_channel_update(u8 channel)
           (chan->lock_detect.outo) &&
           /* Must have nav bit sync, and be correctly aligned */
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
-        log_info("PRN %d entering second-stage tracking after %u ms\n",
-                 chan->prn+1, (unsigned int)chan->update_count);
+        log_info("PRN %d synced @ %u ms, %.1f dBHz\n",
+                 chan->prn+1, (unsigned int)chan->update_count, chan->cn0);
         chan->stage = 1;
         struct loop_params *l = &loop_params_stage[1];
         chan->int_ms = l->coherent_ms;
