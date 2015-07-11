@@ -32,7 +32,7 @@
 #define NAP_REG_TRACK_CODE_OFFSET    0x04
 
 /** Max number of tracking channels NAP configuration will be built with. */
-#define NAP_MAX_N_TRACK_CHANNELS     14
+#define NAP_MAX_N_TRACK_CHANNELS     12
 
 extern u8 nap_track_n_channels;
 
