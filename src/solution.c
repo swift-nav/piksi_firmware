@@ -63,8 +63,6 @@ static u16 lock_counters[MAX_SATS];
 
 bool disable_raim = true;
 
-extern s32 serial_number;
-
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
   if (soln) {
@@ -421,8 +419,6 @@ static msg_t solution_thread(void *arg)
                            NMEA_GGA_FIX_GPS);
       }
 
-      if (serial_number != 22222) { // TEST: Disable RTK execution
-
       /* If we have a recent set of observations from the base station, do a
        * differential solution. */
       double pdt;
@@ -451,7 +447,6 @@ static msg_t solution_thread(void *arg)
         }
       }
       chMtxUnlock();
-      }
 
       /* Calculate the time of the nearest solution epoch, were we expected
        * to be and calculate how far we were away from it. */
