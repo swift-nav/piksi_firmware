@@ -332,15 +332,12 @@ static void manage_acq()
     return;
   }
 
-  log_info("acq: PRN %d found @ %d Hz, %.1f C/N0\n", prn + 1, (int)cf, cn0);
-
   u8 chan = manage_track_new_acq();
   if (chan == MANAGE_NO_CHANNELS_FREE) {
     /* No channels are free to accept our new satellite :( */
     /* TODO: Perhaps we can try to warm start this one
      * later using another fine acq.
      */
-    log_info("All channels in use\n");
     if (cn0 > ACQ_RETRY_THRESHOLD) {
       acq_prn_param[prn].score[ACQ_HINT_ACQ] = SCORE_ACQ + (cn0 - ACQ_THRESHOLD);
       acq_prn_param[prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
@@ -471,9 +468,9 @@ static void manage_track()
           ch->update_count - ch->snr_above_threshold_count >
             TRACK_SNR_THRES_COUNT) {
         /* This tracking channel has lost its satellite. */
-        log_info("Disabling channel %d (PRN %02d)\n", i, ch->prn+1);
         tracking_channel_disable(i);
         if (ch->snr_above_threshold_count > TRACK_SNR_THRES_COUNT) {
+          log_info("Disabling channel %d (PRN %02d)\n", i, ch->prn+1);
           acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = SCORE_TRACK;
           float cf = ch->carrier_freq;
           acq_prn_param[ch->prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
