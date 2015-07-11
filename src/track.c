@@ -372,7 +372,7 @@ void tracking_channel_update(u8 channel)
         s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
         float err = alias_detect_second(&chan->alias_detect, I, Q);
         if (fabs(err) > (250 / chan->int_ms)) {
-          log_warn("False phase lock detect PRN%d: err=%f\n", chan->prn+1, err);
+          log_info("False phase lock detect PRN%d: err=%f\n", chan->prn+1, err);
 
           /* Indicate that a mode change has ocurred. */
           chan->mode_change_count = chan->update_count;
