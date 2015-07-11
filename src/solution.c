@@ -61,7 +61,7 @@ u16 msg_obs_max_size = 104;
 
 static u16 lock_counters[MAX_SATS];
 
-bool disable_raim = false;
+bool disable_raim = true;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
