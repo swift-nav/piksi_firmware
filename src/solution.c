@@ -421,6 +421,8 @@ static msg_t solution_thread(void *arg)
                            NMEA_GGA_FIX_GPS);
       }
 
+      if (serial_number != 22222) { // TEST: Disable RTK execution
+
       /* If we have a recent set of observations from the base station, do a
        * differential solution. */
       double pdt;
@@ -449,6 +451,7 @@ static msg_t solution_thread(void *arg)
         }
       }
       chMtxUnlock();
+      }
 
       /* Calculate the time of the nearest solution epoch, were we expected
        * to be and calculate how far we were away from it. */
@@ -605,7 +608,6 @@ static msg_t time_matched_obs_thread(void *arg)
      * looking for one that matches in time. */
     while (chMBFetch(&obs_mailbox, (msg_t *)&obss, TIME_IMMEDIATE)
             == RDY_OK) {
-      if (serial_number != 22222) continue; // TEST: Disable IAR execution
       chMtxLock(&base_obs_lock);
       double dt = gpsdifftime(obss->t, base_obss.t);
 
