@@ -190,11 +190,7 @@ int main(void)
   sbp_fileio_setup();
   ext_setup();
 
-  if (serial_number < 0) {
-    READ_ONLY_PARAMETER("system_info", "serial_number", "(unknown)", TYPE_STRING);
-  } else {
-    READ_ONLY_PARAMETER("system_info", "serial_number", serial_number, TYPE_INT);
-  }
+  READ_ONLY_PARAMETER("system_info", "serial_number", serial_number, TYPE_INT);
   READ_ONLY_PARAMETER("system_info", "firmware_version", GIT_VERSION,
                       TYPE_STRING);
   READ_ONLY_PARAMETER("system_info", "firmware_built", __DATE__ " " __TIME__,
