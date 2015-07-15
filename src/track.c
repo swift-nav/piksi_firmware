@@ -142,7 +142,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 
   /* TESTING: sentinel */
   chan->cn0_above_drop_thres_count = 0x12345678;
-#define SETSENTINEL(X) for (int i=0; i < 4; i++) X[i] = 0x12345678;
+#define SETSENTINEL(X) for (int i=0; i < SENTINEL_WORDS_EACH; i++) X[i] = 0x12345678;
   SETSENTINEL(chan->sentinel0)
   SETSENTINEL(chan->sentinel1)
   SETSENTINEL(chan->sentinel2)

@@ -462,7 +462,7 @@ static void manage_track()
       continue;
     }
 
-#define CHECKSENTINEL(X) for (int j=0; j < 4; j++) if (X[j] != 0x12345678) {\
+#define CHECKSENTINEL(X) for (int j=0; j < SENTINEL_WORDS_EACH; j++) if (X[j] != 0x12345678) {\
         log_error("PRN%02d ch%d " #X "[%d] == %08X", ch->prn+1, i, j, (unsigned int)X[j]);\
         X[j] = 0x12345678; }
 
