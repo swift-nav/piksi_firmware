@@ -163,7 +163,7 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
   char lat_dir = pos_llh[0] < 0 ? 'S' : 'N';
   char lon_dir = pos_llh[1] < 0 ? 'W' : 'E';
 
-  NMEA_SENTENCE_START(80);
+  NMEA_SENTENCE_START(120);
   NMEA_SENTENCE_PRINTF("$GPGGA,%02d%02d%06.3f,"
                        "%02d%010.7f,%c,%03d%010.7f,%c,"
                        "%01d,%02d,%.1f,%.2f,M,,M,,",
@@ -182,7 +182,7 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
  */
 void nmea_gpgsa(const tracking_channel_t *chans, const dops_t *dops)
 {
-  NMEA_SENTENCE_START(80);
+  NMEA_SENTENCE_START(120);
   NMEA_SENTENCE_PRINTF("$GPGSA,A,3,");
 
   for (u8 i = 0; i < 12; i++) {
@@ -220,7 +220,7 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
   double az, el;
 
   for (u8 i = 0; i < n_mess; i++) {
-    NMEA_SENTENCE_START(80);
+    NMEA_SENTENCE_START(120);
     NMEA_SENTENCE_PRINTF("$GPGSV,%d,%d,%d", n_mess, i+1, n_used);
 
     for (u8 j = 0; j < 4; j++) {
@@ -294,7 +294,7 @@ void nmea_gprmc(const navigation_measurement_t *nav_meas,
   double az, el;
   wgsecef2azel(nav_meas[0].sat_pos, soln->pos_ecef, &az, &el);
 
-  NMEA_SENTENCE_START(100);
+  NMEA_SENTENCE_START(140);
   NMEA_SENTENCE_PRINTF(
                 "$GPRMC,%02d%02d%06.3f,A," /* Command, Time (UTC), Valid */
                 "%02d%010.7f,%c,%03d%010.7f,%c," /* Lat/Lon */
@@ -341,7 +341,7 @@ void nmea_gpvtg(const navigation_measurement_t *nav_meas,
   /* Conversion to magnitue km/hr */
   vkmhr = MS2KMHR(x,y,z);
 
-  NMEA_SENTENCE_START(80);
+  NMEA_SENTENCE_START(120);
   NMEA_SENTENCE_PRINTF(
                   "$GPVTG,%05.1f,T," /* Command, course, */
                   ",M," /* Magnetic Course (omitted) */
@@ -383,7 +383,7 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
   char lat_dir = soln->pos_llh[0] < 0 ? 'S' : 'N';
   char lon_dir = soln->pos_llh[1] < 0 ? 'W' : 'E';
 
-  NMEA_SENTENCE_START(80);
+  NMEA_SENTENCE_START(120);
   NMEA_SENTENCE_PRINTF("$GPGLL,"
                 "%02d%010.7f,%c,%03d%010.7f,%c," /* Lat/Lon */
                 "%02d%02d%06.3f,A", /* Time (UTC), Valid */
