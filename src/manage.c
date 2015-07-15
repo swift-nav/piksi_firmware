@@ -456,6 +456,7 @@ static void manage_track()
     u32 uc = ch->update_count;
 
     /* Optimistic phase lock detector "unlocked" for a while? */
+    /* TODO: This isn't doing much.  Use the pessimistic detector instead? */
     if ((int)(uc - ch->ld_opti_locked_count) > TRACK_DROP_UNLOCKED_T) {
       log_info("PRN%d PLL unlocked too long, dropping\n", ch->prn+1);
       drop_channel(i);
