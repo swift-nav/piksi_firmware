@@ -456,7 +456,7 @@ static void manage_track()
     u32 uc = ch->update_count;
 
     /* Optimistic phase lock detector "unlocked" for a while? */
-    if (uc - ch->ld_opti_locked_count > TRACK_DROP_UNLOCKED_T) {
+    if ((int)(uc - ch->ld_opti_locked_count) > TRACK_DROP_UNLOCKED_T) {
       log_info("PRN%d PLL unlocked too long, dropping\n", ch->prn+1);
       drop_channel(i);
       continue;
@@ -477,7 +477,7 @@ static void manage_track()
     CHECKSENTINEL(ch->sentinel8);
 
     /* CN0 below threshold for a while? */
-    if (uc - ch->cn0_above_drop_thres_count > TRACK_DROP_CN0_T) {
+    if ((int)(uc - ch->cn0_above_drop_thres_count) > TRACK_DROP_CN0_T) {
       if (ch->cn0 >= 25.0) {
         log_error("PRN%d bogus 'low CN0 too long' %.1f %u %u\n", ch->prn+1,
                   ch->cn0, (unsigned int)uc, (unsigned int)ch->cn0_above_drop_thres_count);
@@ -501,7 +501,7 @@ s8 use_tracking_channel(u8 i)
       /* Some time has elapsed since the last tracking channel mode
        * change, to allow any transients to stabilize.
        * TODO: is this still necessary? */
-      && (ch->update_count - ch->mode_change_count > TRACK_STABILIZATION_T)
+      && ((int)(ch->update_count - ch->mode_change_count) > TRACK_STABILIZATION_T)
       /* Channel time of week has been decoded. */
       && (ch->TOW_ms != TOW_INVALID)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
