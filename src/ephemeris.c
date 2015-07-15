@@ -25,8 +25,6 @@ MUTEX_DECL(es_mutex);
 ephemeris_t es[MAX_SATS] _CCM;
 static ephemeris_t es_candidate[MAX_SATS] _CCM;
 
-extern s32 serial_number;
-
 static void ephemeris_new(ephemeris_t *e)
 {
   gps_time_t t = get_current_time();
@@ -84,8 +82,6 @@ static msg_t nav_msg_thread(void *arg)
       if (ret <= 0)
         continue;
 
-      if (serial_number != 22222) continue; // TEST: Disable RTK execution
-      
       /* Decoded a new ephemeris. */
       ephemeris_new(&e);
 

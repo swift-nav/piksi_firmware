@@ -141,7 +141,6 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   chan->TOW_ms = TOW_INVALID;
 
   /* TESTING: sentinel */
-  chan->cn0_above_drop_thres_count = 0x12345678;
 #define SETSENTINEL(X) for (int i=0; i < SENTINEL_WORDS_EACH; i++) X[i] = 0x12345678;
   SETSENTINEL(chan->sentinel0)
   SETSENTINEL(chan->sentinel1)
@@ -331,10 +330,9 @@ void tracking_channel_update(u8 channel)
 
       /* Update C/N0 estimate */
       chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I/chan->int_ms, cs[1].Q/chan->int_ms);
-      /*
       if (chan->cn0 > track_cn0_drop_thres)
         chan->cn0_above_drop_thres_count = chan->update_count;
-      */
+      
       /* Update PLL lock detector */
       bool last_outp = chan->lock_detect.outp;
       lock_detect_update(&chan->lock_detect, cs[1].I, cs[1].Q, chan->int_ms);
