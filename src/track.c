@@ -329,7 +329,8 @@ void tracking_channel_update(u8 channel)
 
       /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
       if (last_outp && !chan->lock_detect.outp) {
-        log_info("PRN %d PLL stress\n", chan->prn+1);
+        if (chan->stage > 0)
+          log_info("PRN %d PLL stress\n", chan->prn+1);
         tracking_channel_ambiguity_unknown(channel);
       }
 
