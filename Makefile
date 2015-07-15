@@ -1,4 +1,5 @@
 SWIFTNAV_ROOT := $(shell pwd)
+
 MAKEFLAGS += SWIFTNAV_ROOT=$(SWIFTNAV_ROOT)
 
 # Be silent per default, but 'make V=1' will show all compiler calls.
