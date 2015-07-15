@@ -96,6 +96,11 @@ static void nmea_output(char *s, size_t size)
   for (struct nmea_dispatcher *d = nmea_dispatchers_head; d; d = d->next)
     d->send(s, size);
 
+  static size_t max_size = 0;
+  if (size > max_size) {
+    log_info("NMEA %.6s = %u\n", s, size);
+    max_size = size;
+  }
 }
 
 void nmea_setup(void)
