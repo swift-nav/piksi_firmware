@@ -29,7 +29,7 @@
 
 extern u8 n_rollovers;
 
-#define SENTINEL_WORDS_EACH 2
+#define SENTINEL_WORDS_EACH 1
 
 /** Tracking channel parameters as of end of last correlation period. */
 typedef struct {
