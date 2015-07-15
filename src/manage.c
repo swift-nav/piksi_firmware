@@ -463,6 +463,7 @@ static void manage_track()
     }
 
     /* CN0 below threshold for a while? */
+    /*
     if (uc - ch->cn0_above_drop_thres_count > TRACK_DROP_CN0_T) {
       if (ch->cn0 >= 25.0) {
         log_error("PRN%d bogus 'low CN0 too long'\n", ch->prn+1);
@@ -471,6 +472,11 @@ static void manage_track()
         drop_channel(i);
       }
       continue;
+    }
+    */
+    if (ch->cn0_above_drop_thres_count != 0x12345678) {
+      log_error("PRN%d ch%d dropped the soap, %08X\n", ch->prn+1, i, (unsigned int)ch->cn0_above_drop_thres_count);
+      ch->cn0_above_drop_thres_count = 0x12345678;
     }
   }
 }
