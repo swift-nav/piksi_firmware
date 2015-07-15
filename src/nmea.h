@@ -63,7 +63,7 @@ void nmea_send_msgs(gnss_solution *soln, u8 n,
 
 /** \cond */
 struct nmea_dispatcher {
-  void (*send)(const char *msg);
+  void (*send)(const char *msg, size_t msg_size);
   struct nmea_dispatcher *next;
 };
 

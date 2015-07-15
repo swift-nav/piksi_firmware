@@ -17,6 +17,7 @@
 
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/constants.h>
+#include <libswiftnav/logging.h>
 
 #include "board/nap/track_channel.h"
 #include "nmea.h"
@@ -38,35 +39,63 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
  * Send messages in NMEA format.
  * \{ */
 
+#define NMEA_SUFFIX_LEN 6  /* How much room to leave for the NMEA
+                              checksum, CRLF + null termination,
+                              i.e. "*%02X\r\n\0" */
+
+/** Some helper macros for functions generating NMEA sentences. */
+
+/** NMEA_SENTENCE_START: declare a buffer and set up some pointers
+ * max_len = max possible length of the body of the message
+ * (not including suffix)
+ */
+#define NMEA_SENTENCE_START(max_len) char sentence_buf[max_len + NMEA_SUFFIX_LEN]; \
+  char *sentence_bufp = sentence_buf; \
+  char * const sentence_buf_end = sentence_buf + max_len;
+
+/** NMEA_SENTENCE_PRINTF: use like printf, can use multiple times
+    within a sentence. */
+#define NMEA_SENTENCE_PRINTF(fmt, ...) do { \
+    sentence_bufp += snprintf(sentence_bufp, sentence_buf_end - sentence_bufp, fmt, ##__VA_ARGS__); \
+    if (sentence_bufp >= sentence_buf_end) \
+      sentence_bufp = sentence_buf_end; } while (0)
+
+/** NMEA_SENTENCE_DONE: appends checksum and dispatches. */
+#define NMEA_SENTENCE_DONE() do {                             \
+    nmea_append_checksum(sentence_buf, sizeof(sentence_buf)); \
+    nmea_output(sentence_buf, sentence_bufp - sentence_buf + NMEA_SUFFIX_LEN); \
+  } while (0)
+
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
  * The message is also sent to all dispatchers registered with
  * ::nmea_dispatcher_register.
  * \param s The NMEA sentence to output.
  */
-void nmea_output(char *s)
+static void nmea_output(char *s, size_t size)
 {
   /* Global interrupt disable to avoid concurrency/reentrancy problems. */
   __asm__("CPSID i;");
 
   if ((ftdi_usart.mode == NMEA) && usart_claim(&ftdi_state, NMEA_MODULE)) {
-    usart_write_dma(&ftdi_state.tx, (u8 *)s, strlen(s));
+    usart_write_dma(&ftdi_state.tx, (u8 *)s, size);
     usart_release(&ftdi_state);
   }
 
   if ((uarta_usart.mode == NMEA) && usart_claim(&uarta_state, NMEA_MODULE)) {
-    usart_write_dma(&uarta_state.tx, (u8 *)s, strlen(s));
+    usart_write_dma(&uarta_state.tx, (u8 *)s, size);
     usart_release(&uarta_state);
   }
 
   if ((uartb_usart.mode == NMEA) && usart_claim(&uartb_state, NMEA_MODULE)) {
-    usart_write_dma(&uartb_state.tx, (u8 *)s, strlen(s));
+    usart_write_dma(&uartb_state.tx, (u8 *)s, size);
     usart_release(&uartb_state);
   }
 
   __asm__("CPSIE i;");  /* Re-enable interrupts. */
 
   for (struct nmea_dispatcher *d = nmea_dispatchers_head; d; d = d->next)
-    d->send(s);
+    d->send(s, size);
+
 }
 
 void nmea_setup(void)
@@ -78,27 +107,33 @@ void nmea_setup(void)
   SETTING("nmea", "gpgll_msg_rate", gpgll_msg_rate, TYPE_INT);
 }
 
-/** Calculate the checksum of an NMEA sentence.
+/** Calculate and append the checksum of an NMEA sentence.
  * Calculates the bitwise XOR of the characters in a string until the end of
- * the string or an `*` is encountered. If the first character is `$` then it
+ * the string or a `*` is encountered. If the first character is `$` then it
  * is skipped.
  *
- * \param s An NMEA sentence for which to generate the checksum.
- * \return The checksum value.
+ * \param s A null-terminated NMEA sentence, up to and optionally
+ * including the '*'
+ *
+ * \param size Length of the buffer.
+ * 
  */
-u8 nmea_checksum(char *s)
+static void nmea_append_checksum(char *s, size_t size)
 {
   u8 sum = 0;
+  char *p = s;
 
-  if (*s == '$')
-    s++;
+  if (*p == '$')
+    p++;
 
-  while (*s != '*' && *s) {
-    sum ^= *s;
-    s++;
+  while (*p != '*' &&
+         *p &&
+         p + NMEA_SUFFIX_LEN < s + size) {
+    sum ^= *p;
+    p++;
   }
 
-  return sum;
+  sprintf(p, "*%02X\r\n", sum);
 }
 
 /** Assemble a NMEA GPGGA message and send it out NMEA USARTs.
@@ -128,21 +163,15 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
   char lat_dir = pos_llh[0] < 0 ? 'S' : 'N';
   char lon_dir = pos_llh[1] < 0 ? 'W' : 'E';
 
-  char buf[80];
-  u8 n = sprintf(buf,
-                 "$GPGGA,%02d%02d%06.3f,"
-                 "%02d%010.7f,%c,%03d%010.7f,%c,"
-                 "%01d,%02d,%.1f,%.2f,M,,M,,",
-                 t.tm_hour, t.tm_min, t.tm_sec + frac_s,
-                 lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
-                 fix_type, n_used, hdop, pos_llh[2]
-                 );
-
-  u8 sum = nmea_checksum(buf);
-
-  sprintf(buf + n, "*%02X\r\n", sum);
-
-  nmea_output(buf);
+  NMEA_SENTENCE_START(80);
+  NMEA_SENTENCE_PRINTF("$GPGGA,%02d%02d%06.3f,"
+                       "%02d%010.7f,%c,%03d%010.7f,%c,"
+                       "%01d,%02d,%.1f,%.2f,M,,M,,",
+                       t.tm_hour, t.tm_min, t.tm_sec + frac_s,
+                       lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
+                       fix_type, n_used, hdop, pos_llh[2]
+                       );
+  NMEA_SENTENCE_DONE();
 }
 
 /** Assemble a NMEA GPGSA message and send it out NMEA USARTs.
@@ -153,26 +182,22 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
  */
 void nmea_gpgsa(const tracking_channel_t *chans, const dops_t *dops)
 {
-  char buf[80] = "$GPGSA,A,3,";
-  char *bufp = buf + strlen(buf);
+  NMEA_SENTENCE_START(80);
+  NMEA_SENTENCE_PRINTF("$GPGSA,A,3,");
 
   for (u8 i = 0; i < 12; i++) {
     if (i < nap_track_n_channels && chans[i].state == TRACKING_RUNNING)
-      bufp += sprintf(bufp, "%02d,", chans[i].prn + 1);
+      NMEA_SENTENCE_PRINTF("%02d,", chans[i].prn + 1);
     else
-      *bufp++ = ',';
+      NMEA_SENTENCE_PRINTF(",");
   }
 
   if (dops)
-    bufp += sprintf(bufp, "%.1f,%.1f,%.1f", dops->pdop, dops->hdop, dops->vdop);
+    NMEA_SENTENCE_PRINTF("%.1f,%.1f,%.1f", dops->pdop, dops->hdop, dops->vdop);
   else
-    bufp += sprintf(bufp, ",,");
+    NMEA_SENTENCE_PRINTF(",,");
 
-  u8 sum = nmea_checksum(buf);
-
-  sprintf(bufp, "*%02X\r\n", sum);
-
-  nmea_output(buf);
+  NMEA_SENTENCE_DONE();
 }
 
 /** Assemble a NMEA GPGSV message and send it out NMEA USARTs.
@@ -190,35 +215,30 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
 
   u8 n_mess = (n_used + 3) / 4;
 
-  char buf[80];
-  char *buf0 = buf + sprintf(buf, "$GPGSV,%d,", n_mess);
-  char *bufp = buf0;
 
   u8 n = 0;
   double az, el;
 
   for (u8 i = 0; i < n_mess; i++) {
-    bufp = buf0;
-    bufp += sprintf(bufp, "%d,%d", i + 1, n_used);
+    NMEA_SENTENCE_START(80);
+    NMEA_SENTENCE_PRINTF("$GPGSV,%d,%d,%d", n_mess, i+1, n_used);
 
     for (u8 j = 0; j < 4; j++) {
       if (n < n_used) {
         wgsecef2azel(nav_meas[n].sat_pos, soln->pos_ecef, &az, &el);
-        bufp += sprintf(
-          bufp, ",%02d,%02d,%03d,%02d",
+        NMEA_SENTENCE_PRINTF(",%02d,%02d,%03d,%02d",
           nav_meas[n].prn + 1,
           (u8)round(el * R2D),
           (u16)round(az * R2D),
           (u8)round(nav_meas[n].snr)
           );
       } else {
-        bufp += sprintf(bufp, ",,,,");
+        NMEA_SENTENCE_PRINTF(",,,,");
       }
       n++;
     }
 
-    sprintf(bufp, "*%02X\r\n", nmea_checksum(buf));
-    nmea_output(buf);
+    NMEA_SENTENCE_DONE();
   }
 
 }
@@ -274,8 +294,8 @@ void nmea_gprmc(const navigation_measurement_t *nav_meas,
   double az, el;
   wgsecef2azel(nav_meas[0].sat_pos, soln->pos_ecef, &az, &el);
 
-  char buf[100];
-  u8 n = sprintf(buf,
+  NMEA_SENTENCE_START(100);
+  NMEA_SENTENCE_PRINTF(
                 "$GPRMC,%02d%02d%06.3f,A," /* Command, Time (UTC), Valid */
                 "%02d%010.7f,%c,%03d%010.7f,%c," /* Lat/Lon */
                 "%06.2f,%05.1f," /* Speed, Course */
@@ -285,10 +305,7 @@ void nmea_gprmc(const navigation_measurement_t *nav_meas,
                 lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
                 velocity, course * R2D, 
                 t.tm_mday, t.tm_mon, t.tm_year-100);
-
-  u8 sum = nmea_checksum(buf);
-  sprintf(buf + n, "*%02X\r\n", sum);
-  nmea_output(buf);
+  NMEA_SENTENCE_DONE();
 }
 
 /** Assemble an NMEA GPVTG message and send it out NMEA USARTs.
@@ -324,17 +341,14 @@ void nmea_gpvtg(const navigation_measurement_t *nav_meas,
   /* Conversion to magnitue km/hr */
   vkmhr = MS2KMHR(x,y,z);
 
-  char buf[80];
-  u8 n = sprintf(buf, 
+  NMEA_SENTENCE_START(80);
+  NMEA_SENTENCE_PRINTF(
                   "$GPVTG,%05.1f,T," /* Command, course, */
                   ",M," /* Magnetic Course (omitted) */
                   "%06.2f,N,%06.2f,K", /* Speed (knots, km/hr) */
                   course* R2D,
                   vknots, vkmhr);
-  
-  u8 sum = nmea_checksum(buf);
-  sprintf(buf + n, "*%02X\r\n", sum);
-  nmea_output(buf);
+  NMEA_SENTENCE_DONE();
 }
 
 /** Assemble an NMEA GPGLL message and send it out NMEA USARTs.
@@ -369,16 +383,13 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
   char lat_dir = soln->pos_llh[0] < 0 ? 'S' : 'N';
   char lon_dir = soln->pos_llh[1] < 0 ? 'W' : 'E';
 
-  char buf[80];
-  u8 n = sprintf(buf,
-                "$GPGLL,"
+  NMEA_SENTENCE_START(80);
+  NMEA_SENTENCE_PRINTF("$GPGLL,"
                 "%02d%010.7f,%c,%03d%010.7f,%c," /* Lat/Lon */
                 "%02d%02d%06.3f,A", /* Time (UTC), Valid */
                 lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
                 t.tm_hour, t.tm_min, t.tm_sec + frac_s);
-  u8 sum = nmea_checksum(buf);
-  sprintf(buf + n, "*%02X\r\n", sum);
-  nmea_output(buf);
+  NMEA_SENTENCE_DONE();
 }
 void nmea_send_msgs(gnss_solution *soln, u8 n, 
                     navigation_measurement_t *nm)
