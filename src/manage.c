@@ -295,6 +295,12 @@ static void manage_acq()
     /* acq_load could timeout if we're preempted and miss the timing strobe */
   } while (!acq_load(timer_count));
 
+  if (acq_prn_param[prn].dopp_hint_low != acq_prn_param[prn].dopp_hint_low ||
+      acq_prn_param[prn].dopp_hint_high != acq_prn_param[prn].dopp_hint_high) {
+    log_error("Acq: caught NaN in dopp_hint\n");
+    acq_prn_param[prn].dopp_hint_high = ACQ_FULL_CF_MAX;
+    acq_prn_param[prn].dopp_hint_low = ACQ_FULL_CF_MIN;
+  }
   acq_search(acq_prn_param[prn].dopp_hint_low,
              acq_prn_param[prn].dopp_hint_high,
              ACQ_FULL_CF_STEP);
@@ -319,7 +325,7 @@ static void manage_acq()
     /* Decay hint scores */
     for (u8 i = 0; i < ACQ_HINT_NUM; i++)
       acq_prn_param[prn].score[i] = (acq_prn_param[prn].score[i] * 3) / 4;
-    /* Reset hint score for acuisition. */
+    /* Reset hint score for acquisition. */
     acq_prn_param[prn].score[ACQ_HINT_ACQ] = 0;
     return;
   }
@@ -367,7 +373,9 @@ static u8 manage_track_new_acq(void)
   return MANAGE_NO_CHANNELS_FREE;
 }
 
-/** Clear unhealthy flags after some time.  Flags are reset once per day. */
+/** Clear unhealthy flags after some time, so we eventually retry
+    those sats in case they recover from their sickness.  Call this
+    function regularly, and once per day it will reset the flags. */
 static void check_clear_unhealthy(void)
 {
   static systime_t ticks;
