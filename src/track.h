@@ -24,8 +24,9 @@
 /** \addtogroup tracking
  * \{ */
 
-#define TRACKING_DISABLED 0 /**< Tracking channel disabled state. */
-#define TRACKING_RUNNING  1 /**< Tracking channel running state. */
+#define TRACKING_DISABLED  0 /**< Tracking channel disabled state. */
+#define TRACKING_RUNNING   1 /**< Tracking channel running state. */
+#define TRACKING_DISABLING 2 /**< Tracking channel shutting down. */
 
 extern u8 n_rollovers;
 

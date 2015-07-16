@@ -461,14 +461,16 @@ void tracking_channel_update(u8 channel)
 
       break;
     }
-    case TRACKING_DISABLED:
-      /* TODO: Why do we sometimes have to disable the channel in the
-               NAP repeatedly? */
-      tracking_channel_disable(channel);
+    case TRACKING_DISABLING:
+      /* Due to pipelining in the FPGA, we have to signal it twice to disable the channel. */
+      nap_track_update_wr_blocking(channel, 0, 0, 0, 0);
+      tracking_channel[channel].state = TRACKING_DISABLED;
       break;
+    case TRACKING_DISABLED:
     default:
       log_error("CH%d (PRN%02d) invalid state %d\n", channel, chan->prn+1, chan->state);
-      tracking_channel_disable(channel);
+      nap_track_update_wr_blocking(channel, 0, 0, 0, 0);
+      tracking_channel[channel].state = TRACKING_DISABLED;
       break;
   }
 }
@@ -483,7 +485,7 @@ void tracking_channel_update(u8 channel)
 void tracking_channel_disable(u8 channel)
 {
   nap_track_update_wr_blocking(channel, 0, 0, 0, 0);
-  tracking_channel[channel].state = TRACKING_DISABLED;
+  tracking_channel[channel].state = TRACKING_DISABLING;
 }
 
 /** Sets a channel's carrier phase ambiguity to unknown.
