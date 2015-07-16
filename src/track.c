@@ -140,6 +140,18 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   tracking_channel_ambiguity_unknown(channel);
   chan->TOW_ms = TOW_INVALID;
 
+  /* TESTING: sentinel */
+#define SETSENTINEL(X) for (int i=0; i < SENTINEL_WORDS_EACH; i++) X[i] = 0x12345678;
+  SETSENTINEL(chan->sentinel0)
+  SETSENTINEL(chan->sentinel1)
+  SETSENTINEL(chan->sentinel2)
+  SETSENTINEL(chan->sentinel3)
+  SETSENTINEL(chan->sentinel4)
+  SETSENTINEL(chan->sentinel5)
+  SETSENTINEL(chan->sentinel6)
+  SETSENTINEL(chan->sentinel7)
+  SETSENTINEL(chan->sentinel8)
+
   /* Calculate code phase rate with carrier aiding. */
   float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
 
