@@ -80,7 +80,7 @@ acq_prn_t acq_prn_param[32];
 almanac_t almanac[32];
 extern ephemeris_t es[32];
 
-static float track_cn0_use_thres = 28.0;
+static float track_cn0_use_thres = 31.0;
 
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
@@ -479,7 +479,7 @@ static void manage_track()
 
     /* CN0 below threshold for a while? */
     if ((int)(uc - ch->cn0_above_drop_thres_count) > TRACK_DROP_CN0_T) {
-      if (ch->cn0 >= 25.0) {
+      if (ch->cn0 >= 30.0) {
         log_error("PRN%d bogus 'low CN0 too long' %.1f %u %u\n", ch->prn+1,
                   ch->cn0, (unsigned int)uc, (unsigned int)ch->cn0_above_drop_thres_count);
       } else {
