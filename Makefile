@@ -1,7 +1,7 @@
 SWIFTNAV_ROOT := $(shell pwd)
 MAKEFLAGS += SWIFTNAV_ROOT=$(SWIFTNAV_ROOT)
 
-# Be silent per default, but 'make V=1' will show all compiler calls.
+# Be silent per default, but 'make V=1' will show all compiler calls. 
 ifneq ($(V),1)
 Q := @
 # Do not print "Entering directory ...".
