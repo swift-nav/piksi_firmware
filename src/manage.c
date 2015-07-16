@@ -485,7 +485,8 @@ s8 use_tracking_channel(u8 i)
       /* Pessimistic phase lock detector = "locked". */
       && (ch->lock_detect.outp)
       /* Some time has elapsed since the last tracking channel mode
-       * change, to allow any transients to stabilize. */
+       * change, to allow any transients to stabilize.
+       * TODO: is this still necessary? */
       && (ch->update_count - ch->mode_change_count > TRACK_STABILIZATION_T)
       /* Channel time of week has been decoded. */
       && (ch->TOW_ms != TOW_INVALID)
