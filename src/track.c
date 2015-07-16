@@ -41,7 +41,7 @@ static struct lock_detect_params {
   u16 lp, lo;
 } lock_detect_params;
 
-static float track_cn0_drop_thres = 25.0;
+static float track_cn0_drop_thres = 30.0;
 static u16 iq_output_mask = 0;
 
 #define CN0_EST_LPF_CUTOFF 0.3
