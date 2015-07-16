@@ -210,6 +210,8 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
                    &amb_state.float_ambs, &num_used, b,
                    disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock();
+    if (ret == 1)
+      log_warn("output_baseline: Float baseline RAIM repair\n");
     if (ret < 0) {
       log_warn("dgnss_float_baseline returned error: %d\n", ret);
       return;
@@ -406,6 +408,9 @@ static msg_t solution_thread(void *arg)
     /* disable_raim controlled by external setting. Defaults to false. */
     if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp, disable_raim,
                         &position_solution, &dops)) >= 0) {
+
+      if (ret == 1)
+        log_warn("calc_PVT: RAIM repair\n");
 
       /* Update global position solution state. */
       position_updated();
