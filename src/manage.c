@@ -78,8 +78,9 @@ acq_prn_t acq_prn_param[32];
 #define ALMANAC_DOPPLER_WINDOW 4000
 
 almanac_t almanac[32];
+extern ephemeris_t es[32];
 
-float track_cn0_threshold = 33.0;
+static float track_cn0_use_thres = 31.0;
 
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
@@ -281,7 +282,7 @@ static void manage_acq()
     return;
 
   u32 timer_count;
-  float snr, cp, cf;
+  float cn0, cp, cf;
 
   acq_set_prn(prn);
 
@@ -303,10 +304,10 @@ static void manage_acq()
    * for the fine acquisition. If not, start again choosing a
    * different PRN.
    */
-  acq_get_results(&cp, &cf, &snr);
+  acq_get_results(&cp, &cf, &cn0);
   /* Send result of an acquisition to the host. */
-  acq_send_result(prn, snr, cp, cf);
-  if (snr < ACQ_THRESHOLD) {
+  acq_send_result(prn, cn0, cp, cf);
+  if (cn0 < ACQ_THRESHOLD) {
     /* Didn't find the satellite :( */
     /* Double the size of the doppler search space for next time. */
     float dilute = (acq_prn_param[prn].dopp_hint_high -
@@ -323,17 +324,14 @@ static void manage_acq()
     return;
   }
 
-  log_info("acq: PRN %d found @ %d Hz, %d SNR\n", prn + 1, (int)cf, (int)snr);
-
   u8 chan = manage_track_new_acq();
   if (chan == MANAGE_NO_CHANNELS_FREE) {
     /* No channels are free to accept our new satellite :( */
     /* TODO: Perhaps we can try to warm start this one
      * later using another fine acq.
      */
-    log_info("No channels free :(\n");
-    if (snr > ACQ_RETRY_THRESHOLD) {
-      acq_prn_param[prn].score[ACQ_HINT_ACQ] = SCORE_ACQ + (snr - 20) / 20;
+    if (cn0 > ACQ_RETRY_THRESHOLD) {
+      acq_prn_param[prn].score[ACQ_HINT_ACQ] = SCORE_ACQ + (cn0 - ACQ_THRESHOLD);
       acq_prn_param[prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
       acq_prn_param[prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
     }
@@ -346,14 +344,13 @@ static void manage_acq()
   // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
   track_count += 16*(1023.0-cp)*(1.0 + cf / GPS_L1_HZ);
 
-  tracking_channel_init(chan, prn, cf, track_count, snr);
+  tracking_channel_init(chan, prn, cf, track_count, cn0);
   acq_prn_param[prn].state = ACQ_PRN_TRACKING;
   nap_timing_strobe_wait(100);
 }
 
 /** Find an available tracking channel to start tracking an acquired PRN with.
  *
- * \param snr SNR of the acquisition.
  * \return Index of first unused tracking channel.
  */
 static u8 manage_track_new_acq(void)
@@ -370,7 +367,7 @@ static u8 manage_track_new_acq(void)
   return MANAGE_NO_CHANNELS_FREE;
 }
 
-/** Clear unhealthy flags after some time.  Flags are reset one per day. */
+/** Clear unhealthy flags after some time.  Flags are reset once per day. */
 static void check_clear_unhealthy(void)
 {
   static systime_t ticks;
@@ -404,26 +401,11 @@ static msg_t manage_track_thread(void *arg)
   return 0;
 }
 
-static u16 iq_output_mask = 0;
-bool track_iq_output_notify(struct setting *s, const char *val)
-{
-  if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
-    for (int i = 0; i < NAP_MAX_N_TRACK_CHANNELS; i++) {
-      tracking_channel[i].output_iq = (iq_output_mask & (1 << i)) != 0;
-    }
-    return true;
-  }
-  return false;
-}
-
 void manage_track_setup()
 {
   initialize_lock_counters();
 
-  SETTING_NOTIFY("track", "iq_output_mask", iq_output_mask, TYPE_INT,
-                 track_iq_output_notify);
-
-  SETTING("track", "track_cn0_threshold", track_cn0_threshold, TYPE_FLOAT);
+  SETTING("track", "cn0_use", track_cn0_use_thres, TYPE_FLOAT);
 
   chThdCreateStatic(
       wa_manage_track_thread,
@@ -433,84 +415,105 @@ void manage_track_setup()
   );
 }
 
-extern ephemeris_t es[32];
+static void drop_channel(u8 channel_id) {
+  tracking_channel_disable(channel_id);
+  const tracking_channel_t *ch = &tracking_channel[channel_id];
+  if (ch->update_count > TRACK_REACQ_T) {
+    acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = SCORE_TRACK;
+    acq_prn_param[ch->prn].dopp_hint_low = ch->carrier_freq - ACQ_FULL_CF_STEP;
+    acq_prn_param[ch->prn].dopp_hint_high = ch->carrier_freq + ACQ_FULL_CF_STEP;
+  }
+  acq_prn_param[ch->prn].state = ACQ_PRN_ACQUIRING;
+}
 
-/** Disable any tracking channel whose SNR is below a certain margin. */
+/** Disable any tracking channel that has lost phase lock or is
+    flagged unhealthy in ephem. */
 static void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
 
     tracking_channel_t *ch = &tracking_channel[i];
-    if (ch->state != TRACKING_RUNNING)
+    /* Skip channels that aren't in use */
+    if (ch->state != TRACKING_RUNNING ||
+        /* Give newly-initialized channels a chance to converge */
+        ch->update_count < TRACK_INIT_T)
       continue;
 
+    /* Is ephemeris marked unhealthy? */
     if (es[ch->prn].valid && !es[ch->prn].healthy) {
+      log_info("PRN%d unhealthy, dropping\n", ch->prn+1);
+      drop_channel(i);
       acq_prn_param[ch->prn].state = ACQ_PRN_UNHEALTHY;
-      log_info("Dropping unhealthy PRN%d\n", ch->prn+1);
-      tracking_channel_disable(i);
       continue;
     }
 
-    if (tracking_channel_snr(i) < track_cn0_threshold) {
-      /* SNR has dropped below threshold, indicate that the carrier phase
-       * ambiguity is now unknown as cycle slips are likely. */
-      tracking_channel_ambiguity_unknown(i);
-      /* Update the latest time we were below the threshold. */
-      ch->snr_below_threshold_count = ch->update_count;
-      /* Have we have been below the threshold for longer than
-       * `TRACK_SNR_THRES_COUNT`? */
-      if (ch->update_count > TRACK_SNR_INIT_COUNT &&
-          ch->update_count - ch->snr_above_threshold_count >
-            TRACK_SNR_THRES_COUNT) {
-        /* This tracking channel has lost its satellite. */
-        log_info("Disabling channel %d (PRN %02d)\n", i, ch->prn+1);
-        tracking_channel_disable(i);
-        if (ch->snr_above_threshold_count > TRACK_SNR_THRES_COUNT) {
-          acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = SCORE_TRACK;
-          float cf = ch->carrier_freq;
-          acq_prn_param[ch->prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
-          acq_prn_param[ch->prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
-        }
-        acq_prn_param[ch->prn].state = ACQ_PRN_ACQUIRING;
-      }
-    } else {
-      /* SNR is good. */
-      ch->snr_above_threshold_count = ch->update_count;
+    /* Do we not have nav bit sync yet? */
+    if (ch->nav_msg.bit_phase_ref == BITSYNC_UNSYNCED) {
+      drop_channel(i);
+      continue;
     }
 
+    u32 uc = ch->update_count;
+
+    /* Optimistic phase lock detector "unlocked" for a while? */
+    /* TODO: This isn't doing much.  Use the pessimistic detector instead? */
+    if ((int)(uc - ch->ld_opti_locked_count) > TRACK_DROP_UNLOCKED_T) {
+      log_info("PRN%d PLL unlocked too long, dropping\n", ch->prn+1);
+      drop_channel(i);
+      continue;
+    }
+
+#define CHECKSENTINEL(X) for (int j=0; j < SENTINEL_WORDS_EACH; j++) if (X[j] != 0x12345678) {\
+        log_error("PRN%02d ch%d " #X "[%d] == %08X", ch->prn+1, i, j, (unsigned int)X[j]);\
+        X[j] = 0x12345678; }
+
+    CHECKSENTINEL(ch->sentinel0);
+    CHECKSENTINEL(ch->sentinel1);
+    CHECKSENTINEL(ch->sentinel2);
+    CHECKSENTINEL(ch->sentinel3);
+    CHECKSENTINEL(ch->sentinel4);
+    CHECKSENTINEL(ch->sentinel5);
+    CHECKSENTINEL(ch->sentinel6);
+    CHECKSENTINEL(ch->sentinel7);
+    CHECKSENTINEL(ch->sentinel8);
+
+    /* CN0 below threshold for a while? */
+    if ((int)(uc - ch->cn0_above_drop_thres_count) > TRACK_DROP_CN0_T) {
+      log_info("PRN%d low CN0 too long, dropping\n", ch->prn+1);
+      drop_channel(i);
+      continue;
+    }
   }
 }
 
 s8 use_tracking_channel(u8 i)
 {
-  if ((tracking_channel[i].state == TRACKING_RUNNING)
-      /* Check SNR has been above threshold for the minimum time. */
-      && (tracking_channel[i].update_count
-            - tracking_channel[i].snr_below_threshold_count
-            > TRACK_SNR_THRES_COUNT)
-      /* Check that a minimum time has elapsed since the last tracking channel
-       * mode change, to allow any transients to stabilize. */
-      && (tracking_channel[i].update_count
-            - tracking_channel[i].mode_change_count
-            > TRACK_STABILIZATION_COUNT)
-      /* Check the channel time of week has been decoded. */
-      && (tracking_channel[i].TOW_ms != TOW_INVALID)
-      /* Check the nav bit polarity is known, i.e. half-cycles have been resolved */
-      && (tracking_channel[i].nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
-      /* Check the current SNR.
-       * NOTE: `snr_below_threshold_count` will not be reset immediately if the
-       * SNR drops, only once `manage_track()` is called, so this additional
-       * test is required here. */
-      && (tracking_channel_snr(i) >= track_cn0_threshold)) {
-
-    /* Check ephemeris is usable. */
+  tracking_channel_t *ch = &tracking_channel[i];
+  /* To use a channel's measurements in an SPP or RTK solution, we
+     require the following conditions: */
+  if ((ch->state == TRACKING_RUNNING)
+      /* Pessimistic phase lock detector = "locked". */
+      && (ch->lock_detect.outp)
+      /* Some time has elapsed since the last tracking channel mode
+       * change, to allow any transients to stabilize.
+       * TODO: is this still necessary? */
+      && ((int)(ch->update_count - ch->mode_change_count) > TRACK_STABILIZATION_T)
+      /* Channel time of week has been decoded. */
+      && (ch->TOW_ms != TOW_INVALID)
+      /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
+      && (ch->nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
+      /* Estimated C/N0 is above some threshold */
+      && (ch->cn0 > track_cn0_use_thres))
+      {
+    /* Ephemeris must be valid and not stale.
+       This also acts as a sanity check on the channel TOW.*/
     gps_time_t t = {
-      /* TODO: the following makes the week number check tautological -
-         see issue #475 */
-      .wn = es[tracking_channel[i].prn].toe.wn,
-      .tow = 1e-3 * tracking_channel[i].TOW_ms
+      /* TODO: the following makes the week number part of the
+         TOW check tautological - see issue #475 */
+      .wn = es[ch->prn].toe.wn,
+      .tow = 1e-3 * ch->TOW_ms
     };
-    return ephemeris_good(&es[tracking_channel[i].prn], t);
+    return ephemeris_good(&es[ch->prn], t);
   } else return 0;
 }
 

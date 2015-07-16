@@ -41,6 +41,8 @@
 
 extern void ext_setup(void);
 
+s32 serial_number;
+
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
 #endif
@@ -169,7 +171,6 @@ int main(void)
     }
   }
 
-  static s32 serial_number;
   serial_number = nap_conf_rd_serial_number();
 
   max2769_setup();

@@ -61,7 +61,7 @@ u16 msg_obs_max_size = 104;
 
 static u16 lock_counters[MAX_SATS];
 
-bool disable_raim = false;
+bool disable_raim = true;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -603,7 +603,6 @@ static msg_t time_matched_obs_thread(void *arg)
      * looking for one that matches in time. */
     while (chMBFetch(&obs_mailbox, (msg_t *)&obss, TIME_IMMEDIATE)
             == RDY_OK) {
-
       chMtxLock(&base_obs_lock);
       double dt = gpsdifftime(obss->t, base_obss.t);
 
