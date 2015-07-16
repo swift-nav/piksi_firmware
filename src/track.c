@@ -397,7 +397,8 @@ void tracking_channel_update(u8 channel)
         if (fabs(err) > (250 / chan->int_ms)) {
           log_info("False phase lock detect PRN%d: err=%f\n", chan->prn+1, err);
 
-          /* Indicate that a mode change has ocurred. */
+          tracking_channel_ambiguity_unknown(channel);
+          /* Indicate that a mode change has occurred. */
           chan->mode_change_count = chan->update_count;
 
           chan->tl_state.carr_freq += err;
