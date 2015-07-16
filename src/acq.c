@@ -192,8 +192,13 @@ void acq_get_results(float* cp, float* cf, float* cn0)
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   float snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
+  if (snr == 0 || snr != snr) {
+    log_error("Acq: bad SNR (%f)\n", snr);
+    *cn0 = 0;
+  } else {
   *cn0 = 10 * log10(snr)
        + 10 * log10(1.0 / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ); /* Bandwidth */
+  }
 }
 
 /** \} */
