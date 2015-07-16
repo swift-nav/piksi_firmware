@@ -24,20 +24,30 @@
 /** \addtogroup tracking
  * \{ */
 
-#define TRACKING_DISABLED 0 /**< Tracking channel disabled state. */
-#define TRACKING_RUNNING  1 /**< Tracking channel running state. */
+#define TRACKING_DISABLED  0 /**< Tracking channel disabled state. */
+#define TRACKING_RUNNING   1 /**< Tracking channel running state. */
+#define TRACKING_DISABLING 2 /**< Tracking channel shutting down. */
 
 extern u8 n_rollovers;
+
+#define SENTINEL_WORDS_EACH 1
 
 /** Tracking channel parameters as of end of last correlation period. */
 typedef struct {
   u8 state;                    /**< Tracking channel state. */
   /* TODO : u32's big enough? */
-  u32 update_count;            /**< Total number of tracking channel ms updates. */
+  u32 update_count;            /**< Number of ms channel has been running */
+  u32 sentinel0[SENTINEL_WORDS_EACH];
   u32 mode_change_count;       /**< update_count at last mode change. */
+  u32 sentinel1[SENTINEL_WORDS_EACH];
+  u32 cn0_above_drop_thres_count;
+  u32 sentinel2[SENTINEL_WORDS_EACH];
+                               /**< update_count value when SNR was
+                                  last above a certain margin. */
+  u32 ld_opti_locked_count;    /**< update_count value when optimistic
+                                  phase detector last "locked". */
+  u32 sentinel3[SENTINEL_WORDS_EACH];
   s32 TOW_ms;                  /**< TOW in ms. */
-  u32 snr_above_threshold_count;     /**< update_count value when SNR was last above a certain margin. */
-  u32 snr_below_threshold_count;     /**< update_count value when SNR was last below a certain margin. */
   u8 prn;                      /**< CA Code (0-31) channel is tracking. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   u32 code_phase_early;        /**< Early code phase. */
@@ -51,7 +61,9 @@ typedef struct {
   double carrier_freq;         /**< Carrier frequency Hz. */
   u32 corr_sample_count;       /**< Number of samples in correlation period. */
   corr_t cs[3];                /**< EPL correlation results in correlation period. */
+  u32 sentinel4[SENTINEL_WORDS_EACH];
   nav_msg_t nav_msg;           /**< Navigation message of channel SV. */
+  u32 sentinel5[SENTINEL_WORDS_EACH];
   u16 lock_counter;            /**< Lock counter. Increments when tracking new signal. */
   cn0_est_state_t cn0_est;     /**< C/N0 Estimator. */
   float cn0;                   /**< Current estimate of C/N0. */
@@ -63,7 +75,11 @@ typedef struct {
                                     1 = Second-stage. After nav bit sync,
                                     retune loop filters and typically (but
                                     not necessarily) use longer integration. */
+  u32 sentinel6[SENTINEL_WORDS_EACH];
   alias_detect_t alias_detect; /**< Alias lock detector. */
+  u32 sentinel7[SENTINEL_WORDS_EACH];
+  lock_detect_t lock_detect;   /**< Phase-lock detector state. */
+  u32 sentinel8[SENTINEL_WORDS_EACH];
 } tracking_channel_t;
 
 /** \} */
@@ -78,14 +94,13 @@ void initialize_lock_counters(void);
 
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
-                           u32 start_sample_count, float snr);
+                           u32 start_sample_count, float cn0_init);
 
 void tracking_channel_get_corrs(u8 channel);
 void tracking_channel_update(u8 channel);
 void tracking_channel_disable(u8 channel);
 void tracking_channel_ambiguity_unknown(u8 channel);
 void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
-float tracking_channel_snr(u8 channel);
 void tracking_send_state(void);
 void tracking_setup(void);
 void tracking_drop_satellite(u8 prn);

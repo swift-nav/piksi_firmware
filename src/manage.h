@@ -20,14 +20,28 @@
 /** \addtogroup manage
  * \{ */
 
-#define ACQ_THRESHOLD 20.0
-#define ACQ_RETRY_THRESHOLD 25.0
+#define ACQ_THRESHOLD 37.0
+#define ACQ_RETRY_THRESHOLD 38.0
 
-#define TRACK_SNR_INIT_COUNT 1000
-#define TRACK_SNR_THRES_COUNT 2000
+/** How many ms to allow tracking channel to converge after
+    initialization before we consider dropping it */
+#define TRACK_INIT_T 2500
+
+/** If a channel is dropped but was running successfully for at least
+    this long, mark it for prioritized reacquisition. */
+#define TRACK_REACQ_T 5000
+
+/** If C/N0 is below track_cn0_threshold for >= TRACK_DROP_CN0_T ms,
+    drop the channel. */
+#define TRACK_DROP_CN0_T 5000
+
+/** If optimistic phase lock detector shows "unlocked" for >=
+    TRACK_DROP_UNLOCKED_T ms, drop the channel. */
+#define TRACK_DROP_UNLOCKED_T 5000
+
 /** How many milliseconds to wait for the tracking loops to
- * stabilize after any mode change. */
-#define TRACK_STABILIZATION_COUNT 5000
+ * stabilize after any mode change before using obs. */
+#define TRACK_STABILIZATION_T 1000
 
 #define ACQ_FULL_CF_MIN  -8500
 #define ACQ_FULL_CF_MAX   8500
