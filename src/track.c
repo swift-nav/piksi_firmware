@@ -51,6 +51,7 @@
 
 char loop_params_string[120] = LOOP_PARAMS_MED;
 char lock_detect_params_string[24] = LD_PARAMS_NORMAL;
+bool use_alias_detection = true;
 
 #define CN0_EST_LPF_CUTOFF 0.3
 
@@ -389,8 +390,7 @@ void tracking_channel_update(u8 channel)
       chan->carrier_freq_fp = chan->carrier_freq
         * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
-#if 1
-      if (chan->stage > 0 && chan->lock_detect.outo) {
+      if (use_alias_detection && chan->stage > 0 && chan->lock_detect.outo) {
         s32 I = (cs[1].I - chan->alias_detect.first_I) / (chan->int_ms - 1);
         s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
         float err = alias_detect_second(&chan->alias_detect, I, Q);
@@ -405,7 +405,6 @@ void tracking_channel_update(u8 channel)
           chan->tl_state.carr_filt.y = chan->tl_state.carr_freq;
         }
       }
-#endif
 
       /* Consider moving from stage 0 (1 ms integration) to stage 1 (longer). */
       if ((chan->stage == 0) &&
@@ -633,6 +632,7 @@ void tracking_setup()
   SETTING_NOTIFY("track", "lock_detect_params", lock_detect_params_string,
                  TYPE_STRING, parse_lock_detect_params);
   SETTING("track", "cn0_drop", track_cn0_drop_thres, TYPE_FLOAT);
+  SETTING("track", "alias_detect", use_alias_detection, TYPE_BOOL);
 }
 
 /** \} */
