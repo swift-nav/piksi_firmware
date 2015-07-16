@@ -479,16 +479,10 @@ static void manage_track()
 
     /* CN0 below threshold for a while? */
     if ((int)(uc - ch->cn0_above_drop_thres_count) > TRACK_DROP_CN0_T) {
-      if (ch->cn0 >= 30.0) {
-        log_error("PRN%d bogus 'low CN0 too long' %.1f %u %u\n", ch->prn+1,
-                  ch->cn0, (unsigned int)uc, (unsigned int)ch->cn0_above_drop_thres_count);
-      } else {
-        log_info("PRN%d low CN0 too long, dropping\n", ch->prn+1);
-        drop_channel(i);
-      }
+      log_info("PRN%d low CN0 too long, dropping\n", ch->prn+1);
+      drop_channel(i);
       continue;
     }
-
   }
 }
 
