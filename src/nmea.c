@@ -60,8 +60,10 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
     if (sentence_bufp >= sentence_buf_end) \
       sentence_bufp = sentence_buf_end; } while (0)
 
-/** NMEA_SENTENCE_DONE: appends checksum and dispatches. */
-#define NMEA_SENTENCE_DONE() do {                             \
+/** NMEA_SENTENCE_DONE: append checksum and dispatch. */
+#define NMEA_SENTENCE_DONE() do { \
+    if (sentence_bufp == sentence_buf_end) \
+      log_warn("NMEA %.6s cut off\n", sentence_buf); \
     nmea_append_checksum(sentence_buf, sizeof(sentence_buf)); \
     nmea_output(sentence_buf, sentence_bufp - sentence_buf + NMEA_SUFFIX_LEN); \
   } while (0)
@@ -95,7 +97,6 @@ static void nmea_output(char *s, size_t size)
 
   for (struct nmea_dispatcher *d = nmea_dispatchers_head; d; d = d->next)
     d->send(s, size);
-
 }
 
 void nmea_setup(void)
@@ -123,9 +124,11 @@ static void nmea_append_checksum(char *s, size_t size)
   u8 sum = 0;
   char *p = s;
 
+  /* '$' header not included in checksum calculation */
   if (*p == '$')
     p++;
 
+  /* '*'  not included in checksum calculation */
   while (*p != '*' &&
          *p &&
          p + NMEA_SUFFIX_LEN < s + size) {
