@@ -24,18 +24,42 @@
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
 
-char loop_params_string[120] =
- /* Stage 1: coherent_ms, code params, carrier params */
-  "(1 ms, (1, 0.7, 1, 1540), (10, 0.7, 1, 5)), "
- /* Stage 2: coherent_ms, code params, carrier params */
-  "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))";
+/*  code: nbw zeta k carr_to_code
+ carrier:                    nbw  zeta k fll_aid */
+#define LOOP_PARAMS_SLOW \
+  "(1 ms, (1, 0.7, 1, 1540), (10, 0.7, 1, 5))," \
+ "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))"
+
+#define LOOP_PARAMS_MED \
+  "(1 ms, (1, 0.7, 1, 1540), (10, 0.7, 1, 5))," \
+  "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))"
+
+#define LOOP_PARAMS_FAST \
+  "(1 ms, (1, 0.7, 1, 1540), (40, 0.7, 1, 5))," \
+  "(4 ms, (1, 0.7, 1, 1540), (62, 0.7, 1, 0))"
+
+#define LOOP_PARAMS_EXTRAFAST \
+  "(1 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 5))," \
+  "(2 ms, (1, 0.7, 1, 1540), (100, 0.7, 1, 0))"
+
+
+/*                          k1,   k2,  lp,  lo */
+#define LD_PARAMS_PESS     "0.10, 1.4, 200, 50"
+#define LD_PARAMS_NORMAL   "0.05, 1.4, 150, 50"
+#define LD_PARAMS_OPT      "0.02, 1.1, 150, 50"
+#define LD_PARAMS_EXTRAOPT "0.02, 0.8, 150, 50"
+
+char loop_params_string[120] = LOOP_PARAMS_MED;
+char lock_detect_params_string[24] = LD_PARAMS_NORMAL;
+
+#define CN0_EST_LPF_CUTOFF 0.3
+
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
   float carr_bw, carr_zeta, carr_k, carr_fll_aid_gain;
   u8 coherent_ms;
 } loop_params_stage[2];
 
-char lock_detect_params_string[24] = "0.05, 1.4, 150, 50";
 static struct lock_detect_params {
   float k1, k2;
   u16 lp, lo;
@@ -43,8 +67,6 @@ static struct lock_detect_params {
 
 static float track_cn0_drop_thres = 30.0;
 static u16 iq_output_mask = 0;
-
-#define CN0_EST_LPF_CUTOFF 0.3
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
