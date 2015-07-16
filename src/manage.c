@@ -80,7 +80,7 @@ acq_prn_t acq_prn_param[32];
 almanac_t almanac[32];
 extern ephemeris_t es[32];
 
-static float track_cn0_use_thres = 28.0;
+static float track_cn0_use_thres = 31.0;
 
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
