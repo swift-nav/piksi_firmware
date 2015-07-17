@@ -139,7 +139,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
   s16 cf_max = cf_step*ceil(cf_max_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
     (float)cf_step);
 
-  for (s16 cf = cf_min; cf < cf_max; cf += cf_step) {
+  for (s16 cf = cf_min; cf <= cf_max; cf += cf_step) {
     if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
       log_error("acq: Search timeout (cf = %d)!\n", cf);
     }
