@@ -570,15 +570,17 @@ static bool parse_loop_params(struct setting *s, const char *val)
     struct loop_params *l = &loop_params_parse[stage];
 
     int n_chars_read = 0;
-    if (sscanf(str, "( %hhu ms , ( %f , %f , %f , %f ) , ( %f , %f , %f , %f ) ) , %n",
-               &l->coherent_ms,
+    unsigned int tmp; /* newlib's sscanf doesn't support hh size modifier */
+    
+    if (sscanf(str, "( %u ms , ( %f , %f , %f , %f ) , ( %f , %f , %f , %f ) ) , %n",
+               &tmp,
                &l->code_bw, &l->code_zeta, &l->code_k, &l->carr_to_code,
                &l->carr_bw, &l->carr_zeta, &l->carr_k, &l->carr_fll_aid_gain,
                &n_chars_read) < 9) {
       log_error("Ill-formatted tracking loop param string.\n");
       return false;
     }
-
+    l->coherent_ms = tmp;
     /* If string omits second-stage parameters, then after the first
        stage has been parsed, n_chars_read == 0 because of missing
        comma and we'll parse the string again into loop_params_parse[1]. */
