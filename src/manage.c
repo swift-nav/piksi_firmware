@@ -295,9 +295,12 @@ static void manage_acq()
     /* acq_load could timeout if we're preempted and miss the timing strobe */
   } while (!acq_load(timer_count));
 
-  if (acq_prn_param[prn].dopp_hint_low != acq_prn_param[prn].dopp_hint_low ||
-      acq_prn_param[prn].dopp_hint_high != acq_prn_param[prn].dopp_hint_high) {
-    log_error("Acq: caught NaN in dopp_hint\n");
+  /* Check for NaNs in dopp hints, or low > high */
+  if (!(acq_prn_param[prn].dopp_hint_low
+        <= acq_prn_param[prn].dopp_hint_high)) {
+    log_error("Acq: caught bogus dopp_hints (%f, %f)\n",
+              acq_prn_param[prn].dopp_hint_low,
+              acq_prn_param[prn].dopp_hint_high);
     acq_prn_param[prn].dopp_hint_high = ACQ_FULL_CF_MAX;
     acq_prn_param[prn].dopp_hint_low = ACQ_FULL_CF_MIN;
   }
