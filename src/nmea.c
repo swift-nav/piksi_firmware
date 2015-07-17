@@ -207,7 +207,7 @@ void nmea_gpgsa(const tracking_channel_t *chans, const dops_t *dops)
  * NMEA GPGSV message contains GPS satellites in view.
  *
  * \param n_used   Number of satellites currently being tracked.
- * \param nav_meas Pointer to navigation_measurement struct.
+ * \param nav_meas Array of navigation_measurement structs.
  * \param soln     Pointer to gnss_solution struct.
  */
 void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
@@ -249,7 +249,6 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
 /** Assemble an NMEA GPRMC message and send it out NMEA USARTs.
  * NMEA RMC contains minimum GPS data 
  *
- * \param nav_meas Pointer to navigation_measurement struct.
  * \param soln Pointer to gnss_solution struct
  * \param gps_t Pointer to the current GPS Time
  */
@@ -385,6 +384,17 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
                 t.tm_hour, t.tm_min, t.tm_sec + frac_s);
   NMEA_SENTENCE_DONE();
 }
+
+
+/** Generate and send periodic NMEA GPGSV, GPRMC, GPVTG, GPGLL
+ * (but not GPGGA) messages.
+ *
+ * Called from solution thread.
+ *
+ * \param soln     Pointer to gnss_solution struct.
+ * \param n        Number of satellites in use
+ * \param nav_meas Array of n navigation_measurement structs.
+ */
 void nmea_send_msgs(gnss_solution *soln, u8 n, 
                     navigation_measurement_t *nm)
 {
