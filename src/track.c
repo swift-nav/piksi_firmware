@@ -390,12 +390,17 @@ void tracking_channel_update(u8 channel)
       chan->carrier_freq_fp = chan->carrier_freq
         * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
-      if (use_alias_detection && chan->stage > 0 && chan->lock_detect.outo) {
+      /* Attempt alias detection if we have pessimistic phase lock detect, OR
+         (optimistic phase lock detect AND are in second-stage tracking) */
+      if (use_alias_detection &&
+          (chan->lock_detect.outp ||
+           (chan->lock_detect.outo && chan->stage > 0))) {
         s32 I = (cs[1].I - chan->alias_detect.first_I) / (chan->int_ms - 1);
         s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
         float err = alias_detect_second(&chan->alias_detect, I, Q);
         if (fabs(err) > (250 / chan->int_ms)) {
-          log_info("False phase lock detect PRN%d: err=%f\n", chan->prn+1, err);
+          if (chan->lock_detect.outp)
+            log_warn("False phase lock detect PRN%d: err=%f\n", chan->prn+1, err);
 
           tracking_channel_ambiguity_unknown(channel);
           /* Indicate that a mode change has occurred. */
