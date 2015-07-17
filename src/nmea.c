@@ -207,7 +207,7 @@ void nmea_gpgsa(const tracking_channel_t *chans, const dops_t *dops)
  * NMEA GPGSV message contains GPS satellites in view.
  *
  * \param n_used   Number of satellites currently being tracked.
- * \param nav_meas Pointer to navigation_measurement struct.
+ * \param nav_meas Array of navigation_measurement structs.
  * \param soln     Pointer to gnss_solution struct.
  */
 void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
@@ -249,12 +249,10 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
 /** Assemble an NMEA GPRMC message and send it out NMEA USARTs.
  * NMEA RMC contains minimum GPS data 
  *
- * \param nav_meas Pointer to navigation_measurement struct.
  * \param soln Pointer to gnss_solution struct
  * \param gps_t Pointer to the current GPS Time
  */
-void nmea_gprmc(const navigation_measurement_t *nav_meas,
-                const gnss_solution *soln, const gps_time_t *gps_t)
+void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
 {
   
   /* NMEA Parameters
@@ -294,9 +292,6 @@ void nmea_gprmc(const navigation_measurement_t *nav_meas,
   /* Conversion to magnitue knots */
   velocity = MS2KNOTTS(x,y,z);
 
-  double az, el;
-  wgsecef2azel(nav_meas[0].sat_pos, soln->pos_ecef, &az, &el);
-
   NMEA_SENTENCE_START(140);
   NMEA_SENTENCE_PRINTF(
                 "$GPRMC,%02d%02d%06.3f,A," /* Command, Time (UTC), Valid */
@@ -314,11 +309,9 @@ void nmea_gprmc(const navigation_measurement_t *nav_meas,
 /** Assemble an NMEA GPVTG message and send it out NMEA USARTs.
  * NMEA VTG contains course and speed
  *
- * \param nav_meas Pointer to navigation_measurement struct.
  * \param soln Pointer to gnss_solution struct
  */
-void nmea_gpvtg(const navigation_measurement_t *nav_meas,
-                const gnss_solution *soln)
+void nmea_gpvtg(const gnss_solution *soln)
 {
   /* NMEA Parameters for GPVTG
    * Ex.
@@ -328,9 +321,6 @@ void nmea_gpvtg(const navigation_measurement_t *nav_meas,
    *     True Course   |  Speed (K)   |
    *               Mag. course     Speed (km/hr)
    */
-
-  double az, el;
-  wgsecef2azel(nav_meas[0].sat_pos, soln->pos_ecef, &az, &el);
 
   float vknots, vkmhr;
   float x,y,z;
@@ -394,6 +384,17 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
                 t.tm_hour, t.tm_min, t.tm_sec + frac_s);
   NMEA_SENTENCE_DONE();
 }
+
+
+/** Generate and send periodic NMEA GPGSV, GPRMC, GPVTG, GPGLL
+ * (but not GPGGA) messages.
+ *
+ * Called from solution thread.
+ *
+ * \param soln     Pointer to gnss_solution struct.
+ * \param n        Number of satellites in use
+ * \param nav_meas Array of n navigation_measurement structs.
+ */
 void nmea_send_msgs(gnss_solution *soln, u8 n, 
                     navigation_measurement_t *nm)
 {
@@ -413,10 +414,10 @@ void nmea_send_msgs(gnss_solution *soln, u8 n,
     nmea_gpgsv(n, nm, soln);
   );
   DO_EVERY(gprmc_msg_rate,
-    nmea_gprmc(nm, soln, &soln->time);
+    nmea_gprmc(soln, &soln->time);
   );
   DO_EVERY(gpvtg_msg_rate,
-    nmea_gpvtg(nm, soln);
+    nmea_gpvtg(soln);
   );
   DO_EVERY(gpgll_msg_rate,
     nmea_gpgll(soln, &soln->time);
