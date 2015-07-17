@@ -26,7 +26,7 @@
 
 #define TRACKING_DISABLED 0 /**< Tracking channel disabled state. */
 #define TRACKING_RUNNING  1 /**< Tracking channel running state. */
-
+#define TRACKING_ELEVATION_UNKNOWN 100 /* Ensure it will be above elev. mask */
 extern u8 n_rollovers;
 
 /** Tracking channel parameters as of end of last correlation period. */
@@ -66,6 +66,7 @@ typedef struct {
                                     1 = Second-stage. After nav bit sync,
                                     retune loop filters and typically (but
                                     not necessarily) use longer integration. */
+  s8 elevation;                /**< Elevation angle, degrees */
   alias_detect_t alias_detect; /**< Alias lock detector. */
   lock_detect_t lock_detect;   /**< Phase-lock detector state. */
 } tracking_channel_t;
@@ -82,7 +83,7 @@ void initialize_lock_counters(void);
 
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
-                           u32 start_sample_count, float cn0_init);
+                           u32 start_sample_count, float cn0_init, s8 elevation);
 
 void tracking_channel_get_corrs(u8 channel);
 void tracking_channel_update(u8 channel);
