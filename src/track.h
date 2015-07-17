@@ -33,11 +33,14 @@ extern u8 n_rollovers;
 typedef struct {
   u8 state;                    /**< Tracking channel state. */
   /* TODO : u32's big enough? */
-  u32 update_count;            /**< Total number of tracking channel ms updates. */
+  u32 update_count;            /**< Number of ms channel has been running */
   u32 mode_change_count;       /**< update_count at last mode change. */
+  u32 cn0_above_drop_thres_count;
+                               /**< update_count value when SNR was
+                                  last above a certain margin. */
+  u32 ld_opti_locked_count;    /**< update_count value when optimistic
+                                  phase detector last "locked". */
   s32 TOW_ms;                  /**< TOW in ms. */
-  u32 snr_above_threshold_count;     /**< update_count value when SNR was last above a certain margin. */
-  u32 snr_below_threshold_count;     /**< update_count value when SNR was last below a certain margin. */
   u8 prn;                      /**< CA Code (0-31) channel is tracking. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   u32 code_phase_early;        /**< Early code phase. */
@@ -64,6 +67,7 @@ typedef struct {
                                     retune loop filters and typically (but
                                     not necessarily) use longer integration. */
   alias_detect_t alias_detect; /**< Alias lock detector. */
+  lock_detect_t lock_detect;   /**< Phase-lock detector state. */
 } tracking_channel_t;
 
 /** \} */
@@ -78,14 +82,13 @@ void initialize_lock_counters(void);
 
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
-                           u32 start_sample_count, float snr);
+                           u32 start_sample_count, float cn0_init);
 
 void tracking_channel_get_corrs(u8 channel);
 void tracking_channel_update(u8 channel);
 void tracking_channel_disable(u8 channel);
 void tracking_channel_ambiguity_unknown(u8 channel);
 void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
-float tracking_channel_snr(u8 channel);
 void tracking_send_state(void);
 void tracking_setup(void);
 void tracking_drop_satellite(u8 prn);
