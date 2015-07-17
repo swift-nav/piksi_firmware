@@ -342,6 +342,26 @@ static void solution_simulation()
   }
 }
 
+/** Update the tracking channel states with satellite elevation angles
+ * \param nav_meas Navigation measurements with .sat_pos populated
+ * \param n_meas Number of navigation measurements
+ * \param pos_ecef Receiver position
+ */
+static void update_sat_elevations(const navigation_measurement_t nav_meas[],
+                                  u8 n_meas, const double pos_ecef[3])
+{
+  double _, el;
+  for (int i = 0; i < n_meas; i++) {
+    wgsecef2azel(nav_meas[i].sat_pos, pos_ecef, &_, &el);
+    for (int j = 0; j < nap_track_n_channels; j++) {
+      if (tracking_channel[j].prn == nav_meas[i].prn) {
+        tracking_channel[j].elevation = (float)el * R2D;
+        break;
+      }
+    }
+  }
+}
+
 static WORKING_AREA_CCM(wa_solution_thread, 12004);
 static msg_t solution_thread(void *arg)
 {
@@ -415,6 +435,11 @@ static msg_t solution_thread(void *arg)
       /* Update global position solution state. */
       position_updated();
       set_time_fine(nav_tc, position_solution.time);
+
+      /* Save elevation angles every so often */
+      DO_EVERY((u32)soln_freq,
+               update_sat_elevations(nav_meas_tdcp, n_ready_tdcp,
+                                     position_solution.pos_ecef));
 
       if (!simulation_enabled()) {
         /* Output solution. */

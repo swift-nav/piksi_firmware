@@ -139,9 +139,11 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
  * \param carrier_freq       Carrier frequency (Doppler) at start of tracking in Hz.
  * \param start_sample_count Sample count on which to start tracking.
  * \param cn0_init           Estimated C/N0 from acquisition
+ * \param elevation          Satellite elevation in degrees, or
+ *                           TRACKING_ELEVATION_UNKNOWN
  */
 void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
-                           u32 start_sample_count, float cn0_init)
+                           u32 start_sample_count, float cn0_init, s8 elevation)
 {
   tracking_channel_t *chan = &tracking_channel[channel];
 
@@ -158,6 +160,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   /* Setup tracking_channel struct. */
   chan->state = TRACKING_RUNNING;
   chan->prn = prn;
+  chan->elevation = elevation;
 
   /* Initialize TOW_ms and lock_count. */
   tracking_channel_ambiguity_unknown(channel);
