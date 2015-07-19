@@ -302,7 +302,7 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
                 t.tm_hour, t.tm_min, t.tm_sec + frac_s,
                 lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
                 velocity, course * R2D, 
-                t.tm_mday, t.tm_mon, t.tm_year-100);
+                t.tm_mday, t.tm_mon + 1, t.tm_year % 100);
   NMEA_SENTENCE_DONE();
 }
 
