@@ -55,6 +55,10 @@ void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
 s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
                     packed_obs_content_t *msg);
 
+void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e);
+
+void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg);
+
 /** Value specifying the size of the SBP framing */
 #define SBP_FRAMING_SIZE_BYTES 8
 /** Value defining maximum SBP packet size */

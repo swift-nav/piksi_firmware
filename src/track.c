@@ -533,7 +533,7 @@ void tracking_send_state()
     if (num_sats < nap_track_n_channels) {
       for (u8 i = num_sats; i < nap_track_n_channels; i++) {
         states[i].state = TRACKING_DISABLED;
-        states[i].prn   = 0;
+        states[i].sid   = 0;
         states[i].cn0   = -1;
       }
     }
@@ -542,7 +542,7 @@ void tracking_send_state()
 
     for (u8 i=0; i<nap_track_n_channels; i++) {
       states[i].state = tracking_channel[i].state;
-      states[i].prn = tracking_channel[i].prn;
+      states[i].sid = tracking_channel[i].prn; /* TODO prn -> sid */
       if (tracking_channel[i].state == TRACKING_RUNNING)
         states[i].cn0 = tracking_channel[i].cn0;
       else

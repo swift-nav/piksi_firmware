@@ -121,14 +121,16 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   msg_mask_satellite_t *m = (msg_mask_satellite_t *)msg;
 
-  log_info("Mask for PRN %02d = 0x%02x\n", m->prn+1, m->mask);
+  u8 prn = m->sid & 0x1F; /* TODO prn -> sid */
+
+  log_info("Mask for PRN %02d = 0x%02x\n", prn+1, m->mask);
   if (m->mask & MASK_ACQUISITION) {
-    acq_prn_param[m->prn].masked = true;
+    acq_prn_param[prn].masked = true;
   } else {
-    acq_prn_param[m->prn].masked = false;
+    acq_prn_param[prn].masked = false;
   }
   if (m->mask & MASK_TRACKING) {
-    tracking_drop_satellite(m->prn);
+    tracking_drop_satellite(prn);
   }
 }
 
