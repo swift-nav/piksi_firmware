@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include <ch.h>
@@ -329,6 +330,23 @@ int _write(int file, char *ptr, int len)
     errno = EIO;
     return -1;
   }
+}
+
+/** Directs log_ output to the SBP log message */
+void log_(u8 level, const char *msg, ...)
+{
+  msg_log_t *log;
+  va_list ap;
+  char buf[256];
+
+  log = (msg_log_t *)buf;
+  log->level = level;
+
+  va_start(ap, msg);
+  int n = vsnprintf(log->text, 255-sizeof(msg_log_t), msg, ap);
+  va_end(ap);
+
+  sbp_send_msg(SBP_MSG_LOG, n+sizeof(msg_log_t), (u8 *)buf);
 }
 
 void log_obs_latency(float latency_ms)
