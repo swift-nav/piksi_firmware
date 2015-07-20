@@ -85,7 +85,7 @@ void _screaming_death(const char *pos, const char *msg)
       __asm__("nop");
     }
     /* TODO: Send to other UARTs? */
-    sbp_send_message(&sbp_state, SBP_MSG_PRINT, 0, len, (u8*)err_msg, &fallback_write_ftdi);
+    sbp_send_message(&sbp_state, SBP_MSG_PRINT_DEP, 0, len, (u8*)err_msg, &fallback_write_ftdi);
   }
 }
 
