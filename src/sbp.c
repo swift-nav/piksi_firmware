@@ -311,7 +311,7 @@ int _write(int file, char *ptr, int len)
   case 1:
   case 2:
     if (len > 255) len = 255;   /* Send maximum of 255 chars at a time */
-    sbp_send_msg(SBP_MSG_PRINT, len, (u8 *)ptr);
+    sbp_send_msg(SBP_MSG_PRINT_DEP, len, (u8 *)ptr);
     return len;
 
   case 22:
