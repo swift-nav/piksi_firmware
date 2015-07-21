@@ -68,14 +68,14 @@ void sbp_fileio_setup(void)
 static void read_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   (void)context;
-  msg_fileio_read_request_t *msg = (msg_fileio_read_request_t *)msg_;
+  msg_fileio_read_req_t *msg = (msg_fileio_read_req_t *)msg_;
 
   if (sender_id != SBP_SENDER_ID) {
     log_error("Invalid sender!\n");
     return;
   }
 
-  if ((len <= sizeof(*msg)) || (len == SBP_MAX_PAYLOAD_SIZE)) {
+  if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
     log_error("Invalid fileio read message!\n");
     return;
   }
@@ -83,9 +83,9 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
   /* Add a null termination to filename */
   msg_[len] = 0;
 
-  msg_fileio_read_response_t *reply;
-  u8 readlen = MIN(msg->chunk_size, SBP_MAX_PAYLOAD_SIZE - sizeof(*reply));
-  reply = alloca(sizeof(msg_fileio_read_response_t) + readlen);
+  msg_fileio_read_resp_t *reply;
+  u8 readlen = MIN(msg->chunk_size, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply));
+  reply = alloca(sizeof(msg_fileio_read_resp_t) + readlen);
   reply->sequence = msg->sequence;
   int f = cfs_open(msg->filename, CFS_READ);
   cfs_seek(f, msg->offset, CFS_SEEK_SET);
@@ -110,14 +110,14 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
 static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   (void)context;
-  msg_fileio_read_dir_request_t *msg = (msg_fileio_read_dir_request_t *)msg_;
+  msg_fileio_read_dir_req_t *msg = (msg_fileio_read_dir_req_t *)msg_;
 
   if (sender_id != SBP_SENDER_ID) {
     log_error("Invalid sender!\n");
     return;
   }
 
-  if ((len <= sizeof(*msg)) || (len == SBP_MAX_PAYLOAD_SIZE)) {
+  if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
     log_error("Invalid fileio read dir message!\n");
     return;
   }
@@ -128,14 +128,14 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
   struct cfs_dir dir;
   struct cfs_dirent dirent;
   u32 offset = msg->offset;
-  msg_fileio_read_dir_response_t *reply = alloca(SBP_MAX_PAYLOAD_SIZE);
+  msg_fileio_read_dir_resp_t *reply = alloca(SBP_FRAMING_MAX_PAYLOAD_SIZE);
   reply->sequence = msg->sequence;
   cfs_opendir(&dir, msg->dirname);
   while (offset && (cfs_readdir(&dir, &dirent) == 0))
     offset--;
 
   len = 0;
-  size_t max_len = SBP_MAX_PAYLOAD_SIZE - sizeof(*reply);
+  size_t max_len = SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply);
   while (cfs_readdir(&dir, &dirent) == 0) {
     if (strlen(dirent.name) > (max_len - len - 1))
       break;
@@ -161,7 +161,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
     return;
   }
 
-  if ((len < 1) || (len == SBP_MAX_PAYLOAD_SIZE)) {
+  if ((len < 1) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
     log_error("Invalid fileio remove message!\n");
     return;
   }
@@ -182,7 +182,7 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
 static void write_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
 {
   (void)context;
-  msg_fileio_write_request_t *msg = (msg_fileio_write_request_t *)msg_;
+  msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
 
   if (sender_id != SBP_SENDER_ID) {
     log_error("Invalid sender!\n");
@@ -190,8 +190,8 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
   }
 
   if ((len <= sizeof(*msg) + 2) ||
-      (strnlen(msg->filename, SBP_MAX_PAYLOAD_SIZE - sizeof(*msg)) ==
-                              SBP_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
+      (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg)) ==
+                              SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
     log_error("Invalid fileio write message!\n");
     return;
   }
@@ -202,6 +202,6 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
   cfs_write(f, msg_ + headerlen, len - headerlen);
   cfs_close(f);
 
-  msg_fileio_write_response_t reply = {.sequence = msg->sequence};
+  msg_fileio_write_resp_t reply = {.sequence = msg->sequence};
   sbp_send_msg(SBP_MSG_FILEIO_WRITE_RESP, sizeof(reply), (u8*)&reply);
 }
