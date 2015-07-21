@@ -296,11 +296,13 @@ void tracking_channel_update(u8 channel)
       chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
       chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
 
-      /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       if (chan->TOW_ms != TOW_INVALID) {
-        /* Have a valid time of week. */
+        /* Have a valid time of week - increment it. */
         chan->TOW_ms += chan->short_cycle ? 1 : (chan->int_ms-1);
-        chan->TOW_ms %= 7*24*60*60*1000;
+        if (chan->TOW_ms >= 7*24*60*60*1000)
+          chan->TOW_ms -= 7*24*60*60*1000;
+        /* TODO: maybe keep track of week number in channel state, or
+           derive it from system time */
       }
 
       if (chan->int_ms > 1) {
@@ -324,10 +326,9 @@ void tracking_channel_update(u8 channel)
 
       chan->update_count += chan->int_ms;
 
-      /* TODO: check TOW_ms = 0 case is correct, 0 is a valid TOW. */
       s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
 
-      if ((TOW_ms > 0) && chan->TOW_ms != TOW_ms) {
+      if ((TOW_ms >= 0) && chan->TOW_ms != TOW_ms) {
         if (chan->TOW_ms != TOW_INVALID) {
           log_error("PRN %d TOW mismatch: %ld, %lu\n",
                     chan->prn+1, chan->TOW_ms, TOW_ms);
