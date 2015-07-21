@@ -416,6 +416,20 @@ static msg_t solution_thread(void *arg)
       position_updated();
       set_time_fine(nav_tc, position_solution.time);
 
+      /* Save elevation angles */
+      double az, el;
+      DO_EVERY((u32)soln_freq,
+          for (int i = 0; i < n_ready_tdcp; i++) {
+            wgsecef2azel(nav_meas_tdcp[i].sat_pos,
+                         position_solution.pos_ecef, &az, &el);
+            for (int j = 0; j < nap_track_n_channels; j++)
+              if (tracking_channel[j].prn == nav_meas_tdcp[i].prn) {
+                tracking_channel[j].elevation = (float)el * R2D;
+                break;
+              }
+          }
+      );
+
       if (!simulation_enabled()) {
         /* Output solution. */
         solution_send_sbp(&position_solution, &dops);
