@@ -29,6 +29,7 @@
 #include "error.h"
 #include "peripherals/usart.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 #include "settings.h"
 #include "main.h"
 #include "timing.h"
@@ -337,13 +338,13 @@ void log_(u8 level, const char *msg, ...)
 {
   msg_log_t *log;
   va_list ap;
-  char buf[256];
+  char buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
 
   log = (msg_log_t *)buf;
   log->level = level;
 
   va_start(ap, msg);
-  int n = vsnprintf(log->text, 255-sizeof(msg_log_t), msg, ap);
+  int n = vsnprintf(log->text, SBP_FRAMING_MAX_PAYLOAD_SIZE-sizeof(msg_log_t), msg, ap);
   va_end(ap);
 
   if (n < 0)
