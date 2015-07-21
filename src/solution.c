@@ -73,12 +73,12 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 
     /* Position in LLH. */
     msg_pos_llh_t pos_llh;
-    sbp_make_pos_llh(&pos_llh, soln, 0);
+    sbp_make_pos_llh(&pos_llh, soln, soln->raim_flag << 4);
     sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
 
     /* Position in ECEF. */
     msg_pos_ecef_t pos_ecef;
-    sbp_make_pos_ecef(&pos_ecef, soln, 0);
+    sbp_make_pos_ecef(&pos_ecef, soln, soln->raim_flag << 3);
     sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
 
     /* Velocity in NED. */
@@ -179,15 +179,18 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
     /* TODO: Don't fake DOP!! */
     nmea_gpgga(pseudo_absolute_llh, t, n_sats, fix_mode, 1.5);
     /* now send pseudo absolute sbp message */
-    /* Flag in message is defined as follows :float->2, fixed->1 */
-    /* We defined the flags for the SBP protocol to be spp->0, fixed->1, float->2 */
-    /* TODO: Define these flags from the yaml and remove hardcoding */
-    u8 sbp_flags = (flags == 1) ? 1 : 2;
+    /* TODO: Derive these flag functions from the yaml and remove hardcoding */
     msg_pos_llh_t pos_llh;
-    sbp_make_pos_llh_vect(&pos_llh, pseudo_absolute_llh, t, n_sats, sbp_flags);
+    u8 llh_flag = (flag_fixed_mode(flags) ? 1 : 2)
+                | (flag_raim_available(flags) << 4)
+                | (flag_raim_repaired(flags) << 5);
+    u8 ecef_flag = (flag_fixed_mode(flags) ? 1 : 2)
+                 | (flag_raim_available(flags) << 3)
+                 | (flag_raim_repaired(flags) << 4);
+    sbp_make_pos_llh_vect(&pos_llh, pseudo_absolute_llh, t, n_sats, llh_flag);
     sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
     msg_pos_ecef_t pos_ecef;
-    sbp_make_pos_ecef_vect(&pos_ecef, pseudo_absolute_ecef, t, n_sats, sbp_flags);
+    sbp_make_pos_ecef_vect(&pos_ecef, pseudo_absolute_ecef, t, n_sats, ecef_flag);
     sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
   }
   chMtxUnlock();
@@ -208,28 +211,31 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
                          &amb_state, &num_used, b,
                          disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock();
-    if (ret > 0) {
-      /* ret is <0 on error, 2 if float, 1 if fixed */
-      flags = (ret == 1) ? 1 : 0;
-    } else {
+    if (ret < 0) {
       log_warn("dgnss_baseline returned error: %d", ret);
       return;
     }
+
+    /* dgnss_baseline return value is sbp baseline flag format,
+     * if non-negative. */
+    flags = ret;
     break;
 
   case FILTER_FLOAT:
-    flags = 0;
     chMtxLock(&amb_state_lock);
     ret = baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
                    &amb_state.float_ambs, &num_used, b,
                    disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock();
     if (ret == 1)
+      /* dgnss_baseline logs a warning on raim repair; do the same here */
       log_warn("output_baseline: Float baseline RAIM repair");
     if (ret < 0) {
       log_warn("dgnss_float_baseline returned error: %d", ret);
       return;
     }
+    /* baseline_flag(baseline return code, float mode); */
+    flags = baseline_flag(ret, false);
     break;
   }
 
@@ -341,6 +347,7 @@ static void solution_simulation()
   if (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
       simulation_enabled_for(SIMULATION_MODE_RTK)) {
 
+    /* raim is "unavailable" */
     u8 flags = simulation_enabled_for(SIMULATION_MODE_RTK) ? 1 : 0;
 
     solution_send_baseline(&(soln->time),
