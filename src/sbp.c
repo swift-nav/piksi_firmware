@@ -346,6 +346,9 @@ void log_(u8 level, const char *msg, ...)
   int n = vsnprintf(log->text, 255-sizeof(msg_log_t), msg, ap);
   va_end(ap);
 
+  if (n < 0)
+    return;
+
   sbp_send_msg(SBP_MSG_LOG, n+sizeof(msg_log_t), (u8 *)buf);
 }
 
