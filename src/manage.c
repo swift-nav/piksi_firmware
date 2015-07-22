@@ -509,7 +509,7 @@ s8 use_tracking_channel(u8 i)
     gps_time_t t = {
       /* TODO: the following makes the week number part of the
          TOW check tautological - see issue #475 */
-      .wn = es[ch->prn].toe.wn,
+      .wn = WN_UNKNOWN,
       .tow = 1e-3 * ch->TOW_ms
     };
     return ephemeris_good(&es[ch->prn], t);
