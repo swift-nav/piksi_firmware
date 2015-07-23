@@ -25,7 +25,7 @@ v0.19 <a name="v0.19"></a>
  * Fix buffer overflows when building NMEA messages
  * Add better checks and thread safety to random number generator
  * Add GPRMC, GPVTG, and GPGLL NMEA messages
- * Separate FileIO messaging IDs
+ * Settings and FileIO messages are now directional
 
 #### libswiftnav
 
