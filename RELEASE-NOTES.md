@@ -20,8 +20,7 @@ v0.19 <a name="v0.19"></a>
 
 #### Core
 
- * Report 
- * Fix bug where acquisition could get stuck searching an empty doppler range
+ * Fix bug where acquisition could get stuck searching an empty Doppler range
  * Fix buffer overflows when building NMEA messages
  * Add better checks and thread safety to random number generator
  * Add GPRMC, GPVTG, and GPGLL NMEA messages
@@ -29,7 +28,8 @@ v0.19 <a name="v0.19"></a>
 
 #### libswiftnav
 
- * RAIM position outlier filtering
+ * Receiver Autonomous Integrity Monitoring (RAIM) to filter out
+   bad position solutions
  * Various off by 1 fixes
  * Add phase lock counter to local observations
  * Improved PLL lock detection
