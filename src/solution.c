@@ -362,7 +362,7 @@ static void update_sat_elevations(const navigation_measurement_t nav_meas[],
   }
 }
 
-static WORKING_AREA_CCM(wa_solution_thread, 12004);
+static WORKING_AREA_CCM(wa_solution_thread, 8000);
 static msg_t solution_thread(void *arg)
 {
   (void)arg;
@@ -617,7 +617,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
   }
 }
 
-static WORKING_AREA(wa_time_matched_obs_thread, 22000);
+static WORKING_AREA(wa_time_matched_obs_thread, 20000);
 static msg_t time_matched_obs_thread(void *arg)
 {
   (void)arg;
