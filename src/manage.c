@@ -21,6 +21,7 @@
 #include <libswiftnav/almanac.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
+#include <libswiftnav/linear_algebra.h>
 
 #include "main.h"
 #include "board/nap/track_channel.h"
@@ -46,10 +47,10 @@
 
 /** Different hints on satellite info to aid the acqusition */
 enum acq_hint {
-  ACQ_HINT_ALMANAC,  /**< Almanac information. */
-  ACQ_HINT_ACQ,      /**< Previous successful acqusition. */
-  ACQ_HINT_TRACK,    /**< Previously tracked satellite. */
-  ACQ_HINT_OBS,      /**< Observation from reference station. */
+  ACQ_HINT_WARMSTART,  /**< Information from almanac or ephemeris */
+  ACQ_HINT_PREV_ACQ,   /**< Previous successful acqusition. */
+  ACQ_HINT_PREV_TRACK, /**< Previously tracked satellite. */
+  ACQ_HINT_REMOTE_OBS, /**< Observation from reference station. */
 
   ACQ_HINT_NUM
 };
@@ -69,17 +70,21 @@ typedef struct {
 } acq_prn_t;
 acq_prn_t acq_prn_param[32];
 
-#define SCORE_DEFAULT 100
-#define SCORE_ALMANAC 200
-#define SCORE_ACQ     100
-#define SCORE_TRACK   200
-#define SCORE_OBS     200
+#define SCORE_COLDSTART     100
+#define SCORE_WARMSTART     200
+#define SCORE_BELOWMASK     0
+#define SCORE_ACQ           100
+#define SCORE_TRACK         200
+#define SCORE_OBS           200
 
-#define ALMANAC_DOPPLER_WINDOW 4000
+#define DOPP_UNCERT_ALMANAC 4000
+#define DOPP_UNCERT_EPHEM   500
 
 almanac_t almanac[32];
+extern ephemeris_t es[32];
 
-float track_cn0_threshold = 33.0;
+static float track_cn0_use_thres = 31.0; /* dBHz */
+float elevation_mask = 5.0; /* degrees */
 
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
@@ -120,14 +125,16 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   msg_mask_satellite_t *m = (msg_mask_satellite_t *)msg;
 
-  log_info("Mask for PRN %02d = 0x%02x\n", m->prn+1, m->mask);
+  u8 prn = m->sid & 0x1F; /* TODO prn -> sid */
+
+  log_info("Mask for PRN %02d = 0x%02x\n", prn+1, m->mask);
   if (m->mask & MASK_ACQUISITION) {
-    acq_prn_param[m->prn].masked = true;
+    acq_prn_param[prn].masked = true;
   } else {
-    acq_prn_param[m->prn].masked = false;
+    acq_prn_param[prn].masked = false;
   }
   if (m->mask & MASK_TRACKING) {
-    tracking_drop_satellite(m->prn);
+    tracking_drop_satellite(prn);
   }
 }
 
@@ -191,42 +198,82 @@ void manage_acq_setup()
   );
 }
 
-static void manage_calc_almanac_scores(void)
-{
-  double az, el;
-  gps_time_t t = get_current_time();
 
-  for (u8 prn=0; prn<32; prn++) {
-    if (!almanac[prn].valid ||
-        time_quality == TIME_UNKNOWN ||
-        position_quality == POSITION_UNKNOWN) {
-      /* No almanac or position/time information, give it the benefit of the
-       * doubt. */
-      acq_prn_param[prn].score[ACQ_HINT_ALMANAC] = 0;
+/** Using available almanac and ephemeris information, determine
+ * whether a satellite is in view and the range of doppler frequencies
+ * in which we expect to find it.
+ *
+ * \param prn 0-indexed PRN
+ * \param t Time at which to evaluate ephemeris and almanac (typically system's
+ *  estimate of current time)
+ * \param dopp_hint_low, dopp_hint_high Pointers to store doppler search range
+ *  from ephemeris or almanac, if available and elevation > mask
+ * \return Score (higher is better)
+ */
+static u16 manage_warm_start(u8 prn, gps_time_t t,
+                             float *dopp_hint_low, float *dopp_hint_high)
+{
+    /* Do we have any idea where/when we are?  If not, no score. */
+    /* TODO: Stricter requirement on time and position uncertainty?
+       We ought to keep track of a quantitative uncertainty estimate. */
+    if (time_quality < TIME_GUESS &&
+        position_quality < POSITION_GUESS)
+      return SCORE_COLDSTART;
+
+    float el = 0;
+    double el_d, _, dopp_hint = 0, dopp_uncertainty = DOPP_UNCERT_ALMANAC;
+
+    /* Do we have a suitable ephemeris for this sat?  If so, use
+       that in preference to the almanac. */
+    if (ephemeris_good(&es[prn], t)) {
+      double sat_pos[3], sat_vel[3], el_d;
+      calc_sat_state(&es[prn], t, sat_pos, sat_vel, &_, &_);
+      wgsecef2azel(sat_pos, position_solution.pos_ecef, &_, &el_d);
+      el = (float)(el_d) * R2D;
+      if (el < elevation_mask)
+        return SCORE_BELOWMASK;
+      vector_subtract(3, sat_pos, position_solution.pos_ecef, sat_pos);
+      vector_normalize(3, sat_pos);
+      /* sat_pos now holds unit vector from us to satellite */
+      vector_subtract(3, sat_vel, position_solution.vel_ecef, sat_vel);
+      /* sat_vel now holds velocity of sat relative to us */
+      dopp_hint = -GPS_L1_HZ * (vector_dot(3, sat_pos, sat_vel) / GPS_C
+                                + position_solution.clock_bias);
+      /* TODO: Check sign of receiver frequency offset correction */
+      if (time_quality >= TIME_FINE)
+        dopp_uncertainty = DOPP_UNCERT_EPHEM;
+    } else if (almanac[prn].valid) {
+      calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024,
+                             position_solution.pos_ecef, &_, &el_d);
+      el = (float)(el_d) * R2D;
+      if (el < elevation_mask)
+        return SCORE_BELOWMASK;
+      dopp_hint = -calc_sat_doppler_almanac(&almanac[prn], t.tow, t.wn,
+                                            position_solution.pos_ecef);
     } else {
-      calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024, position_solution.pos_ecef, &az, &el);
-      float dopp = -calc_sat_doppler_almanac(&almanac[prn], t.tow, t.wn,
-                                             position_solution.pos_ecef);
-      acq_prn_param[prn].score[ACQ_HINT_ALMANAC] =
-            el > 0 ? (u16)(SCORE_ALMANAC * 2 * el / M_PI) : 0;
-      acq_prn_param[prn].dopp_hint_low = dopp - ALMANAC_DOPPLER_WINDOW;
-      acq_prn_param[prn].dopp_hint_high = dopp + ALMANAC_DOPPLER_WINDOW;
+      return SCORE_COLDSTART; /* Couldn't determine satellite state. */
     }
-  }
+    /* Return the doppler hints and a score proportional to elevation */
+    *dopp_hint_low = dopp_hint - dopp_uncertainty;
+    *dopp_hint_high = dopp_hint + dopp_uncertainty;
+    return SCORE_COLDSTART + SCORE_WARMSTART * el / 90.f;
 }
 
 static u8 choose_prn(void)
 {
   u32 total_score = 0;
-
-  manage_calc_almanac_scores();
+  gps_time_t t = get_current_time();
 
   for (u8 prn=0; prn<32; prn++) {
     if ((acq_prn_param[prn].state != ACQ_PRN_ACQUIRING) ||
          acq_prn_param[prn].masked)
       continue;
 
-    total_score += SCORE_DEFAULT;
+    acq_prn_param[prn].score[ACQ_HINT_WARMSTART] =
+      manage_warm_start(prn, t,
+                        &acq_prn_param[prn].dopp_hint_low,
+                        &acq_prn_param[prn].dopp_hint_high);
+
     for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++) {
       total_score += acq_prn_param[prn].score[hint];
     }
@@ -239,7 +286,7 @@ static u8 choose_prn(void)
          acq_prn_param[prn].masked)
       continue;
 
-    u32 sat_score = SCORE_DEFAULT;
+    u32 sat_score = 0;
     for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
       sat_score += acq_prn_param[prn].score[hint];
     if (pick < sat_score) {
@@ -269,7 +316,7 @@ void manage_set_obs_hint(u8 prn)
   if (prn >= 32) /* check range */
     return;
 
-  acq_prn_param[prn].score[ACQ_HINT_OBS] = SCORE_OBS;
+  acq_prn_param[prn].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
@@ -327,8 +374,8 @@ static void manage_acq()
     /* Decay hint scores */
     for (u8 i = 0; i < ACQ_HINT_NUM; i++)
       acq_prn_param[prn].score[i] = (acq_prn_param[prn].score[i] * 3) / 4;
-    /* Reset hint score for acuisition. */
-    acq_prn_param[prn].score[ACQ_HINT_ACQ] = 0;
+    /* Reset hint score for acquisition. */
+    acq_prn_param[prn].score[ACQ_HINT_PREV_ACQ] = 0;
     return;
   }
 
@@ -339,7 +386,8 @@ static void manage_acq()
      * later using another fine acq.
      */
     if (cn0 > ACQ_RETRY_THRESHOLD) {
-      acq_prn_param[prn].score[ACQ_HINT_ACQ] = SCORE_ACQ + (cn0 - ACQ_THRESHOLD);
+      acq_prn_param[prn].score[ACQ_HINT_PREV_ACQ] =
+        SCORE_ACQ + (cn0 - ACQ_THRESHOLD);
       acq_prn_param[prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
       acq_prn_param[prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
     }
@@ -352,7 +400,11 @@ static void manage_acq()
   // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
   track_count += 16*(1023.0-cp)*(1.0 + cf / GPS_L1_HZ);
 
-  tracking_channel_init(chan, prn, cf, track_count, cn0);
+  /* Start the tracking channel */
+  tracking_channel_init(chan, prn, cf, track_count, cn0,
+                        TRACKING_ELEVATION_UNKNOWN);
+  /* TODO: Initialize elevation from ephemeris if we know it precisely */
+
   acq_prn_param[prn].state = ACQ_PRN_TRACKING;
   nap_timing_strobe_wait(100);
 }
@@ -375,7 +427,9 @@ static u8 manage_track_new_acq(void)
   return MANAGE_NO_CHANNELS_FREE;
 }
 
-/** Clear unhealthy flags after some time.  Flags are reset one per day. */
+/** Clear unhealthy flags after some time, so we eventually retry
+    those sats in case they recover from their sickness.  Call this
+    function regularly, and once per day it will reset the flags. */
 static void check_clear_unhealthy(void)
 {
   static systime_t ticks;
@@ -409,26 +463,12 @@ static msg_t manage_track_thread(void *arg)
   return 0;
 }
 
-static u16 iq_output_mask = 0;
-bool track_iq_output_notify(struct setting *s, const char *val)
-{
-  if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
-    for (int i = 0; i < NAP_MAX_N_TRACK_CHANNELS; i++) {
-      tracking_channel[i].output_iq = (iq_output_mask & (1 << i)) != 0;
-    }
-    return true;
-  }
-  return false;
-}
-
 void manage_track_setup()
 {
   initialize_lock_counters();
 
-  SETTING_NOTIFY("track", "iq_output_mask", iq_output_mask, TYPE_INT,
-                 track_iq_output_notify);
-
-  SETTING("track", "track_cn0_threshold", track_cn0_threshold, TYPE_FLOAT);
+  SETTING("track", "cn0_use", track_cn0_use_thres, TYPE_FLOAT);
+  SETTING("solution", "elevation_mask", elevation_mask, TYPE_FLOAT);
 
   chThdCreateStatic(
       wa_manage_track_thread,
@@ -438,84 +478,103 @@ void manage_track_setup()
   );
 }
 
-extern ephemeris_t es[32];
+static void drop_channel(u8 channel_id) {
+  tracking_channel_disable(channel_id);
+  const tracking_channel_t *ch = &tracking_channel[channel_id];
+  if (ch->update_count > TRACK_REACQ_T) {
+    acq_prn_param[ch->prn].score[ACQ_HINT_PREV_TRACK] = SCORE_TRACK;
+    acq_prn_param[ch->prn].dopp_hint_low = ch->carrier_freq - ACQ_FULL_CF_STEP;
+    acq_prn_param[ch->prn].dopp_hint_high = ch->carrier_freq + ACQ_FULL_CF_STEP;
+  }
+  acq_prn_param[ch->prn].state = ACQ_PRN_ACQUIRING;
+}
 
-/** Disable any tracking channel whose SNR is below a certain margin. */
+/** Disable any tracking channel that has lost phase lock or is
+    flagged unhealthy in ephem. */
 static void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
 
     tracking_channel_t *ch = &tracking_channel[i];
-    if (ch->state != TRACKING_RUNNING)
+    /* Skip channels that aren't in use */
+    if (ch->state != TRACKING_RUNNING ||
+        /* Give newly-initialized channels a chance to converge */
+        ch->update_count < TRACK_INIT_T)
       continue;
 
+    /* Is ephemeris marked unhealthy? */
     if (es[ch->prn].valid && !es[ch->prn].healthy) {
+      log_info("PRN%d unhealthy, dropping\n", ch->prn+1);
+      drop_channel(i);
       acq_prn_param[ch->prn].state = ACQ_PRN_UNHEALTHY;
-      log_info("Dropping unhealthy PRN%d\n", ch->prn+1);
-      tracking_channel_disable(i);
       continue;
     }
 
-    if (tracking_channel_snr(i) < track_cn0_threshold) {
-      /* SNR has dropped below threshold, indicate that the carrier phase
-       * ambiguity is now unknown as cycle slips are likely. */
-      tracking_channel_ambiguity_unknown(i);
-      /* Update the latest time we were below the threshold. */
-      ch->snr_below_threshold_count = ch->update_count;
-      /* Have we have been below the threshold for longer than
-       * `TRACK_SNR_THRES_COUNT`? */
-      if (ch->update_count > TRACK_SNR_INIT_COUNT &&
-          ch->update_count - ch->snr_above_threshold_count >
-            TRACK_SNR_THRES_COUNT) {
-        /* This tracking channel has lost its satellite. */
-        tracking_channel_disable(i);
-        if (ch->snr_above_threshold_count > TRACK_SNR_THRES_COUNT) {
-          log_info("Disabling channel %d (PRN %02d)\n", i, ch->prn+1);
-          acq_prn_param[ch->prn].score[ACQ_HINT_TRACK] = SCORE_TRACK;
-          float cf = ch->carrier_freq;
-          acq_prn_param[ch->prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
-          acq_prn_param[ch->prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
-        }
-        acq_prn_param[ch->prn].state = ACQ_PRN_ACQUIRING;
-      }
-    } else {
-      /* SNR is good. */
-      ch->snr_above_threshold_count = ch->update_count;
+    /* Do we not have nav bit sync yet? */
+    if (ch->nav_msg.bit_phase_ref == BITSYNC_UNSYNCED) {
+      drop_channel(i);
+      continue;
     }
 
+    u32 uc = ch->update_count;
+
+    /* Optimistic phase lock detector "unlocked" for a while? */
+    /* TODO: This isn't doing much.  Use the pessimistic detector instead? */
+    if ((int)(uc - ch->ld_opti_locked_count) > TRACK_DROP_UNLOCKED_T) {
+      log_info("PRN%d PLL unlocked too long, dropping\n", ch->prn+1);
+      drop_channel(i);
+      continue;
+    }
+
+    /* CN0 below threshold for a while? */
+    if ((int)(uc - ch->cn0_above_drop_thres_count) > TRACK_DROP_CN0_T) {
+      log_info("PRN%d low CN0 too long, dropping\n", ch->prn+1);
+      drop_channel(i);
+      continue;
+    }
+
+    /* Is satellite below our elevation mask? */
+    if (ch->elevation < elevation_mask) {
+      log_info("PRN%d below elevation mask, dropping\n", ch->prn+1);
+      drop_channel(i);
+      /* Erase the tracking hint score, and any others it might have */
+      memset(&acq_prn_param[ch->prn].score, 0,
+             sizeof(acq_prn_param[ch->prn].score));
+      continue;
+    }
   }
 }
 
 s8 use_tracking_channel(u8 i)
 {
-  if ((tracking_channel[i].state == TRACKING_RUNNING)
-      /* Check SNR has been above threshold for the minimum time. */
-      && (tracking_channel[i].update_count
-            - tracking_channel[i].snr_below_threshold_count
-            > TRACK_SNR_THRES_COUNT)
-      /* Check that a minimum time has elapsed since the last tracking channel
-       * mode change, to allow any transients to stabilize. */
-      && (tracking_channel[i].update_count
-            - tracking_channel[i].mode_change_count
-            > TRACK_STABILIZATION_COUNT)
-      /* Check the channel time of week has been decoded. */
-      && (tracking_channel[i].TOW_ms != TOW_INVALID)
-      /* Check the nav bit polarity is known, i.e. half-cycles have been resolved */
-      && (tracking_channel[i].nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
-      /* Check the current SNR.
-       * NOTE: `snr_below_threshold_count` will not be reset immediately if the
-       * SNR drops, only once `manage_track()` is called, so this additional
-       * test is required here. */
-      && (tracking_channel_snr(i) >= track_cn0_threshold)) {
-
-    /* Check ephemeris is usable. */
+  tracking_channel_t *ch = &tracking_channel[i];
+  /* To use a channel's measurements in an SPP or RTK solution, we
+     require the following conditions: */
+  if ((ch->state == TRACKING_RUNNING)
+      /* Satellite elevation is above the mask. */
+      && (ch->elevation >= elevation_mask)
+      /* Pessimistic phase lock detector = "locked". */
+      && (ch->lock_detect.outp)
+      /* Some time has elapsed since the last tracking channel mode
+       * change, to allow any transients to stabilize.
+       * TODO: is this still necessary? */
+      && ((int)(ch->update_count - ch->mode_change_count) > TRACK_STABILIZATION_T)
+      /* Channel time of week has been decoded. */
+      && (ch->TOW_ms != TOW_INVALID)
+      /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
+      && (ch->nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
+      /* Estimated C/N0 is above some threshold */
+      && (ch->cn0 > track_cn0_use_thres))
+      {
+    /* Ephemeris must be valid and not stale.
+       This also acts as a sanity check on the channel TOW.*/
     gps_time_t t = {
-      /* TODO: the following makes the week number check tautological -
-         see issue #475 */
-      .wn = es[tracking_channel[i].prn].toe.wn,
-      .tow = 1e-3 * tracking_channel[i].TOW_ms
+      /* TODO: the following makes the week number part of the
+         TOW check tautological - see issue #475 */
+      .wn = WN_UNKNOWN,
+      .tow = 1e-3 * ch->TOW_ms
     };
-    return ephemeris_good(&es[tracking_channel[i].prn], t);
+    return ephemeris_good(&es[ch->prn], t);
   } else return 0;
 }
 

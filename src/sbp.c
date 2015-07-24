@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include <ch.h>
@@ -28,6 +29,7 @@
 #include "error.h"
 #include "peripherals/usart.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 #include "settings.h"
 #include "main.h"
 #include "timing.h"
@@ -311,7 +313,7 @@ int _write(int file, char *ptr, int len)
   case 1:
   case 2:
     if (len > 255) len = 255;   /* Send maximum of 255 chars at a time */
-    sbp_send_msg(SBP_MSG_PRINT, len, (u8 *)ptr);
+    sbp_send_msg(SBP_MSG_PRINT_DEP, len, (u8 *)ptr);
     return len;
 
   case 22:
@@ -329,6 +331,26 @@ int _write(int file, char *ptr, int len)
     errno = EIO;
     return -1;
   }
+}
+
+/** Directs log_ output to the SBP log message */
+void log_(u8 level, const char *msg, ...)
+{
+  msg_log_t *log;
+  va_list ap;
+  char buf[SBP_FRAMING_MAX_PAYLOAD_SIZE];
+
+  log = (msg_log_t *)buf;
+  log->level = level;
+
+  va_start(ap, msg);
+  int n = vsnprintf(log->text, SBP_FRAMING_MAX_PAYLOAD_SIZE-sizeof(msg_log_t), msg, ap);
+  va_end(ap);
+
+  if (n < 0)
+    return;
+
+  sbp_send_msg(SBP_MSG_LOG, n+sizeof(msg_log_t), (u8 *)buf);
 }
 
 void log_obs_latency(float latency_ms)

@@ -17,6 +17,7 @@
 #include <ch.h>
 
 #include "sbp.h"
+#include "sbp_utils.h"
 #include "track.h"
 #include "timing.h"
 #include "ephemeris.h"
@@ -88,8 +89,9 @@ static msg_t nav_msg_thread(void *arg)
       if (!es[ch->prn].healthy) {
         log_info("PRN %02d unhealthy\n", ch->prn+1);
       } else {
-        sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(ephemeris_t),
-                     (u8 *)&es[ch->prn]);
+        msg_ephemeris_t msg;
+        pack_ephemeris(&es[ch->prn], &msg);
+        sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(msg_ephemeris_t), (u8 *)&msg);
       }
     }
   }
@@ -101,12 +103,13 @@ static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void* contex
 {
   (void)sender_id; (void)context;
 
-  if (len != sizeof(ephemeris_t)) {
+  if (len != sizeof(msg_ephemeris_t)) {
     log_warn("Received bad ephemeris from peer\n");
     return;
   }
 
-  ephemeris_t e = *(ephemeris_t *)msg;
+  ephemeris_t e;
+  unpack_ephemeris((msg_ephemeris_t *)msg, &e);
   if (e.prn >= MAX_SATS) {
     log_warn("Ignoring ephemeris for invalid sat\n");
     return;
