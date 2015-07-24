@@ -100,11 +100,11 @@ void nap_acq_init_wr_disable_blocking()
  * \param corr   Maximum tap correlation from last cycle.
  * \param acc    Accumulation of all tap final correlations from last cycle.
  */
-static void nap_acq_corr_unpack(u8 packed[], u16 *index, u16 *max, u16 *ave)
+static void nap_acq_corr_unpack(u8 packed[], u16 *index, u16 *max, float *ave)
 {
   *max = (packed[0] << 8) | packed[1];
-  *ave = (packed[2] << 8) | packed[3];
-  *index = ((packed[4] << 8) | packed[5]) >> (16 - nap_acq_fft_index_bits);
+  *ave = ((packed[2] << 16) | (packed[3] << 8) | packed[4]) / 256.0;
+  *index = ((packed[5] << 8) | packed[6]) >> (16 - nap_acq_fft_index_bits);
 }
 
 /** Read correlations from acquisition channel.
@@ -115,9 +115,9 @@ static void nap_acq_corr_unpack(u8 packed[], u16 *index, u16 *max, u16 *ave)
  * \param corr   Maximum tap correlation from last cycle.
  * \param acc    Accumulation of all tap final correlations from last cycle.
  */
-void nap_acq_corr_rd_blocking(u16 *index, u16 *max, u16 *ave)
+void nap_acq_corr_rd_blocking(u16 *index, u16 *max, float *ave)
 {
-  u8 temp[6];
+  u8 temp[7];
 
   nap_xfer_blocking(NAP_REG_ACQ_CORR, sizeof(temp), temp, temp);
   nap_acq_corr_unpack(temp, index, max, ave);

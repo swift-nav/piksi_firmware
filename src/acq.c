@@ -102,7 +102,7 @@ static struct {
   u8 p_head;
   u8 p_tail;
 
-  u64 power_acc;      /**< Sum of powers of all acquisition set points. */
+  float power_acc;    /**< Sum of powers of all acquisition set points. */
   u64 best_power;     /**< Highest power of all acquisition set points. */
   s16 best_cf;        /**< Carrier freq corresponding to highest power. */
   u16 best_cp;        /**< Code phase corresponding to highest power. */
@@ -163,7 +163,7 @@ void acq_service_irq(void)
 
   u16 index_max;
   u16 corr_max;
-  u16 ave;
+  float ave;
 
   nap_acq_corr_rd_blocking(&index_max, &corr_max, &ave);
   acq_state.power_acc += ave;
@@ -192,8 +192,18 @@ void acq_get_results(float* cp, float* cf, float* cn0)
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   float snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
-  if (snr == 0 || snr != snr) {
-    log_error("Acq: bad SNR (%f)\n", snr);
+
+  /* If there's a failure in chain, which results in the FFT being fed zeros
+   * output power could return zero. Potential failure modes:
+   * 1. GPS Front End is misconfigured and returning zeros or has lifted pin
+   * 2. PRN is incorrect or corrupted to zeros
+   * or if the FPGA has a critical failure 
+   * that causes it to not raise interrupts count could be zero.  Catch
+   * this condition so we don't propagate NaN up through the stack */
+  if ((acq_state.power_acc == 0) || (acq_state.count == 0)) {
+    log_error("acq: Power or frequency bin count is 0, causing SNR to be NaN. "
+              "(best=%" PRIu64 ", acc=%f, count=%" PRIu32 ")\n",
+              acq_state.best_power, acq_state.power_acc, acq_state.count);
     *cn0 = 0;
   } else {
   *cn0 = 10 * log10(snr)
