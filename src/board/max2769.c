@@ -162,14 +162,14 @@ bool antenna_changed(struct setting *s, const char *val)
       max2769_conf1 |= MAX2769_CONF1_LNAMODE_LNA1 | MAX2769_CONF1_ANTEN;
       if (ant_status) {
         log_warn("Patch antenna selected, but an external "
-                 "antenna appears to be connected.\n"); 
+                 "antenna appears to be connected."); 
       }
       break;
     case EXTERNAL:
       max2769_conf1 |= MAX2769_CONF1_LNAMODE_LNA2 | MAX2769_CONF1_ANTEN;
       if (!ant_status) { 
         log_warn("External antenna selected, but no external " 
-                 "antenna appears to be connected.\n"); 
+                 "antenna appears to be connected."); 
       }
       break;
     case EXTERNAL_AC:
@@ -177,7 +177,7 @@ bool antenna_changed(struct setting *s, const char *val)
       break;
     }
     max2769_write(MAX2769_CONF1, max2769_conf1);
-    log_info("Antenna changed to: %s\n", val);
+    log_info("Antenna changed to: %s", val);
 
     return true;
   }
