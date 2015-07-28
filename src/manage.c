@@ -79,7 +79,7 @@ acq_prn_t acq_prn_param[32];
 
 almanac_t almanac[32];
 
-float track_cn0_threshold = 33.0;
+float track_cn0_threshold = 31.0;
 
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
