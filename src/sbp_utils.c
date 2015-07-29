@@ -190,7 +190,7 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
 
   s64 P_fp = llround(P * MSG_OBS_P_MULTIPLIER);
   if (P < 0 || P_fp > UINT32_MAX) {
-    log_error("observation message packing: P integer overflow (%f)\n", P);
+    log_error("observation message packing: P integer overflow (%f)", P);
     return -1;
   }
 
@@ -198,7 +198,7 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
 
   double Li = floor(L);
   if (Li < INT32_MIN || Li > INT32_MAX) {
-    log_error("observation message packing: L integer overflow (%f)\n", L);
+    log_error("observation message packing: L integer overflow (%f)", L);
     return -1;
   }
 
@@ -209,7 +209,7 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
 
   s32 snr_fp = lround(snr * MSG_OBS_SNR_MULTIPLIER);
   if (snr < 0 || snr_fp > UINT8_MAX) {
-    log_error("observation message packing: SNR integer overflow (%f)\n", snr);
+    log_error("observation message packing: SNR integer overflow (%f)", snr);
     return -1;
   }
 

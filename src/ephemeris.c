@@ -31,21 +31,21 @@ static void ephemeris_new(ephemeris_t *e)
   gps_time_t t = get_current_time();
   if (!ephemeris_good(&es[e->prn], t)) {
     /* Our currently used ephemeris is bad, so we assume this is better. */
-    log_info("New untrusted ephemeris for PRN %02d\n", e->prn+1);
+    log_info("New untrusted ephemeris for PRN %02d", e->prn+1);
     chMtxLock(&es_mutex);
     es[e->prn] = es_candidate[e->prn] = *e;
     chMtxUnlock();
 
   } else if (ephemeris_equal(&es_candidate[e->prn], e)) {
     /* The received ephemeris matches our candidate, so we trust it. */
-    log_info("New trusted ephemeris for PRN %02d\n", e->prn+1);
+    log_info("New trusted ephemeris for PRN %02d", e->prn+1);
     chMtxLock(&es_mutex);
     es[e->prn] = *e;
     chMtxUnlock();
   } else {
     /* This is our first reception of this new ephemeris, so treat it with
      * suspicion and call it the new candidate. */
-    log_info("New ephemeris candidate for PRN %02d\n", e->prn+1);
+    log_info("New ephemeris candidate for PRN %02d", e->prn+1);
     chMtxLock(&es_mutex);
     es_candidate[e->prn] = *e;
     chMtxUnlock();
@@ -87,7 +87,7 @@ static msg_t nav_msg_thread(void *arg)
       ephemeris_new(&e);
 
       if (!es[ch->prn].healthy) {
-        log_info("PRN %02d unhealthy\n", ch->prn+1);
+        log_info("PRN %02d unhealthy", ch->prn+1);
       } else {
         msg_ephemeris_t msg;
         pack_ephemeris(&es[ch->prn], &msg);
@@ -104,14 +104,14 @@ static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void* contex
   (void)sender_id; (void)context;
 
   if (len != sizeof(msg_ephemeris_t)) {
-    log_warn("Received bad ephemeris from peer\n");
+    log_warn("Received bad ephemeris from peer");
     return;
   }
 
   ephemeris_t e;
   unpack_ephemeris((msg_ephemeris_t *)msg, &e);
   if (e.prn >= MAX_SATS) {
-    log_warn("Ignoring ephemeris for invalid sat\n");
+    log_warn("Ignoring ephemeris for invalid sat");
     return;
   }
 

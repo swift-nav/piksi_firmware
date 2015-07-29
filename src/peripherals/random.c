@@ -53,7 +53,7 @@ u32 random_int(void)
     if ((sr = RNG_SR)) {
       if (sr & RNG_SR_SEIS) {
         /* Seed error, we must reinitialise */
-        log_warn("random: Seed error, restarting RNG 0x%"PRIx32"\n", sr);
+        log_warn("random: Seed error, restarting RNG 0x%"PRIx32"", sr);
         RNG_CR &= ~RNG_CR_RNGEN;
         RNG_CR |= RNG_CR_RNGEN;
       }
@@ -69,7 +69,7 @@ u32 random_int(void)
   } while ((new_value == last_value) && (tries < RANDOM_MAX_TRIES));
 
   if (new_value == last_value) {
-    log_error("random: Gave up waiting for random number!\n");
+    log_error("random: Gave up waiting for random number!");
     new_value = last_value + 1;
   }
   last_value = new_value;

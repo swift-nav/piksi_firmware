@@ -162,7 +162,7 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
     busy_wait_for_str(usart, "\x00", WAIT_BETWEEN_COMMANDS);
 
   } else {
-    log_info("No telemetry radio found on %s, skipping configuration.\n",
+    log_info("No telemetry radio found on %s, skipping configuration.",
              uart_name);
   }
 

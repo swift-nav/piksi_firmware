@@ -97,20 +97,20 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   almanac_t *new_almanac = (almanac_t*)msg;
 
-  log_info("Received alamanc for PRN %02d\n", new_almanac->prn);
+  log_info("Received alamanc for PRN %02d", new_almanac->prn);
   memcpy(&almanac[new_almanac->prn-1], new_almanac, sizeof(almanac_t));
 
   int fd = cfs_open("almanac", CFS_WRITE);
   if (fd != -1) {
     cfs_seek(fd, (new_almanac->prn-1)*sizeof(almanac_t), CFS_SEEK_SET);
     if (cfs_write(fd, new_almanac, sizeof(almanac_t)) != sizeof(almanac_t)) {
-      log_error("Error writing to almanac file\n");
+      log_error("Error writing to almanac file");
     } else {
-      log_info("Saved almanac to flash\n");
+      log_info("Saved almanac to flash");
     }
     cfs_close(fd);
   } else {
-    log_error("Error opening almanac file\n");
+    log_error("Error opening almanac file");
   }
 }
 
@@ -127,7 +127,7 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   u8 prn = m->sid & 0x1F; /* TODO prn -> sid */
 
-  log_info("Mask for PRN %02d = 0x%02x\n", prn+1, m->mask);
+  log_info("Mask for PRN %02d = 0x%02x", prn+1, m->mask);
   if (m->mask & MASK_ACQUISITION) {
     acq_prn_param[prn].masked = true;
   } else {
@@ -166,10 +166,10 @@ void manage_acq_setup()
   int fd = cfs_open("almanac", CFS_READ);
   if (fd != -1) {
     cfs_read(fd, almanac, 32*sizeof(almanac_t));
-    log_info("Loaded almanac from flash\n");
+    log_info("Loaded almanac from flash");
     cfs_close(fd);
   } else {
-    log_info("No almanac file present in flash, create an empty one\n");
+    log_info("No almanac file present in flash, create an empty one");
     cfs_coffee_reserve("almanac", 32*sizeof(almanac_t));
     cfs_coffee_configure_log("almanac", 256, sizeof(almanac_t));
 
@@ -296,7 +296,7 @@ static u8 choose_prn(void)
     }
   }
 
-  log_error("Failed to pick a sat for acquisition!\n");
+  log_error("Failed to pick a sat for acquisition!");
 
   return -1;
 }
@@ -344,7 +344,7 @@ static void manage_acq()
   /* Check for NaNs in dopp hints, or low > high */
   if (!(acq_prn_param[prn].dopp_hint_low
         <= acq_prn_param[prn].dopp_hint_high)) {
-    log_error("Acq: caught bogus dopp_hints (%f, %f)\n",
+    log_error("Acq: caught bogus dopp_hints (%f, %f)",
               acq_prn_param[prn].dopp_hint_low,
               acq_prn_param[prn].dopp_hint_high);
     acq_prn_param[prn].dopp_hint_high = ACQ_FULL_CF_MAX;
@@ -504,7 +504,7 @@ static void manage_track()
 
     /* Is ephemeris marked unhealthy? */
     if (es[ch->prn].valid && !es[ch->prn].healthy) {
-      log_info("PRN%d unhealthy, dropping\n", ch->prn+1);
+      log_info("PRN%d unhealthy, dropping", ch->prn+1);
       drop_channel(i);
       acq_prn_param[ch->prn].state = ACQ_PRN_UNHEALTHY;
       continue;
@@ -521,21 +521,21 @@ static void manage_track()
     /* Optimistic phase lock detector "unlocked" for a while? */
     /* TODO: This isn't doing much.  Use the pessimistic detector instead? */
     if ((int)(uc - ch->ld_opti_locked_count) > TRACK_DROP_UNLOCKED_T) {
-      log_info("PRN%d PLL unlocked too long, dropping\n", ch->prn+1);
+      log_info("PRN%d PLL unlocked too long, dropping", ch->prn+1);
       drop_channel(i);
       continue;
     }
 
     /* CN0 below threshold for a while? */
     if ((int)(uc - ch->cn0_above_drop_thres_count) > TRACK_DROP_CN0_T) {
-      log_info("PRN%d low CN0 too long, dropping\n", ch->prn+1);
+      log_info("PRN%d low CN0 too long, dropping", ch->prn+1);
       drop_channel(i);
       continue;
     }
 
     /* Is satellite below our elevation mask? */
     if (ch->elevation < elevation_mask) {
-      log_info("PRN%d below elevation mask, dropping\n", ch->prn+1);
+      log_info("PRN%d below elevation mask, dropping", ch->prn+1);
       drop_channel(i);
       /* Erase the tracking hint score, and any others it might have */
       memset(&acq_prn_param[ch->prn].score, 0,

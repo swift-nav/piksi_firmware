@@ -200,7 +200,7 @@ u32 usart_n_read_dma(usart_rx_dma_state* s)
     n_available = 0;
   else if (n_available > USART_RX_BUFFER_LEN) {
     /* If greater than a whole buffer then we have had an overflow. */
-    log_error("DMA RX buffer overrun\n");
+    log_error("DMA RX buffer overrun");
     n_available = 0;
     s->errors++;
     /* Disable and re-enable the DMA channel to get back to a known good

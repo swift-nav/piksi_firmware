@@ -43,7 +43,7 @@ void position_setup(void)
   if (fd != -1) {
     cfs_read(fd, &position_solution, sizeof(gnss_solution));
     if (position_solution.valid) {
-      log_info("Loaded last position solution from file: %.4f %.4f %.1f\n",
+      log_info("Loaded last position solution from file: %.4f %.4f %.1f",
                position_solution.pos_llh[0] * (180 / M_PI),
                position_solution.pos_llh[1] * (180 / M_PI),
                position_solution.pos_llh[2]);
@@ -52,11 +52,11 @@ void position_setup(void)
       last_time = position_solution.time;
       memcpy(last_ecef, position_solution.pos_ecef, sizeof(last_ecef));
     } else {
-      log_warn("Loaded position solution from file invalid\n");
+      log_warn("Loaded position solution from file invalid");
     }
     cfs_close(fd);
   } else {
-    log_info("No position file present in flash, create an empty one\n");
+    log_info("No position file present in flash, create an empty one");
     cfs_coffee_reserve("posn", sizeof(gnss_solution));
     cfs_coffee_configure_log("posn", 256, sizeof(gnss_solution));
   }
@@ -77,13 +77,13 @@ void position_updated(void)
     if (fd != -1) {
       if (cfs_write(fd, (void *)&position_solution,
                     sizeof(position_solution)) != sizeof(position_solution)) {
-        log_error("Error writing to position file\n");
+        log_error("Error writing to position file");
       } else {
-        log_info("Saved position to flash\n");
+        log_info("Saved position to flash");
       }
       cfs_close(fd);
     } else {
-      log_error("Error opening position file\n");
+      log_error("Error opening position file");
     }
     last_time = position_solution.time;
     memcpy(last_ecef, position_solution.pos_ecef, sizeof(last_ecef));

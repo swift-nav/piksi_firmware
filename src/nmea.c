@@ -63,7 +63,7 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
 /** NMEA_SENTENCE_DONE: append checksum and dispatch. */
 #define NMEA_SENTENCE_DONE() do { \
     if (sentence_bufp == sentence_buf_end) \
-      log_warn("NMEA %.6s cut off\n", sentence_buf); \
+      log_warn("NMEA %.6s cut off", sentence_buf); \
     nmea_append_checksum(sentence_buf, sizeof(sentence_buf)); \
     nmea_output(sentence_buf, sentence_bufp - sentence_buf + NMEA_SUFFIX_LEN); \
   } while (0)

@@ -161,7 +161,7 @@ static void update_obss(obss_t *new_obss)
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
-      log_warn("Error calculating base station position: (%s).\n", pvt_err_msg[-ret-1]);
+      log_warn("Error calculating base station position: (%s).", pvt_err_msg[-ret-1]);
     }
   }
   /* If the base station position is known then calculate the satellite ranges.
@@ -235,7 +235,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   double dt = fabs(epoch_count - round(epoch_count)) / obs_freq;
   if (dt > TIME_MATCH_THRESHOLD) {
     log_warn("Unaligned observation from base station ignored, "
-             "tow = %.3f, dt = %.3f\n", t.tow, dt);
+             "tow = %.3f, dt = %.3f", t.tow, dt);
     return;
   }
 
@@ -253,7 +253,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   } else if (prev_t.tow != t.tow ||
              prev_t.wn != t.wn ||
              prev_count + 1 != count) {
-    log_info("Dropped one of the observation packets! Skipping this sequence.\n");
+    log_info("Dropped one of the observation packets! Skipping this sequence.");
     prev_count = -1;
     return;
   } else {
@@ -327,7 +327,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 static void deprecated_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context; (void) len; (void) msg; (void) sender_id;
-  log_error("Receiving an old deprecated observation message.\n");
+  log_error("Receiving an old deprecated observation message.");
 }
 
 /** Setup the base station observation handling subsystem. */

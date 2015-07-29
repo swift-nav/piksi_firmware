@@ -33,7 +33,7 @@ void acq_set_prn(u8 prn)
   chBSemInit(&load_wait_sem, TRUE);
   nap_acq_code_wr_blocking(prn);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
-    log_error("acq: Timeout waiting for code load!\n");
+    log_error("acq: Timeout waiting for code load!");
   }
 }
 
@@ -76,7 +76,7 @@ bool acq_load(u32 count)
   nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
-    log_info("acq: Sample load timeout. Probably set timing strobe in the past.\n");
+    log_info("acq: Sample load timeout. Probably set timing strobe in the past.");
     return false;
   }
   return true;
@@ -141,7 +141,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
 
   for (s16 cf = cf_min; cf <= cf_max; cf += cf_step) {
     if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
-      log_error("acq: Search timeout (cf = %d)!\n", cf);
+      log_error("acq: Search timeout (cf = %d)!", cf);
     }
     acq_state.pipeline[acq_state.p_head].cf = cf;
     acq_state.p_head = (acq_state.p_head + 1) % NAP_ACQ_PIPELINE_STAGES;
@@ -150,7 +150,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
 
   for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {
     if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
-      log_error("acq: Search timeout!\n");
+      log_error("acq: Search timeout!");
     }
   }
 }
@@ -202,7 +202,7 @@ void acq_get_results(float* cp, float* cf, float* cn0)
    * this condition so we don't propagate NaN up through the stack */
   if ((acq_state.power_acc == 0) || (acq_state.count == 0)) {
     log_error("acq: Power or frequency bin count is 0, causing SNR to be NaN. "
-              "(best=%" PRIu64 ", acc=%f, count=%" PRIu32 ")\n",
+              "(best=%" PRIu64 ", acc=%f, count=%" PRIu32 ")",
               acq_state.best_power, acq_state.power_acc, acq_state.count);
     *cn0 = 0;
   } else {

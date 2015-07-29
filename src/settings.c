@@ -287,7 +287,7 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* conte
   (void) context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender\n");
+    log_error("Invalid sender");
     return;
   }
 
@@ -295,12 +295,12 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* conte
   const char *section = NULL, *setting = NULL, *value = NULL;
 
   if (len == 0) {
-    log_error("Error in settings write message\n");
+    log_error("Error in settings write message");
     return;
   }
 
   if (msg[len-1] != '\0') {
-    log_error("Error in settings write message\n");
+    log_error("Error in settings write message");
     return;
   }
 
@@ -323,26 +323,26 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void* conte
         if (i == len-1)
           break;
       default:
-        log_error("Error in settings write message\n");
+        log_error("Error in settings write message");
         return;
       }
     }
   }
 
   if (value == NULL) {
-    log_error("Error in settings write message\n");
+    log_error("Error in settings write message");
     return;
   }
 
   s = settings_lookup(section, setting);
   if (s == NULL) {
-    log_error("Error in settings write message\n");
+    log_error("Error in settings write message");
     return;
   }
 
   /* This is an assignment, call notify function */
   if (!s->notify(s, value)) {
-    log_error("Error in settings write message\n");
+    log_error("Error in settings write message");
     return;
   }
   s->dirty = true;
@@ -354,7 +354,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* contex
   (void) context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender\n");
+    log_error("Invalid sender");
     return;
   }
 
@@ -364,12 +364,12 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* contex
   u8 buflen;
 
   if (len == 0) {
-    log_error("Error in settings read message\n");
+    log_error("Error in settings read message");
     return;
   }
 
   if (msg[len-1] != '\0') {
-    log_error("Error in settings read message\n");
+    log_error("Error in settings read message");
     return;
   }
 
@@ -388,7 +388,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* contex
         if (i == len-1)
           break;
       default:
-        log_error("Error in settings read message\n");
+        log_error("Error in settings read message");
         return;
       }
     }
@@ -396,7 +396,7 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void* contex
 
   s = settings_lookup(section, setting);
   if (s == NULL) {
-    log_error("Error in settings read message\n");
+    log_error("Error in settings read message");
     return;
   }
 
@@ -410,7 +410,7 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   (void) context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender\n");
+    log_error("Invalid sender");
     return;
   }
 
@@ -449,7 +449,7 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* contex
   (void)sender_id; (void) context; (void)len; (void)msg;
 
   if (f == -1) {
-    log_error("Error opening config file!\n");
+    log_error("Error opening config file!");
     return;
   }
 
@@ -463,7 +463,7 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* contex
       sec = s->section;
       i = snprintf(buf, sizeof(buf), "[%s]\n", sec);
       if (cfs_write(f, buf, i) != i) {
-        log_error("Error writing to config file!\n");
+        log_error("Error writing to config file!");
       }
     }
 
@@ -472,11 +472,11 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void* contex
     i += s->type->to_string(s->type->priv, &buf[i], sizeof(buf) - i - 1, s->addr, s->len);
     buf[i++] = '\n';
     if (cfs_write(f, buf, i) != i) {
-      log_error("Error writing to config file!\n");
+      log_error("Error writing to config file!");
     }
   }
 
   cfs_close(f);
-  log_info("Wrote settings to config file.\n");
+  log_info("Wrote settings to config file.");
 }
 

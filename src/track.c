@@ -333,7 +333,7 @@ void tracking_channel_update(u8 channel)
 
       if ((TOW_ms >= 0) && chan->TOW_ms != TOW_ms) {
         if (chan->TOW_ms != TOW_INVALID) {
-          log_error("PRN %d TOW mismatch: %ld, %lu\n",
+          log_error("PRN %d TOW mismatch: %ld, %lu",
                     chan->prn+1, chan->TOW_ms, TOW_ms);
         }
         chan->TOW_ms = TOW_ms;
@@ -357,7 +357,7 @@ void tracking_channel_update(u8 channel)
       /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
       if (last_outp && !chan->lock_detect.outp) {
         if (chan->stage > 0)
-          log_info("PRN %d PLL stress\n", chan->prn+1);
+          log_info("PRN %d PLL stress", chan->prn+1);
         tracking_channel_ambiguity_unknown(channel);
       }
 
@@ -404,7 +404,7 @@ void tracking_channel_update(u8 channel)
         float err = alias_detect_second(&chan->alias_detect, I, Q);
         if (fabs(err) > (250 / chan->int_ms)) {
           if (chan->lock_detect.outp)
-            log_warn("False phase lock detect PRN%d: err=%f\n", chan->prn+1, err);
+            log_warn("False phase lock detect PRN%d: err=%f", chan->prn+1, err);
 
           tracking_channel_ambiguity_unknown(channel);
           /* Indicate that a mode change has occurred. */
@@ -421,7 +421,7 @@ void tracking_channel_update(u8 channel)
           (chan->lock_detect.outo) &&
           /* Must have nav bit sync, and be correctly aligned */
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
-        log_info("PRN %d synced @ %u ms, %.1f dBHz\n",
+        log_info("PRN %d synced @ %u ms, %.1f dBHz",
                  chan->prn+1, (unsigned int)chan->update_count, chan->cn0);
         chan->stage = 1;
         struct loop_params *l = &loop_params_stage[1];
@@ -463,7 +463,7 @@ void tracking_channel_update(u8 channel)
       tracking_channel_disable(channel);
       break;
     default:
-      log_error("CH%d (PRN%02d) invalid state %d\n", channel, chan->prn+1, chan->state);
+      log_error("CH%d (PRN%02d) invalid state %d", channel, chan->prn+1, chan->state);
       tracking_channel_disable(channel);
       break;
   }
@@ -581,7 +581,7 @@ static bool parse_loop_params(struct setting *s, const char *val)
                &l->code_bw, &l->code_zeta, &l->code_k, &l->carr_to_code,
                &l->carr_bw, &l->carr_zeta, &l->carr_k, &l->carr_fll_aid_gain,
                &n_chars_read) < 9) {
-      log_error("Ill-formatted tracking loop param string.\n");
+      log_error("Ill-formatted tracking loop param string.");
       return false;
     }
     l->coherent_ms = tmp;
@@ -593,7 +593,7 @@ static bool parse_loop_params(struct setting *s, const char *val)
     if ((l->coherent_ms == 0)
         || ((20 % l->coherent_ms) != 0) /* i.e. not 1, 2, 4, 5, 10 or 20 */
         || (stage == 0 && l->coherent_ms != 1)) {
-      log_error("Invalid coherent integration length.\n");
+      log_error("Invalid coherent integration length.");
       return false;
     }
   }
@@ -611,7 +611,7 @@ static bool parse_lock_detect_params(struct setting *s, const char *val)
 
   if (sscanf(val, "%f , %f , %" SCNu16 " , %" SCNu16,
              &p.k1, &p.k2, &p.lp, &p.lo) < 4) {
-      log_error("Ill-formatted lock detect param string.\n");
+      log_error("Ill-formatted lock detect param string.");
       return false;
   }
   /* Successfully parsed.  Save to memory. */
