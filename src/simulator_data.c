@@ -11,7 +11,7 @@ u32 simulation_fake_carrier_bias[31];
 
 u8 simulation_num_almanacs = 31;
 
-almanac_t simulation_almanacs[31] = {
+const almanac_t simulation_almanacs[31] = {
 { 
   .ecc       = 0.002888,
   .toa       = 233472.000000,
