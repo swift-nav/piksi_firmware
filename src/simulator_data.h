@@ -21,6 +21,6 @@ extern u8 simulation_num_almanacs;
 extern double simulation_sats_pos[][3];
 extern double simulation_sats_vel[][3];
 extern u32 simulation_fake_carrier_bias[];
-extern almanac_t simulation_almanacs[];
+extern const almanac_t simulation_almanacs[];
 
 #endif /* SWIFTNAV_SIMULATOR_DATA_H */
