@@ -144,7 +144,7 @@ void sleep_until(systime_t *previous, systime_t period)
   *previous = future;
 }
 
-static WORKING_AREA_CCM(wa_system_monitor_thread, 3000);
+static WORKING_AREA_CCM(wa_system_monitor_thread, 1000);
 static msg_t system_monitor_thread(void *arg)
 {
   (void)arg;
