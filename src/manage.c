@@ -79,7 +79,7 @@ acq_prn_t acq_prn_param[32];
 
 almanac_t almanac[32];
 
-float track_cn0_threshold = 33.0;
+float track_cn0_threshold = 31.0;
 
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
@@ -512,9 +512,9 @@ s8 use_tracking_channel(u8 i)
 
     /* Check ephemeris is usable. */
     gps_time_t t = {
-      /* TODO: the following makes the week number check tautological -
-         see issue #475 */
-      .wn = es[tracking_channel[i].prn].toe.wn,
+      /* TODO: the following makes the week number part of the
+         TOW check tautological - see issue #475 */
+      .wn = WN_UNKNOWN,
       .tow = 1e-3 * tracking_channel[i].TOW_ms
     };
     return ephemeris_good(&es[tracking_channel[i].prn], t);
