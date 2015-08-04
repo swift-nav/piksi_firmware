@@ -3,6 +3,7 @@ Piksi Firmware Release Notes
 
 Contents
 --------
+ * [v0.19](#v0.19)
  * [v0.18](#v0.18)
  * [v0.17](#v0.17)
  * [v0.16](#v0.16)
@@ -13,6 +14,28 @@ Contents
  * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.19 <a name="v0.19"></a>
+-----
+
+#### Core
+
+ * Fix bug where acquisition could get stuck searching an empty Doppler range
+ * Fix buffer overflows when building NMEA messages
+ * Add better checks and thread safety to random number generator
+ * Add GPRMC, GPVTG, and GPGLL NMEA messages
+ * Settings and FileIO messages are now directional
+
+#### libswiftnav
+
+ * Receiver Autonomous Integrity Monitoring (RAIM) to filter out
+   bad position solutions
+ * Various off by 1 fixes
+ * Add phase lock counter to local observations
+ * Improved PLL lock detection
+ * Change tracking C/N0 estimator to dQ/I
+ * More robust nav message decoding
+ * Update UTC time offset for leap second on June 30th, 2015
 
 v0.18 <a name="v0.18"></a>
 -----
