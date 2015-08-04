@@ -57,7 +57,7 @@ double soln_freq = 10.0;
 u32 obs_output_divisor = 2;
 
 double known_baseline[3] = {0, 0, 0};
-u16 msg_obs_max_size = 104;
+u16 msg_obs_max_size = 102;
 
 static u16 lock_counters[MAX_SATS];
 
