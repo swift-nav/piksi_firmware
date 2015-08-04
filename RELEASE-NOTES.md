@@ -21,17 +21,17 @@ v0.20 <a name="v0.20"></a>
 
 #### Core
  * Updates to libsbp for stability
- ** Deprecate MSG_PRINT in favor of MSG_LOG which includes log level in protocol
- ** Remove strings that indicate log levels from msg print prefixes
- ** Update the following messages in order to widen PRN field and rename to SID
- *** SBP_MSG_TRACKING
- *** SBP_MSG_ACQ_RESULT
- *** SBP_MSG_OBS
- *** SBP_MSG_EPHEMERIS
- *** SBP_MSG_TRACKING_STATE
+  * Deprecate MSG_PRINT in favor of MSG_LOG which includes log level in protocol
+  * Remove strings that indicate log levels from msg print prefixes
+  * Update the following messages in order to widen PRN field and rename to SID
+    * SBP_MSG_TRACKING
+    * SBP_MSG_ACQ_RESULT
+    * SBP_MSG_OBS
+    * SBP_MSG_EPHEMERIS
+    * SBP_MSG_TRACKING_STATE
  * Add sanity check for user entered base station position upon broadcast of location
-* Change tracking threshold to 31 db-hz to help maintain track
-* Fix known bug where Piksi could operate incorrectly during GPS week rollover
+ * Change tracking threshold to 31 db-hz to help maintain track
+ * Fix known bug where Piksi could operate incorrectly during GPS week rollover
 
 v0.19 <a name="v0.19"></a>
 -----
