@@ -11,8 +11,7 @@ Checking Out Submodules
 ChibiOS, libopencm3, libsbp and libswiftnav are submodules of this git repository.
 Check them out using:
 
-	git submodule init
-	git submodule update
+	git submodule update --init
 
 Remember to run `git submodule update` after pulling in the latest changes to
 ensure all the submodules are in sync.
