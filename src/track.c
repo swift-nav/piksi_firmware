@@ -159,7 +159,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 
   /* Setup tracking_channel struct. */
   chan->state = TRACKING_RUNNING;
-  chan->prn = prn;
+  chan->sid.prn = prn;
   chan->elevation = elevation;
 
   /* Initialize TOW_ms and lock_count. */
@@ -267,7 +267,7 @@ void tracking_channel_get_corrs(u8 channel)
 void tracking_drop_satellite(u8 prn)
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
-    if (tracking_channel[i].prn != prn)
+    if (tracking_channel[i].sid.prn != prn)
       continue;
 
     tracking_channel[i].tl_state.code_filt.y += 500;
@@ -334,7 +334,7 @@ void tracking_channel_update(u8 channel)
       if ((TOW_ms >= 0) && chan->TOW_ms != TOW_ms) {
         if (chan->TOW_ms != TOW_INVALID) {
           log_error("PRN %d TOW mismatch: %ld, %lu",
-                    chan->prn+1, chan->TOW_ms, TOW_ms);
+                    chan->sid.prn+1, chan->TOW_ms, TOW_ms);
         }
         chan->TOW_ms = TOW_ms;
       }
@@ -357,7 +357,7 @@ void tracking_channel_update(u8 channel)
       /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
       if (last_outp && !chan->lock_detect.outp) {
         if (chan->stage > 0)
-          log_info("PRN %d PLL stress", chan->prn+1);
+          log_info("PRN %d PLL stress", chan->sid.prn+1);
         tracking_channel_ambiguity_unknown(channel);
       }
 
@@ -374,7 +374,7 @@ void tracking_channel_update(u8 channel)
       if (chan->output_iq && (chan->int_ms > 1)) {
         msg_tracking_iq_t msg = {
           .channel = channel,
-          .sid = chan->prn,
+          .sid = chan->sid.prn,
         };
         for (u32 i = 0; i < 3; i++) {
           msg.corrs[i].I = cs[i].I;
@@ -404,7 +404,7 @@ void tracking_channel_update(u8 channel)
         float err = alias_detect_second(&chan->alias_detect, I, Q);
         if (fabs(err) > (250 / chan->int_ms)) {
           if (chan->lock_detect.outp)
-            log_warn("False phase lock detect PRN%d: err=%f", chan->prn+1, err);
+            log_warn("False phase lock detect PRN%d: err=%f", chan->sid.prn+1, err);
 
           tracking_channel_ambiguity_unknown(channel);
           /* Indicate that a mode change has occurred. */
@@ -422,7 +422,7 @@ void tracking_channel_update(u8 channel)
           /* Must have nav bit sync, and be correctly aligned */
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
         log_info("PRN %d synced @ %u ms, %.1f dBHz",
-                 chan->prn+1, (unsigned int)chan->update_count, chan->cn0);
+                 chan->sid.prn+1, (unsigned int)chan->update_count, chan->cn0);
         chan->stage = 1;
         struct loop_params *l = &loop_params_stage[1];
         chan->int_ms = l->coherent_ms;
@@ -463,7 +463,7 @@ void tracking_channel_update(u8 channel)
       tracking_channel_disable(channel);
       break;
     default:
-      log_error("CH%d (PRN%02d) invalid state %d", channel, chan->prn+1, chan->state);
+      log_error("CH%d (PRN%02d) invalid state %d", channel, chan->sid.prn+1, chan->state);
       tracking_channel_disable(channel);
       break;
   }
@@ -492,7 +492,7 @@ void tracking_channel_disable(u8 channel)
  */
 void tracking_channel_ambiguity_unknown(u8 channel)
 {
-  u8 prn = tracking_channel[channel].prn;
+  u8 prn = tracking_channel[channel].sid.prn;
   tracking_channel[channel].nav_msg.bit_polarity = BIT_POLARITY_UNKNOWN;
   tracking_channel[channel].lock_counter = ++tracking_lock_counters[prn];
 }
@@ -506,7 +506,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   tracking_channel_t* chan = &tracking_channel[channel];
 
   /* Update our channel measurement. */
-  meas->prn = chan->prn;
+  signal_copy(&chan->sid, &meas->sid);
   meas->code_phase_chips = (double)chan->code_phase_early / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
   meas->code_phase_rate = chan->code_phase_rate;
   meas->carrier_phase = chan->carrier_phase / (double)(1<<24);
@@ -546,7 +546,7 @@ void tracking_send_state()
 
     for (u8 i=0; i<nap_track_n_channels; i++) {
       states[i].state = tracking_channel[i].state;
-      states[i].sid = tracking_channel[i].prn; /* TODO prn -> sid */
+      states[i].sid = tracking_channel[i].sid.prn; /* TODO prn -> sid */
       if (tracking_channel[i].state == TRACKING_RUNNING)
         states[i].cn0 = tracking_channel[i].cn0;
       else

@@ -18,6 +18,7 @@
 #include <libsbp/observation.h>
 #include <libswiftnav/gpstime.h>
 #include <libswiftnav/pvt.h>
+#include <libswiftnav/signal.h>
 
 void sbp_make_gps_time(msg_gps_time_t *t_out, const gps_time_t *t_in, u8 flags);
 void sbp_make_pos_llh(msg_pos_llh_t *pos_llh, const gnss_solution *soln, u8 flags);
@@ -43,21 +44,23 @@ void sbp_make_baseline_ned(msg_baseline_ned_t *baseline_ned, const gps_time_t *t
 #define MSG_OBS_SNR_MULTIPLIER ((float)4)
 #define MSG_OSB_LF_MULTIPLIER ((double)(1<<8))
 
-void unpack_obs_header(const observation_header_t *msg, gps_time_t* t, u8* total,
-                       u8* count);
+void unpack_obs_header(const observation_header_t *msg, gps_time_t* t,
+                       u8* total, u8* count);
 
 void pack_obs_header(const gps_time_t *t, u8 total, u8 count,
                      observation_header_t *msg);
 
 void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
-                        double *snr, u16 *lock_counter, u8 *prn);
+                        double *snr, u16 *lock_counter, signal_t *sid);
 
-s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
-                    packed_obs_content_t *msg);
+s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
+                    signal_t sid, packed_obs_content_t *msg);
 
 void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e);
 
 void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg);
+
+void signal_copy(const signal_t *from, signal_t *to);
 
 /** Value specifying the size of the SBP framing */
 #define SBP_FRAMING_SIZE_BYTES 8

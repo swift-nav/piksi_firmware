@@ -190,7 +190,7 @@ void nmea_gpgsa(const tracking_channel_t *chans, const dops_t *dops)
 
   for (u8 i = 0; i < 12; i++) {
     if (i < nap_track_n_channels && chans[i].state == TRACKING_RUNNING)
-      NMEA_SENTENCE_PRINTF("%02d,", chans[i].prn + 1);
+      NMEA_SENTENCE_PRINTF("%02d,", chans[i].sid.prn + 1);
     else
       NMEA_SENTENCE_PRINTF(",");
   }
@@ -230,7 +230,7 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
       if (n < n_used) {
         wgsecef2azel(nav_meas[n].sat_pos, soln->pos_ecef, &az, &el);
         NMEA_SENTENCE_PRINTF(",%02d,%02d,%03d,%02d",
-          nav_meas[n].prn + 1,
+          nav_meas[n].sid.prn + 1,
           (u8)round(el * R2D),
           (u16)round(az * R2D),
           (u8)round(nav_meas[n].snr)

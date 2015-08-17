@@ -163,13 +163,13 @@ void pack_obs_header(const gps_time_t *t, u8 total, u8 count, observation_header
 }
 
 void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
-                        double *snr, u16 *lock_counter, u8 *prn)
+                        double *snr, u16 *lock_counter, signal_t *sid)
 {
   *P   = ((double)msg->P) / MSG_OBS_P_MULTIPLIER;
   *L   = ((double)msg->L.i) + (((double)msg->L.f) / MSG_OSB_LF_MULTIPLIER);
   *snr = ((double)msg->cn0) / MSG_OBS_SNR_MULTIPLIER;
   *lock_counter = ((u16)msg->lock);
-  *prn = msg->sid & 0x1F; /* TODO: prn -> sid */
+  signal_copy(&msg->sid, sid);
 }
 
 /** Pack GPS observables into a `msg_obs_content_t` struct.
@@ -180,12 +180,12 @@ void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
  * \param snr Signal-to-noise ratio
  * \param lock_counter Lock counter is an arbitrary integer that should change
  *                     if the carrier phase ambiguity is ever reset
- * \param prn Satellite PRN identifier
+ * \param sid Signal ID
  * \param msg Pointer to a `msg_obs_content_t` struct to fill out
  * \return `0` on success or `-1` on an overflow error
  */
-s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
-                    packed_obs_content_t *msg)
+s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
+                    signal_t sid, packed_obs_content_t *msg)
 {
 
   s64 P_fp = llround(P * MSG_OBS_P_MULTIPLIER);
@@ -217,7 +217,7 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
 
   msg->lock = lock_counter;
 
-  msg->sid = prn; /* TODO prn -> sid */
+  signal_copy(&sid, &msg->sid);
 
   return 0;
 }
@@ -249,7 +249,7 @@ void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e)
    e->toc.wn    =  msg->toe_wn;
    e->valid     =  msg->valid;
    e->healthy   =  msg->healthy;
-   e->prn       =  msg->sid & 0x1F; /* TODO prn -> sid */
+   signal_copy(&msg->sid, &e->sid);
    e->iode      =  msg->iode;
 }
 
@@ -282,7 +282,7 @@ void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
   msg->toe_wn    = toc.wn;
   msg->valid     = e->valid;
   msg->healthy   = e->healthy;
-  msg->sid       = e->prn; /* TODO: prn -> sid */
+  signal_copy(&e->sid, &msg->sid);
   msg->iode      = e->iode;
 }
 
