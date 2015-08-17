@@ -20,6 +20,7 @@
 #include "board/nap/acq_channel.h"
 #include "acq.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 
 /** \defgroup acq Acquisition
  * Do acquisition searches via interrupt driven scheduling of SwiftNAP
@@ -28,10 +29,10 @@
 
 static BinarySemaphore load_wait_sem;
 
-void acq_set_prn(u8 prn)
+void acq_set_prn(signal_t sid)
 {
   chBSemInit(&load_wait_sem, TRUE);
-  nap_acq_code_wr_blocking(prn);
+  nap_acq_code_wr_blocking(sid);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
     log_error("acq: Timeout waiting for code load!");
   }
@@ -44,11 +45,11 @@ void acq_set_prn(u8 prn)
  * \param cp  Code phase of best point.
  * \param cf  Carrier frequency of best point.
  */
-void acq_send_result(u16 prn, float snr, float cp, float cf)
+void acq_send_result(signal_t sid, float snr, float cp, float cf)
 {
   msg_acq_result_t acq_result_msg;
 
-  acq_result_msg.sid.prn = prn; /* TODO prn -> sid */
+  signal_to_sbp(&sid, &acq_result_msg.sid);
   acq_result_msg.snr = snr;
   acq_result_msg.cp = cp;
   acq_result_msg.cf = cf;
