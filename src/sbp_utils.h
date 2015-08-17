@@ -16,6 +16,7 @@
 #include <libsbp/common.h>
 #include <libsbp/navigation.h>
 #include <libsbp/observation.h>
+#include <libsbp/signal.h>
 #include <libswiftnav/gpstime.h>
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/signal.h>
@@ -60,11 +61,13 @@ void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e);
 
 void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg);
 
-void signal_copy(const signal_t *from, signal_t *to);
-
 /** Value specifying the size of the SBP framing */
 #define SBP_FRAMING_SIZE_BYTES 8
 /** Value defining maximum SBP packet size */
 #define SBP_FRAMING_MAX_PAYLOAD_SIZE 255
+
+void signal_from_sbp(const sbp_signal_t *from, signal_t *to);
+void signal_to_sbp(const signal_t *from, sbp_signal_t *to);
+void signal_copy(const signal_t *from, signal_t *to);
 
 #endif /* SWIFTNAV_SBP_UTILS_H */

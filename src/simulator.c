@@ -313,7 +313,7 @@ void simulation_step_tracking_and_observations(double elapsed)
       /* As for tracking, we just set each sat consecutively in each channel. */
       /* This will cause weird jumps when a satellite rises or sets. */
       sim_state.tracking_channel[num_sats_selected].state = TRACKING_RUNNING;
-      sim_state.tracking_channel[num_sats_selected].sid = simulation_almanacs[i].prn  + SIM_PRN_OFFSET;
+      sim_state.tracking_channel[num_sats_selected].sid.prn = simulation_almanacs[i].prn  + SIM_PRN_OFFSET;
       sim_state.tracking_channel[num_sats_selected].cn0 = sim_state.nav_meas[num_sats_selected].snr;
 
       num_sats_selected++;

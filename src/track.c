@@ -16,6 +16,7 @@
 
 #include "board/nap/track_channel.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 #include "track.h"
 #include "simulator.h"
 #include "peripherals/random.h"
@@ -374,8 +375,9 @@ void tracking_channel_update(u8 channel)
       if (chan->output_iq && (chan->int_ms > 1)) {
         msg_tracking_iq_t msg = {
           .channel = channel,
-          .sid = chan->sid.prn,
+          //.sid = chan->sid,
         };
+        signal_to_sbp(&chan->sid, &msg.sid);
         for (u32 i = 0; i < 3; i++) {
           msg.corrs[i].I = cs[i].I;
           msg.corrs[i].Q = cs[i].Q;
@@ -537,8 +539,10 @@ void tracking_send_state()
     if (num_sats < nap_track_n_channels) {
       for (u8 i = num_sats; i < nap_track_n_channels; i++) {
         states[i].state = TRACKING_DISABLED;
-        states[i].sid   = 0;
-        states[i].cn0   = -1;
+        states[i].sid.constellation = 0;
+        states[i].sid.band = 0;
+        states[i].sid.prn = 0;
+        states[i].cn0 = -1;
       }
     }
 
@@ -546,7 +550,9 @@ void tracking_send_state()
 
     for (u8 i=0; i<nap_track_n_channels; i++) {
       states[i].state = tracking_channel[i].state;
-      states[i].sid = tracking_channel[i].sid.prn; /* TODO prn -> sid */
+      states[i].sid.prn = tracking_channel[i].sid.prn; /* TODO prn -> sid */
+      states[i].sid.constellation = tracking_channel[i].sid.constellation;
+      states[i].sid.band = tracking_channel[i].sid.band;
       if (tracking_channel[i].state == TRACKING_RUNNING)
         states[i].cn0 = tracking_channel[i].cn0;
       else
