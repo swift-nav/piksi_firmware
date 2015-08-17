@@ -276,17 +276,17 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   for (u8 i=0; i<obs_in_msg; i++) {
     /* Check the PRN is valid. e.g. simulation mode outputs test observations
      * with PRNs >200. */
-    if (obs[i].sid > 31) { /* TODO prn - sid; assume everything below is 0x1F masked! */
+    if (obs[i].sid.sat > 31) { /* TODO prn - sid; assume everything below is 0x1F masked! */
       continue;
     }
 
     /* Flag this as visible/viable to acquisition/search */
-    manage_set_obs_hint(obs[i].sid);
+    manage_set_obs_hint(sid_from_sbp(obs[i].sid));
 
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
     chMtxLock(&es_mutex);
-    if (ephemeris_good(&es[obs[i].sid], t)) {
+    if (ephemeris_good(&es[obs[i].sid.sat], t)) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
@@ -294,12 +294,12 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_rx.nm[base_obss_rx.n].carrier_phase,
         &base_obss_rx.nm[base_obss_rx.n].snr,
         &base_obss_rx.nm[base_obss_rx.n].lock_counter,
-        &base_obss_rx.nm[base_obss_rx.n].prn
+        &base_obss_rx.nm[base_obss_rx.n].sid
       );
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(&es[obs[i].sid], t,
+      calc_sat_state(&es[obs[i].sid.sat], t,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);

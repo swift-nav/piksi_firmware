@@ -267,7 +267,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
             m[obs_i].carrier_phase,
             m[obs_i].snr,
             m[obs_i].lock_counter,
-            m[obs_i].prn,
+            m[obs_i].sid,
             &obs[i]) < 0) {
         /* Error packing this observation, skip it. */
         i--;
@@ -368,7 +368,7 @@ static void update_sat_elevations(const navigation_measurement_t nav_meas[],
   for (int i = 0; i < n_meas; i++) {
     wgsecef2azel(nav_meas[i].sat_pos, pos_ecef, &_, &el);
     for (int j = 0; j < nap_track_n_channels; j++) {
-      if (tracking_channel[j].prn == nav_meas[i].prn) {
+      if (sid_is_equal(tracking_channel[j].sid, nav_meas[i].sid)) {
         tracking_channel[j].elevation = (float)el * R2D;
         break;
       }
@@ -662,7 +662,7 @@ static msg_t time_matched_obs_thread(void *arg)
             sds
         );
         chMtxUnlock();
-        u8 sats_to_drop[MAX_SATS];
+        gnss_signal_t sats_to_drop[MAX_SATS];
         u8 num_sats_to_drop = check_lock_counters(n_sds, sds, lock_counters,
                                                   sats_to_drop);
         if (num_sats_to_drop > 0) {

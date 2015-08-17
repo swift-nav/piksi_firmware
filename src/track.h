@@ -17,6 +17,7 @@
 #include <libswiftnav/common.h>
 #include <libswiftnav/nav_msg.h>
 #include <libswiftnav/track.h>
+#include <libswiftnav/signal.h>
 
 #include "board/nap/nap_common.h"
 #include "board/nap/track_channel.h"
@@ -41,7 +42,7 @@ typedef struct {
   u32 ld_opti_locked_count;    /**< update_count value when optimistic
                                   phase detector last "locked". */
   s32 TOW_ms;                  /**< TOW in ms. */
-  u8 prn;                      /**< CA Code (0-31) channel is tracking. */
+  gnss_signal_t sid;           /**< Satellite signal being tracked. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   u32 code_phase_early;        /**< Early code phase. */
   aided_tl_state_t tl_state;   /**< Tracking loop filter state. */
@@ -82,7 +83,7 @@ extern tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
 void initialize_lock_counters(void);
 
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
-void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
+void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
                            u32 start_sample_count, float cn0_init, s8 elevation);
 
 void tracking_channel_get_corrs(u8 channel);
@@ -92,6 +93,6 @@ void tracking_channel_ambiguity_unknown(u8 channel);
 void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
 void tracking_send_state(void);
 void tracking_setup(void);
-void tracking_drop_satellite(u8 prn);
+void tracking_drop_satellite(gnss_signal_t sid);
 
 #endif

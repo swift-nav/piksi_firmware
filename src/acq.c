@@ -20,6 +20,7 @@
 #include "board/nap/acq_channel.h"
 #include "acq.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 
 /** \defgroup acq Acquisition
  * Do acquisition searches via interrupt driven scheduling of SwiftNAP
@@ -44,11 +45,11 @@ void acq_set_prn(u8 prn)
  * \param cp  Code phase of best point.
  * \param cf  Carrier frequency of best point.
  */
-void acq_send_result(u8 prn, float snr, float cp, float cf)
+void acq_send_result(gnss_signal_t sid, float snr, float cp, float cf)
 {
   msg_acq_result_t acq_result_msg;
 
-  acq_result_msg.sid = prn; /* TODO prn -> sid */
+  acq_result_msg.sid = sid_to_sbp(sid);
   acq_result_msg.snr = snr;
   acq_result_msg.cp = cp;
   acq_result_msg.cf = cf;

@@ -12,6 +12,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <assert.h>
 
 #include <ch.h>
 
@@ -32,6 +33,7 @@
 #include "manage.h"
 #include "nmea.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
 #include "peripherals/random.h"
@@ -125,7 +127,11 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   msg_mask_satellite_t *m = (msg_mask_satellite_t *)msg;
 
-  u8 prn = m->sid & 0x1F; /* TODO prn -> sid */
+  /* FIXME constellation/band support */
+  assert(m->sid.constellation == CONSTELLATION_GPS);
+  assert(m->sid.band == BAND_L1);
+
+  u8 prn = m->sid.sat;
 
   log_info("Mask for PRN %02d = 0x%02x", prn+1, m->mask);
   if (m->mask & MASK_ACQUISITION) {
@@ -134,7 +140,7 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     acq_prn_param[prn].masked = false;
   }
   if (m->mask & MASK_TRACKING) {
-    tracking_drop_satellite(prn);
+    tracking_drop_satellite(sid_from_sbp(m->sid));
   }
 }
 
@@ -311,12 +317,16 @@ move or the satellite arcs across the sky.
 
 cturvey 10-Feb-2015
 */
-void manage_set_obs_hint(u8 prn)
+void manage_set_obs_hint(gnss_signal_t sid)
 {
-  if (prn >= 32) /* check range */
+  /* FIXME other constellations/bands */
+  assert(sid.constellation == CONSTELLATION_GPS);
+  assert(sid.band == BAND_L1);
+
+  if (sid.sat >= 32) /* check range */
     return;
 
-  acq_prn_param[prn].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
+  acq_prn_param[sid.sat].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
@@ -326,6 +336,7 @@ static void manage_acq()
   u8 prn = choose_prn();
   if (prn == (u8)-1)
     return;
+  gnss_signal_t sid = {.sat = prn};
 
   u32 timer_count;
   float cn0, cp, cf;
@@ -361,7 +372,7 @@ static void manage_acq()
    */
   acq_get_results(&cp, &cf, &cn0);
   /* Send result of an acquisition to the host. */
-  acq_send_result(prn, cn0, cp, cf);
+  acq_send_result(sid, cn0, cp, cf);
   if (cn0 < ACQ_THRESHOLD) {
     /* Didn't find the satellite :( */
     /* Double the size of the doppler search space for next time. */
@@ -401,7 +412,7 @@ static void manage_acq()
   track_count += 16*(1023.0-cp)*(1.0 + cf / GPS_L1_HZ);
 
   /* Start the tracking channel */
-  tracking_channel_init(chan, prn, cf, track_count, cn0,
+  tracking_channel_init(chan, sid, cf, track_count, cn0,
                         TRACKING_ELEVATION_UNKNOWN);
   /* TODO: Initialize elevation from ephemeris if we know it precisely */
 
@@ -482,11 +493,12 @@ static void drop_channel(u8 channel_id) {
   tracking_channel_disable(channel_id);
   const tracking_channel_t *ch = &tracking_channel[channel_id];
   if (ch->update_count > TRACK_REACQ_T) {
-    acq_prn_param[ch->prn].score[ACQ_HINT_PREV_TRACK] = SCORE_TRACK;
-    acq_prn_param[ch->prn].dopp_hint_low = ch->carrier_freq - ACQ_FULL_CF_STEP;
-    acq_prn_param[ch->prn].dopp_hint_high = ch->carrier_freq + ACQ_FULL_CF_STEP;
+    /* FIXME other constellations/bands */
+    acq_prn_param[ch->sid.sat].score[ACQ_HINT_PREV_TRACK] = SCORE_TRACK;
+    acq_prn_param[ch->sid.sat].dopp_hint_low = ch->carrier_freq - ACQ_FULL_CF_STEP;
+    acq_prn_param[ch->sid.sat].dopp_hint_high = ch->carrier_freq + ACQ_FULL_CF_STEP;
   }
-  acq_prn_param[ch->prn].state = ACQ_PRN_ACQUIRING;
+  acq_prn_param[ch->sid.sat].state = ACQ_PRN_ACQUIRING;
 }
 
 /** Disable any tracking channel that has lost phase lock or is
@@ -503,10 +515,10 @@ static void manage_track()
       continue;
 
     /* Is ephemeris marked unhealthy? */
-    if (es[ch->prn].valid && !es[ch->prn].healthy) {
-      log_info("PRN%d unhealthy, dropping", ch->prn+1);
+    if (es[ch->sid.sat].valid && !es[ch->sid.sat].healthy) {
+      log_info("PRN%d unhealthy, dropping", ch->sid.sat+1);
       drop_channel(i);
-      acq_prn_param[ch->prn].state = ACQ_PRN_UNHEALTHY;
+      acq_prn_param[ch->sid.sat].state = ACQ_PRN_UNHEALTHY;
       continue;
     }
 
@@ -521,25 +533,25 @@ static void manage_track()
     /* Optimistic phase lock detector "unlocked" for a while? */
     /* TODO: This isn't doing much.  Use the pessimistic detector instead? */
     if ((int)(uc - ch->ld_opti_locked_count) > TRACK_DROP_UNLOCKED_T) {
-      log_info("PRN%d PLL unlocked too long, dropping", ch->prn+1);
+      log_info("PRN%d PLL unlocked too long, dropping", ch->sid.sat+1);
       drop_channel(i);
       continue;
     }
 
     /* CN0 below threshold for a while? */
     if ((int)(uc - ch->cn0_above_drop_thres_count) > TRACK_DROP_CN0_T) {
-      log_info("PRN%d low CN0 too long, dropping", ch->prn+1);
+      log_info("PRN%d low CN0 too long, dropping", ch->sid.sat+1);
       drop_channel(i);
       continue;
     }
 
     /* Is satellite below our elevation mask? */
     if (ch->elevation < elevation_mask) {
-      log_info("PRN%d below elevation mask, dropping", ch->prn+1);
+      log_info("PRN%d below elevation mask, dropping", ch->sid.sat+1);
       drop_channel(i);
       /* Erase the tracking hint score, and any others it might have */
-      memset(&acq_prn_param[ch->prn].score, 0,
-             sizeof(acq_prn_param[ch->prn].score));
+      memset(&acq_prn_param[ch->sid.sat].score, 0,
+             sizeof(acq_prn_param[ch->sid.sat].score));
       continue;
     }
   }
@@ -574,7 +586,7 @@ s8 use_tracking_channel(u8 i)
       .wn = WN_UNKNOWN,
       .tow = 1e-3 * ch->TOW_ms
     };
-    return ephemeris_good(&es[ch->prn], t);
+    return ephemeris_good(&es[ch->sid.sat], t);
   } else return 0;
 }
 
