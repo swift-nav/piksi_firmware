@@ -411,7 +411,7 @@ static void manage_acq()
   track_count += 16*(1023.0-cp)*(1.0 + cf / GPS_L1_HZ);
 
   /* Start the tracking channel */
-  tracking_channel_init(chan, prn, cf, track_count, cn0,
+  tracking_channel_init(chan, sid.prn, cf, track_count, cn0,
                         TRACKING_ELEVATION_UNKNOWN);
   /* TODO: Initialize elevation from ephemeris if we know it precisely */
 
