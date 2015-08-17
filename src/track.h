@@ -17,6 +17,7 @@
 #include <libswiftnav/common.h>
 #include <libswiftnav/nav_msg.h>
 #include <libswiftnav/track.h>
+#include <libswiftnav/signal.h>
 
 #include "board/nap/nap_common.h"
 #include "board/nap/track_channel.h"
@@ -41,7 +42,7 @@ typedef struct {
   u32 ld_opti_locked_count;    /**< update_count value when optimistic
                                   phase detector last "locked". */
   s32 TOW_ms;                  /**< TOW in ms. */
-  u8 prn;                      /**< CA Code (0-31) channel is tracking. */
+  signal_t sid;
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   u32 code_phase_early;        /**< Early code phase. */
   aided_tl_state_t tl_state;   /**< Tracking loop filter state. */
