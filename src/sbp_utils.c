@@ -28,6 +28,27 @@
  * Convert to and from SBP message types and other useful functions.
  * \{ */
 
+void signal_to_sbp(const signal_t *from, sbp_signal_t *to)
+{
+  to->constellation = from->constellation;
+  to->band = from->band;
+  to->prn = from->prn;
+}
+
+void signal_from_sbp(const sbp_signal_t *from, signal_t *to)
+{
+  to->constellation = from->constellation;
+  to->band = from->band;
+  to->prn = from->prn;
+}
+
+void signal_copy(const signal_t *from, signal_t *to)
+{
+  to->constellation = from->constellation;
+  to->band = from->band;
+  to->prn = from->prn;
+}
+
 void sbp_make_gps_time(msg_gps_time_t *t_out, const gps_time_t *t_in, u8 flags)
 {
   t_out->wn = t_in->wn;
@@ -169,7 +190,7 @@ void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
   *L   = ((double)msg->L.i) + (((double)msg->L.f) / MSG_OSB_LF_MULTIPLIER);
   *snr = ((double)msg->cn0) / MSG_OBS_SNR_MULTIPLIER;
   *lock_counter = ((u16)msg->lock);
-  signal_copy(&msg->sid, sid);
+  signal_from_sbp(&msg->sid, sid);
 }
 
 /** Pack GPS observables into a `msg_obs_content_t` struct.
@@ -217,7 +238,7 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
 
   msg->lock = lock_counter;
 
-  signal_copy(&sid, &msg->sid);
+  signal_to_sbp(&sid, &msg->sid);
 
   return 0;
 }
@@ -249,7 +270,7 @@ void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e)
    e->toc.wn    =  msg->toe_wn;
    e->valid     =  msg->valid;
    e->healthy   =  msg->healthy;
-   signal_copy(&msg->sid, &e->sid);
+   signal_from_sbp(&msg->sid, &e->sid);
    e->iode      =  msg->iode;
 }
 
@@ -282,7 +303,7 @@ void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
   msg->toe_wn    = toc.wn;
   msg->valid     = e->valid;
   msg->healthy   = e->healthy;
-  signal_copy(&e->sid, &msg->sid);
+  signal_to_sbp(&e->sid, &msg->sid);
   msg->iode      = e->iode;
 }
 
