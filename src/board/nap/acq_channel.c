@@ -129,9 +129,9 @@ void nap_acq_corr_rd_blocking(u16 *index, u16 *max, float *ave)
  *
  * \param prn PRN number (0-31) of CA code to be written.
  */
-void nap_acq_code_wr_blocking(u8 prn)
+void nap_acq_code_wr_blocking(signal_t sid)
 {
-  nap_xfer_blocking(NAP_REG_ACQ_CODE, 128, 0, ca_code(prn));
+  nap_xfer_blocking(NAP_REG_ACQ_CODE, 128, 0, ca_code(sid));
 }
 
 /** \} */

@@ -212,7 +212,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   /* Start with code phase of zero as we have conspired for the
    * channel to be initialised on an EARLY code phase rollover.
    */
-  nap_track_code_wr_blocking(channel, prn);
+  nap_track_code_wr_blocking(channel, chan->sid);
   nap_track_init_wr_blocking(channel, prn, 0, 0);
   nap_track_update_wr_blocking(
     channel,
