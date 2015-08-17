@@ -67,6 +67,7 @@ typedef struct {
   u16 score[ACQ_HINT_NUM]; /**< Acquisition preference of PRN. */
   float dopp_hint_low;     /**< Low bound of doppler search hint. */
   float dopp_hint_high;    /**< High bound of doppler search hint. */
+  signal_t sid;
 } acq_prn_t;
 acq_prn_t acq_prn_param[32];
 
@@ -161,6 +162,9 @@ void manage_acq_setup()
       acq_prn_param[prn].score[hint] = 0;
     acq_prn_param[prn].dopp_hint_low = ACQ_FULL_CF_MIN;
     acq_prn_param[prn].dopp_hint_high = ACQ_FULL_CF_MAX;
+    acq_prn_param[prn].sid.prn = prn;
+    acq_prn_param[prn].sid.constellation = GPS_CONSTELLATION;
+    acq_prn_param[prn].sid.band = L1_BAND;
   }
 
   int fd = cfs_open("almanac", CFS_READ);
@@ -259,7 +263,7 @@ static u16 manage_warm_start(u8 prn, gps_time_t t,
     return SCORE_COLDSTART + SCORE_WARMSTART * el / 90.f;
 }
 
-static u8 choose_prn(void)
+static signal_t choose_sid(void)
 {
   u32 total_score = 0;
   gps_time_t t = get_current_time();
@@ -290,7 +294,7 @@ static u8 choose_prn(void)
     for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
       sat_score += acq_prn_param[prn].score[hint];
     if (pick < sat_score) {
-      return prn;
+      return acq_prn_param[prn].sid;
     } else {
       pick -= sat_score;
     }
@@ -298,7 +302,13 @@ static u8 choose_prn(void)
 
   log_error("Failed to pick a sat for acquisition!");
 
-  return -1;
+  signal_t fail = {
+    .prn = -1,
+    .band = L1_BAND,
+    .constellation = GPS_CONSTELLATION
+  };
+
+  return fail;
 }
 
 /** Hint acqusition at satellites observed by peer.
@@ -323,14 +333,14 @@ void manage_set_obs_hint(u16 prn)
 static void manage_acq()
 {
   /* Decide which PRN to try and then start it acquiring. */
-  u8 prn = choose_prn();
-  if (prn == (u8)-1)
+  signal_t sid = choose_sid();
+  if (sid.prn == (u16)-1)
     return;
 
   u32 timer_count;
   float cn0, cp, cf;
 
-  acq_set_prn(prn);
+  acq_set_prn(sid);
 
   /* We have our PRN chosen, now load some fresh data
    * into the acquisition ram on the Swift NAP for
@@ -342,16 +352,16 @@ static void manage_acq()
   } while (!acq_load(timer_count));
 
   /* Check for NaNs in dopp hints, or low > high */
-  if (!(acq_prn_param[prn].dopp_hint_low
-        <= acq_prn_param[prn].dopp_hint_high)) {
+  if (!(acq_prn_param[sid.prn].dopp_hint_low
+        <= acq_prn_param[sid.prn].dopp_hint_high)) {
     log_error("Acq: caught bogus dopp_hints (%f, %f)",
-              acq_prn_param[prn].dopp_hint_low,
-              acq_prn_param[prn].dopp_hint_high);
-    acq_prn_param[prn].dopp_hint_high = ACQ_FULL_CF_MAX;
-    acq_prn_param[prn].dopp_hint_low = ACQ_FULL_CF_MIN;
+              acq_prn_param[sid.prn].dopp_hint_low,
+              acq_prn_param[sid.prn].dopp_hint_high);
+    acq_prn_param[sid.prn].dopp_hint_high = ACQ_FULL_CF_MAX;
+    acq_prn_param[sid.prn].dopp_hint_low = ACQ_FULL_CF_MIN;
   }
-  acq_search(acq_prn_param[prn].dopp_hint_low,
-             acq_prn_param[prn].dopp_hint_high,
+  acq_search(acq_prn_param[sid.prn].dopp_hint_low,
+             acq_prn_param[sid.prn].dopp_hint_high,
              ACQ_FULL_CF_STEP);
 
   /* Done with the coarse acquisition, check if we have found a
@@ -361,21 +371,21 @@ static void manage_acq()
    */
   acq_get_results(&cp, &cf, &cn0);
   /* Send result of an acquisition to the host. */
-  acq_send_result(prn, cn0, cp, cf);
+  acq_send_result(sid, cn0, cp, cf);
   if (cn0 < ACQ_THRESHOLD) {
     /* Didn't find the satellite :( */
     /* Double the size of the doppler search space for next time. */
-    float dilute = (acq_prn_param[prn].dopp_hint_high -
-                    acq_prn_param[prn].dopp_hint_low) / 2;
-    acq_prn_param[prn].dopp_hint_high =
-        MIN(acq_prn_param[prn].dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
-    acq_prn_param[prn].dopp_hint_low =
-        MAX(acq_prn_param[prn].dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
+    float dilute = (acq_prn_param[sid.prn].dopp_hint_high -
+                    acq_prn_param[sid.prn].dopp_hint_low) / 2;
+    acq_prn_param[sid.prn].dopp_hint_high =
+        MIN(acq_prn_param[sid.prn].dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
+    acq_prn_param[sid.prn].dopp_hint_low =
+        MAX(acq_prn_param[sid.prn].dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
     /* Decay hint scores */
     for (u8 i = 0; i < ACQ_HINT_NUM; i++)
-      acq_prn_param[prn].score[i] = (acq_prn_param[prn].score[i] * 3) / 4;
+      acq_prn_param[sid.prn].score[i] = (acq_prn_param[sid.prn].score[i] * 3) / 4;
     /* Reset hint score for acquisition. */
-    acq_prn_param[prn].score[ACQ_HINT_PREV_ACQ] = 0;
+    acq_prn_param[sid.prn].score[ACQ_HINT_PREV_ACQ] = 0;
     return;
   }
 
@@ -386,10 +396,10 @@ static void manage_acq()
      * later using another fine acq.
      */
     if (cn0 > ACQ_RETRY_THRESHOLD) {
-      acq_prn_param[prn].score[ACQ_HINT_PREV_ACQ] =
+      acq_prn_param[sid.prn].score[ACQ_HINT_PREV_ACQ] =
         SCORE_ACQ + (cn0 - ACQ_THRESHOLD);
-      acq_prn_param[prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
-      acq_prn_param[prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
+      acq_prn_param[sid.prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
+      acq_prn_param[sid.prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
     }
     return;
   }
@@ -405,7 +415,7 @@ static void manage_acq()
                         TRACKING_ELEVATION_UNKNOWN);
   /* TODO: Initialize elevation from ephemeris if we know it precisely */
 
-  acq_prn_param[prn].state = ACQ_PRN_TRACKING;
+  acq_prn_param[sid.prn].state = ACQ_PRN_TRACKING;
   nap_timing_strobe_wait(100);
 }
 
