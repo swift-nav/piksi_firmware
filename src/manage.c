@@ -86,7 +86,7 @@ almanac_t almanac[32];
 extern ephemeris_t es[32];
 
 static float track_cn0_use_thres = 31.0; /* dBHz */
-float elevation_mask = 5.0; /* degrees */
+float elevation_mask = 0.0; /* degrees */
 
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
