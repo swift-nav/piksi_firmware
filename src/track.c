@@ -48,9 +48,10 @@
 #define LD_PARAMS_NORMAL   "0.05, 1.4, 150, 50"
 #define LD_PARAMS_OPT      "0.02, 1.1, 150, 50"
 #define LD_PARAMS_EXTRAOPT "0.02, 0.8, 150, 50"
+#define LD_PARAMS_DISABLE  "0.02, 1e-6, 1, 1"
 
 char loop_params_string[120] = LOOP_PARAMS_MED;
-char lock_detect_params_string[24] = LD_PARAMS_NORMAL;
+char lock_detect_params_string[24] = LD_PARAMS_DISABLE;
 bool use_alias_detection = true;
 
 #define CN0_EST_LPF_CUTOFF 5
