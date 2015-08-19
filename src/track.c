@@ -55,7 +55,7 @@ char loop_params_string[120] = LOOP_PARAMS_MED;
 char lock_detect_params_string[24] = LD_PARAMS_NORMAL;
 bool use_alias_detection = true;
 
-#define CN0_EST_LPF_CUTOFF 0.3
+#define CN0_EST_LPF_CUTOFF 5
 
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
