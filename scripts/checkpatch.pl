@@ -3282,24 +3282,24 @@ sub process {
 			     "EXPORT_SYMBOL(foo); should immediately follow its function/variable\n" . $herecurr);
 		}
 
-# check for global initialisers.
-		if ($line =~ /^\+$Type\s*$Ident(?:\s+$Modifier)*\s*=\s*(?:0|NULL|false)\s*;/) {
-			if (ERROR("GLOBAL_INITIALISERS",
-				  "do not initialise globals to 0 or NULL\n" .
-				      $herecurr) &&
-			    $fix) {
-				$fixed[$fixlinenr] =~ s/(^.$Type\s*$Ident(?:\s+$Modifier)*)\s*=\s*(0|NULL|false)\s*;/$1;/;
-			}
-		}
-# check for static initialisers.
-		if ($line =~ /^\+.*\bstatic\s.*=\s*(0|NULL|false)\s*;/) {
-			if (ERROR("INITIALISED_STATIC",
-				  "do not initialise statics to 0 or NULL\n" .
-				      $herecurr) &&
-			    $fix) {
-				$fixed[$fixlinenr] =~ s/(\bstatic\s.*?)\s*=\s*(0|NULL|false)\s*;/$1;/;
-			}
-		}
+## check for global initialisers.
+#		if ($line =~ /^\+$Type\s*$Ident(?:\s+$Modifier)*\s*=\s*(?:0|NULL|false)\s*;/) {
+#			if (ERROR("GLOBAL_INITIALISERS",
+#				  "do not initialise globals to 0 or NULL\n" .
+#				      $herecurr) &&
+#			    $fix) {
+#				$fixed[$fixlinenr] =~ s/(^.$Type\s*$Ident(?:\s+$Modifier)*)\s*=\s*(0|NULL|false)\s*;/$1;/;
+#			}
+#		}
+## check for static initialisers.
+#		if ($line =~ /^\+.*\bstatic\s.*=\s*(0|NULL|false)\s*;/) {
+#			if (ERROR("INITIALISED_STATIC",
+#				  "do not initialise statics to 0 or NULL\n" .
+#				      $herecurr) &&
+#			    $fix) {
+#				$fixed[$fixlinenr] =~ s/(\bstatic\s.*?)\s*=\s*(0|NULL|false)\s*;/$1;/;
+#			}
+#		}
 
 # check for misordered declarations of char/short/int/long with signed/unsigned
 		while ($sline =~ m{(\b$TypeMisordered\b)}g) {
@@ -3354,14 +3354,14 @@ sub process {
 			}
 		}
 
-# check for function declarations without arguments like "int foo()"
-		if ($line =~ /(\b$Type\s+$Ident)\s*\(\s*\)/) {
-			if (ERROR("FUNCTION_WITHOUT_ARGS",
-				  "Bad function definition - $1() should probably be $1(void)\n" . $herecurr) &&
-			    $fix) {
-				$fixed[$fixlinenr] =~ s/(\b($Type)\s+($Ident))\s*\(\s*\)/$2 $3(void)/;
-			}
-		}
+## check for function declarations without arguments like "int foo()"
+#		if ($line =~ /(\b$Type\s+$Ident)\s*\(\s*\)/) {
+#			if (ERROR("FUNCTION_WITHOUT_ARGS",
+#				  "Bad function definition - $1() should probably be $1(void)\n" . $herecurr) &&
+#			    $fix) {
+#				$fixed[$fixlinenr] =~ s/(\b($Type)\s+($Ident))\s*\(\s*\)/$2 $3(void)/;
+#			}
+#		}
 
 # check for uses of DEFINE_PCI_DEVICE_TABLE
 		if ($line =~ /\bDEFINE_PCI_DEVICE_TABLE\s*\(\s*(\w+)\s*\)\s*=/) {
