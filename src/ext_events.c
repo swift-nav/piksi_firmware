@@ -30,8 +30,7 @@ static ext_event_trigger_t trigger = TRIG_NONE;
 /** Settings callback to inform NAP which trigger mode is desired */
 static bool trigger_changed(struct setting *s, const char *val)
 {
-  if (s->type->from_string(s->type->priv, s->addr, s->len, val))
-  {
+  if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
     nap_rw_ext_event(NULL, NULL, trigger);
     return true;
   }
@@ -46,13 +45,15 @@ static bool trigger_changed(struct setting *s, const char *val)
  */
 void ext_event_setup(void)
 {
-  static const char const *trigger_enum[] =
-    {"None", "Rising", "Falling", "Both", NULL};
+  static const char const *trigger_enum[] = {
+    "None", "Rising", "Falling", "Both", NULL
+  };
   static struct setting_type trigger_setting;
   int TYPE_TRIGGER = settings_type_register_enum(trigger_enum,
-						 &trigger_setting);
+                                                 &trigger_setting);
+
   SETTING_NOTIFY("ext_events", "edge_trigger", trigger, TYPE_TRIGGER,
-		 trigger_changed);
+                 trigger_changed);
   /* trigger_changed() will be called at setup time (i.e. immediately) as well
      as if user changes the setting later. */
 }
@@ -73,22 +74,24 @@ void ext_event_service(void)
 
   /* Read the details, and also clear IRQ + set up for next time */
   u32 event_nap_time = nap_rw_ext_event(&event_pin, &event_trig, trigger);
-  
+
   /* We have to infer the most sig word (i.e. # of 262-second rollovers) */
   union {
     u32 half[2];
     u64 full;
   } tc;
   tc.full = nap_timing_count();
-  if (tc.half[0] < event_nap_time)  /* Rollover occurred since event */
+  if (tc.half[0] < event_nap_time) { /* Rollover occurred since event */
     tc.half[1]--;
+  }
   tc.half[0] = event_nap_time;
 
   /* Prepare the MSG_EXT_EVENT */
   msg_ext_event_t msg;
-  msg.flags = (event_trig == TRIG_RISING) ? (1<<0) : (0<<0);
-  if (time_quality == TIME_FINE)
+  msg.flags = (event_trig == TRIG_RISING) ? (1 << 0) : (0 << 0);
+  if (time_quality == TIME_FINE) {
     msg.flags |= (1 << 1);
+  }
   msg.pin = event_pin;
 
   /* Convert to the SBP convention of rounded ms + signed ns residual */

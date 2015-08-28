@@ -30,19 +30,21 @@ cw_state_t cw_state;
 /** Callback to start a set of CW searches.
  * Allows host to directly control CW channel searches.
  */
-void cw_start_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+void cw_start_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)sender_id; (void)len; (void) context;
+  (void)sender_id; (void)len; (void)context;
 
-  cw_start_msg_t* start_msg = (cw_start_msg_t*)msg;
+  cw_start_msg_t *start_msg = (cw_start_msg_t *)msg;
   cw_start(start_msg->freq_min, start_msg->freq_max, start_msg->freq_step);
 }
 
 /** Register CW callbacks. */
-void cw_setup()
+void cw_setup(void)
 {
   static sbp_msg_callbacks_node_t cw_start_callback_node;
-  sbp_register_cbk(SBP_MSG_CW_START, &cw_start_callback, &cw_start_callback_node);
+
+  sbp_register_cbk(SBP_MSG_CW_START, &cw_start_callback,
+                   &cw_start_callback_node);
 }
 
 /** Schedule a load of samples into the CW channel's sample ram.
@@ -65,7 +67,7 @@ void cw_schedule_load(u32 count)
  * Clear the enable bit of the CW channel LOAD register and change the CW
  * state to CW_LOADING_DONE.
  */
-void cw_service_load_done()
+void cw_service_load_done(void)
 {
   nap_cw_load_wr_disable_blocking();
   cw_state.state = CW_LOADING_DONE;
@@ -74,17 +76,17 @@ void cw_service_load_done()
 /** Query the state of the CW channel sample ram loading.
  * \return 1 if loading has finished, 0 otherwise
  */
-u8 cw_get_load_done()
+u8 cw_get_load_done(void)
 {
-  return (cw_state.state == CW_LOADING_DONE);
+  return cw_state.state == CW_LOADING_DONE;
 }
 
 /** Query the state of the CW channel search.
  * \return 1 if the set of search correlations has finished, 0 otherwise.
  */
-u8 cw_get_running_done()
+u8 cw_get_running_done(void)
 {
-  return (cw_state.state == CW_RUNNING_DONE);
+  return cw_state.state == CW_RUNNING_DONE;
 }
 
 /** Start a CW search over a given range.
@@ -100,9 +102,9 @@ void cw_start(float freq_min, float freq_max, float freq_bin_width)
    * the range to the nearest multiple of the step size to make sure
    * we cover at least the specified range.
    */
-  cw_state.freq_step = ceil(freq_bin_width*NAP_CW_FREQ_UNITS_PER_HZ);
-  cw_state.freq_min = freq_min*NAP_CW_FREQ_UNITS_PER_HZ;
-  cw_state.freq_max = freq_max*NAP_CW_FREQ_UNITS_PER_HZ;
+  cw_state.freq_step = ceil(freq_bin_width * NAP_CW_FREQ_UNITS_PER_HZ);
+  cw_state.freq_min = freq_min * NAP_CW_FREQ_UNITS_PER_HZ;
+  cw_state.freq_max = freq_max * NAP_CW_FREQ_UNITS_PER_HZ;
 
   /* Initialise our cw state struct. */
   cw_state.state = CW_RUNNING;
@@ -120,52 +122,51 @@ void cw_start(float freq_min, float freq_max, float freq_bin_width)
  * frequency to the CW_INIT register. If this is one of the last two interrupts
  * for this search set, set the DISABLE bit of to the CW INIT register.
  */
-void cw_service_irq()
+void cw_service_irq(void)
 {
   u64 power;
   corr_t cs;
 
-  switch(cw_state.state)
-  {
-    default:
-      /*
-       * If we get an interrupt when we are not running, disable the CW channel.
-       * This will also clear the interrupt.
-       */
+  switch (cw_state.state) {
+  default:
+    /*
+     * If we get an interrupt when we are not running, disable the CW channel.
+     * This will also clear the interrupt.
+     */
+    nap_cw_init_wr_disable_blocking();
+    break;
+
+  case CW_RUNNING:
+    /* Read in correlations. */
+    nap_cw_corr_rd_blocking(&cs);
+
+    power = (u64)cs.I * (u64)cs.I + (u64)cs.Q * (u64)cs.Q;
+
+    if (cw_state.count < SPECTRUM_LEN) {
+      cw_state.spectrum_power[cw_state.count] = power;
+      cw_send_result(cw_state.freq, power);
+    }
+    cw_state.count++;
+
+    /*
+     * Write the next pipelined CW frequency to NAP's CW channel. If
+     * this is one of the final two interrupts to be serviced, write to set
+     * the CW's channel INIT register disable bit.
+     */
+    cw_state.freq += cw_state.freq_step;
+    if (cw_state.freq >= (cw_state.freq_max + cw_state.freq_step)) {
+      /* 2nd disable write. Transition state. */
       nap_cw_init_wr_disable_blocking();
-      break;
+      cw_state.state = CW_RUNNING_DONE;
+    } else if (cw_state.freq >= cw_state.freq_max) {
+      /* 1st disable write */
+      nap_cw_init_wr_disable_blocking();
+    } else {
+      /* Write next pipelined CW frequency */
+      nap_cw_init_wr_params_blocking(cw_state.freq + cw_state.freq_step);
+    }
 
-    case CW_RUNNING:
-      /* Read in correlations. */
-      nap_cw_corr_rd_blocking(&cs);
-
-      power = (u64)cs.I*(u64)cs.I + (u64)cs.Q*(u64)cs.Q;
-
-      if (cw_state.count < SPECTRUM_LEN) {
-        cw_state.spectrum_power[cw_state.count] = power;
-        cw_send_result(cw_state.freq, power);
-      }
-      cw_state.count++;
-
-      /*
-       * Write the next pipelined CW frequency to NAP's CW channel. If
-       * this is one of the final two interrupts to be serviced, write to set
-       * the CW's channel INIT register disable bit.
-       */
-      cw_state.freq += cw_state.freq_step;
-			if (cw_state.freq >= (cw_state.freq_max + cw_state.freq_step)) {
-        /* 2nd disable write. Transition state. */
-        nap_cw_init_wr_disable_blocking();
-        cw_state.state = CW_RUNNING_DONE;
-			} else if (cw_state.freq>= cw_state.freq_max) {
-        /* 1st disable write */
-        nap_cw_init_wr_disable_blocking();
-			} else {
-        /* Write next pipelined CW frequency */
-        nap_cw_init_wr_params_blocking(cw_state.freq + cw_state.freq_step);
-			}
-
-      break;
+    break;
   }
 }
 
@@ -184,7 +185,7 @@ void cw_send_result(float freq, u64 power)
   msg.freq = freq;
   msg.power = power;
 
-  sbp_send_msg(SBP_MSG_CW_RESULTS, sizeof(msg), (u8*)&msg);
+  sbp_send_msg(SBP_MSG_CW_RESULTS, sizeof(msg), (u8 *)&msg);
 }
 
 /** Get a point from the CW correlations array
@@ -193,10 +194,10 @@ void cw_send_result(float freq, u64 power)
  * \param power Pointer to u64 where magnitude of the correlation index will be put
  * \param index Correlation array index to get freq and power from
  */
-void cw_get_spectrum_point(float* freq, u64* power, u16 index)
+void cw_get_spectrum_point(float *freq, u64 *power, u16 index)
 {
-	*freq = 0;
-	*power = cw_state.spectrum_power[index];
+  *freq = 0;
+  *power = cw_state.spectrum_power[index];
 }
 
 /** \} */

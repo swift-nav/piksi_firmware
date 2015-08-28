@@ -29,23 +29,24 @@ static ephemeris_t es_candidate[MAX_SATS] _CCM;
 static void ephemeris_new(ephemeris_t *e)
 {
   gps_time_t t = get_current_time();
+
   if (!ephemeris_good(&es[e->prn], t)) {
     /* Our currently used ephemeris is bad, so we assume this is better. */
-    log_info("New untrusted ephemeris for PRN %02d", e->prn+1);
+    log_info("New untrusted ephemeris for PRN %02d", e->prn + 1);
     chMtxLock(&es_mutex);
     es[e->prn] = es_candidate[e->prn] = *e;
     chMtxUnlock();
 
   } else if (ephemeris_equal(&es_candidate[e->prn], e)) {
     /* The received ephemeris matches our candidate, so we trust it. */
-    log_info("New trusted ephemeris for PRN %02d", e->prn+1);
+    log_info("New trusted ephemeris for PRN %02d", e->prn + 1);
     chMtxLock(&es_mutex);
     es[e->prn] = *e;
     chMtxUnlock();
   } else {
     /* This is our first reception of this new ephemeris, so treat it with
      * suspicion and call it the new candidate. */
-    log_info("New ephemeris candidate for PRN %02d", e->prn+1);
+    log_info("New ephemeris candidate for PRN %02d", e->prn + 1);
     chMtxLock(&es_mutex);
     es_candidate[e->prn] = *e;
     chMtxUnlock();
@@ -64,30 +65,32 @@ static msg_t nav_msg_thread(void *arg)
      * just ran periodically. */
 
 
-    for (u8 i=0; i<nap_track_n_channels; i++) {
+    for (u8 i = 0; i < nap_track_n_channels; i++) {
       chThdSleepMilliseconds(100);
       tracking_channel_t *ch = &tracking_channel[i];
-      ephemeris_t e = {.prn = ch->prn};
+      ephemeris_t e = { .prn = ch->prn };
 
       /* Check if there is a new nav msg subframe to process.
        * TODO: move this into a function */
       if ((ch->state != TRACKING_RUNNING) ||
-          (ch->nav_msg.subframe_start_index == 0))
+          (ch->nav_msg.subframe_start_index == 0)) {
         continue;
+      }
 
       /* Decode ephemeris to temporary struct */
       __asm__("CPSID i;");
       s8 ret = process_subframe(&ch->nav_msg, &e);
       __asm__("CPSIE i;");
 
-      if (ret <= 0)
+      if (ret <= 0) {
         continue;
+      }
 
       /* Decoded a new ephemeris. */
       ephemeris_new(&e);
 
       if (!es[ch->prn].healthy) {
-        log_info("PRN %02d unhealthy", ch->prn+1);
+        log_info("PRN %02d unhealthy", ch->prn + 1);
       } else {
         msg_ephemeris_t msg;
         pack_ephemeris(&es[ch->prn], &msg);
@@ -99,7 +102,8 @@ static msg_t nav_msg_thread(void *arg)
   return 0;
 }
 
-static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[],
+                                   void *context)
 {
   (void)sender_id; (void)context;
 
@@ -122,7 +126,7 @@ void ephemeris_setup(void)
 {
   memset(es_candidate, 0, sizeof(es_candidate));
   memset(es, 0, sizeof(es));
-  for (u8 i=0; i<32; i++) {
+  for (u8 i = 0; i < 32; i++) {
     es[i].prn = i;
   }
 
@@ -131,9 +135,9 @@ void ephemeris_setup(void)
     SBP_MSG_EPHEMERIS,
     &ephemeris_msg_callback,
     &ephemeris_msg_node
-  );
+    );
 
   chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
-                    NORMALPRIO-1, nav_msg_thread, NULL);
+                    NORMALPRIO - 1, nav_msg_thread, NULL);
 }
 

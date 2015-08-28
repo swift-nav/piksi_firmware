@@ -27,8 +27,7 @@
 #include "error.h"
 
 /** Clock settings for 130.944 MHz from 16.368 MHz HSE. */
-const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
-{
+const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 = {
   .pllm           = 16,
   .plln           = 256,
   .pllp           = 2,
@@ -41,11 +40,11 @@ const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
   .apb2_frequency = 32736000,
 };
 
-#define AIRCR_SYSRESETREQ			(1 << 2)
+#define AIRCR_SYSRESETREQ     (1 << 2)
 /** Resets the device back into the bootloader. */
-static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void reset_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)sender_id; (void)len; (void)msg; (void) context;
+  (void)sender_id; (void)len; (void)msg; (void)context;
 
   /* Ensure all outstanding memory accesses including buffered writes are
    * completed before reset.
@@ -57,7 +56,9 @@ static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
               AIRCR_SYSRESETREQ;
   __asm__("DSB;");
   /* Wait until reset. */
-  while(1);
+  while (1) {
+    ;
+  }
 }
 
 /** Register the reset_callback. */
@@ -69,18 +70,19 @@ static void reset_callback_register(void)
     SBP_MSG_RESET,
     &reset_callback,
     &reset_node
-  );
+    );
 }
 
 #define STM_UNIQUE_ID_ADDR 0x1FFF7A10
 /** Callback to read STM32F4's hardcoded unique ID.
  * Sends STM32F4 unique ID (12 bytes) back to host.
  */
-static void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void stm_unique_id_callback(u16 sender_id, u8 len, u8 msg[],
+                                   void *context)
 {
-  (void)sender_id; (void)len; (void)msg; (void) context;
+  (void)sender_id; (void)len; (void)msg; (void)context;
 
-  sbp_send_msg(SBP_MSG_STM_UNIQUE_ID_RESP, 12, (u8*)STM_UNIQUE_ID_ADDR);
+  sbp_send_msg(SBP_MSG_STM_UNIQUE_ID_RESP, 12, (u8 *)STM_UNIQUE_ID_ADDR);
 }
 
 /** Register callback to read Device's Unique ID. */
@@ -96,8 +98,9 @@ static void stm_unique_id_callback_register(void)
 void init(void)
 {
   /* Delay on start-up as some programmers reset the STM twice. */
-  for (u32 i = 0; i < 600000; i++)
+  for (u32 i = 0; i < 600000; i++) {
     __asm__("nop");
+  }
 
   led_setup();
 
@@ -127,15 +130,16 @@ void init(void)
 void check_nap_auth(void)
 {
   u8 nhs = nap_hash_status();
+
   if (nhs != NAP_HASH_MATCH) {
     led_on(LED_GREEN);
     led_off(LED_RED);
     while (1) {
       DO_EVERY(10000000,
-        log_error("NAP Verification Failed");
-        led_toggle(LED_GREEN);
-        led_toggle(LED_RED);
-      );
+               log_error("NAP Verification Failed");
+               led_toggle(LED_GREEN);
+               led_toggle(LED_RED);
+               );
     }
   }
 }
@@ -151,14 +155,15 @@ void check_nap_auth(void)
  * \todo Re-implement stack pointer checking taking into account our memory
  *       layout.
  */
-void *_sbrk (int incr)
+void *_sbrk(int incr)
 {
-  extern char   end; /* Set by linker.  */
-  static char * heap_end;
-  char *        prev_heap_end;
+  extern char end;   /* Set by linker.  */
+  static char *heap_end;
+  char *prev_heap_end;
 
-  if (heap_end == 0)
-    heap_end = & end;
+  if (heap_end == 0) {
+    heap_end = &end;
+  }
 
   prev_heap_end = heap_end;
 

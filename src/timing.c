@@ -76,26 +76,26 @@ void clock_est_init(clock_est_state_t *s)
         phi_t_0 = array([[1., localT], [0, 1]])
         phi_0_t = array([[1., -localT], [0, 1]])
 
-        # Predict:
-        # No state update, static
+ # Predict:
+ # No state update, static
         x_ = self.x
-        # Predict covariance
+ # Predict covariance
         P_ = self.P + array([[q, 0.], [0, 0]])
 
-        # Update:
-        # Calc. innovation
+ # Update:
+ # Calc. innovation
         z = array([est_gpsT, est_bias])
         y = z - phi_t_0.dot(x_)
-        # Calc. innovation covariance
+ # Calc. innovation covariance
         S = phi_t_0.dot(P_).dot(phi_t_0.transpose()) + array([[rT, 0.], [0, rTdot]])
-        # Kalman gain
-        #K = phi_t_0.dot(P_).dot(phi_t_0.transpose()).dot(linalg.inv(S))
+ # Kalman gain
+ ###K = phi_t_0.dot(P_).dot(phi_t_0.transpose()).dot(linalg.inv(S))
         K = P_.dot(phi_t_0.transpose()).dot(linalg.inv(S))
-        # Update state estimate
+ # Update state estimate
         self.x += K.dot(y)
-        # Update covariance
+ # Update covariance
         self.P = (array([[1., 0], [0, 1]]) - K.dot(phi_t_0)).dot(P_)
-  */
+ */
 
 void clock_est_update(clock_est_state_t *s, gps_time_t meas_gpst,
                       double meas_clock_period, double localt, double q,
@@ -103,8 +103,9 @@ void clock_est_update(clock_est_state_t *s, gps_time_t meas_gpst,
 {
   double temp[2][2];
 
-  double phi_t_0[2][2] = {{1, localt}, {0, 1}};
+  double phi_t_0[2][2] = { { 1, localt }, { 0, 1 } };
   double phi_t_0_tr[2][2];
+
   matrix_transpose(2, 2, (const double *)phi_t_0, (double *)phi_t_0_tr);
 
   double P_[2][2];
@@ -119,16 +120,20 @@ void clock_est_update(clock_est_state_t *s, gps_time_t meas_gpst,
   y[1] = meas_clock_period - s->clock_period;
 
   double S[2][2];
-  matrix_multiply(2, 2, 2, (const double *)phi_t_0, (const double *)P_, (double *)temp);
-  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)phi_t_0_tr, (double *)S);
+  matrix_multiply(2, 2, 2, (const double *)phi_t_0, (const double *)P_,
+                  (double *)temp);
+  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)phi_t_0_tr,
+                  (double *)S);
   S[0][0] += r_gpst;
   S[1][1] += r_clock_period;
   double Sinv[2][2];
   matrix_inverse(2, (const double *)S, (double *)Sinv);
 
   double K[2][2];
-  matrix_multiply(2, 2, 2, (const double *)P_, (const double *)phi_t_0_tr, (double *)temp);
-  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)Sinv, (double *)K);
+  matrix_multiply(2, 2, 2, (const double *)P_, (const double *)phi_t_0_tr,
+                  (double *)temp);
+  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)Sinv,
+                  (double *)K);
 
   double dx[2];
   matrix_multiply(2, 2, 1, (const double *)K, (const double *)y, (double *)dx);
@@ -136,12 +141,14 @@ void clock_est_update(clock_est_state_t *s, gps_time_t meas_gpst,
   s->t0_gps = normalize_gps_time(s->t0_gps);
   s->clock_period += dx[1];
 
-  matrix_multiply(2, 2, 2, (const double *)K, (const double *)phi_t_0, (double *)temp);
+  matrix_multiply(2, 2, 2, (const double *)K, (const double *)phi_t_0,
+                  (double *)temp);
   temp[0][0] = 1 - temp[0][0];
   temp[0][1] = -temp[0][1];
   temp[1][1] = 1 - temp[1][1];
   temp[1][0] = -temp[1][0];
-  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)P_, (double *)s->P);
+  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)P_,
+                  (double *)s->P);
 
 }
 
@@ -214,9 +221,9 @@ double gps2rxtime(gps_time_t t)
 }
 
 /** Callback to set receiver GPS time estimate. */
-static void set_time_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void set_time_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void)sender_id; (void)len; (void) context;
+  (void)sender_id; (void)len; (void)context;
 
   gps_time_t *t = (gps_time_t *)msg;
 
