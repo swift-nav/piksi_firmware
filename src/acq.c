@@ -132,12 +132,13 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
    * we cover at least the specified range.
    */
   u16 cf_step = cf_bin_width * NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
-  if (cf_step < 1)
+  if (cf_step < 1) {
     cf_step = 1;
-  s16 cf_min = cf_step*floor(cf_min_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
-    (float)cf_step);
-  s16 cf_max = cf_step*ceil(cf_max_*NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
-    (float)cf_step);
+  }
+  s16 cf_min = cf_step * floor(cf_min_ * NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
+                               (float)cf_step);
+  s16 cf_max = cf_step * ceil(cf_max_ * NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ /
+                              (float)cf_step);
 
   for (s16 cf = cf_min; cf <= cf_max; cf += cf_step) {
     if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
@@ -159,6 +160,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
 void acq_service_irq(void)
 {
   s16 cf = acq_state.pipeline[acq_state.p_tail].cf;
+
   acq_state.p_tail = (acq_state.p_tail + 1) % NAP_ACQ_PIPELINE_STAGES;
 
   u16 index_max;
@@ -185,10 +187,10 @@ void acq_service_irq(void)
  * \param cf  Carrier frequency of the acquisition result
  * \param cn0 Estimated CN0 of the acquisition result
  */
-void acq_get_results(float* cp, float* cf, float* cn0)
+void acq_get_results(float *cp, float *cf, float *cn0)
 {
   *cp = 1023.0 - (float)(acq_state.best_cp % (1023 * NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP))
-                  / NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP;
+        / NAP_ACQ_CODE_PHASE_UNITS_PER_CHIP;
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   float snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
@@ -197,7 +199,7 @@ void acq_get_results(float* cp, float* cf, float* cn0)
    * output power could return zero. Potential failure modes:
    * 1. GPS Front End is misconfigured and returning zeros or has lifted pin
    * 2. PRN is incorrect or corrupted to zeros
-   * or if the FPGA has a critical failure 
+   * or if the FPGA has a critical failure
    * that causes it to not raise interrupts count could be zero.  Catch
    * this condition so we don't propagate NaN up through the stack */
   if ((acq_state.power_acc == 0) || (acq_state.count == 0)) {
@@ -206,8 +208,8 @@ void acq_get_results(float* cp, float* cf, float* cn0)
               acq_state.best_power, acq_state.power_acc, acq_state.count);
     *cn0 = 0;
   } else {
-  *cn0 = 10 * log10(snr)
-       + 10 * log10(1.0 / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ); /* Bandwidth */
+    *cn0 = 10 * log10(snr)
+           + 10 * log10(1.0 / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ); /* Bandwidth */
   }
 }
 

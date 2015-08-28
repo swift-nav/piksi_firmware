@@ -35,7 +35,7 @@
 #define WATCHDOG_HARDWARE_PERIOD_MS 30000  /* Actual period may vary +88% -32% */
 #define WATCHDOG_THREAD_PERIOD_MS 15000
 
-/* Maximum distance between calculated and surveyed base station single point 
+/* Maximum distance between calculated and surveyed base station single point
  * position for error checking.
  */
 #define BASE_STATION_DISTANCE_THRESHOLD 15000
@@ -64,9 +64,11 @@ u32 check_stack_free(Thread *tp)
 {
   u32 *stack = (u32 *)tp->p_stklimit;
   u32 i;
-  for (i=0; i<65536/sizeof(u32); i++) {
-    if (stack[i] != 0x55555555)
+
+  for (i = 0; i < 65536 / sizeof(u32); i++) {
+    if (stack[i] != 0x55555555) {
       break;
+    }
   }
   return 4 * (i - 1);
 }
@@ -74,6 +76,7 @@ u32 check_stack_free(Thread *tp)
 void send_thread_states()
 {
   Thread *tp = chRegFirstThread();
+
   while (tp) {
     msg_thread_state_t tp_state;
     u16 cpu = 1000.0f * tp->p_ctime / (float)g_ctime;
@@ -105,7 +108,7 @@ static msg_t track_status_thread(void *arg)
         chThdSleepMilliseconds(1000);
         led_off(LED_GREEN);
       } else {
-        for (u8 i=0; i<n_ready; i++) {
+        for (u8 i = 0; i < n_ready; i++) {
           led_on(LED_GREEN);
           chThdSleepMilliseconds(250);
           led_off(LED_GREEN);
@@ -132,11 +135,12 @@ static msg_t track_status_thread(void *arg)
 void sleep_until(systime_t *previous, systime_t period)
 {
   systime_t future = *previous + period;
+
   chSysLock();
   systime_t now = chTimeNow();
   int must_delay = now < *previous ?
-    (now < future && future < *previous) :
-    (now < future || future < *previous);
+                   (now < future && future < *previous) :
+                   (now < future || future < *previous);
   if (must_delay) {
     chThdSleepS(future - now);
   }
@@ -160,8 +164,7 @@ static msg_t system_monitor_thread(void *arg)
       ant_status = max2769_ant_status();
       if (ant_status && max2769_ant_setting() == AUTO) {
         log_info("Now using external antenna.");
-      }
-      else if (max2769_ant_setting() == AUTO) {
+      } else if (max2769_ant_setting() == AUTO) {
         log_info("Now using patch antenna.");
       }
     }
@@ -209,7 +212,7 @@ static msg_t system_monitor_thread(void *arg)
 
 static void debug_threads()
 {
-  const char* state[] = {
+  const char *state[] = {
     "READY",
     "CURRENT",
     "SUSPENDED",
@@ -227,10 +230,11 @@ static void debug_threads()
     "FINAL"
   };
   Thread *tp = chRegFirstThread();
+
   while (tp) {
-  log_info("%s (%u: %s): prio: %lu, flags: %u, wtobjp: %p",
-           tp->p_name, tp->p_state, state[tp->p_state], tp->p_prio,
-           tp->p_flags, tp->p_u.wtobjp);
+    log_info("%s (%u: %s): prio: %lu, flags: %u, wtobjp: %p",
+             tp->p_name, tp->p_state, state[tp->p_state], tp->p_prio,
+             tp->p_flags, tp->p_u.wtobjp);
     tp = chRegNextThread(tp);
   }
 }
@@ -245,15 +249,16 @@ static msg_t watchdog_thread(void *arg)
      take a little while to get going */
   chThdSleepMilliseconds(WATCHDOG_THREAD_PERIOD_MS);
 
-  if (use_wdt)
+  if (use_wdt) {
     watchdog_enable(WATCHDOG_HARDWARE_PERIOD_MS);
+  }
 
   while (TRUE) {
     /* Wait for all threads to set a flag indicating they are still
        alive and performing their function */
     chThdSleepMilliseconds(WATCHDOG_THREAD_PERIOD_MS);
     eventmask_t threads_dead = thread_activity_mask
-                             ^ chEvtGetAndClearEvents(thread_activity_mask);
+                               ^ chEvtGetAndClearEvents(thread_activity_mask);
     if (threads_dead) {
       /* TODO: ChibiOS thread state dump */
       log_error("One or more threads appear to be dead: 0x%08X. "
@@ -262,8 +267,9 @@ static msg_t watchdog_thread(void *arg)
                 use_wdt ? "imminent" : "disabled");
       debug_threads();
     } else {
-      if (use_wdt)
+      if (use_wdt) {
         watchdog_clear();
+      }
     }
 
   }
@@ -275,7 +281,7 @@ void system_monitor_setup()
   /* Setup cycle counter for measuring thread CPU time. */
   SCS_DEMCR |= 0x01000000;
   DWT_CYCCNT = 0; /* Reset the counter. */
-  DWT_CTRL |= 1 ; /* Enable the counter. */
+  DWT_CTRL |= 1;  /* Enable the counter. */
 
   SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
   SETTING("system_monitor", "watchdog", use_wdt, TYPE_BOOL);
@@ -287,23 +293,23 @@ void system_monitor_setup()
 
 
   chThdCreateStatic(
-      wa_system_monitor_thread,
-      sizeof(wa_system_monitor_thread),
-      LOWPRIO+10,
-      system_monitor_thread, NULL
-  );
+    wa_system_monitor_thread,
+    sizeof(wa_system_monitor_thread),
+    LOWPRIO + 10,
+    system_monitor_thread, NULL
+    );
   chThdCreateStatic(
-      wa_track_status_thread,
-      sizeof(wa_track_status_thread),
-      LOWPRIO+9,
-      track_status_thread, NULL
-  );
+    wa_track_status_thread,
+    sizeof(wa_track_status_thread),
+    LOWPRIO + 9,
+    track_status_thread, NULL
+    );
   watchdog_thread_handle = chThdCreateStatic(
-      wa_watchdog_thread,
-      sizeof(wa_watchdog_thread),
-      HIGHPRIO,
-      watchdog_thread, NULL
-  );
+    wa_watchdog_thread,
+    sizeof(wa_watchdog_thread),
+    HIGHPRIO,
+    watchdog_thread, NULL
+    );
 }
 
 /** Called by each important system thread after doing its important

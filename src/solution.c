@@ -56,7 +56,7 @@ systime_t last_dgnss;
 double soln_freq = 10.0;
 u32 obs_output_divisor = 2;
 
-double known_baseline[3] = {0, 0, 0};
+double known_baseline[3] = { 0, 0, 0 };
 u16 msg_obs_max_size = 104;
 
 static u16 lock_counters[MAX_SATS];
@@ -69,35 +69,35 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
     /* Send GPS_TIME message first. */
     msg_gps_time_t gps_time;
     sbp_make_gps_time(&gps_time, &soln->time, 0);
-    sbp_send_msg(SBP_MSG_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
+    sbp_send_msg(SBP_MSG_GPS_TIME, sizeof(gps_time), (u8 *)&gps_time);
 
     /* Position in LLH. */
     msg_pos_llh_t pos_llh;
     sbp_make_pos_llh(&pos_llh, soln, 0);
-    sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
+    sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *)&pos_llh);
 
     /* Position in ECEF. */
     msg_pos_ecef_t pos_ecef;
     sbp_make_pos_ecef(&pos_ecef, soln, 0);
-    sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
+    sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *)&pos_ecef);
 
     /* Velocity in NED. */
     msg_vel_ned_t vel_ned;
     sbp_make_vel_ned(&vel_ned, soln, 0);
-    sbp_send_msg(SBP_MSG_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
+    sbp_send_msg(SBP_MSG_VEL_NED, sizeof(vel_ned), (u8 *)&vel_ned);
 
     /* Velocity in ECEF. */
     msg_vel_ecef_t vel_ecef;
     sbp_make_vel_ecef(&vel_ecef, soln, 0);
-    sbp_send_msg(SBP_MSG_VEL_ECEF, sizeof(vel_ecef), (u8 *) &vel_ecef);
+    sbp_send_msg(SBP_MSG_VEL_ECEF, sizeof(vel_ecef), (u8 *)&vel_ecef);
   }
 
   if (dops) {
     DO_EVERY(10,
-      msg_dops_t sbp_dops;
-      sbp_make_dops(&sbp_dops, dops, &(soln->time));
-      sbp_send_msg(SBP_MSG_DOPS, sizeof(msg_dops_t), (u8 *) &sbp_dops);
-    );
+             msg_dops_t sbp_dops;
+             sbp_make_dops(&sbp_dops, dops, &(soln->time));
+             sbp_send_msg(SBP_MSG_DOPS, sizeof(msg_dops_t), (u8 *)&sbp_dops);
+             );
   }
 }
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
@@ -132,8 +132,9 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
 void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
                             double ref_ecef[3], u8 flags)
 {
-  double* base_station_pos;
+  double *base_station_pos;
   msg_baseline_ecef_t sbp_ecef;
+
   sbp_make_baseline_ecef(&sbp_ecef, t, n_sats, b_ecef, flags);
   sbp_send_msg(SBP_MSG_BASELINE_ECEF, sizeof(sbp_ecef), (u8 *)&sbp_ecef);
 
@@ -146,16 +147,15 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
 
   chMtxLock(&base_pos_lock);
   if (base_pos_known || (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
-      simulation_enabled_for(SIMULATION_MODE_RTK))) {
+                         simulation_enabled_for(SIMULATION_MODE_RTK))) {
     last_dgnss = chTimeNow();
     double pseudo_absolute_ecef[3];
     double pseudo_absolute_llh[3];
     /* if simulation use the simulator's base station position */
     if ((simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
-        simulation_enabled_for(SIMULATION_MODE_RTK))) {
+         simulation_enabled_for(SIMULATION_MODE_RTK))) {
       base_station_pos = simulation_ref_ecef();
-    }
-    else { /* else use the global variable */
+    } else {   /* else use the global variable */
       base_station_pos = base_pos_ecef;
     }
 
@@ -171,10 +171,10 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
     u8 sbp_flags = (flags == 1) ? 1 : 2;
     msg_pos_llh_t pos_llh;
     sbp_make_pos_llh_vect(&pos_llh, pseudo_absolute_llh, t, n_sats, sbp_flags);
-    sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
+    sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *)&pos_llh);
     msg_pos_ecef_t pos_ecef;
     sbp_make_pos_ecef_vect(&pos_ecef, pseudo_absolute_ecef, t, n_sats, sbp_flags);
-    sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
+    sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *)&pos_ecef);
   }
   chMtxUnlock();
 }
@@ -210,8 +210,9 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
                    &amb_state.float_ambs, &num_used, b,
                    disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock();
-    if (ret == 1)
+    if (ret == 1) {
       log_warn("output_baseline: Float baseline RAIM repair");
+    }
     if (ret < 0) {
       log_warn("dgnss_float_baseline returned error: %d", ret);
       return;
@@ -228,8 +229,8 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 
   /* Upper limit set by SBP framing size, preventing underflow */
   u16 msg_payload_size = MAX(
-      MIN(msg_obs_max_size, SBP_FRAMING_MAX_PAYLOAD_SIZE),
-      sizeof(observation_header_t)
+    MIN(msg_obs_max_size, SBP_FRAMING_MAX_PAYLOAD_SIZE),
+    sizeof(observation_header_t)
     ) - sizeof(observation_header_t);
 
   /* Lower limit set by sending at least 1 observation */
@@ -245,16 +246,16 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
   for (u8 count = 0; count < total; count++) {
 
     u8 curr_n = MIN(n - obs_i, obs_in_msg);
-    pack_obs_header(t, total, count, (observation_header_t*) buff);
+    pack_obs_header(t, total, count, (observation_header_t *)buff);
     packed_obs_content_t *obs = (packed_obs_content_t *)&buff[sizeof(observation_header_t)];
 
     for (u8 i = 0; i < curr_n; i++, obs_i++) {
       if (pack_obs_content(m[obs_i].raw_pseudorange,
-            m[obs_i].carrier_phase,
-            m[obs_i].snr,
-            m[obs_i].lock_counter,
-            m[obs_i].prn,
-            &obs[i]) < 0) {
+                           m[obs_i].carrier_phase,
+                           m[obs_i].snr,
+                           m[obs_i].lock_counter,
+                           m[obs_i].prn,
+                           &obs[i]) < 0) {
         /* Error packing this observation, skip it. */
         i--;
         curr_n--;
@@ -262,8 +263,8 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
     }
 
     sbp_send_msg(SBP_MSG_OBS,
-      sizeof(observation_header_t) + curr_n*sizeof(packed_obs_content_t),
-      buff);
+                 sizeof(observation_header_t) + curr_n * sizeof(packed_obs_content_t),
+                 buff);
 
   }
 }
@@ -301,7 +302,7 @@ static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
 static void solution_simulation()
 {
   /* Set the timer period appropriately. */
-  timer_set_period_check(TIM5, round(65472000 * (1.0/soln_freq)));
+  timer_set_period_check(TIM5, round(65472000 * (1.0 / soln_freq)));
 
   simulation_step();
 
@@ -330,14 +331,14 @@ static void solution_simulation()
     u8 flags = simulation_enabled_for(SIMULATION_MODE_RTK) ? 1 : 0;
 
     solution_send_baseline(&(soln->time),
-      simulation_current_num_sats(),
-      simulation_current_baseline_ecef(),
-      simulation_ref_ecef(), flags);
+                           simulation_current_num_sats(),
+                           simulation_current_baseline_ecef(),
+                           simulation_ref_ecef(), flags);
 
     double t_check = expected_tow * (soln_freq / obs_output_divisor);
     if (fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
       send_observations(simulation_current_num_sats(),
-        &(soln->time), simulation_current_navigation_measurements());
+                        &(soln->time), simulation_current_navigation_measurements());
     }
   }
 }
@@ -351,6 +352,7 @@ static void update_sat_elevations(const navigation_measurement_t nav_meas[],
                                   u8 n_meas, const double pos_ecef[3])
 {
   double _, el;
+
   for (int i = 0; i < n_meas; i++) {
     wgsecef2azel(nav_meas[i].sat_pos, pos_ecef, &_, &el);
     for (int j = 0; j < nap_track_n_channels; j++) {
@@ -383,7 +385,7 @@ static msg_t solution_thread(void *arg)
 
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
-    for (u8 i=0; i<nap_track_n_channels; i++) {
+    for (u8 i = 0; i < nap_track_n_channels; i++) {
       if (use_tracking_channel(i)) {
         __asm__("CPSID i;");
         tracking_update_measurement(i, &meas[n_ready]);
@@ -406,7 +408,7 @@ static msg_t solution_thread(void *arg)
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
     chMtxLock(&es_mutex);
     calc_navigation_measurement(n_ready, meas, nav_meas,
-                                (double)((u32)nav_tc)/SAMPLE_FREQ, es);
+                                (double)((u32)nav_tc) / SAMPLE_FREQ, es);
     chMtxUnlock();
 
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
@@ -424,13 +426,14 @@ static msg_t solution_thread(void *arg)
     }
 
     dops_t dops;
-    s8 ret;
+    s8 ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp, disable_raim,
+                      &position_solution, &dops);
     /* disable_raim controlled by external setting. Defaults to false. */
-    if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp, disable_raim,
-                        &position_solution, &dops)) >= 0) {
+    if (ret >= 0) {
 
-      if (ret == 1)
+      if (ret == 1) {
         log_warn("calc_PVT: RAIM repair");
+      }
 
       /* Update global position solution state. */
       position_updated();
@@ -454,9 +457,8 @@ static msg_t solution_thread(void *arg)
       double pdt;
       chMtxLock(&base_obs_lock);
       if (base_obss.n > 0 && !simulation_enabled()) {
-        if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
-              < MAX_AGE_OF_DIFFERENTIAL) {
-
+        pdt = gpsdifftime(position_solution.time, base_obss.t);
+        if (pdt < MAX_AGE_OF_DIFFERENTIAL) {
           /* Propagate base station observations to the current time and
            * process a low-latency differential solution. */
 
@@ -466,10 +468,10 @@ static msg_t solution_thread(void *arg)
             chMtxLock(&es_mutex);
             sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
             u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
-                                    base_obss.n, base_obss.nm,
-                                    base_obss.sat_dists, base_obss.pos_ecef,
-                                    es, position_solution.time,
-                                    sdiffs);
+                                                   base_obss.n, base_obss.nm,
+                                                   base_obss.sat_dists, base_obss.pos_ecef,
+                                                   es, position_solution.time,
+                                                   sdiffs);
             chMtxUnlock();
             if (num_sdiffs >= 4) {
               output_baseline(num_sdiffs, sdiffs, &position_solution.time);
@@ -482,8 +484,8 @@ static msg_t solution_thread(void *arg)
 
       /* Calculate the time of the nearest solution epoch, were we expected
        * to be and calculate how far we were away from it. */
-      double expected_tow = round(position_solution.time.tow*soln_freq)
-                              / soln_freq;
+      double expected_tow = round(position_solution.time.tow * soln_freq)
+                            / soln_freq;
       double t_err = expected_tow - position_solution.time.tow;
 
       /* Only send observations that are closely aligned with the desired
@@ -494,9 +496,9 @@ static msg_t solution_thread(void *arg)
       if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
           fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
         /* Propagate observation to desired time. */
-        for (u8 i=0; i<n_ready_tdcp; i++) {
+        for (u8 i = 0; i < n_ready_tdcp; i++) {
           nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
-            (GPS_C / GPS_L1_HZ);
+                                          (GPS_C / GPS_L1_HZ);
           nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
         }
 
@@ -539,12 +541,13 @@ static msg_t solution_thread(void *arg)
       }
 
       /* Calculate time till the next desired solution epoch. */
-      double dt = expected_tow + (1.0/soln_freq) - position_solution.time.tow;
+      double dt = expected_tow + (1.0 / soln_freq) - position_solution.time.tow;
 
       /* Limit dt to 2 seconds maximum to prevent hang if dt calculated
        * incorrectly. */
-      if (dt > 2)
+      if (dt > 2) {
         dt = 2;
+      }
 
       /* Reset timer period with the count that we will estimate will being
        * us up to the next solution time. */
@@ -556,8 +559,8 @@ static msg_t solution_thread(void *arg)
        * count. */
       /* pvt_err_msg defined in libswiftnav/pvt.c */
       DO_EVERY((u32)soln_freq,
-        log_warn("PVT solver: %s (code %d)", pvt_err_msg[-ret-1], ret);
-      );
+               log_warn("PVT solver: %s (code %d)", pvt_err_msg[-ret - 1], ret);
+               );
 
       /* Send just the DOPs */
       solution_send_sbp(0, &dops);
@@ -634,7 +637,7 @@ static msg_t time_matched_obs_thread(void *arg)
     /* Look through the mailbox (FIFO queue) of locally generated observations
      * looking for one that matches in time. */
     while (chMBFetch(&obs_mailbox, (msg_t *)&obss, TIME_IMMEDIATE)
-            == RDY_OK) {
+           == RDY_OK) {
 
       chMtxLock(&base_obs_lock);
       double dt = gpsdifftime(obss->t, base_obss.t);
@@ -643,10 +646,10 @@ static msg_t time_matched_obs_thread(void *arg)
         /* Times match! Process obs and base_obss */
         static sdiff_t sds[MAX_CHANNELS];
         u8 n_sds = single_diff(
-            obss->n, obss->nm,
-            base_obss.n, base_obss.nm,
-            sds
-        );
+          obss->n, obss->nm,
+          base_obss.n, base_obss.nm,
+          sds
+          );
         chMtxUnlock();
         u8 sats_to_drop[MAX_SATS];
         u8 num_sats_to_drop = check_lock_counters(n_sds, sds, lock_counters,
@@ -673,7 +676,7 @@ static msg_t time_matched_obs_thread(void *arg)
                    "(dt=%f obss.t={%d,%f} base_obss.t={%d,%f})", dt,
                    obss->t.wn, obss->t.tow,
                    base_obss.t.wn, base_obss.t.tow
-          );
+                   );
           /* Return the buffer to the mailbox so we can try it again later. */
           msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
           if (ret != RDY_OK) {
@@ -702,7 +705,7 @@ static msg_t time_matched_obs_thread(void *arg)
   return 0;
 }
 
-void reset_filters_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+void reset_filters_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id; (void)len; (void)context;
   switch (msg[0]) {
@@ -719,7 +722,7 @@ void reset_filters_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 }
 
-void init_base_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+void init_base_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
   (void)sender_id; (void)len; (void)msg; (void)context;
   init_known_base = true;
@@ -785,11 +788,11 @@ void solution_setup()
   chBSemInit(&solution_wakeup_sem, TRUE);
   /* Start solution thread */
   chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread),
-                    HIGHPRIO-2, solution_thread, NULL);
+                    HIGHPRIO - 2, solution_thread, NULL);
   /* Enable TIM5 clock. */
   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM5EN);
   nvicEnableVector(NVIC_TIM5_IRQ,
-      CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+1));
+                   CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY + 1));
   timer_reset(TIM5);
   timer_set_mode(TIM5, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
   timer_set_prescaler(TIM5, 0);
@@ -807,12 +810,12 @@ void solution_setup()
     SBP_MSG_RESET_FILTERS,
     &reset_filters_callback,
     &reset_filters_node
-  );
+    );
 
   static sbp_msg_callbacks_node_t init_base_node;
   sbp_register_cbk(
     SBP_MSG_INIT_BASE,
     &init_base_callback,
     &init_base_node
-  );
+    );
 }

@@ -60,13 +60,13 @@ double base_pos_ecef[3];
  * Stores the base station position in the global #base_pos_ecef variable and
  * sets #base_pos_known to `true`.
  */
-static void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void) context; (void) len; (void) msg; (void) sender_id;
+  (void)context; (void)len; (void)msg; (void)sender_id;
 
   double llh_degrees[3];
   double llh[3];
-  memcpy(llh_degrees, msg, 3*sizeof(double));
+  memcpy(llh_degrees, msg, 3 * sizeof(double));
 
   llh[0] = llh_degrees[0] * D2R;
   llh[1] = llh_degrees[1] * D2R;
@@ -130,8 +130,8 @@ static void update_obss(obss_t *new_obss)
     memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
     /* Indicate that the position is valid. */
     base_obss.has_pos = 1;
-  /* The base station wasn't sent to us explicitly but if we have >= 4
-   * satellites we can calculate it ourselves (approximately). */
+    /* The base station wasn't sent to us explicitly but if we have >= 4
+     * satellites we can calculate it ourselves (approximately). */
   } else if (base_obss.n >= 4) {
     gnss_solution soln;
     dops_t dops;
@@ -149,11 +149,11 @@ static void update_obss(obss_t *new_obss)
            observation space), so we can do away with this terrible excuse
            for smoothing. */
         base_obss.pos_ecef[0] = 0.99995 * base_obss.pos_ecef[0]
-                                  + 0.00005 * soln.pos_ecef[0];
+                                + 0.00005 * soln.pos_ecef[0];
         base_obss.pos_ecef[1] = 0.99995 * base_obss.pos_ecef[1]
-                                  + 0.00005 * soln.pos_ecef[1];
+                                + 0.00005 * soln.pos_ecef[1];
         base_obss.pos_ecef[2] = 0.99995 * base_obss.pos_ecef[2]
-                                  + 0.00005 * soln.pos_ecef[2];
+                                + 0.00005 * soln.pos_ecef[2];
       } else {
         memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
       }
@@ -161,13 +161,13 @@ static void update_obss(obss_t *new_obss)
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
-      log_warn("Error calculating base station position: (%s).", pvt_err_msg[-ret-1]);
+      log_warn("Error calculating base station position: (%s).", pvt_err_msg[-ret - 1]);
     }
   }
   /* If the base station position is known then calculate the satellite ranges.
    * This calculation will be used later by the propagation functions. */
   if (base_obss.has_pos) {
-    for (u8 i=0; i < base_obss.n; i++) {
+    for (u8 i = 0; i < base_obss.n; i++) {
       double dx[3];
       vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
       base_obss.sat_dists[i] = vector_norm(3, dx);
@@ -191,20 +191,20 @@ static void update_obss(obss_t *new_obss)
  * `obss_t` (`base_obss_rx`). Once a full set is received then update_obss()
  * is called.
  */
-static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void) context;
+  (void)context;
 
   /* Keep track of where in the sequence of messages we were last time around
    * so we can verify we haven't dropped a message. */
   static s16 prev_count = 0;
 
-  static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
+  static gps_time_t prev_t = { .tow = 0.0, .wn = 0 };
 
   /* As we receive observation messages we assemble them into a working
    * `obss_t` (`base_obss_rx`) so as not to disturb the global `base_obss`
    * state that may be in use. */
-  static obss_t base_obss_rx = {.has_pos = 0};
+  static obss_t base_obss_rx = { .has_pos = 0 };
 
   /* An SBP sender ID of zero means that the messages are relayed observations
    * from the console, not from the base station. We don't want to use them and
@@ -226,7 +226,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   /* Decode the message header to get the time and how far through the sequence
    * we are. */
-  unpack_obs_header((observation_header_t*)msg, &t, &total, &count);
+  unpack_obs_header((observation_header_t *)msg, &t, &total, &count);
 
   /* Check to see if the observation is aligned with our internal observations,
    * i.e. is it going to time match one of our local obs. */
@@ -242,7 +242,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   /* Calculate packet latency. */
   if (time_quality >= TIME_COARSE) {
     gps_time_t now = get_current_time();
-    float latency_ms = (float) ((now.tow - t.tow) * 1000.0);
+    float latency_ms = (float)((now.tow - t.tow) * 1000.0);
     log_obs_latency(latency_ms);
   }
 
@@ -273,7 +273,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   /* Pull out the contents of the message. */
   packed_obs_content_t *obs = (packed_obs_content_t *)(msg + sizeof(observation_header_t));
-  for (u8 i=0; i<obs_in_msg; i++) {
+  for (u8 i = 0; i < obs_in_msg; i++) {
     /* Check the PRN is valid. e.g. simulation mode outputs test observations
      * with PRNs >200. */
     if (obs[i].sid > 31) { /* TODO prn - sid; assume everything below is 0x1F masked! */
@@ -295,7 +295,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_rx.nm[base_obss_rx.n].snr,
         &base_obss_rx.nm[base_obss_rx.n].lock_counter,
         &base_obss_rx.nm[base_obss_rx.n].prn
-      );
+        );
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
@@ -307,7 +307,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       /* TODO Make a function to apply some of these corrections.
        *      They are used in a couple places. */
       base_obss_rx.nm[base_obss_rx.n].pseudorange =
-            base_obss_rx.nm[base_obss_rx.n].raw_pseudorange + clock_err * GPS_C;
+        base_obss_rx.nm[base_obss_rx.n].raw_pseudorange + clock_err * GPS_C;
       /* Set the time */
       base_obss_rx.nm[base_obss_rx.n].tot = t;
       base_obss_rx.n++;
@@ -324,9 +324,9 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
 /** SBP callback for the old style observation messages.
  * Just logs a deprecation warning. */
-static void deprecated_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void deprecated_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 {
-  (void) context; (void) len; (void) msg; (void) sender_id;
+  (void)context; (void)len; (void)msg; (void)sender_id;
   log_error("Receiving an old deprecated observation message.");
 }
 
@@ -345,21 +345,21 @@ void base_obs_setup()
     SBP_MSG_BASE_POS,
     &base_pos_callback,
     &base_pos_node
-  );
+    );
 
   static sbp_msg_callbacks_node_t obs_packed_node;
   sbp_register_cbk(
     SBP_MSG_OBS,
     &obs_callback,
     &obs_packed_node
-  );
+    );
 
   static sbp_msg_callbacks_node_t deprecated_node;
   sbp_register_cbk(
     SBP_MSG_OBS_DEP_A,
     &deprecated_callback,
     &deprecated_node
-  );
+    );
 }
 
 /* \} */

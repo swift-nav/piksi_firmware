@@ -154,7 +154,7 @@ int main(void)
 
   check_nap_auth();
 
-  static char nap_version_string[64] = {0};
+  static char nap_version_string[64] = { 0 };
   nap_conf_rd_version_string(nap_version_string);
   log_info("NAP firmware version: %s", nap_version_string);
 
@@ -197,9 +197,9 @@ int main(void)
                       TYPE_STRING);
 
   static struct setting hw_rev = {
-    "system_info", "hw_revision", NULL, 0,
+    "system_info",             "hw_revision", NULL, 0,
     settings_read_only_notify, NULL,
-    NULL, false
+    NULL,                      false
   };
   hw_rev.addr = (char *)nap_conf_rd_hw_rev_string();
   hw_rev.len = strlen(hw_rev.addr);
