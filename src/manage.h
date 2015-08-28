@@ -59,7 +59,7 @@
 
 void manage_acq_setup(void);
 
-void manage_set_obs_hint(u8 prn);
+void manage_set_obs_hint(u16 prn);
 
 void manage_track_setup(void);
 s8 use_tracking_channel(u8 i);
