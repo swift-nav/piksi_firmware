@@ -406,7 +406,8 @@ static msg_t solution_thread(void *arg)
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
     chMtxLock(&es_mutex);
     calc_navigation_measurement(n_ready, meas, nav_meas,
-                                (double)((u32)nav_tc)/SAMPLE_FREQ, es);
+                                (double)((u32)nav_tc)/SAMPLE_FREQ,
+                                eph.ephemeris_kep);
     chMtxUnlock();
 
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
@@ -468,7 +469,7 @@ static msg_t solution_thread(void *arg)
             u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                     base_obss.n, base_obss.nm,
                                     base_obss.sat_dists, base_obss.pos_ecef,
-                                    es, position_solution.time,
+                                    eph.ephemeris_kep, position_solution.time,
                                     sdiffs);
             chMtxUnlock();
             if (num_sdiffs >= 4) {
