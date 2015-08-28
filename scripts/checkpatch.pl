@@ -3354,14 +3354,14 @@ sub process {
 			}
 		}
 
-## check for function declarations without arguments like "int foo()"
-#		if ($line =~ /(\b$Type\s+$Ident)\s*\(\s*\)/) {
-#			if (ERROR("FUNCTION_WITHOUT_ARGS",
-#				  "Bad function definition - $1() should probably be $1(void)\n" . $herecurr) &&
-#			    $fix) {
-#				$fixed[$fixlinenr] =~ s/(\b($Type)\s+($Ident))\s*\(\s*\)/$2 $3(void)/;
-#			}
-#		}
+# check for function declarations without arguments like "int foo()"
+		if ($line =~ /(\b$Type\s+$Ident)\s*\(\s*\)/) {
+			if (ERROR("FUNCTION_WITHOUT_ARGS",
+				  "Bad function definition - $1() should probably be $1(void)\n" . $herecurr) &&
+			    $fix) {
+				$fixed[$fixlinenr] =~ s/(\b($Type)\s+($Ident))\s*\(\s*\)/$2 $3(void)/;
+			}
+		}
 
 # check for uses of DEFINE_PCI_DEVICE_TABLE
 		if ($line =~ /\bDEFINE_PCI_DEVICE_TABLE\s*\(\s*(\w+)\s*\)\s*=/) {

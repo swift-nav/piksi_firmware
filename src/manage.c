@@ -153,7 +153,7 @@ static msg_t manage_acq_thread(void *arg)
   return 0;
 }
 
-void manage_acq_setup()
+void manage_acq_setup(void)
 {
   for (u8 prn = 0; prn < 32; prn++) {
     acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
@@ -329,7 +329,7 @@ void manage_set_obs_hint(u8 prn)
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
-static void manage_acq()
+static void manage_acq(void)
 {
   /* Decide which PRN to try and then start it acquiring. */
   u8 prn = choose_prn();
@@ -479,7 +479,7 @@ static msg_t manage_track_thread(void *arg)
   return 0;
 }
 
-void manage_track_setup()
+void manage_track_setup(void)
 {
   initialize_lock_counters();
 
@@ -508,7 +508,7 @@ static void drop_channel(u8 channel_id)
 
 /** Disable any tracking channel that has lost phase lock or is
     flagged unhealthy in ephem. */
-static void manage_track()
+static void manage_track(void)
 {
   for (u8 i = 0; i < nap_track_n_channels; i++) {
 
@@ -599,7 +599,7 @@ s8 use_tracking_channel(u8 i)
   }
 }
 
-u8 tracking_channels_ready()
+u8 tracking_channels_ready(void)
 {
   u8 n_ready = 0;
 

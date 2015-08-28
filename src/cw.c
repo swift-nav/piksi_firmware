@@ -39,7 +39,7 @@ void cw_start_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 }
 
 /** Register CW callbacks. */
-void cw_setup()
+void cw_setup(void)
 {
   static sbp_msg_callbacks_node_t cw_start_callback_node;
 
@@ -67,7 +67,7 @@ void cw_schedule_load(u32 count)
  * Clear the enable bit of the CW channel LOAD register and change the CW
  * state to CW_LOADING_DONE.
  */
-void cw_service_load_done()
+void cw_service_load_done(void)
 {
   nap_cw_load_wr_disable_blocking();
   cw_state.state = CW_LOADING_DONE;
@@ -76,7 +76,7 @@ void cw_service_load_done()
 /** Query the state of the CW channel sample ram loading.
  * \return 1 if loading has finished, 0 otherwise
  */
-u8 cw_get_load_done()
+u8 cw_get_load_done(void)
 {
   return cw_state.state == CW_LOADING_DONE;
 }
@@ -84,7 +84,7 @@ u8 cw_get_load_done()
 /** Query the state of the CW channel search.
  * \return 1 if the set of search correlations has finished, 0 otherwise.
  */
-u8 cw_get_running_done()
+u8 cw_get_running_done(void)
 {
   return cw_state.state == CW_RUNNING_DONE;
 }
@@ -122,7 +122,7 @@ void cw_start(float freq_min, float freq_max, float freq_bin_width)
  * frequency to the CW_INIT register. If this is one of the last two interrupts
  * for this search set, set the DISABLE bit of to the CW INIT register.
  */
-void cw_service_irq()
+void cw_service_irq(void)
 {
   u64 power;
   corr_t cs;

@@ -86,7 +86,7 @@ bool acq_load(u32 count)
  * Clear the enable bit of the acquisition channel load register and change
  * the acquisition state to ACQ_LOADING_DONE.
  */
-void acq_service_load_done()
+void acq_service_load_done(void)
 {
   /* Release semaphore to signal to waiting thread that
    * the load is complete. */

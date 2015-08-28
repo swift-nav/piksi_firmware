@@ -537,7 +537,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
 /** Send tracking state SBP message.
  * Send information on each tracking channel to host.
  */
-void tracking_send_state()
+void tracking_send_state(void)
 {
 
   tracking_channel_state_t states[nap_track_n_channels];
@@ -651,7 +651,7 @@ bool track_iq_output_notify(struct setting *s, const char *val)
 
 /** Set up tracking subsystem - presently just hooks for settings
  */
-void tracking_setup()
+void tracking_setup(void)
 {
   SETTING_NOTIFY("track", "iq_output_mask", iq_output_mask, TYPE_INT,
                  track_iq_output_notify);

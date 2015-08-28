@@ -334,7 +334,7 @@ static void deprecated_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 }
 
 /** Setup the base station observation handling subsystem. */
-void base_obs_setup()
+void base_obs_setup(void)
 {
   /* Initialise all Mutex and Semaphore objects. */
   chMtxInit(&base_obs_lock);

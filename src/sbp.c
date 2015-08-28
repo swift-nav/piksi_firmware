@@ -150,7 +150,7 @@ void sbp_register_cbk(u16 msg_type, sbp_msg_callback_t cb,
 
 /** Disable the SBP interface.
  * Disables the USART peripherals and DMA streams enabled by sbp_setup(). */
-void sbp_disable()
+void sbp_disable(void)
 {
   usarts_disable();
 }
@@ -278,7 +278,7 @@ u32 ftdi_read(u8 *buff, u32 n, void *context)
  * This function should be called periodically to clear the USART DMA RX
  * buffers and handle the SBP callbacks in them.
  */
-void sbp_process_messages()
+void sbp_process_messages(void)
 {
   s8 ret;
 
@@ -406,7 +406,7 @@ void log_obs_latency(float latency_ms)
   }
 }
 
-void log_obs_latency_tick()
+void log_obs_latency_tick(void)
 {
   systime_t now_ticks = chTimeNow();
   double elapsed = (now_ticks - last_obs_msg_ticks) / (double)CH_FREQUENCY;

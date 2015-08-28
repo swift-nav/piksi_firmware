@@ -275,7 +275,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 static BinarySemaphore solution_wakeup_sem;
 #define tim5_isr Vector108
 #define NVIC_TIM5_IRQ 50
-void tim5_isr()
+void tim5_isr(void)
 {
   CH_IRQ_PROLOGUE();
   chSysLockFromIsr();
@@ -302,7 +302,7 @@ static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
   __asm__("CPSIE i;");
 }
 
-static void solution_simulation()
+static void solution_simulation(void)
 {
   /* Set the timer period appropriately. */
   timer_set_period_check(TIM5, round(65472000 * (1.0 / soln_freq)));
@@ -735,7 +735,7 @@ void init_base_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   init_known_base = true;
 }
 
-void solution_setup()
+void solution_setup(void)
 {
   /* Set time of last differential solution in the past. */
   last_dgnss = chTimeNow() - DGNSS_TIMEOUT;

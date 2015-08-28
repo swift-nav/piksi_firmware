@@ -73,7 +73,7 @@ u32 check_stack_free(Thread *tp)
   return 4 * (i - 1);
 }
 
-void send_thread_states()
+void send_thread_states(void)
 {
   Thread *tp = chRegFirstThread();
 
@@ -211,7 +211,7 @@ static msg_t system_monitor_thread(void *arg)
   return 0;
 }
 
-static void debug_threads()
+static void debug_threads(void)
 {
   const char *state[] = {
     "READY",
@@ -277,7 +277,7 @@ static msg_t watchdog_thread(void *arg)
   return 0;
 }
 
-void system_monitor_setup()
+void system_monitor_setup(void)
 {
   /* Setup cycle counter for measuring thread CPU time. */
   SCS_DEMCR |= 0x01000000;
