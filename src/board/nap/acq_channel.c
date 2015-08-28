@@ -127,7 +127,7 @@ void nap_acq_corr_rd_blocking(u16 *index, u16 *max, float *ave)
  * CA Code for SV to be searched for must be written into channel's code ram
  * before acquisitions are started.
  *
- * \param prn PRN number (0-31) of CA code to be written.
+ * \param sid SignalID which contains the PRN of the satellite.
  */
 void nap_acq_code_wr_blocking(signal_t sid)
 {
