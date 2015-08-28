@@ -29,7 +29,7 @@
 
 static BinarySemaphore load_wait_sem;
 
-void acq_set_prn(signal_t sid)
+void acq_set_sid(signal_t sid)
 {
   chBSemInit(&load_wait_sem, TRUE);
   nap_acq_code_wr_blocking(sid);
