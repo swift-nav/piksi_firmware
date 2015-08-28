@@ -20,6 +20,7 @@
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/signal.h>
 
 #include "board/leds.h"
 #include "position.h"
@@ -276,7 +277,8 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   for (u8 i=0; i<obs_in_msg; i++) {
     /* Check the PRN is valid. e.g. simulation mode outputs test observations
      * with PRNs >200. */
-    if (obs[i].sid.prn > 31) { /* TODO prn - sid; assume everything below is 0x1F masked! */
+    /* TODO SBAS!!!*/
+    if (obs[i].sid.prn > 140) { /* TODO prn - sid; assume everything below is 0x1F masked! */
       continue;
     }
 
@@ -286,7 +288,20 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
     chMtxLock(&es_mutex);
-    if (ephemeris_good(&es[obs[i].sid.prn], t)) {
+    ephemeris_t e;
+    signal_t sid;
+
+    signal_from_sbp(&obs[i].sid, &sid);
+
+    if (obs[i].sid.constellation == GPS_CONSTELLATION) {
+      e.ephemeris_kep = &eph.ephemeris_kep[sid.prn];
+      e.ephemeris_xyz = NULL;
+    } else {
+      e.ephemeris_xyz = &eph.ephemeris_xyz[sbas_sid_to_index(sid)];
+      e.ephemeris_kep = NULL;
+    }
+
+    if (ephemeris_good(&e, sid, t)) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
@@ -299,7 +314,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(&es[obs[i].sid.prn], t,
+      calc_sat_state(&eph.ephemeris_kep[obs[i].sid.prn], t,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);
