@@ -55,22 +55,24 @@ enum acq_hint {
   ACQ_HINT_NUM
 };
 
-/** Status of acquisition for a particular PRN. */
+/** Status of acquisition for a particular SID. */
 typedef struct {
   enum {
-    ACQ_PRN_SKIP = 0,
-    ACQ_PRN_ACQUIRING,
-    ACQ_PRN_TRACKING,
-    ACQ_PRN_UNHEALTHY
-  } state;                 /**< Management status of PRN. */
+    ACQ_SID_SKIP = 0,
+    ACQ_SID_ACQUIRING,
+    ACQ_SID_TRACKING,
+    ACQ_SID_UNHEALTHY
+  } state;                 /**< Management status of SID. */
   bool masked;             /**< Prevent acquisition. */
-  u16 score[ACQ_HINT_NUM]; /**< Acquisition preference of PRN. */
+  u16 score[ACQ_HINT_NUM]; /**< Acquisition preference of SID. */
   float dopp_hint_low;     /**< Low bound of doppler search hint. */
   float dopp_hint_high;    /**< High bound of doppler search hint. */
   signal_t sid;
-} acq_prn_t;
-acq_prn_t acq_prn_param[32];
+} acq_sid_t;
+acq_sid_t l1_acq_param[GPS_L1_SATS];
+acq_sid_t sbas_acq_param[WAAS_SATS];
 
+#define SCORE_SBAS          200
 #define SCORE_COLDSTART     100
 #define SCORE_WARMSTART     200
 #define SCORE_BELOWMASK     0
@@ -81,8 +83,13 @@ acq_prn_t acq_prn_param[32];
 #define DOPP_UNCERT_ALMANAC 4000
 #define DOPP_UNCERT_EPHEM   500
 
-almanac_t almanac[32];
-extern ephemeris_t es[32];
+almanac_t l1_almanac[GPS_L1_SATS];
+almanac_t sbas_almanac[WAAS_SATS];
+
+extern ephemeris_kepler_t l1_es[GPS_L1_SATS];
+extern ephemeris_xyz_t sbas_es[WAAS_SATS];
+
+ephemeris_t eph;
 
 static float track_cn0_use_thres = 31.0; /* dBHz */
 float elevation_mask = 5.0; /* degrees */
@@ -96,14 +103,33 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void) context;
 
+  int fd = -1;
   almanac_t *new_almanac = (almanac_t*)msg;
 
-  log_info("Received alamanc for PRN %02d", new_almanac->prn);
-  memcpy(&almanac[new_almanac->prn-1], new_almanac, sizeof(almanac_t));
+  log_info("Received alamanc for PRN %02d", new_almanac->sid.prn);
+  switch(new_almanac->sid.constellation) {
+    case GPS_CONSTELLATION:
+      memcpy(&l1_almanac[new_almanac->sid.prn-1], new_almanac, sizeof(almanac_t));
+      fd = cfs_open("l1_almanac", CFS_WRITE);
+      break;
+    case SBAS_CONSTELLATION:
+      memcpy(&sbas_almanac[new_almanac->sid.prn-1-119], new_almanac, sizeof(almanac_t));
+      fd = cfs_open("sbas_almanac", CFS_WRITE);
+      break;
+    default:
+      log_error("Invalid constellation from received almanac!");
+      return;
+  }
 
-  int fd = cfs_open("almanac", CFS_WRITE);
   if (fd != -1) {
-    cfs_seek(fd, (new_almanac->prn-1)*sizeof(almanac_t), CFS_SEEK_SET);
+    switch(new_almanac->sid.constellation) {
+      case GPS_CONSTELLATION:
+        cfs_seek(fd, (new_almanac->sid.prn-1)*sizeof(almanac_t), CFS_SEEK_SET);
+        break;
+      case SBAS_CONSTELLATION:
+        cfs_seek(fd, (new_almanac->sid.prn-1-119)*sizeof(almanac_t), CFS_SEEK_SET);
+        break;
+    }
     if (cfs_write(fd, new_almanac, sizeof(almanac_t)) != sizeof(almanac_t)) {
       log_error("Error writing to almanac file");
     } else {
@@ -126,16 +152,36 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   msg_mask_satellite_t *m = (msg_mask_satellite_t *)msg;
 
-  u8 prn = m->sid.prn;
+  signal_t sid = {
+    .prn = m->sid.prn,
+    .band = m->sid.band,
+    .constellation = m->sid.constellation
+  };
+  u16 prn = sid.prn;
 
-  log_info("Mask for PRN %02d = 0x%02x", prn+1, m->mask);
-  if (m->mask & MASK_ACQUISITION) {
-    acq_prn_param[prn].masked = true;
-  } else {
-    acq_prn_param[prn].masked = false;
-  }
-  if (m->mask & MASK_TRACKING) {
-    tracking_drop_satellite(prn);
+  switch(m->sid.constellation){
+    case GPS_CONSTELLATION:
+      log_info("Mask for PRN %02d = 0x%02x", prn+1, m->mask);
+      if (m->mask & MASK_ACQUISITION) {
+        l1_acq_param[prn].masked = true;
+      } else {
+        l1_acq_param[prn].masked = false;
+      }
+      if (m->mask & MASK_TRACKING) {
+        tracking_drop_satellite(prn);
+      }
+      break;
+    case SBAS_CONSTELLATION:
+      log_info("Mask for PRN %02d = 0x%02x", prn+1, m->mask);
+      if (m->mask & MASK_ACQUISITION) {
+        sbas_acq_param[sbas_sid_to_index(sid)].masked = true;
+      } else {
+        sbas_acq_param[sbas_sid_to_index(sid)].masked = false;
+      }
+      if (m->mask & MASK_TRACKING) {
+        tracking_drop_satellite(prn); /*TODO: look here!!!!*/
+      }
+      break;
   }
 }
 
@@ -154,33 +200,83 @@ static msg_t manage_acq_thread(void *arg)
   return 0;
 }
 
-void manage_acq_setup()
+static void l1_setup_acq()
 {
-  for (u8 prn=0; prn<32; prn++) {
-    acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
+  for (u8 prn=0; prn<GPS_L1_SATS; prn++) {
+    l1_acq_param[prn].state = ACQ_SID_ACQUIRING;
     for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
-      acq_prn_param[prn].score[hint] = 0;
-    acq_prn_param[prn].dopp_hint_low = ACQ_FULL_CF_MIN;
-    acq_prn_param[prn].dopp_hint_high = ACQ_FULL_CF_MAX;
-    acq_prn_param[prn].sid.prn = prn;
-    acq_prn_param[prn].sid.constellation = GPS_CONSTELLATION;
-    acq_prn_param[prn].sid.band = L1_BAND;
+      l1_acq_param[prn].score[hint] = 0;
+    l1_acq_param[prn].dopp_hint_low = ACQ_FULL_CF_MIN;
+    l1_acq_param[prn].dopp_hint_high = ACQ_FULL_CF_MAX;
+    l1_acq_param[prn].sid.prn = prn;
+    l1_acq_param[prn].sid.constellation = GPS_CONSTELLATION;
+    l1_acq_param[prn].sid.band = L1_BAND;
   }
+}
 
-  int fd = cfs_open("almanac", CFS_READ);
+static void l1_setup_almanac()
+{
+  int fd = cfs_open("l1_almanac", CFS_READ);
   if (fd != -1) {
-    cfs_read(fd, almanac, 32*sizeof(almanac_t));
-    log_info("Loaded almanac from flash");
+    cfs_read(fd, l1_almanac, GPS_L1_SATS*sizeof(almanac_t));
+    log_info("Loaded GPS/L1 almanac from flash.");
     cfs_close(fd);
   } else {
-    log_info("No almanac file present in flash, create an empty one");
-    cfs_coffee_reserve("almanac", 32*sizeof(almanac_t));
-    cfs_coffee_configure_log("almanac", 256, sizeof(almanac_t));
+    log_info("No GPS/L1 almanac file present in flash, create an empty one.");
+    cfs_coffee_reserve("l1_almanac", GPS_L1_SATS*sizeof(almanac_t));
+    cfs_coffee_configure_log("l1_almanac", 256, sizeof(almanac_t));
 
-    for (u8 prn=0; prn<32; prn++) {
-      almanac[prn].valid = 0;
+    for (u8 prn=0; prn<GPS_L1_SATS; prn++) {
+      l1_almanac[prn].valid = 0;
     }
   }
+}
+
+static void sbas_setup_acq()
+{
+  for (u8 prn=0; prn<WAAS_SATS; prn++) {
+    sbas_acq_param[prn].state = ACQ_SID_ACQUIRING;
+    for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
+      sbas_acq_param[prn].score[hint] = 0;
+    sbas_acq_param[prn].dopp_hint_low = ACQ_FULL_CF_MIN;
+    sbas_acq_param[prn].dopp_hint_high = ACQ_FULL_CF_MAX;
+    sbas_acq_param[prn].sid = sbas_index_to_sid(prn);
+  }
+}
+
+static void sbas_setup_almanac()
+{
+  int fd = cfs_open("sbas_almanac", CFS_READ);
+  if (fd != -1) {
+    cfs_read(fd, sbas_almanac, WAAS_SATS*sizeof(almanac_t));
+    log_info("Loaded SBAS almanac from flash.");
+    cfs_close(fd);
+  } else {
+    log_info("No SBAS almanac file present in flash, create an empty one.");
+    cfs_coffee_reserve("sbas_almanac", WAAS_SATS*sizeof(almanac_t));
+    cfs_coffee_configure_log("sbas_almanac", 256, sizeof(almanac_t));
+
+    for (u8 prn=0; prn<WAAS_SATS; prn++) {
+      sbas_almanac[prn].valid = 0;
+    }
+  }
+}
+
+static void ephemeris_setup()
+{
+  eph.ephemeris_kep = l1_es;
+  eph.ephemeris_xyz = sbas_es;
+}
+
+void manage_acq_setup()
+{
+  l1_setup_acq();
+  l1_setup_almanac();
+
+  sbas_setup_acq();
+  sbas_setup_almanac();
+
+  ephemeris_setup();
 
   sbp_register_cbk(
     SBP_MSG_ALMANAC,
@@ -214,28 +310,50 @@ void manage_acq_setup()
  *  from ephemeris or almanac, if available and elevation > mask
  * \return Score (higher is better)
  */
-static u16 manage_warm_start(u8 prn, gps_time_t t,
+static u16 manage_warm_start(signal_t sid, gps_time_t t,
                              float *dopp_hint_low, float *dopp_hint_high)
 {
     /* Do we have any idea where/when we are?  If not, no score. */
     /* TODO: Stricter requirement on time and position uncertainty?
        We ought to keep track of a quantitative uncertainty estimate. */
     if (time_quality < TIME_GUESS &&
-        position_quality < POSITION_GUESS)
+        position_quality < POSITION_GUESS) {
       return SCORE_COLDSTART;
+    }
 
     float el = 0;
     double el_d, _, dopp_hint = 0, dopp_uncertainty = DOPP_UNCERT_ALMANAC;
 
-    /* Do we have a suitable ephemeris for this sat?  If so, use
+    if (sid.constellation == SBAS_CONSTELLATION) {
+       *dopp_hint_low = dopp_hint - dopp_uncertainty;
+       *dopp_hint_high = dopp_hint + dopp_uncertainty;
+      return SCORE_SBAS;
+    }
+        /* Do we have a suitable ephemeris for this sat?  If so, use
        that in preference to the almanac. */
-    if (ephemeris_good(&es[prn], t)) {
+
+    almanac_t *alm = &l1_almanac[sid.prn];
+
+    ephemeris_t e;
+    if (sid.constellation == GPS_CONSTELLATION) {
+      e.ephemeris_kep = &eph.ephemeris_kep[sid.prn];
+      e.ephemeris_xyz = NULL;
+    } else {
+      e.ephemeris_xyz = &eph.ephemeris_xyz[sbas_sid_to_index(sid)];
+      e.ephemeris_kep = NULL;
+      alm = &sbas_almanac[sbas_sid_to_index(sid)];
+    }
+    //TODO for calc_sat_state
+    ephemeris_kepler_t kep = eph.ephemeris_kep[sid.prn];
+
+    if (ephemeris_good(&e, sid, t)) {
       double sat_pos[3], sat_vel[3], el_d;
-      calc_sat_state(&es[prn], t, sat_pos, sat_vel, &_, &_);
+      calc_sat_state(&kep, t, sat_pos, sat_vel, &_, &_);
       wgsecef2azel(sat_pos, position_solution.pos_ecef, &_, &el_d);
       el = (float)(el_d) * R2D;
-      if (el < elevation_mask)
+      if (el < elevation_mask) {
         return SCORE_BELOWMASK;
+      }
       vector_subtract(3, sat_pos, position_solution.pos_ecef, sat_pos);
       vector_normalize(3, sat_pos);
       /* sat_pos now holds unit vector from us to satellite */
@@ -246,13 +364,13 @@ static u16 manage_warm_start(u8 prn, gps_time_t t,
       /* TODO: Check sign of receiver frequency offset correction */
       if (time_quality >= TIME_FINE)
         dopp_uncertainty = DOPP_UNCERT_EPHEM;
-    } else if (almanac[prn].valid) {
-      calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024,
+    } else if (alm->valid) {
+      calc_sat_az_el_almanac(alm, t.tow, t.wn-1024,
                              position_solution.pos_ecef, &_, &el_d);
       el = (float)(el_d) * R2D;
       if (el < elevation_mask)
         return SCORE_BELOWMASK;
-      dopp_hint = -calc_sat_doppler_almanac(&almanac[prn], t.tow, t.wn,
+      dopp_hint = -calc_sat_doppler_almanac(alm, t.tow, t.wn,
                                             position_solution.pos_ecef);
     } else {
       return SCORE_COLDSTART; /* Couldn't determine satellite state. */
@@ -268,35 +386,65 @@ static signal_t choose_sid(void)
   u32 total_score = 0;
   gps_time_t t = get_current_time();
 
-  for (u8 prn=0; prn<32; prn++) {
-    if ((acq_prn_param[prn].state != ACQ_PRN_ACQUIRING) ||
-         acq_prn_param[prn].masked)
-      continue;
+  for (u8 prn=0; prn<GPS_L1_SATS + WAAS_SATS; prn++) {
+    if (prn < GPS_L1_SATS) {
+      if ((l1_acq_param[prn].state != ACQ_SID_ACQUIRING) ||
+           l1_acq_param[prn].masked)
+        continue;
 
-    acq_prn_param[prn].score[ACQ_HINT_WARMSTART] =
-      manage_warm_start(prn, t,
-                        &acq_prn_param[prn].dopp_hint_low,
-                        &acq_prn_param[prn].dopp_hint_high);
+      l1_acq_param[prn].score[ACQ_HINT_WARMSTART] =
+        manage_warm_start(l1_acq_param[prn].sid, t,
+                          &l1_acq_param[prn].dopp_hint_low,
+                          &l1_acq_param[prn].dopp_hint_high);
+      for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++) {
+        total_score += l1_acq_param[prn].score[hint];
+      }
+    } else {
+      u8 local_prn = prn - GPS_L1_SATS;
+      if ((sbas_acq_param[local_prn].state != ACQ_SID_ACQUIRING) ||
+           sbas_acq_param[local_prn].masked)
+        continue;
 
-    for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++) {
-      total_score += acq_prn_param[prn].score[hint];
+      sbas_acq_param[local_prn].score[ACQ_HINT_WARMSTART] =
+        manage_warm_start(sbas_acq_param[local_prn].sid, t,
+                          &sbas_acq_param[local_prn].dopp_hint_low,
+                          &sbas_acq_param[local_prn].dopp_hint_high);
+      for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++) {
+        total_score += sbas_acq_param[local_prn].score[hint];
+      }
     }
   }
 
   u32 pick = random_int() % total_score;
 
-  for (u8 prn=0; prn<32; prn++) {
-    if ((acq_prn_param[prn].state != ACQ_PRN_ACQUIRING) ||
-         acq_prn_param[prn].masked)
-      continue;
+  for (u8 prn=0; prn<GPS_L1_SATS + WAAS_SATS; prn++) {
+    if (prn < GPS_L1_SATS) {
+        if ((l1_acq_param[prn].state != ACQ_SID_ACQUIRING) ||
+           l1_acq_param[prn].masked)
+        continue;
 
-    u32 sat_score = 0;
-    for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
-      sat_score += acq_prn_param[prn].score[hint];
-    if (pick < sat_score) {
-      return acq_prn_param[prn].sid;
+      u32 sat_score = 0;
+      for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
+        sat_score += l1_acq_param[prn].score[hint];
+      if (pick < sat_score) {
+        return l1_acq_param[prn].sid;
+      } else {
+        pick -= sat_score;
+      }
     } else {
-      pick -= sat_score;
+      u8 local_prn = prn - GPS_L1_SATS;
+      if ((sbas_acq_param[local_prn].state != ACQ_SID_ACQUIRING) ||
+           sbas_acq_param[local_prn].masked)
+        continue;
+
+      u32 sat_score = 0;
+      for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
+        sat_score += sbas_acq_param[local_prn].score[hint];
+      if (pick < sat_score) {
+        return sbas_acq_param[local_prn].sid;
+      } else {
+        pick -= sat_score;
+      }
     }
   }
 
@@ -326,7 +474,7 @@ void manage_set_obs_hint(u16 prn)
   if (prn >= 32) /* check range */
     return;
 
-  acq_prn_param[prn].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
+  l1_acq_param[prn].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
@@ -340,7 +488,7 @@ static void manage_acq()
   u32 timer_count;
   float cn0, cp, cf;
 
-  acq_set_prn(sid);
+  acq_set_sid(sid);
 
   /* We have our PRN chosen, now load some fresh data
    * into the acquisition ram on the Swift NAP for
@@ -351,18 +499,18 @@ static void manage_acq()
     /* acq_load could timeout if we're preempted and miss the timing strobe */
   } while (!acq_load(timer_count));
 
+  acq_sid_t *acq = &l1_acq_param[sid.prn];
+  if (sid.constellation == SBAS_CONSTELLATION)
+    acq = &sbas_acq_param[sbas_sid_to_index(sid)];
+
   /* Check for NaNs in dopp hints, or low > high */
-  if (!(acq_prn_param[sid.prn].dopp_hint_low
-        <= acq_prn_param[sid.prn].dopp_hint_high)) {
-    log_error("Acq: caught bogus dopp_hints (%f, %f)",
-              acq_prn_param[sid.prn].dopp_hint_low,
-              acq_prn_param[sid.prn].dopp_hint_high);
-    acq_prn_param[sid.prn].dopp_hint_high = ACQ_FULL_CF_MAX;
-    acq_prn_param[sid.prn].dopp_hint_low = ACQ_FULL_CF_MIN;
+  if (!(acq->dopp_hint_low <= acq->dopp_hint_high)) {
+    log_error("Acq: caught bogus dopp_hints (%f, %f)", acq->dopp_hint_low,
+              acq->dopp_hint_high);
+    acq->dopp_hint_high = ACQ_FULL_CF_MAX;
+    acq->dopp_hint_low = ACQ_FULL_CF_MIN;
   }
-  acq_search(acq_prn_param[sid.prn].dopp_hint_low,
-             acq_prn_param[sid.prn].dopp_hint_high,
-             ACQ_FULL_CF_STEP);
+  acq_search(acq->dopp_hint_low, acq->dopp_hint_high, ACQ_FULL_CF_STEP);
 
   /* Done with the coarse acquisition, check if we have found a
    * satellite, if so save the results and start the loading
@@ -375,17 +523,14 @@ static void manage_acq()
   if (cn0 < ACQ_THRESHOLD) {
     /* Didn't find the satellite :( */
     /* Double the size of the doppler search space for next time. */
-    float dilute = (acq_prn_param[sid.prn].dopp_hint_high -
-                    acq_prn_param[sid.prn].dopp_hint_low) / 2;
-    acq_prn_param[sid.prn].dopp_hint_high =
-        MIN(acq_prn_param[sid.prn].dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
-    acq_prn_param[sid.prn].dopp_hint_low =
-        MAX(acq_prn_param[sid.prn].dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
+    float dilute = (acq->dopp_hint_high - acq->dopp_hint_low) / 2;
+    acq->dopp_hint_high = MIN(acq->dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
+    acq->dopp_hint_low = MAX(acq->dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
     /* Decay hint scores */
     for (u8 i = 0; i < ACQ_HINT_NUM; i++)
-      acq_prn_param[sid.prn].score[i] = (acq_prn_param[sid.prn].score[i] * 3) / 4;
+      acq->score[i] = (acq->score[i] * 3) / 4;
     /* Reset hint score for acquisition. */
-    acq_prn_param[sid.prn].score[ACQ_HINT_PREV_ACQ] = 0;
+    acq->score[ACQ_HINT_PREV_ACQ] = 0;
     return;
   }
 
@@ -396,10 +541,9 @@ static void manage_acq()
      * later using another fine acq.
      */
     if (cn0 > ACQ_RETRY_THRESHOLD) {
-      acq_prn_param[sid.prn].score[ACQ_HINT_PREV_ACQ] =
-        SCORE_ACQ + (cn0 - ACQ_THRESHOLD);
-      acq_prn_param[sid.prn].dopp_hint_low = cf - ACQ_FULL_CF_STEP;
-      acq_prn_param[sid.prn].dopp_hint_high = cf + ACQ_FULL_CF_STEP;
+      acq->score[ACQ_HINT_PREV_ACQ] = SCORE_ACQ + (cn0 - ACQ_THRESHOLD);
+      acq->dopp_hint_low = cf - ACQ_FULL_CF_STEP;
+      acq->dopp_hint_high = cf + ACQ_FULL_CF_STEP;
     }
     return;
   }
@@ -411,11 +555,11 @@ static void manage_acq()
   track_count += 16*(1023.0-cp)*(1.0 + cf / GPS_L1_HZ);
 
   /* Start the tracking channel */
-  tracking_channel_init(chan, sid.prn, cf, track_count, cn0,
+  tracking_channel_init(chan, sid, cf, track_count, cn0,
                         TRACKING_ELEVATION_UNKNOWN);
   /* TODO: Initialize elevation from ephemeris if we know it precisely */
 
-  acq_prn_param[sid.prn].state = ACQ_PRN_TRACKING;
+  acq->state = ACQ_SID_TRACKING;
   nap_timing_strobe_wait(100);
 }
 
@@ -448,9 +592,14 @@ static void check_clear_unhealthy(void)
 
   ticks = chTimeNow();
 
-  for (u8 prn=0; prn<32; prn++) {
-    if (acq_prn_param[prn].state == ACQ_PRN_UNHEALTHY)
-      acq_prn_param[prn].state = ACQ_PRN_ACQUIRING;
+  for (u8 prn=0; prn<GPS_L1_SATS; prn++) {
+    if (l1_acq_param[prn].state == ACQ_SID_UNHEALTHY)
+      l1_acq_param[prn].state = ACQ_SID_ACQUIRING;
+  }
+
+  for (u8 prn=0; prn<WAAS_SATS; prn++) {
+    if (sbas_acq_param[prn].state == ACQ_SID_UNHEALTHY)
+      sbas_acq_param[prn].state = ACQ_SID_ACQUIRING;
   }
 }
 
@@ -491,12 +640,17 @@ void manage_track_setup()
 static void drop_channel(u8 channel_id) {
   tracking_channel_disable(channel_id);
   const tracking_channel_t *ch = &tracking_channel[channel_id];
+  acq_sid_t *acq = &l1_acq_param[ch->sid.prn];
+
+  if (ch->sid.constellation == SBAS_CONSTELLATION)
+    acq = &sbas_acq_param[sbas_sid_to_index(ch->sid)];
+
   if (ch->update_count > TRACK_REACQ_T) {
-    acq_prn_param[ch->sid.prn].score[ACQ_HINT_PREV_TRACK] = SCORE_TRACK;
-    acq_prn_param[ch->sid.prn].dopp_hint_low = ch->carrier_freq - ACQ_FULL_CF_STEP;
-    acq_prn_param[ch->sid.prn].dopp_hint_high = ch->carrier_freq + ACQ_FULL_CF_STEP;
+    acq->score[ACQ_HINT_PREV_TRACK] = SCORE_TRACK;
+    acq->dopp_hint_low = ch->carrier_freq - ACQ_FULL_CF_STEP;
+    acq->dopp_hint_high = ch->carrier_freq + ACQ_FULL_CF_STEP;
   }
-  acq_prn_param[ch->sid.prn].state = ACQ_PRN_ACQUIRING;
+  acq->state = ACQ_SID_ACQUIRING;
 }
 
 /** Disable any tracking channel that has lost phase lock or is
@@ -506,6 +660,20 @@ static void manage_track()
   for (u8 i=0; i<nap_track_n_channels; i++) {
 
     tracking_channel_t *ch = &tracking_channel[i];
+    signal_t sid = ch->sid;
+    acq_sid_t *acq = NULL;
+    ephemeris_t e;
+
+    if (sid.constellation == GPS_CONSTELLATION) {
+      acq = &l1_acq_param[sid.prn];
+      e.ephemeris_kep = &eph.ephemeris_kep[sid.prn];
+      e.ephemeris_xyz = NULL;
+    } else {
+      acq = &sbas_acq_param[sbas_sid_to_index(sid)];
+      e.ephemeris_xyz = &eph.ephemeris_xyz[sbas_sid_to_index(sid)];
+      e.ephemeris_kep = NULL;
+    }
+
     /* Skip channels that aren't in use */
     if (ch->state != TRACKING_RUNNING ||
         /* Give newly-initialized channels a chance to converge */
@@ -513,15 +681,30 @@ static void manage_track()
       continue;
 
     /* Is ephemeris marked unhealthy? */
-    if (es[ch->sid.prn].valid && !es[ch->sid.prn].healthy) {
+    u8 status = 0;
+    if (sid.constellation == GPS_CONSTELLATION) {
+      if (e.ephemeris_kep[0].valid && !e.ephemeris_kep[0].healthy)
+        status = 1;
+    } else {
+      if (e.ephemeris_xyz[0].valid && !e.ephemeris_xyz[0].healthy)
+        status = 1;
+    }
+
+    if (status == 1) {
       log_info("PRN%d unhealthy, dropping", ch->sid.prn+1);
       drop_channel(i);
-      acq_prn_param[ch->sid.prn].state = ACQ_PRN_UNHEALTHY;
+      acq->state = ACQ_SID_UNHEALTHY;
       continue;
     }
 
     /* Do we not have nav bit sync yet? */
-    if (ch->nav_msg.bit_phase_ref == BITSYNC_UNSYNCED) {
+    s8 *b_phase_ref;
+    if (sid.constellation == GPS_CONSTELLATION) {
+        b_phase_ref = &ch->nav_msg.l1_nav_msg->bit_phase_ref;
+      } else {
+        b_phase_ref = &ch->nav_msg.sbas_nav_msg->bit_phase_ref;
+      }
+    if (*b_phase_ref == BITSYNC_UNSYNCED) {
       drop_channel(i);
       continue;
     }
@@ -548,8 +731,7 @@ static void manage_track()
       log_info("PRN%d below elevation mask, dropping", ch->sid.prn+1);
       drop_channel(i);
       /* Erase the tracking hint score, and any others it might have */
-      memset(&acq_prn_param[ch->sid.prn].score, 0,
-             sizeof(acq_prn_param[ch->sid.prn].score));
+      memset(acq->score, 0, sizeof(acq->score));
       continue;
     }
   }
@@ -558,6 +740,23 @@ static void manage_track()
 s8 use_tracking_channel(u8 i)
 {
   tracking_channel_t *ch = &tracking_channel[i];
+  signal_t sid = ch->sid;
+  ephemeris_t e;
+  s8 *b_polarity;
+
+  if (sid.constellation == GPS_CONSTELLATION)
+    b_polarity = &ch->nav_msg.l1_nav_msg->bit_polarity;
+  else
+    b_polarity = &ch->nav_msg.sbas_nav_msg->bit_polarity;
+
+  if (sid.constellation == GPS_CONSTELLATION) {
+    e.ephemeris_kep = &eph.ephemeris_kep[sid.prn];
+    e.ephemeris_xyz = NULL;
+  } else {
+    e.ephemeris_xyz = &eph.ephemeris_xyz[sbas_sid_to_index(sid)];
+    e.ephemeris_kep = NULL;
+  }
+
   /* To use a channel's measurements in an SPP or RTK solution, we
      require the following conditions: */
   if ((ch->state == TRACKING_RUNNING)
@@ -572,7 +771,7 @@ s8 use_tracking_channel(u8 i)
       /* Channel time of week has been decoded. */
       && (ch->TOW_ms != TOW_INVALID)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
-      && (ch->nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
+      && (*b_polarity != BIT_POLARITY_UNKNOWN)
       /* Estimated C/N0 is above some threshold */
       && (ch->cn0 > track_cn0_use_thres))
       {
@@ -584,7 +783,7 @@ s8 use_tracking_channel(u8 i)
       .wn = WN_UNKNOWN,
       .tow = 1e-3 * ch->TOW_ms
     };
-    return ephemeris_good(&es[ch->sid.prn], t);
+    return ephemeris_good(&e, sid, t);
   } else return 0;
 }
 
