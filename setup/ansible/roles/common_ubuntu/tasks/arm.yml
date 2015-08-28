@@ -11,7 +11,7 @@
 
 - name: Install ARM GCC toolchain (Trusty)
   sudo: True
-  shell: apt-get install gcc-arm-none-eabi=4.9.3.2014q4-0trusty12
+  shell: apt-get install gcc-arm-none-eabi=4.9.3.2015q2-1trusty1
   when: ansible_distribution == 'Ubuntu' and ansible_distribution_version == '14.04'
 
 - name: Install ARM GCC toolchain (Utopic)
