@@ -161,6 +161,7 @@ ASMSRC = $(PORTASM)
 INCDIR = $(PORTINC) $(KERNINC) $(CHIBIOS)/os/various \
          $(SWIFTNAV_ROOT)/libsbp/c/include \
          $(SWIFTNAV_ROOT)/libswiftnav/include \
+				 $(SWIFTNAV_ROOT)/libswiftnav/libfec/include \
          $(SWIFTNAV_ROOT)/src \
          $(SWIFTNAV_ROOT)/libopencm3/include
 
@@ -226,10 +227,10 @@ DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/BLAS/SRC \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/SRC \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/F2CLIBS/libf2c \
-          $(SWIFTNAV_ROOT)/libswiftnav/build/src
+          $(SWIFTNAV_ROOT)/libswiftnav/build/libfec/src
 
 # List all default libraries here
-DLIBS = -lopencm3_stm32f4 -lsbp-static -lswiftnav-static \
+DLIBS = -lopencm3_stm32f4 -lsbp-static -lswiftnav-static -lfec \
         -llapack -lcblas -lblas \
         -lf2c -lm -lc -lnosys
 
