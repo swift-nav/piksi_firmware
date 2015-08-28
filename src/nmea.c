@@ -49,14 +49,16 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
  * max_len = max possible length of the body of the message
  * (not including suffix)
  */
-#define NMEA_SENTENCE_START(max_len) char sentence_buf[max_len + NMEA_SUFFIX_LEN]; \
+#define NMEA_SENTENCE_START(max_len) char sentence_buf[max_len + \
+                                                       NMEA_SUFFIX_LEN]; \
   char *sentence_bufp = sentence_buf; \
   char *const sentence_buf_end = sentence_buf + max_len;
 
 /** NMEA_SENTENCE_PRINTF: use like printf, can use multiple times
     within a sentence. */
 #define NMEA_SENTENCE_PRINTF(fmt, ...) do { \
-    sentence_bufp += snprintf(sentence_bufp, sentence_buf_end - sentence_bufp, fmt, ## __VA_ARGS__); \
+    sentence_bufp += snprintf(sentence_bufp, sentence_buf_end - sentence_bufp, \
+                              fmt, ## __VA_ARGS__); \
     if (sentence_bufp >= sentence_buf_end) { \
       sentence_bufp = sentence_buf_end; } } while (0)
 

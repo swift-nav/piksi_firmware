@@ -168,7 +168,8 @@ static msg_t system_monitor_thread(void *arg)
         log_info("Now using patch antenna.");
       }
     }
-    u32 status_flags = ant_status << 31 | SBP_MAJOR_VERSION << 16 | SBP_MINOR_VERSION << 8;
+    u32 status_flags = ant_status << 31 | SBP_MAJOR_VERSION << 16 |
+    SBP_MINOR_VERSION << 8;
     sbp_send_msg(SBP_MSG_HEARTBEAT, sizeof(status_flags), (u8 *)&status_flags);
 
     /* If we are in base station mode then broadcast our known location. */
@@ -283,10 +284,12 @@ void system_monitor_setup()
   DWT_CYCCNT = 0; /* Reset the counter. */
   DWT_CTRL |= 1;  /* Enable the counter. */
 
-  SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
+  SETTING("system_monitor", "heartbeat_period_milliseconds",
+          heartbeat_period_milliseconds, TYPE_INT);
   SETTING("system_monitor", "watchdog", use_wdt, TYPE_BOOL);
 
-  SETTING("surveyed_position", "broadcast", broadcast_surveyed_position, TYPE_BOOL);
+  SETTING("surveyed_position", "broadcast", broadcast_surveyed_position,
+          TYPE_BOOL);
   SETTING("surveyed_position", "surveyed_lat", base_llh[0], TYPE_FLOAT);
   SETTING("surveyed_position", "surveyed_lon", base_llh[1], TYPE_FLOAT);
   SETTING("surveyed_position", "surveyed_alt", base_llh[2], TYPE_FLOAT);

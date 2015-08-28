@@ -89,7 +89,7 @@ void clock_est_init(clock_est_state_t *s)
  # Calc. innovation covariance
         S = phi_t_0.dot(P_).dot(phi_t_0.transpose()) + array([[rT, 0.], [0, rTdot]])
  # Kalman gain
- ##K = phi_t_0.dot(P_).dot(phi_t_0.transpose()).dot(linalg.inv(S))
+ ###K = phi_t_0.dot(P_).dot(phi_t_0.transpose()).dot(linalg.inv(S))
         K = P_.dot(phi_t_0.transpose()).dot(linalg.inv(S))
  # Update state estimate
         self.x += K.dot(y)
@@ -120,16 +120,20 @@ void clock_est_update(clock_est_state_t *s, gps_time_t meas_gpst,
   y[1] = meas_clock_period - s->clock_period;
 
   double S[2][2];
-  matrix_multiply(2, 2, 2, (const double *)phi_t_0, (const double *)P_, (double *)temp);
-  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)phi_t_0_tr, (double *)S);
+  matrix_multiply(2, 2, 2, (const double *)phi_t_0, (const double *)P_,
+                  (double *)temp);
+  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)phi_t_0_tr,
+                  (double *)S);
   S[0][0] += r_gpst;
   S[1][1] += r_clock_period;
   double Sinv[2][2];
   matrix_inverse(2, (const double *)S, (double *)Sinv);
 
   double K[2][2];
-  matrix_multiply(2, 2, 2, (const double *)P_, (const double *)phi_t_0_tr, (double *)temp);
-  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)Sinv, (double *)K);
+  matrix_multiply(2, 2, 2, (const double *)P_, (const double *)phi_t_0_tr,
+                  (double *)temp);
+  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)Sinv,
+                  (double *)K);
 
   double dx[2];
   matrix_multiply(2, 2, 1, (const double *)K, (const double *)y, (double *)dx);
@@ -137,12 +141,14 @@ void clock_est_update(clock_est_state_t *s, gps_time_t meas_gpst,
   s->t0_gps = normalize_gps_time(s->t0_gps);
   s->clock_period += dx[1];
 
-  matrix_multiply(2, 2, 2, (const double *)K, (const double *)phi_t_0, (double *)temp);
+  matrix_multiply(2, 2, 2, (const double *)K, (const double *)phi_t_0,
+                  (double *)temp);
   temp[0][0] = 1 - temp[0][0];
   temp[0][1] = -temp[0][1];
   temp[1][1] = 1 - temp[1][1];
   temp[1][0] = -temp[1][0];
-  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)P_, (double *)s->P);
+  matrix_multiply(2, 2, 2, (const double *)temp, (const double *)P_,
+                  (double *)s->P);
 
 }
 

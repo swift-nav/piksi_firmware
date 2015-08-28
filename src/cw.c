@@ -43,7 +43,8 @@ void cw_setup()
 {
   static sbp_msg_callbacks_node_t cw_start_callback_node;
 
-  sbp_register_cbk(SBP_MSG_CW_START, &cw_start_callback, &cw_start_callback_node);
+  sbp_register_cbk(SBP_MSG_CW_START, &cw_start_callback,
+                   &cw_start_callback_node);
 }
 
 /** Schedule a load of samples into the CW channel's sample ram.

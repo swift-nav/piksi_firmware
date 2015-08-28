@@ -173,7 +173,8 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
     sbp_make_pos_llh_vect(&pos_llh, pseudo_absolute_llh, t, n_sats, sbp_flags);
     sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *)&pos_llh);
     msg_pos_ecef_t pos_ecef;
-    sbp_make_pos_ecef_vect(&pos_ecef, pseudo_absolute_ecef, t, n_sats, sbp_flags);
+    sbp_make_pos_ecef_vect(&pos_ecef, pseudo_absolute_ecef, t, n_sats,
+                           sbp_flags);
     sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *)&pos_ecef);
   }
   chMtxUnlock();
@@ -247,7 +248,8 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 
     u8 curr_n = MIN(n - obs_i, obs_in_msg);
     pack_obs_header(t, total, count, (observation_header_t *)buff);
-    packed_obs_content_t *obs = (packed_obs_content_t *)&buff[sizeof(observation_header_t)];
+    packed_obs_content_t *obs =
+      (packed_obs_content_t *)&buff[sizeof(observation_header_t)];
 
     for (u8 i = 0; i < curr_n; i++, obs_i++) {
       if (pack_obs_content(m[obs_i].raw_pseudorange,
@@ -263,7 +265,8 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
     }
 
     sbp_send_msg(SBP_MSG_OBS,
-                 sizeof(observation_header_t) + curr_n * sizeof(packed_obs_content_t),
+                 sizeof(observation_header_t) + curr_n *
+                 sizeof(packed_obs_content_t),
                  buff);
 
   }
@@ -337,8 +340,10 @@ static void solution_simulation()
 
     double t_check = expected_tow * (soln_freq / obs_output_divisor);
     if (fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
-      send_observations(simulation_current_num_sats(),
-                        &(soln->time), simulation_current_navigation_measurements());
+      send_observations(
+        simulation_current_num_sats(),
+        &(soln->time),
+        simulation_current_navigation_measurements());
     }
   }
 }
@@ -469,7 +474,8 @@ static msg_t solution_thread(void *arg)
             sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
             u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                                    base_obss.n, base_obss.nm,
-                                                   base_obss.sat_dists, base_obss.pos_ecef,
+                                                   base_obss.sat_dists,
+                                                   base_obss.pos_ecef,
                                                    es, position_solution.time,
                                                    sdiffs);
             chMtxUnlock();
@@ -528,7 +534,8 @@ static msg_t solution_thread(void *arg)
         }
         obs->t = new_obs_time;
         obs->n = n_ready_tdcp;
-        memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
+        memcpy(obs->nm, nav_meas_tdcp,
+               obs->n * sizeof(navigation_measurement_t));
         ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
         if (ret != RDY_OK) {
           /* We could grab another item from the mailbox, discard it and then

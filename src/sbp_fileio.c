@@ -85,7 +85,8 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void *context)
   msg_[len] = 0;
 
   msg_fileio_read_resp_t *reply;
-  u8 readlen = MIN(msg->chunk_size, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply));
+  u8 readlen = MIN(msg->chunk_size,
+                   SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*reply));
   reply = alloca(sizeof(msg_fileio_read_resp_t) + readlen);
   reply->sequence = msg->sequence;
   int f = cfs_open(msg->filename, CFS_READ);

@@ -102,7 +102,8 @@ static msg_t nav_msg_thread(void *arg)
   return 0;
 }
 
-static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[],
+                                   void *context)
 {
   (void)sender_id; (void)context;
 

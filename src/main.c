@@ -197,7 +197,7 @@ int main(void)
                       TYPE_STRING);
 
   static struct setting hw_rev = {
-    "system_info",             "hw_revision", NULL, 0,
+    "system_info",             "hw_revision",             NULL,             0,
     settings_read_only_notify, NULL,
     NULL,                      false
   };
@@ -209,7 +209,8 @@ int main(void)
                       TYPE_STRING);
   READ_ONLY_PARAMETER("system_info", "nap_channels", nap_track_n_channels,
                       TYPE_INT);
-  READ_ONLY_PARAMETER("system_info", "nap_fft_index_bits", nap_acq_fft_index_bits, TYPE_INT);
+  READ_ONLY_PARAMETER("system_info", "nap_fft_index_bits",
+                      nap_acq_fft_index_bits, TYPE_INT);
 
   ephemeris_setup();
 

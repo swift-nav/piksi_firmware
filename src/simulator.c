@@ -186,7 +186,8 @@ void simulation_step(void)
   /* First we propagate the current fake PVT solution. */
   systime_t now_ticks = chTimeNow();
 
-  double elapsed = (now_ticks - sim_state.last_update_ticks) / (double)CH_FREQUENCY;
+  double elapsed = (now_ticks - sim_state.last_update_ticks) /
+                   (double)CH_FREQUENCY;
 
   sim_state.last_update_ticks = now_ticks;
 
@@ -236,7 +237,8 @@ void simulation_step_position_in_circle(double elapsed)
   pos_ecef[1] = sim_state.pos[1] + rand_gaussian(pos_variance);
   pos_ecef[2] = sim_state.pos[2] + rand_gaussian(pos_variance);
 
-  wgsecef2llh(sim_state.noisy_solution.pos_ecef, sim_state.noisy_solution.pos_llh);
+  wgsecef2llh(sim_state.noisy_solution.pos_ecef,
+              sim_state.noisy_solution.pos_llh);
 
   /* Calculate Velocity vector tangent to the sphere */
   double noisy_speed = sim_settings.speed +
@@ -244,7 +246,8 @@ void simulation_step_position_in_circle(double elapsed)
                                      sim_settings.speed_sigma);
 
   sim_state.noisy_solution.vel_ned[0] = noisy_speed * cos(sim_state.angle);
-  sim_state.noisy_solution.vel_ned[1] = noisy_speed * -1.0 * sin(sim_state.angle);
+  sim_state.noisy_solution.vel_ned[1] = noisy_speed * -1.0 *
+                                        sin(sim_state.angle);
   sim_state.noisy_solution.vel_ned[2] = 0.0;
 
   wgsned2ecef(sim_state.noisy_solution.vel_ned,
@@ -298,7 +301,8 @@ void simulation_step_tracking_and_observations(double elapsed)
       double base_points_to_sat[3];
 
       vector_subtract(3, simulation_sats_pos[i], sim_state.pos, points_to_sat);
-      vector_subtract(3, simulation_sats_pos[i], sim_settings.base_ecef, base_points_to_sat);
+      vector_subtract(3, simulation_sats_pos[i], sim_settings.base_ecef,
+                      base_points_to_sat);
 
       double distance_to_sat = vector_norm(3, points_to_sat);
       double base_distance_to_sat = vector_norm(3, base_points_to_sat);
@@ -316,8 +320,10 @@ void simulation_step_tracking_and_observations(double elapsed)
       /* As for tracking, we just set each sat consecutively in each channel. */
       /* This will cause weird jumps when a satellite rises or sets. */
       sim_state.tracking_channel[num_sats_selected].state = TRACKING_RUNNING;
-      sim_state.tracking_channel[num_sats_selected].sid = simulation_almanacs[i].prn  + SIM_PRN_OFFSET;
-      sim_state.tracking_channel[num_sats_selected].cn0 = sim_state.nav_meas[num_sats_selected].snr;
+      sim_state.tracking_channel[num_sats_selected].sid =
+        simulation_almanacs[i].prn  + SIM_PRN_OFFSET;
+      sim_state.tracking_channel[num_sats_selected].cn0 =
+        sim_state.nav_meas[num_sats_selected].snr;
 
       num_sats_selected++;
     }
@@ -331,9 +337,11 @@ void simulation_step_tracking_and_observations(double elapsed)
  * the almanac_i satellite, currently dist away from simulated point at given elevation.
  *
  */
-void populate_nav_meas(navigation_measurement_t *nav_meas, double dist, double elevation, int almanac_i)
+void populate_nav_meas(navigation_measurement_t *nav_meas, double dist,
+                       double elevation, int almanac_i)
 {
-  nav_meas->prn             =  simulation_almanacs[almanac_i].prn + SIM_PRN_OFFSET;
+  nav_meas->prn             =  simulation_almanacs[almanac_i].prn +
+                              SIM_PRN_OFFSET;
 
   nav_meas->raw_pseudorange =  dist;
   nav_meas->raw_pseudorange += rand_gaussian(sim_settings.pseudorange_sigma *
@@ -453,19 +461,32 @@ void simulator_setup(void)
 
   simulator_setup_almanacs();
 
-  SETTING("simulator", "enabled",           sim_enabled,                    TYPE_BOOL);
-  SETTING("simulator", "base_ecef_x",       sim_settings.base_ecef[0],      TYPE_FLOAT);
-  SETTING("simulator", "base_ecef_y",       sim_settings.base_ecef[1],      TYPE_FLOAT);
-  SETTING("simulator", "base_ecef_z",       sim_settings.base_ecef[2],      TYPE_FLOAT);
-  SETTING("simulator", "speed",             sim_settings.speed,             TYPE_FLOAT);
-  SETTING("simulator", "radius",            sim_settings.radius,            TYPE_FLOAT);
-  SETTING("simulator", "pos_sigma",         sim_settings.pos_sigma,         TYPE_FLOAT);
-  SETTING("simulator", "speed_sigma",       sim_settings.speed_sigma,       TYPE_FLOAT);
-  SETTING("simulator", "cn0_sigma",         sim_settings.cn0_sigma,         TYPE_FLOAT);
-  SETTING("simulator", "pseudorange_sigma", sim_settings.pseudorange_sigma, TYPE_FLOAT);
-  SETTING("simulator", "phase_sigma",       sim_settings.phase_sigma,       TYPE_FLOAT);
-  SETTING("simulator", "num_sats",          sim_settings.num_sats,          TYPE_INT);
-  SETTING("simulator", "mode_mask",         sim_settings.mode_mask,         TYPE_INT);
+  SETTING("simulator", "enabled",           sim_enabled,
+          TYPE_BOOL);
+  SETTING("simulator", "base_ecef_x",       sim_settings.base_ecef[0],
+          TYPE_FLOAT);
+  SETTING("simulator", "base_ecef_y",       sim_settings.base_ecef[1],
+          TYPE_FLOAT);
+  SETTING("simulator", "base_ecef_z",       sim_settings.base_ecef[2],
+          TYPE_FLOAT);
+  SETTING("simulator", "speed",             sim_settings.speed,
+          TYPE_FLOAT);
+  SETTING("simulator", "radius",            sim_settings.radius,
+          TYPE_FLOAT);
+  SETTING("simulator", "pos_sigma",         sim_settings.pos_sigma,
+          TYPE_FLOAT);
+  SETTING("simulator", "speed_sigma",       sim_settings.speed_sigma,
+          TYPE_FLOAT);
+  SETTING("simulator", "cn0_sigma",         sim_settings.cn0_sigma,
+          TYPE_FLOAT);
+  SETTING("simulator", "pseudorange_sigma", sim_settings.pseudorange_sigma,
+          TYPE_FLOAT);
+  SETTING("simulator", "phase_sigma",       sim_settings.phase_sigma,
+          TYPE_FLOAT);
+  SETTING("simulator", "num_sats",          sim_settings.num_sats,
+          TYPE_INT);
+  SETTING("simulator", "mode_mask",         sim_settings.mode_mask,
+          TYPE_INT);
 }
 
 /** \} */

@@ -30,7 +30,8 @@ static struct setting_type bool_settings_type;
 /* Bool type identifier can't be a constant because its allocated on setup. */
 int TYPE_BOOL = 0;
 
-static int float_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
+static int float_to_string(const void *priv, char *str, int slen,
+                           const void *blob, int blen)
 {
   (void)priv;
 
@@ -43,7 +44,8 @@ static int float_to_string(const void *priv, char *str, int slen, const void *bl
   return -1;
 }
 
-static bool float_from_string(const void *priv, void *blob, int blen, const char *str)
+static bool float_from_string(const void *priv, void *blob, int blen,
+                              const char *str)
 {
   (void)priv;
 
@@ -56,7 +58,8 @@ static bool float_from_string(const void *priv, void *blob, int blen, const char
   return false;
 }
 
-static int int_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
+static int int_to_string(const void *priv, char *str, int slen,
+                         const void *blob, int blen)
 {
   (void)priv;
 
@@ -71,7 +74,8 @@ static int int_to_string(const void *priv, char *str, int slen, const void *blob
   return -1;
 }
 
-static bool int_from_string(const void *priv, void *blob, int blen, const char *str)
+static bool int_from_string(const void *priv, void *blob, int blen,
+                            const char *str)
 {
   (void)priv;
 
@@ -93,7 +97,8 @@ static bool int_from_string(const void *priv, void *blob, int blen, const char *
   return false;
 }
 
-static int str_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
+static int str_to_string(const void *priv, char *str, int slen,
+                         const void *blob, int blen)
 {
   (void)priv;
   if (blen < slen) {
@@ -103,14 +108,16 @@ static int str_to_string(const void *priv, char *str, int slen, const void *blob
   return strnlen(str, slen);
 }
 
-static bool str_from_string(const void *priv, void *blob, int blen, const char *str)
+static bool str_from_string(const void *priv, void *blob, int blen,
+                            const char *str)
 {
   (void)priv;
   strncpy(blob, str, blen);
   return true;
 }
 
-static int enum_to_string(const void *priv, char *str, int slen, const void *blob, int blen)
+static int enum_to_string(const void *priv, char *str, int slen,
+                          const void *blob, int blen)
 {
   const char *const *enumnames = priv;
 
@@ -122,7 +129,8 @@ static int enum_to_string(const void *priv, char *str, int slen, const void *blo
   return strlen(str);
 }
 
-static bool enum_from_string(const void *priv, void *blob, int blen, const char *str)
+static bool enum_from_string(const void *priv, void *blob, int blen,
+                             const char *str)
 {
   const char *const *enumnames = priv;
   int i;
@@ -168,12 +176,17 @@ static const struct setting_type type_int = {
   int_to_string, int_from_string, NULL, NULL, &type_float,
 };
 
-static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *context);
-static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *context);
-static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *context);
-static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void *context);
+static void settings_save_callback(u16 sender_id, u8 len, u8 msg[],
+                                   void *context);
+static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
+                                    void *context);
+static void settings_read_callback(u16 sender_id, u8 len, u8 msg[],
+                                   void *context);
+static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[],
+                                            void *context);
 
-int settings_type_register_enum(const char *const enumnames[], struct setting_type *type)
+int settings_type_register_enum(const char *const enumnames[],
+                                struct setting_type *type)
 {
   int i;
   struct setting_type *t;
@@ -244,7 +257,8 @@ void settings_register(struct setting *setting, enum setting_types type)
     s->next = setting;
   }
   char buf[128];
-  ini_gets(setting->section, setting->name, "", buf, sizeof(buf), SETTINGS_FILE);
+  ini_gets(setting->section, setting->name, "", buf, sizeof(buf),
+           SETTINGS_FILE);
   if (buf[0] == 0) {
     setting->type->to_string(setting->type->priv, buf, sizeof(buf),
                              setting->addr, setting->len);
@@ -297,7 +311,8 @@ static int settings_format_setting(struct setting *s, char *buf, int len)
   return buflen;
 }
 
-static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_write_callback(u16 sender_id, u8 len, u8 msg[],
+                                    void *context)
 {
   (void)context;
 
@@ -366,7 +381,8 @@ static void settings_write_callback(u16 sender_id, u8 len, u8 msg[], void *conte
   return;
 }
 
-static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_read_callback(u16 sender_id, u8 len, u8 msg[],
+                                   void *context)
 {
   (void)context;
 
@@ -423,7 +439,8 @@ static void settings_read_callback(u16 sender_id, u8 len, u8 msg[], void *contex
   return;
 }
 
-static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[],
+                                            void *context)
 {
   (void)context;
 
@@ -458,7 +475,8 @@ static void settings_read_by_index_callback(u16 sender_id, u8 len, u8 msg[], voi
   sbp_send_msg(SBP_MSG_SETTINGS_READ_BY_INDEX_RESP, buflen, (void *)buf);
 }
 
-static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *context)
+static void settings_save_callback(u16 sender_id, u8 len, u8 msg[],
+                                   void *context)
 {
   int f = cfs_open(SETTINGS_FILE, CFS_WRITE);
   const char *sec = NULL;
@@ -489,7 +507,8 @@ static void settings_save_callback(u16 sender_id, u8 len, u8 msg[], void *contex
 
     /* Write setting */
     i = snprintf(buf, sizeof(buf), "%s=", s->name);
-    i += s->type->to_string(s->type->priv, &buf[i], sizeof(buf) - i - 1, s->addr, s->len);
+    i += s->type->to_string(s->type->priv, &buf[i], sizeof(buf) - i - 1,
+                            s->addr, s->len);
     buf[i++] = '\n';
     if (cfs_write(f, buf, i) != i) {
       log_error("Error writing to config file!");

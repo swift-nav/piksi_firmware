@@ -109,7 +109,8 @@ void initialize_lock_counters(void)
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
 {
   /* Calculate the code phase rate with carrier aiding. */
-  u32 code_phase_rate = (1.0 + carrier_freq / GPS_L1_HZ) * NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
+  u32 code_phase_rate = (1.0 + carrier_freq / GPS_L1_HZ) *
+                        NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
 
   /* Internal Swift NAP code phase is in chips*2^32:
    *
@@ -121,7 +122,8 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
    */
 
   /* Calculate code phase in chips*2^32. */
-  u64 propagated_code_phase = (u64)(code_phase * (((u64)1) << 32)) + n_samples * (u64)code_phase_rate;
+  u64 propagated_code_phase = (u64)(code_phase * (((u64)1) << 32)) + n_samples *
+                              (u64)code_phase_rate;
 
   /* Convert code phase back to natural units with sub-chip precision.
    * NOTE: the modulo is required to fix the fact rollover should
@@ -182,11 +184,13 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
      is 1. */
   chan->int_ms = l->coherent_ms;
 
-  chan->code_phase_rate_fp = code_phase_rate * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  chan->code_phase_rate_fp = code_phase_rate *
+                             NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
   chan->code_phase_rate = code_phase_rate;
   chan->carrier_freq = carrier_freq;
-  chan->carrier_freq_fp = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
+  chan->carrier_freq_fp =
+    (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
   chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
   chan->sample_count = start_sample_count;
 
@@ -195,7 +199,8 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   chan->short_cycle = true;
 
   /* Initialise C/N0 estimator */
-  cn0_est_init(&chan->cn0_est, 1e3 / l->coherent_ms, cn0_init, CN0_EST_LPF_CUTOFF, 1e3 / l->coherent_ms);
+  cn0_est_init(&chan->cn0_est, 1e3 / l->coherent_ms, cn0_init,
+               CN0_EST_LPF_CUTOFF, 1e3 / l->coherent_ms);
 
   lock_detect_init(&chan->lock_detect,
                    lock_detect_params.k1, lock_detect_params.k2,
@@ -345,7 +350,8 @@ void tracking_channel_update(u8 channel)
     corr_t *cs = chan->cs;
 
     /* Update C/N0 estimate */
-    chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I / chan->int_ms, cs[1].Q / chan->int_ms);
+    chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I / chan->int_ms,
+                        cs[1].Q / chan->int_ms);
     if (chan->cn0 > track_cn0_drop_thres) {
       chan->cn0_above_drop_thres_count = chan->update_count;
     }
@@ -468,7 +474,8 @@ void tracking_channel_update(u8 channel)
     tracking_channel_disable(channel);
     break;
   default:
-    log_error("CH%d (PRN%02d) invalid state %d", channel, chan->prn + 1, chan->state);
+    log_error("CH%d (PRN%02d) invalid state %d", channel, chan->prn + 1,
+              chan->state);
     tracking_channel_disable(channel);
     break;
   }
@@ -513,7 +520,8 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
 
   /* Update our channel measurement. */
   meas->prn = chan->prn;
-  meas->code_phase_chips = (double)chan->code_phase_early / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
+  meas->code_phase_chips = (double)chan->code_phase_early /
+                           NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
   meas->code_phase_rate = chan->code_phase_rate;
   meas->carrier_phase = chan->carrier_phase / (double)(1 << 24);
   meas->carrier_freq = chan->carrier_freq;
@@ -584,7 +592,8 @@ static bool parse_loop_params(struct setting *s, const char *val)
     int n_chars_read = 0;
     unsigned int tmp; /* newlib's sscanf doesn't support hh size modifier */
 
-    if (sscanf(str, "( %u ms , ( %f , %f , %f , %f ) , ( %f , %f , %f , %f ) ) , %n",
+    if (sscanf(str,
+               "( %u ms , ( %f , %f , %f , %f ) , ( %f , %f , %f , %f ) ) , %n",
                &tmp,
                &l->code_bw, &l->code_zeta, &l->code_k, &l->carr_to_code,
                &l->carr_bw, &l->carr_zeta, &l->carr_k, &l->carr_fll_aid_gain,

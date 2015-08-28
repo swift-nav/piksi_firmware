@@ -76,14 +76,23 @@ static msg_t sbp_thread(void *arg)
     sbp_process_messages();
 
     DO_EVERY(100,
-             uart_state_msg.uart_a.tx_throughput = usart_tx_throughput(&uarta_state.tx);
-             uart_state_msg.uart_a.rx_throughput = usart_rx_throughput(&uarta_state.rx);
+             uart_state_msg.uart_a.tx_throughput =
+               usart_tx_throughput(&uarta_state.tx);
+             uart_state_msg.uart_a.rx_throughput =
+               usart_rx_throughput(
+                 &uarta_state.rx);
              uart_state_msg.uart_a.io_error_count = uarta_state.rx.errors + uarta_state.tx.errors;
-             uart_state_msg.uart_b.tx_throughput = usart_tx_throughput(&uartb_state.tx);
-             uart_state_msg.uart_b.rx_throughput = usart_rx_throughput(&uartb_state.rx);
+             uart_state_msg.uart_b.tx_throughput =
+               usart_tx_throughput(&uartb_state.tx);
+             uart_state_msg.uart_b.rx_throughput =
+               usart_rx_throughput(
+                 &uartb_state.rx);
              uart_state_msg.uart_b.io_error_count = uartb_state.rx.errors + uartb_state.tx.errors;
-             uart_state_msg.uart_ftdi.tx_throughput = usart_tx_throughput(&ftdi_state.tx);
-             uart_state_msg.uart_ftdi.rx_throughput = usart_rx_throughput(&ftdi_state.rx);
+             uart_state_msg.uart_ftdi.tx_throughput =
+               usart_tx_throughput(&ftdi_state.tx);
+             uart_state_msg.uart_ftdi.rx_throughput =
+               usart_rx_throughput(
+                 &ftdi_state.rx);
              uart_state_msg.uart_ftdi.io_error_count = ftdi_state.rx.errors + ftdi_state.tx.errors;
 
              if (latency_count > 0) {
@@ -201,7 +210,8 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
   /* Don't relayed messages (sender_id 0) on the A and B UARTs. (Only FTDI USB) */
   if (sender_id != 0) {
 
-    if (use_usart(&uarta_usart, msg_type) && usart_claim(&uarta_state, SBP_MODULE)) {
+    if (use_usart(&uarta_usart,
+                  msg_type) && usart_claim(&uarta_state, SBP_MODULE)) {
       ret |= sbp_send_message(&uarta_sbp_state, msg_type, sender_id,
                               len, buff, &uarta_write);
       usart_release(&uarta_state);
@@ -209,9 +219,11 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
 
     uart_state_msg.uart_a.tx_buffer_level =
       MAX(uart_state_msg.uart_a.tx_buffer_level,
-          255 - (255 * usart_tx_n_free(&uarta_state.tx)) / (USART_TX_BUFFER_LEN - 1));
+          255 - (255 * usart_tx_n_free(&uarta_state.tx)) /
+          (USART_TX_BUFFER_LEN - 1));
 
-    if (use_usart(&uartb_usart, msg_type) && usart_claim(&uartb_state, SBP_MODULE)) {
+    if (use_usart(&uartb_usart,
+                  msg_type) && usart_claim(&uartb_state, SBP_MODULE)) {
       ret |= sbp_send_message(&uartb_sbp_state, msg_type, sender_id,
                               len, buff, &uartb_write);
       usart_release(&uartb_state);
@@ -219,11 +231,13 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
 
     uart_state_msg.uart_b.tx_buffer_level =
       MAX(uart_state_msg.uart_b.tx_buffer_level,
-          255 - (255 * usart_tx_n_free(&uartb_state.tx)) / (USART_TX_BUFFER_LEN - 1));
+          255 - (255 * usart_tx_n_free(&uartb_state.tx)) /
+          (USART_TX_BUFFER_LEN - 1));
 
   }
 
-  if (use_usart(&ftdi_usart, msg_type) && usart_claim(&ftdi_state, SBP_MODULE)) {
+  if (use_usart(&ftdi_usart,
+                msg_type) && usart_claim(&ftdi_state, SBP_MODULE)) {
     ret |= sbp_send_message(&ftdi_sbp_state, msg_type, sender_id,
                             len, buff, &ftdi_write);
     usart_release(&ftdi_state);
@@ -231,7 +245,8 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
 
   uart_state_msg.uart_ftdi.tx_buffer_level =
     MAX(uart_state_msg.uart_ftdi.tx_buffer_level,
-        255 - (255 * usart_tx_n_free(&ftdi_state.tx)) / (USART_TX_BUFFER_LEN - 1));
+        255 - (255 * usart_tx_n_free(
+                 &ftdi_state.tx)) / (USART_TX_BUFFER_LEN - 1));
 
   if (ret != 3 * len) {
     /* Return error if any sbp_send_message failed. */
@@ -353,7 +368,8 @@ void log_(u8 level, const char *msg, ...)
   log->level = level;
 
   va_start(ap, msg);
-  int n = vsnprintf(log->text, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t), msg, ap);
+  int n = vsnprintf(log->text, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(msg_log_t),
+                    msg, ap);
   va_end(ap);
 
   if (n < 0) {
@@ -370,8 +386,10 @@ void log_obs_latency(float latency_ms)
   latency_accum_ms += (double)latency_ms;
   latency_count += 1;
 
-  uart_state_msg.latency.current = (s32)((LATENCY_SMOOTHING * ((float)latency_ms)) +
-                                         ((1 - LATENCY_SMOOTHING) * (float)(uart_state_msg.latency.current)));
+  uart_state_msg.latency.current =
+    (s32)((LATENCY_SMOOTHING * ((float)latency_ms)) +
+          ((1 - LATENCY_SMOOTHING) *
+           (float)(uart_state_msg.latency.current)));
 
   /* Don't change the min and max latencies if we appear to have a zero latency
    * speed. */

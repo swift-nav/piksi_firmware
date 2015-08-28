@@ -161,7 +161,8 @@ static void update_obss(obss_t *new_obss)
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
-      log_warn("Error calculating base station position: (%s).", pvt_err_msg[-ret - 1]);
+      log_warn("Error calculating base station position: (%s).",
+               pvt_err_msg[-ret - 1]);
     }
   }
   /* If the base station position is known then calculate the satellite ranges.
@@ -262,7 +263,8 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
 
   /* Calculate the number of observations in this message by looking at the SBP
    * `len` field. */
-  u8 obs_in_msg = (len - sizeof(observation_header_t)) / sizeof(packed_obs_content_t);
+  u8 obs_in_msg = (len - sizeof(observation_header_t)) /
+                  sizeof(packed_obs_content_t);
 
   /* If this is the first packet in the sequence then reset the base_obss_rx
    * state. */
@@ -272,7 +274,8 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void *context)
   }
 
   /* Pull out the contents of the message. */
-  packed_obs_content_t *obs = (packed_obs_content_t *)(msg + sizeof(observation_header_t));
+  packed_obs_content_t *obs =
+    (packed_obs_content_t *)(msg + sizeof(observation_header_t));
   for (u8 i = 0; i < obs_in_msg; i++) {
     /* Check the PRN is valid. e.g. simulation mode outputs test observations
      * with PRNs >200. */

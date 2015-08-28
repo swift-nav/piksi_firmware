@@ -334,7 +334,7 @@ static void manage_acq()
   /* Decide which PRN to try and then start it acquiring. */
   u8 prn = choose_prn();
 
-  if (prn == (u8) -1) {
+  if (prn == (u8) - 1) {
     return;
   }
 
@@ -577,7 +577,8 @@ s8 use_tracking_channel(u8 i)
       /* Some time has elapsed since the last tracking channel mode
        * change, to allow any transients to stabilize.
        * TODO: is this still necessary? */
-      && ((int)(ch->update_count - ch->mode_change_count) > TRACK_STABILIZATION_T)
+      && ((int)(ch->update_count - ch->mode_change_count) >
+          TRACK_STABILIZATION_T)
       /* Channel time of week has been decoded. */
       && (ch->TOW_ms != TOW_INVALID)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
