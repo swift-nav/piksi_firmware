@@ -70,8 +70,8 @@ static struct lock_detect_params {
 static float track_cn0_drop_thres = 30.0;
 static u16 iq_output_mask = 0;
 
-l1_nav_msg_t l1_nav_msgs[NAP_MAX_N_TRACK_CHANNELS];
-sbas_nav_msg_t sbas_nav_msgs[WAAS_SATS];
+l1_legacy_nav_msg_t l1_nav_msgs[NAP_MAX_N_TRACK_CHANNELS];
+l1_sbas_nav_msg_t sbas_nav_msgs[WAAS_SATS];
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
@@ -200,12 +200,12 @@ void tracking_channel_init(u8 channel, signal_t sid, float carrier_freq,
   chan->sample_count = start_sample_count;
 
   if (chan->sid.constellation == GPS_CONSTELLATION) {
+    chan->nav_msg.type = 0;
     chan->nav_msg.l1_nav_msg = &l1_nav_msgs[channel];
-    chan->nav_msg.sbas_nav_msg = NULL;
   } else {
+    chan->nav_msg.type = 1;
     chan->nav_msg.sbas_nav_msg = &sbas_nav_msgs[sbas_sid_to_index(chan->sid)];
     chan->nav_msg.sbas_nav_msg->sid = sid;
-    chan->nav_msg.l1_nav_msg = NULL;
   }
 
   nav_msg_init(&chan->nav_msg);

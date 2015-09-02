@@ -133,7 +133,7 @@ static msg_t nav_msg_thread(void *arg)
 
       /* Check if there is a new nav msg subframe to process.
        * TODO: move this into a function */
-      if (ch->nav_msg.l1_nav_msg != NULL) {
+      if (ch->nav_msg.type == L1_LEGACY_NAV) {
         if ((ch->state != TRACKING_RUNNING) ||
             (ch->nav_msg.l1_nav_msg->subframe_start_index == 0))
           continue;
@@ -142,7 +142,7 @@ static msg_t nav_msg_thread(void *arg)
       /* Decode ephemeris to temporary struct */
       __asm__("CPSID i;");
         s8 ret = 0;
-        if (ch->nav_msg.l1_nav_msg != NULL)
+        if (ch->nav_msg.type == L1_LEGACY_NAV)
           ret = process_subframe(ch->nav_msg.l1_nav_msg, &e.ephemeris_kep[0]);
       __asm__("CPSIE i;");
 
