@@ -14,7 +14,6 @@
 #define SWIFTNAV_DECODER_H
 
 #define DECODER_THREAD_PRIORITY (NORMALPRIO-5)
-#define SWAP_UINT32(x) (((x) >> 24) | (((x) & 0x00FF0000) >> 8) | (((x) & 0x0000FF00) << 8) | ((x) << 24))
 
 void decoder_setup(void);
 
