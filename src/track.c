@@ -363,12 +363,9 @@ void tracking_channel_update(u8 channel)
 
       s32 TOW_ms = TOW_INVALID;
       if (chan->sid.constellation == SBAS_CONSTELLATION) {
-        if (chMtxTryLock(&decoder_mtx)) {
-          for (int i = 0; i < 10; i++)
-            TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
-          TOW_ms = TOW_INVALID;
-          chMtxUnlock();
-        }
+        chMtxLock(&decoder_mtx);
+          TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
+        chMtxUnlock();
       } else {
         TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
       }
