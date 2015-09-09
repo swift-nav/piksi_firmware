@@ -72,7 +72,7 @@ static msg_t decoder_thread(void *arg)
           }
         }
 
-        nav_msg->bit_count = 0;
+        // nav_msg->bit_count = 0;
         nav_msg->symbol_count = 0;
       }
       chMtxUnlock();
