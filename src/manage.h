@@ -55,6 +55,10 @@
 #define MANAGE_TRACK_THREAD_PRIORITY (NORMALPRIO-2)
 #define MANAGE_TRACK_THREAD_STACK   1400
 
+/** The age of an almanac in weeks
+    before it is no longer valid. */
+#define MAX_ALM_WEEK_DIFF 6
+
 /** \} */
 
 void manage_acq_setup(void);

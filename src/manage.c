@@ -12,6 +12,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <ch.h>
 
@@ -96,8 +97,9 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)sender_id; (void)len; (void) context;
 
   almanac_t *new_almanac = (almanac_t*)msg;
-
-  log_info("Received alamanc for PRN %02d", new_almanac->prn);
+  /* TODO: use a gpstime struct inside almanac structure */
+  log_info("Received alamanc for PRN %02d with week %04d", new_almanac->prn,
++           new_almanac->week);
   memcpy(&almanac[new_almanac->prn-1], new_almanac, sizeof(almanac_t));
 
   int fd = cfs_open("almanac", CFS_WRITE);
@@ -166,14 +168,25 @@ void manage_acq_setup()
   int fd = cfs_open("almanac", CFS_READ);
   if (fd != -1) {
     cfs_read(fd, almanac, 32*sizeof(almanac_t));
-    log_info("Loaded almanac from flash");
+    u16 wn = 0;
+    for (u8 prn = 0; prn < 32; prn++) {
+      /* get the week number for the first valid satellite to report */
+      if(almanac[prn].valid) {
+        wn = almanac[prn].week;
+        break;
+        }
+    }
+    /* we only print that the almanac was loaded if there was a valid sat within */
+    if (wn != 0) {
+    log_info("Loaded almanac from flash with week number %03d\n", wn);
+    }
     cfs_close(fd);
   } else {
     log_info("No almanac file present in flash, create an empty one");
     cfs_coffee_reserve("almanac", 32*sizeof(almanac_t));
     cfs_coffee_configure_log("almanac", 256, sizeof(almanac_t));
-
-    for (u8 prn=0; prn<32; prn++) {
+    /* set all satellites to invalid when creating a placeholder */
+    for (u8 prn = 0; prn < 32; prn++) {
       almanac[prn].valid = 0;
     }
   }
@@ -240,10 +253,15 @@ static u16 manage_warm_start(u8 prn, gps_time_t t,
       dopp_hint = -GPS_L1_HZ * (vector_dot(3, sat_pos, sat_vel) / GPS_C
                                 + position_solution.clock_bias);
       /* TODO: Check sign of receiver frequency offset correction */
+      /* TODO: Update interface to almanac.c in libswiftnav to use full
+               week numbers and remove modulu here */
+      /* TODO: Generalize almanac interface for multiband */
+      /* TODO: Use gpsdifftime() and store a gpstime in almanac struct */
       if (time_quality >= TIME_FINE)
         dopp_uncertainty = DOPP_UNCERT_EPHEM;
-    } else if (almanac[prn].valid) {
-      calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn-1024,
+    } else if (almanac[prn].valid && time_quality > TIME_COARSE &&
++             (abs(almanac[prn].week % 1024 - t.wn % 1024) > MAX_ALM_WEEK_DIFF)) {
+      calc_sat_az_el_almanac(&almanac[prn], t.tow, t.wn % 1024,
                              position_solution.pos_ecef, &_, &el_d);
       el = (float)(el_d) * R2D;
       if (el < elevation_mask)
