@@ -11,8 +11,8 @@ u32 simulation_fake_carrier_bias[31];
 
 u8 simulation_num_almanacs = 31;
 
-const almanac_t simulation_almanacs[31] = {
-{ 
+const gps_almanac_t simulation_almanacs[31] = {
+{
   .ecc       = 0.002888,
   .toa       = 233472.000000,
   .inc       = 0.960802,
@@ -30,7 +30,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.013428,
   .toa       = 233472.000000,
   .inc       = 0.939314,
@@ -48,7 +48,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.016847,
   .toa       = 233472.000000,
   .inc       = 0.937600,
@@ -66,7 +66,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.010565,
   .toa       = 233472.000000,
   .inc       = 0.938349,
@@ -84,7 +84,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.003571,
   .toa       = 233472.000000,
   .inc       = 0.947841,
@@ -102,7 +102,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.007160,
   .toa       = 233472.000000,
   .inc       = 0.973727,
@@ -120,7 +120,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.013593,
   .toa       = 233472.000000,
   .inc       = 0.996982,
@@ -138,7 +138,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.017078,
   .toa       = 233472.000000,
   .inc       = 0.982259,
@@ -156,7 +156,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.013494,
   .toa       = 233472.000000,
   .inc       = 0.942640,
@@ -174,7 +174,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.014848,
   .toa       = 233472.000000,
   .inc       = 0.890131,
@@ -192,7 +192,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.005056,
   .toa       = 233472.000000,
   .inc       = 0.987389,
@@ -210,7 +210,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.005360,
   .toa       = 233472.000000,
   .inc       = 0.977837,
@@ -228,7 +228,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.007339,
   .toa       = 233472.000000,
   .inc       = 0.970431,
@@ -246,7 +246,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.006239,
   .toa       = 233472.000000,
   .inc       = 0.937067,
@@ -264,7 +264,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.007709,
   .toa       = 233472.000000,
   .inc       = 0.988000,
@@ -282,7 +282,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.009278,
   .toa       = 233472.000000,
   .inc       = 0.967908,
@@ -300,7 +300,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.015035,
   .toa       = 233472.000000,
   .inc       = 0.926407,
@@ -318,7 +318,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.010157,
   .toa       = 233472.000000,
   .inc       = 0.965026,
@@ -336,7 +336,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.005853,
   .toa       = 233472.000000,
   .inc       = 0.927390,
@@ -354,7 +354,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.021363,
   .toa       = 233472.000000,
   .inc       = 0.932255,
@@ -372,7 +372,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.007021,
   .toa       = 233472.000000,
   .inc       = 0.924178,
@@ -390,7 +390,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.009099,
   .toa       = 233472.000000,
   .inc       = 0.952095,
@@ -408,7 +408,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.002036,
   .toa       = 233472.000000,
   .inc       = 0.957081,
@@ -426,7 +426,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.003447,
   .toa       = 233472.000000,
   .inc       = 0.976124,
@@ -444,7 +444,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.021486,
   .toa       = 233472.000000,
   .inc       = 0.975243,
@@ -462,7 +462,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.001075,
   .toa       = 233472.000000,
   .inc       = 0.962641,
@@ -480,7 +480,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.019157,
   .toa       = 233472.000000,
   .inc       = 0.986508,
@@ -498,7 +498,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.001677,
   .toa       = 233472.000000,
   .inc       = 0.968627,
@@ -516,7 +516,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.000489,
   .toa       = 233472.000000,
   .inc       = 0.959286,
@@ -534,7 +534,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 0,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.008084,
   .toa       = 233472.000000,
   .inc       = 0.978676,
@@ -552,7 +552,7 @@ const almanac_t simulation_almanacs[31] = {
   .healthy   = 1,
   .valid     = 1,
 },
-{ 
+{
   .ecc       = 0.011426,
   .toa       = 233472.000000,
   .inc       = 0.948308,

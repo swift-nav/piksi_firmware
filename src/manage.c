@@ -83,8 +83,8 @@ acq_sid_t sbas_acq_param[WAAS_SATS];
 #define DOPP_UNCERT_ALMANAC 4000
 #define DOPP_UNCERT_EPHEM   500
 
-almanac_t l1_almanac[GPS_L1_SATS];
-almanac_t sbas_almanac[WAAS_SATS];
+gps_almanac_t l1_almanac[GPS_L1_SATS];
+sbas_almanac_t sbas_almanac[WAAS_SATS];
 
 extern ephemeris_kepler_t l1_es[GPS_L1_SATS];
 extern ephemeris_xyz_t sbas_es[WAAS_SATS];
@@ -104,16 +104,16 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)sender_id; (void)len; (void) context;
 
   int fd = -1;
-  almanac_t *new_almanac = (almanac_t*)msg;
+  gps_almanac_t *new_almanac = (gps_almanac_t*)msg;
 
   log_info("Received alamanc for PRN %02d", new_almanac->sid.prn);
   switch(new_almanac->sid.constellation) {
     case GPS_CONSTELLATION:
-      memcpy(&l1_almanac[new_almanac->sid.prn-1], new_almanac, sizeof(almanac_t));
+      memcpy(&l1_almanac[new_almanac->sid.prn-1], new_almanac, sizeof(gps_almanac_t));
       fd = cfs_open("l1_almanac", CFS_WRITE);
       break;
     case SBAS_CONSTELLATION:
-      memcpy(&sbas_almanac[new_almanac->sid.prn-1-119], new_almanac, sizeof(almanac_t));
+      memcpy(&sbas_almanac[new_almanac->sid.prn-1-119], new_almanac, sizeof(gps_almanac_t));
       fd = cfs_open("sbas_almanac", CFS_WRITE);
       break;
     default:
@@ -124,13 +124,13 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   if (fd != -1) {
     switch(new_almanac->sid.constellation) {
       case GPS_CONSTELLATION:
-        cfs_seek(fd, (new_almanac->sid.prn-1)*sizeof(almanac_t), CFS_SEEK_SET);
+        cfs_seek(fd, (new_almanac->sid.prn-1)*sizeof(gps_almanac_t), CFS_SEEK_SET);
         break;
       case SBAS_CONSTELLATION:
-        cfs_seek(fd, (new_almanac->sid.prn-1-119)*sizeof(almanac_t), CFS_SEEK_SET);
+        cfs_seek(fd, (new_almanac->sid.prn-1-119)*sizeof(gps_almanac_t), CFS_SEEK_SET);
         break;
     }
-    if (cfs_write(fd, new_almanac, sizeof(almanac_t)) != sizeof(almanac_t)) {
+    if (cfs_write(fd, new_almanac, sizeof(gps_almanac_t)) != sizeof(gps_almanac_t)) {
       log_error("Error writing to almanac file");
     } else {
       log_info("Saved almanac to flash");
@@ -218,13 +218,13 @@ static void l1_setup_almanac()
 {
   int fd = cfs_open("l1_almanac", CFS_READ);
   if (fd != -1) {
-    cfs_read(fd, l1_almanac, GPS_L1_SATS*sizeof(almanac_t));
+    cfs_read(fd, l1_almanac, GPS_L1_SATS*sizeof(gps_almanac_t));
     log_info("Loaded GPS/L1 almanac from flash.");
     cfs_close(fd);
   } else {
     log_info("No GPS/L1 almanac file present in flash, create an empty one.");
-    cfs_coffee_reserve("l1_almanac", GPS_L1_SATS*sizeof(almanac_t));
-    cfs_coffee_configure_log("l1_almanac", 256, sizeof(almanac_t));
+    cfs_coffee_reserve("l1_almanac", GPS_L1_SATS*sizeof(gps_almanac_t));
+    cfs_coffee_configure_log("l1_almanac", 256, sizeof(gps_almanac_t));
 
     for (u8 prn=0; prn<GPS_L1_SATS; prn++) {
       l1_almanac[prn].valid = 0;
@@ -248,13 +248,13 @@ static void sbas_setup_almanac()
 {
   int fd = cfs_open("sbas_almanac", CFS_READ);
   if (fd != -1) {
-    cfs_read(fd, sbas_almanac, WAAS_SATS*sizeof(almanac_t));
+    cfs_read(fd, sbas_almanac, WAAS_SATS*sizeof(sbas_almanac_t));
     log_info("Loaded SBAS almanac from flash.");
     cfs_close(fd);
   } else {
     log_info("No SBAS almanac file present in flash, create an empty one.");
-    cfs_coffee_reserve("sbas_almanac", WAAS_SATS*sizeof(almanac_t));
-    cfs_coffee_configure_log("sbas_almanac", 256, sizeof(almanac_t));
+    cfs_coffee_reserve("sbas_almanac", WAAS_SATS*sizeof(sbas_almanac_t));
+    cfs_coffee_configure_log("sbas_almanac", 256, sizeof(sbas_almanac_t));
 
     for (u8 prn=0; prn<WAAS_SATS; prn++) {
       sbas_almanac[prn].valid = 0;
@@ -329,10 +329,10 @@ static u16 manage_warm_start(signal_t sid, gps_time_t t,
        *dopp_hint_high = dopp_hint + dopp_uncertainty;
       return SCORE_SBAS;
     }
-        /* Do we have a suitable ephemeris for this sat?  If so, use
-       that in preference to the almanac. */
+    /* Do we have a suitable ephemeris for this sat?  If so, use
+   that in preference to the almanac. */
 
-    almanac_t *alm = &l1_almanac[sid.prn];
+    gps_almanac_t *alm = &l1_almanac[sid.prn];
 
     ephemeris_t e;
     if (sid.constellation == GPS_CONSTELLATION) {
@@ -341,7 +341,7 @@ static u16 manage_warm_start(signal_t sid, gps_time_t t,
     } else {
       e.ephemeris_xyz = &eph.ephemeris_xyz[sbas_sid_to_index(sid)];
       e.ephemeris_kep = NULL;
-      alm = &sbas_almanac[sbas_sid_to_index(sid)];
+      // alm = &sbas_almanac[sbas_sid_to_index(sid)];
     }
     //TODO for calc_sat_state
     ephemeris_kepler_t kep = eph.ephemeris_kep[sid.prn];
