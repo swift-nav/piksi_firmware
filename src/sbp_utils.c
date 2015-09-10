@@ -246,7 +246,7 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
 void unpack_ephemeris_xyz(const msg_ephemeris_xyz_t *msg, ephemeris_xyz_t *e)
 {
   memcpy(e->pos, msg->pos, 3 * sizeof(double));
-  memcpy(e->vel, msg->vel, 3 * sizeof(double));
+  memcpy(e->rate, msg->rate, 3 * sizeof(double));
   memcpy(e->acc, msg->acc, 3 * sizeof(double));
 
   e->toe.tow   =  msg->toe_tow;
@@ -261,7 +261,7 @@ void pack_ephemeris_xyz(const ephemeris_xyz_t *e, msg_ephemeris_xyz_t *msg)
   gps_time_t toe = e->toe;
 
   memcpy(msg->pos, e->pos, 3 * sizeof(double));
-  memcpy(msg->vel, e->vel, 3 * sizeof(double));
+  memcpy(msg->rate, e->rate, 3 * sizeof(double));
   memcpy(msg->acc, e->acc, 3 * sizeof(double));
 
   msg->toe_tow   = toe.tow;

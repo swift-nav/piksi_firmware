@@ -143,7 +143,7 @@ static msg_t nav_msg_thread(void *arg)
       __asm__("CPSID i;");
         s8 ret = 0;
         if (ch->nav_msg.type == L1_LEGACY_NAV)
-          ret = process_subframe(ch->nav_msg.l1_nav_msg, &e.ephemeris_kep[0]);
+          ret = l1_legacy_process_subframe(ch->nav_msg.l1_nav_msg, &e.ephemeris_kep[0]);
       __asm__("CPSIE i;");
 
       if (ret <= 0)
