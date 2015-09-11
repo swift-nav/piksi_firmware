@@ -177,9 +177,10 @@ int main(void)
   max2769_setup();
   timing_setup();
   ext_event_setup();
-  decoder_setup();
   position_setup();
   tracking_setup();
+
+  decoder_setup();
 
   rng_setup();
   manage_acq_setup();
