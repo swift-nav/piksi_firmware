@@ -249,10 +249,15 @@ void unpack_ephemeris_xyz(const msg_ephemeris_xyz_t *msg, ephemeris_xyz_t *e)
   memcpy(e->rate, msg->rate, 3 * sizeof(double));
   memcpy(e->acc, msg->acc, 3 * sizeof(double));
 
-  e->toe.tow   =  msg->toe_tow;
-  e->toe.wn    =  msg->toe_wn;
-  e->valid     =  msg->valid;
-  e->healthy   =  msg->healthy;
+  e->toe.tow   = msg->toe_tow;
+  e->toe.wn    = msg->toe_wn;
+  e->valid     = msg->valid;
+  e->healthy   = msg->healthy;
+  e->a_gf0     = msg->a_gf0;
+  e->a_gf1     = msg->a_gf1;
+  e->iod       = msg->iod;
+  e->ura       = msg->ura;
+  e->toa       = msg->toa;
   signal_from_sbp(&msg->sid, &e->sid);
 }
 
@@ -268,6 +273,11 @@ void pack_ephemeris_xyz(const ephemeris_xyz_t *e, msg_ephemeris_xyz_t *msg)
   msg->toe_wn    = toe.wn;
   msg->valid     = e->valid;
   msg->healthy   = e->healthy;
+  msg->a_gf0     = e->a_gf0;
+  msg->a_gf1     = e->a_gf1;
+  msg->iod       = e->iod;
+  msg->ura       = e->ura;
+  msg->toa       = e->toa;
   signal_to_sbp(&e->sid, &msg->sid);
 }
 
