@@ -73,9 +73,12 @@ static u16 iq_output_mask = 0;
 l1_legacy_nav_msg_t l1_nav_msgs[NAP_MAX_N_TRACK_CHANNELS];
 l1_sbas_nav_msg_t sbas_nav_msgs[WAAS_SATS];
 
-#define sbas_mb_size 100
-Mailbox sbas_mb;
-static msg_t sbas_mailbox_buff[sbas_mb_size];
+/*
+ *Keep extra 60 symbols into mailbox for SBAS decoder.
+ */
+#define sbas_mb_size 60
+Mailbox sbas_mb[WAAS_SATS];
+static msg_t sbas_mailbox_buff[WAAS_SATS][sbas_mb_size];
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
@@ -210,9 +213,7 @@ void tracking_channel_init(u8 channel, signal_t sid, float carrier_freq,
     chan->nav_msg.type = L1_SBAS;
     chan->nav_msg.sbas_nav_msg = &sbas_nav_msgs[sbas_sid_to_index(chan->sid)];
     chan->nav_msg.sbas_nav_msg->sid = sid;
-    if (sid.prn == 137) {
-      chMBReset(&sbas_mb);
-    }
+    chMBReset(&sbas_mb[sbas_sid_to_index(sid)]);
   }
 
   nav_msg_init(&chan->nav_msg);
@@ -312,9 +313,6 @@ void tracking_channel_update(u8 channel)
 {
   tracking_channel_t* chan = &tracking_channel[channel];
 
-  if (chan->sid.prn == 134 || chan->sid.prn == 132)
-    return;
-
   switch(chan->state)
   {
     case TRACKING_RUNNING:
@@ -372,13 +370,15 @@ void tracking_channel_update(u8 channel)
       chan->update_count += chan->int_ms;
 
       s32 TOW_ms = TOW_INVALID;
-      if (chan->sid.prn == 137) {
+      if (chan->sid.constellation == SBAS_CONSTELLATION) {
         l1_sbas_nav_msg_t *sbs = chan->nav_msg.sbas_nav_msg;
         TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
+        TOW_ms = TOW_INVALID;
         if (sbs->good_bit == true) {
-          msg_t ret = chMBPost(&sbas_mb, (msg_t)sbs->last_bit, TIME_IMMEDIATE);
+          msg_t ret = chMBPost(&sbas_mb[sbas_sid_to_index(chan->sid)],
+                               (msg_t)sbs->last_bit, TIME_IMMEDIATE);
           if (ret != RDY_OK) {
-            log_info("SBAS mb full!");
+            log_info("PRN %d has his mailbox full!", chan->sid.prn + 1);
           }
         }
       } else if (chan->sid.constellation == GPS_CONSTELLATION) {
@@ -412,8 +412,15 @@ void tracking_channel_update(u8 channel)
       if (last_outp && !chan->lock_detect.outp) {
         if (chan->stage > 0)
           log_info("PRN %d PLL stress", chan->sid.prn+1);
-        tracking_channel_ambiguity_unknown(channel);
+        if (chan->sid.constellation != SBAS_CONSTELLATION)
+          tracking_channel_ambiguity_unknown(channel);
       }
+
+      /*
+       *HACK! Fool lock detector to think it is locked for SBAS.
+       */
+      if (chan->sid.constellation == SBAS_CONSTELLATION)
+        chan->lock_detect.outp = true;
 
       /* Run the loop filters. */
 
@@ -556,6 +563,7 @@ void tracking_channel_ambiguity_unknown(u8 channel)
     b_polarity = &tracking_channel[channel].nav_msg.l1_nav_msg->bit_polarity;
   else
     b_polarity = &tracking_channel[channel].nav_msg.sbas_nav_msg->bit_polarity;
+
   *b_polarity = BIT_POLARITY_UNKNOWN;
   if (sid.constellation == GPS_CONSTELLATION)
     tracking_channel[channel].lock_counter = ++tracking_l1_lock_counters[sid.prn];
@@ -711,7 +719,10 @@ bool track_iq_output_notify(struct setting *s, const char *val)
  */
 void tracking_setup()
 {
-  chMBInit(&sbas_mb, sbas_mailbox_buff, sbas_mb_size);
+  chMBInit(&sbas_mb[0], sbas_mailbox_buff[0], sbas_mb_size);
+  chMBInit(&sbas_mb[1], sbas_mailbox_buff[1], sbas_mb_size);
+  chMBInit(&sbas_mb[2], sbas_mailbox_buff[2], sbas_mb_size);
+
   SETTING_NOTIFY("track", "iq_output_mask", iq_output_mask, TYPE_INT,
                  track_iq_output_notify);
   SETTING_NOTIFY("track", "loop_params", loop_params_string,
