@@ -98,8 +98,8 @@ static u8 manage_track_new_acq(void);
 static void manage_acq(void);
 static void manage_track(void);
 
-static sbp_msg_callbacks_node_t almanac_callback_node;
-static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static sbp_msg_callbacks_node_t gps_almanac_callback_node;
+static void gps_almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void) context;
 
@@ -107,30 +107,37 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   gps_almanac_t *new_almanac = (gps_almanac_t*)msg;
 
   log_info("Received alamanc for PRN %02d", new_almanac->sid.prn);
-  switch(new_almanac->sid.constellation) {
-    case GPS_CONSTELLATION:
-      memcpy(&l1_almanac[new_almanac->sid.prn-1], new_almanac, sizeof(gps_almanac_t));
-      fd = cfs_open("l1_almanac", CFS_WRITE);
-      break;
-    case SBAS_CONSTELLATION:
-      memcpy(&sbas_almanac[new_almanac->sid.prn-1-119], new_almanac, sizeof(gps_almanac_t));
-      fd = cfs_open("sbas_almanac", CFS_WRITE);
-      break;
-    default:
-      log_error("Invalid constellation from received almanac!");
-      return;
-  }
+  memcpy(&l1_almanac[new_almanac->sid.prn-1], new_almanac, sizeof(gps_almanac_t));
+  fd = cfs_open("l1_almanac", CFS_WRITE);
 
   if (fd != -1) {
-    switch(new_almanac->sid.constellation) {
-      case GPS_CONSTELLATION:
-        cfs_seek(fd, (new_almanac->sid.prn-1)*sizeof(gps_almanac_t), CFS_SEEK_SET);
-        break;
-      case SBAS_CONSTELLATION:
-        cfs_seek(fd, (new_almanac->sid.prn-1-119)*sizeof(gps_almanac_t), CFS_SEEK_SET);
-        break;
-    }
+    cfs_seek(fd, (new_almanac->sid.prn-1)*sizeof(gps_almanac_t), CFS_SEEK_SET);
     if (cfs_write(fd, new_almanac, sizeof(gps_almanac_t)) != sizeof(gps_almanac_t)) {
+      log_error("Error writing to almanac file");
+    } else {
+      log_info("Saved almanac to flash");
+    }
+    cfs_close(fd);
+  } else {
+    log_error("Error opening almanac file");
+  }
+}
+
+static sbp_msg_callbacks_node_t sbas_almanac_callback_node;
+static void sbas_almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void) context;
+
+  int fd = -1;
+  sbas_almanac_t *new_almanac = (sbas_almanac_t*)msg;
+
+  log_info("Received alamanc for PRN %02d", new_almanac->sid.prn);
+  memcpy(&sbas_almanac[sbas_sid_to_index(new_almanac->sid)], new_almanac, sizeof(sbas_almanac_t));
+  fd = cfs_open("sbas_almanac", CFS_WRITE);
+
+  if (fd != -1) {
+    cfs_seek(fd, (sbas_sid_to_index(new_almanac->sid))*sizeof(sbas_almanac_t), CFS_SEEK_SET);
+    if (cfs_write(fd, new_almanac, sizeof(sbas_almanac_t)) != sizeof(sbas_almanac_t)) {
       log_error("Error writing to almanac file");
     } else {
       log_info("Saved almanac to flash");
@@ -279,9 +286,15 @@ void manage_acq_setup()
   ephemeris_setup();
 
   sbp_register_cbk(
-    SBP_MSG_ALMANAC,
-    &almanac_callback,
-    &almanac_callback_node
+    SBP_MSG_GPS_ALMANAC,
+    &gps_almanac_callback,
+    &gps_almanac_callback_node
+  );
+
+  sbp_register_cbk(
+    SBP_MSG_SBAS_ALMANAC,
+    &sbas_almanac_callback,
+    &sbas_almanac_callback_node
   );
 
   sbp_register_cbk(
@@ -335,20 +348,12 @@ static u16 manage_warm_start(signal_t sid, gps_time_t t,
     gps_almanac_t *alm = &l1_almanac[sid.prn];
 
     ephemeris_t e;
-    if (sid.constellation == GPS_CONSTELLATION) {
-      e.ephemeris_kep = &eph.ephemeris_kep[sid.prn];
-      e.ephemeris_xyz = NULL;
-    } else {
-      e.ephemeris_xyz = &eph.ephemeris_xyz[sbas_sid_to_index(sid)];
-      e.ephemeris_kep = NULL;
-      // alm = &sbas_almanac[sbas_sid_to_index(sid)];
-    }
-    //TODO for calc_sat_state
-    ephemeris_kepler_t kep = eph.ephemeris_kep[sid.prn];
+    e.ephemeris_kep = &eph.ephemeris_kep[sid.prn];
+    e.ephemeris_xyz = NULL;
 
     if (ephemeris_good(&e, sid, t)) {
       double sat_pos[3], sat_vel[3], el_d;
-      calc_sat_state(&kep, t, sat_pos, sat_vel, &_, &_);
+      legacy_calc_sat_state(e.ephemeris_kep, t, sat_pos, sat_vel, &_, &_);
       wgsecef2azel(sat_pos, position_solution.pos_ecef, &_, &el_d);
       el = (float)(el_d) * R2D;
       if (el < elevation_mask) {
@@ -469,12 +474,12 @@ move or the satellite arcs across the sky.
 
 cturvey 10-Feb-2015
 */
-void manage_set_obs_hint(u16 prn)
+void manage_set_obs_hint(signal_t sid)
 {
-  if (prn >= 32) /* check range */
-    return;
-
-  l1_acq_param[prn].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
+  if (sid.constellation == GPS_CONSTELLATION)
+    l1_acq_param[sid.prn].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
+  else if (sid.constellation == SBAS_CONSTELLATION)
+    sbas_acq_param[sbas_sid_to_index(sid)].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
@@ -642,8 +647,9 @@ static void drop_channel(u8 channel_id) {
   const tracking_channel_t *ch = &tracking_channel[channel_id];
   acq_sid_t *acq = &l1_acq_param[ch->sid.prn];
 
-  if (ch->sid.constellation == SBAS_CONSTELLATION)
+  if (ch->sid.constellation == SBAS_CONSTELLATION) {
     acq = &sbas_acq_param[sbas_sid_to_index(ch->sid)];
+  }
 
   if (ch->update_count > TRACK_REACQ_T) {
     acq->score[ACQ_HINT_PREV_TRACK] = SCORE_TRACK;
@@ -742,12 +748,12 @@ s8 use_tracking_channel(u8 i)
   tracking_channel_t *ch = &tracking_channel[i];
   signal_t sid = ch->sid;
   ephemeris_t e;
-  s8 *b_polarity;
+  s8 b_polarity;
 
   if (sid.constellation == GPS_CONSTELLATION)
-    b_polarity = &ch->nav_msg.l1_nav_msg->bit_polarity;
+    b_polarity = ch->nav_msg.l1_nav_msg->bit_polarity;
   else
-    b_polarity = &ch->nav_msg.sbas_nav_msg->bit_polarity;
+    b_polarity = ch->nav_msg.sbas_nav_msg->bit_polarity;
 
   if (sid.constellation == GPS_CONSTELLATION) {
     e.ephemeris_kep = &eph.ephemeris_kep[sid.prn];
@@ -755,7 +761,8 @@ s8 use_tracking_channel(u8 i)
   } else {
     e.ephemeris_xyz = &eph.ephemeris_xyz[sbas_sid_to_index(sid)];
     e.ephemeris_kep = NULL;
-  }
+    return 0;
+ }
 
   /* To use a channel's measurements in an SPP or RTK solution, we
      require the following conditions: */
@@ -771,7 +778,7 @@ s8 use_tracking_channel(u8 i)
       /* Channel time of week has been decoded. */
       && (ch->TOW_ms != TOW_INVALID)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
-      && (*b_polarity != BIT_POLARITY_UNKNOWN)
+      && (b_polarity != BIT_POLARITY_UNKNOWN)
       /* Estimated C/N0 is above some threshold */
       && (ch->cn0 > track_cn0_use_thres))
       {
