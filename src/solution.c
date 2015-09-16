@@ -382,13 +382,30 @@ static msg_t solution_thread(void *arg)
     }
 
     u8 n_ready = 0;
+    u8 n_xyz_ready = 0;
+    u8 n_kep_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
       if (use_tracking_channel(i)) {
         __asm__("CPSID i;");
-        tracking_update_measurement(i, &meas[n_ready]);
+        tracking_channel_t *ch = &tracking_channel[i];
+        if (ch->sid.constellation == GPS_CONSTELLATION) {
+          tracking_update_measurement(i, &meas[n_ready++]);
+          n_kep_ready++;
+        }
         __asm__("CPSIE i;");
-        n_ready++;
+      }
+    }
+
+    for (u8 i=0; i<nap_track_n_channels; i++) {
+      if (use_tracking_channel(i)) {
+        __asm__("CPSID i;");
+        tracking_channel_t *ch = &tracking_channel[i];
+        if (ch->sid.constellation == SBAS_CONSTELLATION) {
+          tracking_update_measurement(i, &meas[n_ready++]);
+          n_xyz_ready++;
+        }
+        __asm__("CPSIE i;");
       }
     }
 
@@ -405,9 +422,9 @@ static msg_t solution_thread(void *arg)
     u64 nav_tc = nap_timing_count();
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
     chMtxLock(&es_mutex);
-    calc_navigation_measurement(n_ready, meas, nav_meas,
+    calc_navigation_measurement(n_xyz_ready, n_kep_ready, meas, nav_meas,
                                 (double)((u32)nav_tc)/SAMPLE_FREQ,
-                                eph.ephemeris_kep);
+                                eph);
     chMtxUnlock();
 
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
