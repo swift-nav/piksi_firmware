@@ -24,6 +24,7 @@ extern ephemeris_xyz_t sbas_eph[WAAS_SATS];
 extern ephemeris_t eph;
 
 void ephemeris_setup(void);
+void ephemeris_new(ephemeris_t *e, signal_t sid);
 
 #endif
 

@@ -28,33 +28,18 @@ ephemeris_kepler_t l1_es[GPS_L1_SATS] _CCM;
 ephemeris_xyz_t sbas_es[WAAS_SATS] _CCM;
 
 static ephemeris_kepler_t l1_es_candidate[GPS_L1_SATS] _CCM;
-static ephemeris_xyz_t sbas_es_candidate[WAAS_SATS] _CCM;
 
 static void ephemeris_xyz_new(ephemeris_t *e, signal_t sid)
 {
   gps_time_t t = get_current_time();
   ephemeris_xyz_t *e_xyz = &e->ephemeris_xyz[0];
   ephemeris_xyz_t *es = &sbas_es[sbas_sid_to_index(sid)];
-  ephemeris_xyz_t *es_candidate = &sbas_es_candidate[sbas_sid_to_index(sid)];
 
-  if (!ephemeris_good(e, sid, t)) {
-    /* Our currently used ephemeris is bad, so we assume this is better. */
-    log_info("New untrusted ephemeris for PRN %02d", e_xyz->sid.prn+1);
-    chMtxLock(&es_mutex);
-    *es = *es_candidate = *e_xyz;
-    chMtxUnlock();
-  } else if (ephemeris_xyz_equal(es, e_xyz)) {
+  if (ephemeris_good(e, sid, t) == 1) {
     /* The received ephemeris matches our candidate, so we trust it. */
-    log_info("New trusted ephemeris for PRN %02d", e_xyz->sid.prn+1);
+    log_info("New trusted ephemeris for PRN %d", e_xyz->sid.prn+1);
     chMtxLock(&es_mutex);
     *es = *e_xyz;
-    chMtxUnlock();
-  } else {
-    /* This is our first reception of this new ephemeris, so treat it with
-     * suspicion and call it the new candidate. */
-    log_info("New ephemeris candidate for PRN %02d", e_xyz->sid.prn+1);
-    chMtxLock(&es_mutex);
-    *es_candidate = *e_xyz;
     chMtxUnlock();
   }
 }
@@ -88,7 +73,7 @@ static void ephemeris_kepler_new(ephemeris_t *e, signal_t sid)
   }
 }
 
-static void ephemeris_new(ephemeris_t *e, signal_t sid)
+void ephemeris_new(ephemeris_t *e, signal_t sid)
 {
   if (sid.constellation == GPS_CONSTELLATION) {
     ephemeris_kepler_new(e, sid);
@@ -219,7 +204,7 @@ static void ephemeris_xyz_msg_callback(u16 sender_id, u8 len,
   ephemeris_xyz_t e_xyz;
   unpack_ephemeris_xyz((msg_ephemeris_xyz_t *)msg, &e_xyz);
   if (e_xyz.sid.prn > 138 || e_xyz.sid.prn < 120) {
-    log_warn("Ignoring ephemeris for invalid sat");
+    log_warn("Ignoring ephemeris for invalid sat (not WAAS)");
     return;
   }
 
@@ -240,10 +225,9 @@ void l1_ephemeris_setup(void)
 
 void sbas_ephemeris_setup(void)
 {
-  memset(sbas_es_candidate, 0, sizeof(sbas_es_candidate));
   memset(sbas_es, 0, sizeof(sbas_es));
 
-  for (u8 i=0; i<WAAS_SATS; i++) {
+  for (u8 i = 0;i < WAAS_SATS; i++) {
     sbas_es[i].sid = sbas_index_to_sid(i);
   }
 }
