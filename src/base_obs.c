@@ -277,13 +277,17 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   for (u8 i=0; i<obs_in_msg; i++) {
     /* Check the PRN is valid. e.g. simulation mode outputs test observations
      * with PRNs >200. */
-    /* TODO SBAS!!!*/
-    if (obs[i].sid.prn > 140) { /* TODO prn - sid; assume everything below is 0x1F masked! */
+    if (obs[i].sid.prn > 32) { /* TODO prn - sid; assume everything below is 0x1F masked! */
       continue;
     }
 
     /* Flag this as visible/viable to acquisition/search */
-    manage_set_obs_hint(obs[i].sid.prn);
+    signal_t obs_sid = {
+      .prn = obs[i].sid.prn,
+      .band = obs[i].sid.band,
+      .constellation = obs[i].sid.constellation
+    };
+    manage_set_obs_hint(obs_sid);
 
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
@@ -314,7 +318,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(&eph.ephemeris_kep[obs[i].sid.prn], t,
+      legacy_calc_sat_state(&eph.ephemeris_kep[obs[i].sid.prn], t,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);

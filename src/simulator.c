@@ -274,7 +274,7 @@ void simulation_step_tracking_and_observations(double elapsed)
 
   /* First we calculate all the current sat positions, velocities */
   for (u8 i=0; i<simulation_num_almanacs; i++) {
-    calc_sat_state_almanac(&simulation_almanacs[i], t, week,
+    legacy_calc_sat_state_almanac(&simulation_almanacs[i], t, week,
       simulation_sats_pos[i], simulation_sats_vel[i]);
   }
 
