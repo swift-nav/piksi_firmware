@@ -33,6 +33,8 @@
 #include "position.h"
 #include "sbp_utils.h"
 #include "sbp.h"
+#include "cfs/cfs.h"
+#include "cfs/cfs-coffee.h"
 
 struct v27 decoder _CCM;
 decision_t decisions[DECISION_SIZE] _CCM;
@@ -148,6 +150,9 @@ static msg_t decoder_thread(void *arg)
             }
 
             if (alm[0].valid == 1) {
+              int fd = cfs_open("sbas_almanac", CFS_WRITE);
+              if (fd == -1)
+                log_error("Error opening almanac file");
               for (u8 j = 0; j < WAAS_SATS; j++) {
                 /*
                  *Be sure that almanac can be used.
@@ -156,8 +161,19 @@ static msg_t decoder_thread(void *arg)
                   signal_t sid; sid = alm[j].sid;
                   memcpy(&sbas_almanac[sbas_sid_to_index(sid)],
                          &alm[j], sizeof(sbas_almanac_t));
+                  if (fd != -1) {
+                    cfs_seek(fd, (sbas_sid_to_index(alm[j].sid))*sizeof(sbas_almanac_t), CFS_SEEK_SET);
+                    if (cfs_write(fd, &alm[j], sizeof(sbas_almanac_t)) != sizeof(sbas_almanac_t)) {
+                      log_error("Error writing to SBAS almanac file");
+                    } else {
+                      log_info("Saved PRN %d almanac to flash",
+                               alm[j].sid.prn + 1);
+                    }
+                  }
                 }
               }
+              if (fd)
+                cfs_close(fd);
             }
           }
 
