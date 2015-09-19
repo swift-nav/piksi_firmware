@@ -53,7 +53,7 @@ Mutex amb_state_lock;
 
 systime_t last_dgnss;
 
-double soln_freq = 10.0;
+double soln_freq = 1.0;
 u32 obs_output_divisor = 2;
 
 double known_baseline[3] = {0, 0, 0};
@@ -61,7 +61,7 @@ u16 msg_obs_max_size = 104;
 
 static u16 lock_counters[MAX_SATS];
 
-bool disable_raim = false;
+bool disable_raim = true;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -427,6 +427,11 @@ static msg_t solution_thread(void *arg)
                                 eph);
     chMtxUnlock();
 
+/*
+ *    if (n_xyz_ready > 0)
+ *      asm("BKPT");
+ *
+ */
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
     u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
                                    nav_meas_old, nav_meas_tdcp);
@@ -461,6 +466,18 @@ static msg_t solution_thread(void *arg)
 
       if (!simulation_enabled()) {
         /* Output solution. */
+        /*
+         *if (position_solution.sbas == false)
+         *log_info("Lat %f Long %f Height %f",
+         *    position_solution.pos_llh[0] * 180/GPS_PI,
+         *    position_solution.pos_llh[1] * 180/GPS_PI,
+         *    position_solution.pos_llh[2]);
+         *else
+         *log_info("Lat %f Long %f Height %f with SBAS",
+         *    position_solution.pos_llh[0] * 180/GPS_PI,
+         *    position_solution.pos_llh[1] * 180/GPS_PI,
+         *    position_solution.pos_llh[2]);
+         */
         solution_send_sbp(&position_solution, &dops);
         solution_send_nmea(&position_solution, &dops,
                            n_ready_tdcp, nav_meas_tdcp,

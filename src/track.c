@@ -73,10 +73,12 @@ static u16 iq_output_mask = 0;
 l1_legacy_nav_msg_t l1_nav_msgs[NAP_MAX_N_TRACK_CHANNELS];
 l1_sbas_nav_msg_t sbas_nav_msgs[WAAS_SATS];
 
+MUTEX_DECL(track_mutex);
+
 /*
- *Keep extra 60 symbols into mailbox for SBAS decoder.
+ *Keep extra 70 symbols into mailbox for SBAS decoder.
  */
-#define sbas_mb_size 60
+#define sbas_mb_size 70
 Mailbox sbas_mb[WAAS_SATS];
 static msg_t sbas_mailbox_buff[WAAS_SATS][sbas_mb_size];
 
@@ -367,25 +369,48 @@ void tracking_channel_update(u8 channel)
         }
       }
 
+      chMtxLock(&track_mutex);
       chan->update_count += chan->int_ms;
+      chMtxUnlock();
 
       s32 TOW_ms = TOW_INVALID;
       if (chan->sid.constellation == SBAS_CONSTELLATION) {
         l1_sbas_nav_msg_t *sbs = chan->nav_msg.sbas_nav_msg;
-        TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
-        TOW_ms = TOW_INVALID;
+        nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
+
         if (sbs->good_bit == true) {
+          /*
+           *Update count masked into first 31 bits of the mb message. Bit
+           *value in bit 0.
+           */
+          u32 item;
+
+          chMtxLock(&track_mutex);
+          item = chan->update_count;
+          chMtxUnlock();
+
+          item <<= 1;
+
+          if (sbs->last_bit)
+            item |= 1;
+
           msg_t ret = chMBPost(&sbas_mb[sbas_sid_to_index(chan->sid)],
-                               (msg_t)sbs->last_bit, TIME_IMMEDIATE);
+                               (msg_t)item, TIME_IMMEDIATE);
           if (ret != RDY_OK) {
             log_info("PRN %d has his mailbox full!", chan->sid.prn + 1);
           }
         }
       } else if (chan->sid.constellation == GPS_CONSTELLATION) {
         TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
+        /*
+         *if (TOW_ms != TOW_INVALID) {
+         *  log_info("PRN %d TOW %lu", chan->sid.prn + 1, TOW_ms + 4800);
+         *}
+         */
+
       }
 
-      if ((TOW_ms >= 0) && chan->TOW_ms != TOW_ms) {
+      if ((TOW_ms >= 0) && chan->sid.constellation != SBAS_CONSTELLATION  && chan->TOW_ms != TOW_ms) {
         if (chan->TOW_ms != TOW_INVALID) {
           log_error("PRN %d TOW mismatch: %ld, %lu",
                     chan->sid.prn+1, chan->TOW_ms, TOW_ms);
