@@ -761,7 +761,6 @@ s8 use_tracking_channel(u8 i)
   } else {
     e.ephemeris_xyz = &eph.ephemeris_xyz[sbas_sid_to_index(sid)];
     e.ephemeris_kep = NULL;
-    return 0;
  }
 
   /* To use a channel's measurements in an SPP or RTK solution, we
