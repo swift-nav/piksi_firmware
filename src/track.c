@@ -341,6 +341,7 @@ void tracking_channel_update(u8 channel)
       chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
       chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
 
+      chMtxLock(&track_mutex);
       if (chan->TOW_ms != TOW_INVALID) {
         /* Have a valid time of week - increment it. */
         chan->TOW_ms += chan->short_cycle ? 1 : (chan->int_ms-1);
@@ -349,6 +350,7 @@ void tracking_channel_update(u8 channel)
         /* TODO: maybe keep track of week number in channel state, or
            derive it from system time */
       }
+      chMtxUnlock();
 
       if (chan->int_ms > 1) {
         /* If we're doing long integrations, alternate between short and long
@@ -620,7 +622,8 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->time_of_week_ms = chan->TOW_ms;
   meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
   meas->snr = chan->cn0;
-  if (*b_polarity == BIT_POLARITY_INVERTED) {
+  if (*b_polarity == BIT_POLARITY_INVERTED &&
+      sid.constellation != SBAS_CONSTELLATION) {
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = chan->lock_counter;
