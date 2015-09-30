@@ -70,16 +70,19 @@ static msg_t decoder_thread(void *arg)
                     (msg_t *)&full_info, TIME_IMMEDIATE) == RDY_OK) {
         if (full_info&1)
           bit = 255;
-        __attribute__ ((unused)) u32 chan_time = full_info >> 1;
+        /*
+         *Channel time in ms when the last bit of the decoder frame is received
+         */
+        u32 chan_time = full_info >> 1;
 
         nav_msg->symbols[nav_msg->symbol_count++] = bit;
         if (nav_msg->symbol_count == SBAS_NAVFLEN) {
          ephemeris_xyz_t e; e.toe.wn = WN_UNKNOWN;
          sbas_almanac_t alm[3];
 
-          memset(&e, 0, sizeof(ephemeris_xyz_t));
+          memset(&e, 0xFF, sizeof(ephemeris_xyz_t));
           for (u8 j = 0; j < 3; j++)
-            memset(&alm[j], 0, sizeof(sbas_almanac_t));
+            memset(&alm[j], 0xFF, sizeof(sbas_almanac_t));
 
           /*
            *Decide nav msg polarity based on # of runs of decoder and how many
@@ -121,93 +124,69 @@ static msg_t decoder_thread(void *arg)
             nav_msg->dec_passes++;
             nav_msg->dec_passes %= 50;
           }
-          __attribute__ ((unused)) u32 ch_time_now = 0;
-          chMtxLock(&track_mutex);
-            for (int i = 0; i < MAX_CHANNELS; i++) {
-              tracking_channel_t *chan = &tracking_channel[i];
-              if (chan->sid.prn == nav_msg->sid.prn)
-                ch_time_now = chan->update_count;
-            }
-          chMtxUnlock();
 
-          /*
-           *Try to see if we have valid msgs.
+          /* l1_sbas_process_subframe returns the bit offset from end of
+           * buffer
+           * of the preamble aligned to GPS seconds. We multiply by 2 (for
+           * symbols per bit) and then by 2 again for milli seconds per symbol
            */
-
-           /* l1_sbas_process_subframe returns the bit offset from end of buffer
-              of the preamble aligned to GPS seconds.  We multiply by 2 (for symbols per bit)
-              and then by 2 again for milli seconds per symbol */
-          s16 symbols =  2 * l1_sbas_process_subframe(nav_msg, &e, alm);
+          s16 index = l1_sbas_process_subframe(nav_msg, &e, alm);
+          s16 symbols =  2 * index;
           if (time_quality == TIME_FINE && symbols > 0 ) {
 
-            __attribute__ ((unused)) u32 ms_offset = symbols * 1000 / 500;
-            /*
-             *log_info ("First bit of preamble[1] corresponds to TOW %d",
-             *          ms_offset + chan_time);
-             */
-
-            __attribute__ ((unused)) u32 to_print = 0;
+            __attribute__ ((unused)) u32 ms_offset = symbols * 2;
             __attribute__ ((unused)) u32 u_count = 0;
+
             /*
-             *__attribute__ ((unused)) u32
+             *Current GPS time (SBAS network time is withing 50nS of GPS time)
              */
-            u32 n_second = floor(position_solution.time.tow);
-            n_second -= n_second%6;
-            if (n_second % 6 == 0) {
+            u32 n_second = trunc(get_current_time().tow);
+            __attribute__((unused)) s32 tow_diff = 0;
+
+            n_second -= n_second % 3;
+            u32 n_ms = n_second * 1e3;
+
           chMtxLock(&track_mutex);
             for (int i = 0; i < MAX_CHANNELS; i++) {
               tracking_channel_t *chan = &tracking_channel[i];
               if (chan->sid.prn == nav_msg->sid.prn) {
                 u_count = chan->update_count;
-                /* We first take the current solution's time and round it to the 
-                 * previous subframe boundary,
-                and then convert to milliseconds.
+               /*
+                * We first take the current solution's time and round it to the
+                * previous subframe boundary, and then convert to milliseconds.
+                *
+                * We then take the difference between the "update count" value
+                * for the Last symbol in the buffer (chan_time), and our
+                * current update count value from the tracking channel.  This
+                * represents the delay we incurred from processing the the
+                * message and is to be added to the previous GPS second.
+                *
+                * We then take the ms_offset parameter, which represents the
+                * absolute value of the time difference between the last bit in
+                * the buffer and the time at which the GPS second aligned
+                * preamble was received. This value is also added to our
+                * previous GPS second, as it is additional delay incurred after
+                * the aligned second before the end of the buffer
+                */
+                tow_diff = chan->TOW_ms - u_count;
+                chan->TOW_ms = n_ms + (u_count - chan_time) + ms_offset + 10;
 
-                We then take the difference between the "update count" value
-                for the Last symbol in the buffer (chan_time), and our current
-                update count value from the tracking channel.  This represents the delay
-                we incurred from processing the the message and is to be added to the previous GPS second.
-
-                We then take the ms_offset parameter, which represents the absolute value
-                of the time difference between the last bit in the buffer and the time at
-                which the GPS second aligned preamble was received. This value is also added
-                to our previous GPS second, as it is additional delay incurred after the aligned
-                second before the end of the buffer*/
-
-
-                chan->TOW_ms = (n_second) * 1e3 + \
-                                (u_count - chan_time)+ ms_offset;
-
-                to_print = chan->TOW_ms;
+                /*
+                 *if (u_count + tow_diff != (u32)chan->TOW_ms) {
+                 *  log_info("PRN %d new %d expected %d, %d", chan->sid.prn + 1,
+                 *         chan->TOW_ms, u_count + tow_diff, index);
+                 *}
+                 */
               }
             }
           chMtxUnlock();
-            }
-            /*
-             *log_info("PRN %d Actual TOW_ms %f, ours TOW_ms %d\n" \
-             *         "\tupdate_count %u, chan_time %d, ms_offset %u, u - ch %u",
-             *         nav_msg->sid.prn + 1, n_second * 1e3,  to_print,
-             *         u_count, chan_time, ms_offset, u_count - chan_time);
-             */
 
             if (e.valid == 1) {
               e.sid = nav_msg->sid;
               ephemeris_t eph;
               eph.ephemeris_xyz = &e;
-              e.toe = position_solution.time;
+              e.toe = get_current_time();
 
-              /*
-               *Set TOW into the tracking channel.
-               */
-/*
- *              for (u8 n = 0; n < MAX_CHANNELS; n++) {
- *                tracking_channel_t* chan = &tracking_channel[n];
- *                if (chan->sid.prn == e.sid.prn) {
- *                  chan->TOW_ms = position_solution.time.tow;
- *                }
- *              }
- *
- */
               /*
                *Boom, SBAS finally decided to send an ephemeris.
                */
