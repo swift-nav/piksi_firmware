@@ -41,7 +41,7 @@ void sbp_make_baseline_ned(msg_baseline_ned_t *baseline_ned, const gps_time_t *t
 #define MSG_OBS_HEADER_MAX_SIZE MSG_OBS_HEADER_SEQ_MASK
 #define MSG_OBS_TOW_MULTIPLIER ((double)1000.0)
 
-#define MSG_OBS_P_MULTIPLIER ((double)1e2)
+#define MSG_OBS_P_MULTIPLIER ((double)10)
 #define MSG_OBS_SNR_MULTIPLIER ((float)4)
 #define MSG_OSB_LF_MULTIPLIER ((double)(1<<8))
 
