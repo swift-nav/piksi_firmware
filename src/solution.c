@@ -384,6 +384,7 @@ static msg_t solution_thread(void *arg)
     u8 n_ready = 0;
     u8 n_xyz_ready = 0;
     u8 n_kep_ready = 0;
+
     channel_measurement_t meas[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
       if (use_tracking_channel(i)) {
@@ -428,9 +429,44 @@ static msg_t solution_thread(void *arg)
     chMtxUnlock();
 
 /*
- *    if (n_xyz_ready > 0)
- *      asm("BKPT");
+ *    for (int i = 0; i < n_ready; i++) {
+ *      __attribute__ ((unused)) msg_nav_meas_t msg;
  *
+ *      msg.sid.prn = nav_meas[i].sid.prn;
+ *      msg.sid.constellation = nav_meas[i].sid.constellation;
+ *      msg.sid.band = nav_meas[i].sid.band;
+ *
+ *      msg.pos[0] = nav_meas[i].sat_pos[0];
+ *      msg.pos[1] = nav_meas[i].sat_pos[1];
+ *      msg.pos[2] = nav_meas[i].sat_pos[2];
+ *
+ *      msg.vel[0] = nav_meas[i].sat_vel[0];
+ *      msg.vel[1] = nav_meas[i].sat_vel[1];
+ *      msg.vel[2] = nav_meas[i].sat_vel[2];
+ *
+ *      if (msg.sid.prn == 137)
+ *        nav_meas[i].pseudorange += 20;
+ *      msg.pseudorange = nav_meas[i].pseudorange;
+ *      msg.raw_pseudorange = nav_meas[i].raw_pseudorange;
+ *      msg.carrier_phase = nav_meas[i].carrier_phase;
+ *
+ *      double v[3];
+ *      double tmp_ecef[3] = {-2704373, -4263207, 3884631};
+ *      vector_subtract(3, tmp_ecef, msg.pos, v);
+ *      double pred_pr = vector_norm(3, v);
+ *      double dt = msg.pseudorange - pred_pr;
+ *      static double fudge = 0;
+ *      if (i == 0) {
+ *        fudge = dt;
+ *      }
+ *      dt -= fudge;
+ *      log_info("%d: %f - %f = %f (%f ms)\n", msg.sid.prn+1, msg.pseudorange, pred_pr,
+ *               dt, 1e3 * dt/GPS_C);
+ *
+ *      sbp_send_msg(SBP_MSG_NAV_MEAS, sizeof(msg_nav_meas_t), (u8*)&msg);
+ *    }
+ *
+ *    log_info("");
  */
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
     u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
@@ -466,18 +502,6 @@ static msg_t solution_thread(void *arg)
 
       if (!simulation_enabled()) {
         /* Output solution. */
-        /*
-         *if (position_solution.sbas == false)
-         *log_info("Lat %f Long %f Height %f",
-         *    position_solution.pos_llh[0] * 180/GPS_PI,
-         *    position_solution.pos_llh[1] * 180/GPS_PI,
-         *    position_solution.pos_llh[2]);
-         *else
-         *log_info("Lat %f Long %f Height %f with SBAS",
-         *    position_solution.pos_llh[0] * 180/GPS_PI,
-         *    position_solution.pos_llh[1] * 180/GPS_PI,
-         *    position_solution.pos_llh[2]);
-         */
         solution_send_sbp(&position_solution, &dops);
         solution_send_nmea(&position_solution, &dops,
                            n_ready_tdcp, nav_meas_tdcp,
