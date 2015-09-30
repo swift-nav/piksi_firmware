@@ -15,6 +15,7 @@
 
 #include <libsbp/flash.h>
 #include <libsbp/sbp.h>
+#include <errno.h>
 
 #include <libswiftnav/logging.h>
 
@@ -154,6 +155,7 @@ void check_nap_auth(void)
 void *_sbrk (int incr)
 {
   extern char   end; /* Set by linker.  */
+  extern char   __heap_end__;
   static char * heap_end;
   char *        prev_heap_end;
 
@@ -163,6 +165,10 @@ void *_sbrk (int incr)
   prev_heap_end = heap_end;
 
   heap_end += incr;
+  if (heap_end > &__heap_end__) {
+    errno = ENOMEM;
+    return (void*)-1;
+  }
 
   return (void *)prev_heap_end;
 }
