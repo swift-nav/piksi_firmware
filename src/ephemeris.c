@@ -147,17 +147,10 @@ static msg_t nav_msg_thread(void *arg)
       if (!health) {
         log_info("PRN %02d unhealthy", ch->sid.prn+1);
       } else {
-        if (sid.constellation == GPS_CONSTELLATION) {
-          msg_ephemeris_kepler_t msg;
-          pack_ephemeris_kepler(&e_kep, &msg);
-          sbp_send_msg(SBP_MSG_EPHEMERIS_KEPLER,
-                       sizeof(msg_ephemeris_kepler_t), (u8 *)&msg);
-        } else {
-          msg_ephemeris_xyz_t msg;
-          pack_ephemeris_xyz(&e_xyz, &msg);
-          sbp_send_msg(SBP_MSG_EPHEMERIS_XYZ,
-                       sizeof(msg_ephemeris_xyz_t), (u8 *)&msg);
-        }
+        msg_ephemeris_kepler_t msg;
+        pack_ephemeris_kepler(&e_kep, &msg);
+        sbp_send_msg(SBP_MSG_EPHEMERIS_KEPLER,
+                     sizeof(msg_ephemeris_kepler_t), (u8 *)&msg);
       }
     }
   }
@@ -225,7 +218,7 @@ void l1_ephemeris_setup(void)
 
 void sbas_ephemeris_setup(void)
 {
-  memset(sbas_es, 0, sizeof(sbas_es));
+  memset(sbas_es, 0xFF, sizeof(sbas_es));
 
   for (u8 i = 0;i < WAAS_SATS; i++) {
     sbas_es[i].sid = sbas_index_to_sid(i);
