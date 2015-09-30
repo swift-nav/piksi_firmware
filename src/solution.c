@@ -53,7 +53,7 @@ Mutex amb_state_lock;
 
 systime_t last_dgnss;
 
-double soln_freq = 10.0;
+double soln_freq = 1.0;
 u32 obs_output_divisor = 2;
 
 double known_baseline[3] = {0, 0, 0};
@@ -61,7 +61,7 @@ u16 msg_obs_max_size = 104;
 
 static u16 lock_counters[MAX_SATS];
 
-bool disable_raim = false;
+bool disable_raim = true;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -253,7 +253,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
             m[obs_i].carrier_phase,
             m[obs_i].snr,
             m[obs_i].lock_counter,
-            m[obs_i].prn,
+            m[obs_i].sid,
             &obs[i]) < 0) {
         /* Error packing this observation, skip it. */
         i--;
@@ -354,7 +354,7 @@ static void update_sat_elevations(const navigation_measurement_t nav_meas[],
   for (int i = 0; i < n_meas; i++) {
     wgsecef2azel(nav_meas[i].sat_pos, pos_ecef, &_, &el);
     for (int j = 0; j < nap_track_n_channels; j++) {
-      if (tracking_channel[j].prn == nav_meas[i].prn) {
+      if (tracking_channel[j].sid.prn == nav_meas[i].sid.prn) {
         tracking_channel[j].elevation = (float)el * R2D;
         break;
       }
@@ -382,13 +382,31 @@ static msg_t solution_thread(void *arg)
     }
 
     u8 n_ready = 0;
+    u8 n_xyz_ready = 0;
+    u8 n_kep_ready = 0;
+
     channel_measurement_t meas[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
       if (use_tracking_channel(i)) {
         __asm__("CPSID i;");
-        tracking_update_measurement(i, &meas[n_ready]);
+        tracking_channel_t *ch = &tracking_channel[i];
+        if (ch->sid.constellation == GPS_CONSTELLATION) {
+          tracking_update_measurement(i, &meas[n_ready++]);
+          n_kep_ready++;
+        }
         __asm__("CPSIE i;");
-        n_ready++;
+      }
+    }
+
+    for (u8 i=0; i<nap_track_n_channels; i++) {
+      if (use_tracking_channel(i)) {
+        __asm__("CPSID i;");
+        tracking_channel_t *ch = &tracking_channel[i];
+        if (ch->sid.constellation == SBAS_CONSTELLATION) {
+          tracking_update_measurement(i, &meas[n_ready++]);
+          n_xyz_ready++;
+        }
+        __asm__("CPSIE i;");
       }
     }
 
@@ -405,10 +423,51 @@ static msg_t solution_thread(void *arg)
     u64 nav_tc = nap_timing_count();
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
     chMtxLock(&es_mutex);
-    calc_navigation_measurement(n_ready, meas, nav_meas,
-                                (double)((u32)nav_tc)/SAMPLE_FREQ, es);
+    calc_navigation_measurement(n_xyz_ready, n_kep_ready, meas, nav_meas,
+                                (double)((u32)nav_tc)/SAMPLE_FREQ,
+                                eph);
     chMtxUnlock();
 
+/*
+ *    for (int i = 0; i < n_ready; i++) {
+ *      __attribute__ ((unused)) msg_nav_meas_t msg;
+ *
+ *      msg.sid.prn = nav_meas[i].sid.prn;
+ *      msg.sid.constellation = nav_meas[i].sid.constellation;
+ *      msg.sid.band = nav_meas[i].sid.band;
+ *
+ *      msg.pos[0] = nav_meas[i].sat_pos[0];
+ *      msg.pos[1] = nav_meas[i].sat_pos[1];
+ *      msg.pos[2] = nav_meas[i].sat_pos[2];
+ *
+ *      msg.vel[0] = nav_meas[i].sat_vel[0];
+ *      msg.vel[1] = nav_meas[i].sat_vel[1];
+ *      msg.vel[2] = nav_meas[i].sat_vel[2];
+ *
+ *      if (msg.sid.prn == 137)
+ *        nav_meas[i].pseudorange += 20;
+ *      msg.pseudorange = nav_meas[i].pseudorange;
+ *      msg.raw_pseudorange = nav_meas[i].raw_pseudorange;
+ *      msg.carrier_phase = nav_meas[i].carrier_phase;
+ *
+ *      double v[3];
+ *      double tmp_ecef[3] = {-2704373, -4263207, 3884631};
+ *      vector_subtract(3, tmp_ecef, msg.pos, v);
+ *      double pred_pr = vector_norm(3, v);
+ *      double dt = msg.pseudorange - pred_pr;
+ *      static double fudge = 0;
+ *      if (i == 0) {
+ *        fudge = dt;
+ *      }
+ *      dt -= fudge;
+ *      log_info("%d: %f - %f = %f (%f ms)\n", msg.sid.prn+1, msg.pseudorange, pred_pr,
+ *               dt, 1e3 * dt/GPS_C);
+ *
+ *      sbp_send_msg(SBP_MSG_NAV_MEAS, sizeof(msg_nav_meas_t), (u8*)&msg);
+ *    }
+ *
+ *    log_info("");
+ */
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
     u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
                                    nav_meas_old, nav_meas_tdcp);
@@ -468,7 +527,7 @@ static msg_t solution_thread(void *arg)
             u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                     base_obss.n, base_obss.nm,
                                     base_obss.sat_dists, base_obss.pos_ecef,
-                                    es, position_solution.time,
+                                    eph.ephemeris_kep, position_solution.time,
                                     sdiffs);
             chMtxUnlock();
             if (num_sdiffs >= 4) {

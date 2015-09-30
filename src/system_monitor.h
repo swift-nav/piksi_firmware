@@ -28,6 +28,7 @@ typedef enum {
   WD_NOTIFY_TRACKING_MGMT,
   WD_NOTIFY_ACQ_MGMT,
   WD_NOTIFY_SOLUTION,
+  WD_NOTIFY_DECODER,
   WD_NOTIFY_NUM_THREADS  /* Maximum 32 of these! */
 } watchdog_notify_t;
 

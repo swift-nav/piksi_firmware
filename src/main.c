@@ -15,6 +15,7 @@
 
 #include <libsbp/system.h>
 #include <libswiftnav/logging.h>
+#include <fec.h>
 
 #include <ch.h>
 
@@ -38,6 +39,7 @@
 #include "settings.h"
 #include "sbp_fileio.h"
 #include "ephemeris.h"
+#include "decoder.h"
 
 extern void ext_setup(void);
 
@@ -177,6 +179,8 @@ int main(void)
   ext_event_setup();
   position_setup();
   tracking_setup();
+
+  decoder_setup();
 
   rng_setup();
   manage_acq_setup();

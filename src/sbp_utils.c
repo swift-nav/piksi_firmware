@@ -28,6 +28,27 @@
  * Convert to and from SBP message types and other useful functions.
  * \{ */
 
+void signal_to_sbp(const signal_t *from, sbp_signal_t *to)
+{
+  to->constellation = from->constellation;
+  to->band = from->band;
+  to->prn = from->prn;
+}
+
+void signal_from_sbp(const sbp_signal_t *from, signal_t *to)
+{
+  to->constellation = from->constellation;
+  to->band = from->band;
+  to->prn = from->prn;
+}
+
+void signal_copy(const signal_t *from, signal_t *to)
+{
+  to->constellation = from->constellation;
+  to->band = from->band;
+  to->prn = from->prn;
+}
+
 void sbp_make_gps_time(msg_gps_time_t *t_out, const gps_time_t *t_in, u8 flags)
 {
   t_out->wn = t_in->wn;
@@ -163,13 +184,13 @@ void pack_obs_header(const gps_time_t *t, u8 total, u8 count, observation_header
 }
 
 void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
-                        double *snr, u16 *lock_counter, u8 *prn)
+                        double *snr, u16 *lock_counter, signal_t *sid)
 {
   *P   = ((double)msg->P) / MSG_OBS_P_MULTIPLIER;
   *L   = ((double)msg->L.i) + (((double)msg->L.f) / MSG_OSB_LF_MULTIPLIER);
   *snr = ((double)msg->cn0) / MSG_OBS_SNR_MULTIPLIER;
   *lock_counter = ((u16)msg->lock);
-  *prn = msg->sid & 0x1F; /* TODO: prn -> sid */
+  signal_from_sbp(&msg->sid, sid);
 }
 
 /** Pack GPS observables into a `msg_obs_content_t` struct.
@@ -180,12 +201,12 @@ void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
  * \param snr Signal-to-noise ratio
  * \param lock_counter Lock counter is an arbitrary integer that should change
  *                     if the carrier phase ambiguity is ever reset
- * \param prn Satellite PRN identifier
+ * \param sid Signal ID
  * \param msg Pointer to a `msg_obs_content_t` struct to fill out
  * \return `0` on success or `-1` on an overflow error
  */
-s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
-                    packed_obs_content_t *msg)
+s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
+                    signal_t sid, packed_obs_content_t *msg)
 {
 
   s64 P_fp = llround(P * MSG_OBS_P_MULTIPLIER);
@@ -217,12 +238,50 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
 
   msg->lock = lock_counter;
 
-  msg->sid = prn; /* TODO prn -> sid */
+  signal_to_sbp(&sid, &msg->sid);
 
   return 0;
 }
 
-void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e)
+void unpack_ephemeris_xyz(const msg_ephemeris_xyz_t *msg, ephemeris_xyz_t *e)
+{
+  memcpy(e->pos, msg->pos, 3 * sizeof(double));
+  memcpy(e->rate, msg->rate, 3 * sizeof(double));
+  memcpy(e->acc, msg->acc, 3 * sizeof(double));
+
+  e->toe.tow   = msg->toe_tow;
+  e->toe.wn    = msg->toe_wn;
+  e->valid     = msg->valid;
+  e->healthy   = msg->healthy;
+  e->a_gf0     = msg->a_gf0;
+  e->a_gf1     = msg->a_gf1;
+  e->iod       = msg->iod;
+  e->ura       = msg->ura;
+  e->toa       = msg->toa;
+  signal_from_sbp(&msg->sid, &e->sid);
+}
+
+void pack_ephemeris_xyz(const ephemeris_xyz_t *e, msg_ephemeris_xyz_t *msg)
+{
+  gps_time_t toe = e->toe;
+
+  memcpy(msg->pos, e->pos, 3 * sizeof(double));
+  memcpy(msg->rate, e->rate, 3 * sizeof(double));
+  memcpy(msg->acc, e->acc, 3 * sizeof(double));
+
+  msg->toe_tow   = toe.tow;
+  msg->toe_wn    = toe.wn;
+  msg->valid     = e->valid;
+  msg->healthy   = e->healthy;
+  msg->a_gf0     = e->a_gf0;
+  msg->a_gf1     = e->a_gf1;
+  msg->iod       = e->iod;
+  msg->ura       = e->ura;
+  msg->toa       = e->toa;
+  signal_to_sbp(&e->sid, &msg->sid);
+}
+
+void unpack_ephemeris_kepler(const msg_ephemeris_kepler_t *msg, ephemeris_kepler_t *e)
 {
    e->tgd       =  msg->tgd;
    e->crs       =  msg->c_rs;
@@ -249,11 +308,11 @@ void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e)
    e->toc.wn    =  msg->toe_wn;
    e->valid     =  msg->valid;
    e->healthy   =  msg->healthy;
-   e->prn       =  msg->sid & 0x1F; /* TODO prn -> sid */
+   signal_from_sbp(&msg->sid, &e->sid);
    e->iode      =  msg->iode;
 }
 
-void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
+void pack_ephemeris_kepler(const ephemeris_kepler_t *e, msg_ephemeris_kepler_t *msg)
 {
   gps_time_t toe = e->toe;
   gps_time_t toc = e->toc;
@@ -282,7 +341,7 @@ void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
   msg->toe_wn    = toc.wn;
   msg->valid     = e->valid;
   msg->healthy   = e->healthy;
-  msg->sid       = e->prn; /* TODO: prn -> sid */
+  signal_to_sbp(&e->sid, &msg->sid);
   msg->iode      = e->iode;
 }
 

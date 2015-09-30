@@ -32,7 +32,7 @@ extern u32 _ecoffee_fs_area;
 #define COFFEE_START           ((u32)&_coffee_fs_area)
 #define COFFEE_START_SECTOR    8
 #define COFFEE_SIZE            ((u32)&_ecoffee_fs_area - (u32)&_coffee_fs_area)
-#define COFFEE_NAME_LENGTH     8 /* The maximum filename length. */
+#define COFFEE_NAME_LENGTH     16 /* The maximum filename length. */
 #define COFFEE_MAX_OPEN_FILES  8
 #define COFFEE_FD_SET_SIZE     8
 #define COFFEE_MICRO_LOGS      1
