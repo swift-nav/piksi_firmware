@@ -112,6 +112,15 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
 
 }
 
+double calc_heading(const double b_ned[3])
+{
+  double heading = atan2(b_ned[1], b_ned[0]);
+  if (heading < 0) {
+    heading += 2 * M_PI;
+  }
+  return heading * R2D;
+}
+
 /** Creates and sends RTK solution.
  * If the base station position is known,
  * send the NMEA and SBP psuedo absolute msgs.
@@ -143,6 +152,11 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
   msg_baseline_ned_t sbp_ned;
   sbp_make_baseline_ned(&sbp_ned, t, n_sats, b_ned, flags);
   sbp_send_msg(SBP_MSG_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
+
+  double heading = calc_heading(b_ned);
+  msg_baseline_heading_t sbp_heading;
+  sbp_make_heading(&sbp_heading, t, heading, n_sats, flags);
+  sbp_send_msg(SBP_MSG_BASELINE_HEADING, sizeof(sbp_heading), (u8 *)&sbp_heading);
 
   chMtxLock(&base_pos_lock);
   if (base_pos_known || (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||

@@ -33,7 +33,8 @@ void sbp_make_baseline_ecef(msg_baseline_ecef_t *baseline_ecef, const gps_time_t
                             u8 n_sats, const double b_ecef[3], u8 flags);
 void sbp_make_baseline_ned(msg_baseline_ned_t *baseline_ned, const gps_time_t *t,
                            u8 n_sats, const double b_ned[3], u8 flags);
-
+void sbp_make_heading(msg_baseline_heading_t *baseline_heading, const gps_time_t *t,
+                      const double heading, u8 n_used, u8 flags);
 #define MSG_OBS_HEADER_SEQ_SHIFT 4u
 #define MSG_OBS_HEADER_SEQ_MASK ((1 << 4u) - 1)
 #define MSG_OBS_HEADER_MAX_SIZE MSG_OBS_HEADER_SEQ_MASK
