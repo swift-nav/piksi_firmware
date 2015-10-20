@@ -3,6 +3,7 @@ Piksi Firmware Release Notes
 
 Contents
 --------
+ * [v0.21](#v0.21)
  * [v0.20](#v0.20)
  * [v0.19](#v0.19)
  * [v0.18](#v0.18)
@@ -15,6 +16,12 @@ Contents
  * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.21 <a name="v0.21"></a>
+-----
+
+ * Fixes "dgnss_baseline returned error: -2" bug when dropping a satellite
+ * Numerous minor fixes and improvements
 
 v0.20 <a name="v0.20"></a>
 -----
@@ -30,7 +37,7 @@ v0.20 <a name="v0.20"></a>
     * SBP_MSG_EPHEMERIS
     * SBP_MSG_TRACKING_STATE
  * Add sanity check for user entered base station position upon broadcast of location
- * Change tracking threshold to 31 db-hz to help maintain track
+ * Change tracking threshold to 31 db-hz to help maintain tracking
  * Fix known bug where Piksi could operate incorrectly during GPS week rollover
 
 v0.19 <a name="v0.19"></a>
