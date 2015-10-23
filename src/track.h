@@ -42,6 +42,7 @@ typedef struct {
   u32 ld_opti_locked_count;    /**< update_count value when optimistic
                                   phase detector last "locked". */
   s32 TOW_ms;                  /**< TOW in ms. */
+  u32 cn0_below_threshold_count;     /**< update_count value when SNR was last below a certain margin. */
   gnss_signal_t sid;           /**< Satellite signal being tracked. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   u32 code_phase_early;        /**< Early code phase. */

@@ -530,6 +530,14 @@ static void manage_track()
 
     u32 uc = ch->update_count;
 
+    if (ch->cn0 < track_cn0_use_thres) {
+      /* SNR has dropped below threshold, indicate that the carrier phase
+       * ambiguity is now unknown as cycle slips are likely. */
+      tracking_channel_ambiguity_unknown(i);
+      /* Update the latest time we were below the threshold. */
+      ch->cn0_below_threshold_count = uc;
+    }
+
     /* Optimistic phase lock detector "unlocked" for a while? */
     /* TODO: This isn't doing much.  Use the pessimistic detector instead? */
     if ((int)(uc - ch->ld_opti_locked_count) > TRACK_DROP_UNLOCKED_T) {
@@ -563,6 +571,10 @@ s8 use_tracking_channel(u8 i)
   /* To use a channel's measurements in an SPP or RTK solution, we
      require the following conditions: */
   if ((ch->state == TRACKING_RUNNING)
+      /* Check SNR has been above threshold for the minimum time. */
+      && (tracking_channel[i].update_count
+            - tracking_channel[i].cn0_below_threshold_count
+            > TRACK_SNR_THRES_COUNT)
       /* Satellite elevation is above the mask. */
       && (ch->elevation >= elevation_mask)
       /* Pessimistic phase lock detector = "locked". */
