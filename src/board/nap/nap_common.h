@@ -23,6 +23,8 @@
 /* NAP Register Addresses. */
 #define NAP_REG_IRQ                 0x00
 #define NAP_REG_ERROR               0x01
+#define NAP_REG_PPS_WIDTH           0xF4
+#define NAP_REG_PPS_COMPARE         0xF5
 #define NAP_REG_EXT_EVENT_TIME      0xF6
 #define NAP_REG_TIMING_COMPARE      0xF8
 #define NAP_REG_TIMING_COUNT        0xF9
@@ -94,6 +96,9 @@ bool nap_timing_strobe_wait(u32 timeout);
 
 u32 nap_rw_ext_event(u8 *event_pin, ext_event_trigger_t *event_trig,
 		     ext_event_trigger_t next_trig);
+
+void nap_pps(u64 rising_edge_count_8x);
+void nap_pps_width(u32 falling_edge_count);
 
 #endif  /* SWIFTNAV_NAP_COMMON_H */
 

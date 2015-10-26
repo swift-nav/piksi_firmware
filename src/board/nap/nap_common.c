@@ -242,11 +242,11 @@ u64 nap_timing_count(void)
 }
 
 /** Read and write the NAP's external events register
- * 
+ *
  * Reads the trigger edge, pin number and time of the most recently detected
  * external event.  Simultaneously refreshes the NAP trigger mode, which
  * clears the subsystem IRQ (NAP logic).
- * 
+ *
  * \param event_pin  If not null, pin identifier from most recent event will
  *                   be saved here.
  * \param event_trig If not null, edge sense from most recent event will be
@@ -344,6 +344,48 @@ u32 nap_error_rd_blocking(void)
 
   nap_xfer_blocking(NAP_REG_ERROR, 4, temp, temp);
   return (temp[0] << 24) | (temp[1] << 16) | (temp[2] << 8) | temp[3];
+}
+
+/** Schedule a NAP pulse-per-second (PPS).
+ * Sets NAP's PPS compare register in order to generate a pulse-per-second.
+ * Whenever NAP's internal counter, running at 8 times the sample clock
+ * frequency, reaches rising_edge_count_8x the PPS will be set high. NAP only
+ * generates the PPS once per register write operation. The register has to be
+ * rewritten in order to generate multiple pulses. This prevents a PPS with a
+ * wrong period in case no new rising_edge_count_8x is set.
+ *
+ * \param rising_edge_count_8x The value of the NAP's internal counter at which
+ *                             the pulse-per-second is to be set high.
+ */
+void nap_pps(u64 rising_edge_count_8x)
+{
+  u8 tmp[5];
+
+  tmp[0] = (rising_edge_count_8x >> 32) & 0xFF;
+  tmp[1] = (rising_edge_count_8x >> 24) & 0xFF;
+  tmp[2] = (rising_edge_count_8x >> 16) & 0xFF;
+  tmp[3] = (rising_edge_count_8x >> 8) & 0xFF;
+  tmp[4] = (rising_edge_count_8x >> 0) & 0xFF;
+
+  nap_xfer_blocking(NAP_REG_PPS_COMPARE, 5, tmp, tmp);
+}
+
+/** Set the pulse-per-second (PPS) width.
+ * Sets the pulse width of NAP's PPS generator.
+ *
+ * \param falling_edge_count The value in NAP clock cycles after which the
+ *                           pulse-per-second is to be cleared.
+ */
+void nap_pps_width(u32 falling_edge_count)
+{
+  u8 tmp[4];
+
+  tmp[0] = (falling_edge_count >> 24) & 0xFF;
+  tmp[1] = (falling_edge_count >> 16) & 0xFF;
+  tmp[2] = (falling_edge_count >> 8) & 0xFF;
+  tmp[3] = (falling_edge_count >> 0) & 0xFF;
+
+  nap_xfer_blocking(NAP_REG_PPS_WIDTH, 4, tmp, tmp);
 }
 
 /** \} */
