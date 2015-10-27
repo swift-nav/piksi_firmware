@@ -76,10 +76,7 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops, bool sent_psuedo_abs)
     /* Position in LLH. */
     /* if the device is configured to only output the best solution and
        we indicate that a psuedo absolute was sent, we do not output SPP*/
-    if (sent_psuedo_abs  && output_best) {
-      /* we do nothing in this case*/
-    }
-    else {
+    if (!(sent_psuedo_abs  && output_best)) {
       msg_pos_llh_t pos_llh;
       sbp_make_pos_llh(&pos_llh, soln, 0);
       sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
@@ -358,7 +355,7 @@ static void solution_simulation()
     }
   }
   if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
-    /* Then we send fake messages. */
+    /* Then we send fake messages. If either float or fixed simulator is enabled, we get psuedo absolute*/
     bool sent_psuedo_abs = simulation_enabled_for(SIMULATION_MODE_FLOAT) || simulation_enabled_for(SIMULATION_MODE_RTK);
     solution_send_sbp(soln, simulation_current_dops_solution(), sent_psuedo_abs);
     solution_send_nmea(soln, simulation_current_dops_solution(),
@@ -492,8 +489,8 @@ static msg_t solution_thread(void *arg)
                                     sdiffs);
             chMtxUnlock();
             if (num_sdiffs >= 4) {
-              sent_psuedo_abs = (base_pos_known &&
-                               output_baseline(num_sdiffs, sdiffs, &position_solution.time));
+              sent_psuedo_abs = output_baseline(num_sdiffs, sdiffs, &position_solution.time);
+              sent_psuedo_abs &= base_pos_known;
             }
           }
 
