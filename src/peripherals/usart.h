@@ -37,6 +37,7 @@ typedef struct {
   u32 baud_rate;
   u32 sbp_message_mask;
   u8  configure_telemetry_radio_on_boot;
+  u8  openlog_enable;
 } usart_settings_t;
 
 /** Message and baud rate settings for all USARTs. */
@@ -130,6 +131,7 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
 void usarts_disable(void);
 
 bool usart_claim(usart_dma_state* s, const void *module);
+bool usart_claim_timeout(usart_dma_state* s, const void *module, systime_t time);
 void usart_release(usart_dma_state* s);
 
 void usart_set_parameters(u32 usart, u32 baud);
