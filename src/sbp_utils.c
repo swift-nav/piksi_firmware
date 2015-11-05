@@ -294,5 +294,26 @@ void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
   msg->iode      = e->iode;
 }
 
+u8 sbp_format_baseline_flag(dgnss_baseline_t *solution)
+{
+  return solution->fixed_mode
+         | (solution->raim_available << 3)
+         | (solution->raim_repair << 4);
+}
+
+u8 sbp_format_ecef_flag(dgnss_baseline_t *solution)
+{
+  return (solution->fixed_mode ? 1 : 2)
+         | (solution->raim_available << 3)
+         | (solution->raim_repair << 4);
+}
+
+u8 sbp_format_llh_flag(dgnss_baseline_t *solution)
+{
+  return (solution->fixed_mode ? 1 : 2)
+         | (solution->raim_available << 4)
+         | (solution->raim_repair << 5);
+}
+
 /** \} */
 /** \} */

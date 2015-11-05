@@ -18,6 +18,7 @@
 #include <libsbp/observation.h>
 #include <libswiftnav/gpstime.h>
 #include <libswiftnav/pvt.h>
+#include <libswiftnav/dgnss_management.h>
 
 void sbp_make_gps_time(msg_gps_time_t *t_out, const gps_time_t *t_in, u8 flags);
 void sbp_make_pos_llh(msg_pos_llh_t *pos_llh, const gnss_solution *soln, u8 flags);
@@ -59,6 +60,10 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter, u8 prn,
 void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e);
 
 void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg);
+
+u8 sbp_format_baseline_flag(dgnss_baseline_t *solution);
+u8 sbp_format_ecef_flag(dgnss_baseline_t *solution);
+u8 sbp_format_llh_flag(dgnss_baseline_t *solution);
 
 /** Value specifying the size of the SBP framing */
 #define SBP_FRAMING_SIZE_BYTES 8
