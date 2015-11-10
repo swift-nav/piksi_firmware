@@ -28,6 +28,7 @@
 #include "main.h"
 #include "sbp.h"
 #include "manage.h"
+#include "solution.h"
 #include "simulator.h"
 #include "system_monitor.h"
 #include "position.h"
@@ -191,7 +192,7 @@ static msg_t system_monitor_thread(void *arg)
     if (simulation_enabled_for(SIMULATION_MODE_RTK)) {
       iar_state.num_hyps = 1;
     } else {
-      iar_state.num_hyps = dgnss_iar_num_hyps();
+      iar_state.num_hyps = dgnss_iar_num_hyps(&dgnss_state);
     }
     sbp_send_msg(SBP_MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
 

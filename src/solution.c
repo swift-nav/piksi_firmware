@@ -56,6 +56,8 @@ systime_t last_dgnss;
 double soln_freq = 10.0;
 u32 obs_output_divisor = 2;
 
+dgnss_state_t dgnss_state _CCM;
+
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
 
@@ -593,7 +595,8 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
       double known_baseline_ecef[3];
       wgsned2ecef(known_baseline, position_solution.pos_ecef,
                   known_baseline_ecef);
-      dgnss_init_known_baseline(n_sds, sds, position_solution.pos_ecef,
+      dgnss_init_known_baseline(&dgnss_state, n_sds, sds,
+                                position_solution.pos_ecef,
                                 known_baseline_ecef);
       init_known_base = false;
     } else {
@@ -604,7 +607,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
     if (n_sds > 4) {
       /* Initialize filters. */
       log_info("Initializing DGNSS filters");
-      dgnss_init(n_sds, sds, position_solution.pos_ecef);
+      dgnss_init(&dgnss_state, n_sds, sds, position_solution.pos_ecef);
       /* Initialize ambiguity states. */
       ambiguities_init(&amb_state.fixed_ambs);
       ambiguities_init(&amb_state.float_ambs);
@@ -612,15 +615,15 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
     }
   } else {
     if (reset_iar) {
-      dgnss_reset_iar();
+      dgnss_reset_iar(&dgnss_state);
       reset_iar = false;
     }
     /* Update filters. */
-    dgnss_update(n_sds, sds, position_solution.pos_ecef,
+    dgnss_update(&dgnss_state, n_sds, sds, position_solution.pos_ecef,
                  disable_raim, DEFAULT_RAIM_THRESHOLD);
     /* Update ambiguity states. */
     chMtxLock(&amb_state_lock);
-    dgnss_update_ambiguity_state(&amb_state);
+    dgnss_update_ambiguity_state(&dgnss_state, &amb_state);
     chMtxUnlock();
     /* If we are in time matched mode then calculate and output the baseline
      * for this observation. */
@@ -773,13 +776,13 @@ void solution_setup()
   SETTING("solution", "known_baseline_e", known_baseline[1], TYPE_FLOAT);
   SETTING("solution", "known_baseline_d", known_baseline[2], TYPE_FLOAT);
 
-  SETTING("iar", "phase_var", dgnss_settings.phase_var_test, TYPE_FLOAT);
-  SETTING("iar", "code_var", dgnss_settings.code_var_test, TYPE_FLOAT);
+  SETTING("iar", "phase_var", dgnss_state.settings.phase_var_test, TYPE_FLOAT);
+  SETTING("iar", "code_var", dgnss_state.settings.code_var_test, TYPE_FLOAT);
 
-  SETTING("float_kf", "phase_var", dgnss_settings.phase_var_kf, TYPE_FLOAT);
-  SETTING("float_kf", "code_var", dgnss_settings.code_var_kf, TYPE_FLOAT);
-  SETTING("float_kf", "amb_init_var", dgnss_settings.amb_init_var, TYPE_FLOAT);
-  SETTING("float_kf", "new_amb_var", dgnss_settings.new_int_var, TYPE_FLOAT);
+  SETTING("float_kf", "phase_var", dgnss_state.settings.phase_var_kf, TYPE_FLOAT);
+  SETTING("float_kf", "code_var", dgnss_state.settings.code_var_kf, TYPE_FLOAT);
+  SETTING("float_kf", "amb_init_var", dgnss_state.settings.amb_init_var, TYPE_FLOAT);
+  SETTING("float_kf", "new_amb_var", dgnss_state.settings.new_int_var, TYPE_FLOAT);
 
   SETTING("sbp", "obs_msg_max_size", msg_obs_max_size, TYPE_INT);
 
