@@ -13,9 +13,11 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "board/nap/track_channel.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 #include "track.h"
 #include "simulator.h"
 #include "peripherals/random.h"
@@ -142,7 +144,7 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
  * \param elevation          Satellite elevation in degrees, or
  *                           TRACKING_ELEVATION_UNKNOWN
  */
-void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
+void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
                            u32 start_sample_count, float cn0_init, s8 elevation)
 {
   tracking_channel_t *chan = &tracking_channel[channel];
@@ -159,7 +161,7 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
 
   /* Setup tracking_channel struct. */
   chan->state = TRACKING_RUNNING;
-  chan->prn = prn;
+  chan->sid = sid;
   chan->elevation = elevation;
 
   /* Initialize TOW_ms and lock_count. */
@@ -211,8 +213,11 @@ void tracking_channel_init(u8 channel, u8 prn, float carrier_freq,
   /* Start with code phase of zero as we have conspired for the
    * channel to be initialised on an EARLY code phase rollover.
    */
-  nap_track_code_wr_blocking(channel, prn);
-  nap_track_init_wr_blocking(channel, prn, 0, 0);
+  /* FIXME other constellation/band support */
+  assert(sid.constellation == CONSTELLATION_GPS);
+  assert(sid.band == BAND_L1);
+  nap_track_code_wr_blocking(channel, sid.sat);
+  nap_track_init_wr_blocking(channel, sid.sat, 0, 0);
   nap_track_update_wr_blocking(
     channel,
     carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ,
@@ -264,10 +269,10 @@ void tracking_channel_get_corrs(u8 channel)
  * loop filter which destroys the correlations.  The satellite is dropped
  * by manage.c which checks the SNR.
  */
-void tracking_drop_satellite(u8 prn)
+void tracking_drop_satellite(gnss_signal_t sid)
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
-    if (tracking_channel[i].prn != prn)
+    if (!sid_is_equal(tracking_channel[i].sid, sid))
       continue;
 
     tracking_channel[i].tl_state.code_filt.y += 500;
@@ -334,7 +339,7 @@ void tracking_channel_update(u8 channel)
       if ((TOW_ms >= 0) && chan->TOW_ms != TOW_ms) {
         if (chan->TOW_ms != TOW_INVALID) {
           log_error("PRN %d TOW mismatch: %ld, %lu",
-                    chan->prn+1, chan->TOW_ms, TOW_ms);
+                    chan->sid.sat+1, chan->TOW_ms, TOW_ms);
         }
         chan->TOW_ms = TOW_ms;
       }
@@ -357,7 +362,7 @@ void tracking_channel_update(u8 channel)
       /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
       if (last_outp && !chan->lock_detect.outp) {
         if (chan->stage > 0)
-          log_info("PRN %d PLL stress", chan->prn+1);
+          log_info("PRN %d PLL stress", chan->sid.sat+1);
         tracking_channel_ambiguity_unknown(channel);
       }
 
@@ -374,8 +379,8 @@ void tracking_channel_update(u8 channel)
       if (chan->output_iq && (chan->int_ms > 1)) {
         msg_tracking_iq_t msg = {
           .channel = channel,
-          .sid = chan->prn,
         };
+        msg.sid = sid_to_sbp(chan->sid);
         for (u32 i = 0; i < 3; i++) {
           msg.corrs[i].I = cs[i].I;
           msg.corrs[i].Q = cs[i].Q;
@@ -404,7 +409,7 @@ void tracking_channel_update(u8 channel)
         float err = alias_detect_second(&chan->alias_detect, I, Q);
         if (fabs(err) > (250 / chan->int_ms)) {
           if (chan->lock_detect.outp)
-            log_warn("False phase lock detect PRN%d: err=%f", chan->prn+1, err);
+            log_warn("False phase lock detect PRN%d: err=%f", chan->sid.sat+1, err);
 
           tracking_channel_ambiguity_unknown(channel);
           /* Indicate that a mode change has occurred. */
@@ -422,7 +427,7 @@ void tracking_channel_update(u8 channel)
           /* Must have nav bit sync, and be correctly aligned */
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
         log_info("PRN %d synced @ %u ms, %.1f dBHz",
-                 chan->prn+1, (unsigned int)chan->update_count, chan->cn0);
+                 chan->sid.sat+1, (unsigned int)chan->update_count, chan->cn0);
         chan->stage = 1;
         struct loop_params *l = &loop_params_stage[1];
         chan->int_ms = l->coherent_ms;
@@ -463,7 +468,7 @@ void tracking_channel_update(u8 channel)
       tracking_channel_disable(channel);
       break;
     default:
-      log_error("CH%d (PRN%02d) invalid state %d", channel, chan->prn+1, chan->state);
+      log_error("CH%d (PRN%02d) invalid state %d", channel, chan->sid.sat+1, chan->state);
       tracking_channel_disable(channel);
       break;
   }
@@ -492,9 +497,13 @@ void tracking_channel_disable(u8 channel)
  */
 void tracking_channel_ambiguity_unknown(u8 channel)
 {
-  u8 prn = tracking_channel[channel].prn;
+  /* FIXME: lock counters per constellation/band */
+  gnss_signal_t sid = tracking_channel[channel].sid;
+  assert(sid.constellation == CONSTELLATION_GPS);
+  assert(sid.band == BAND_L1);
+
   tracking_channel[channel].nav_msg.bit_polarity = BIT_POLARITY_UNKNOWN;
-  tracking_channel[channel].lock_counter = ++tracking_lock_counters[prn];
+  tracking_channel[channel].lock_counter = ++tracking_lock_counters[sid.sat];
 }
 
 /** Update channel measurement for a tracking channel.
@@ -506,7 +515,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   tracking_channel_t* chan = &tracking_channel[channel];
 
   /* Update our channel measurement. */
-  meas->prn = chan->prn;
+  meas->sid = chan->sid;
   meas->code_phase_chips = (double)chan->code_phase_early / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
   meas->code_phase_rate = chan->code_phase_rate;
   meas->carrier_phase = chan->carrier_phase / (double)(1<<24);
@@ -537,8 +546,10 @@ void tracking_send_state()
     if (num_sats < nap_track_n_channels) {
       for (u8 i = num_sats; i < nap_track_n_channels; i++) {
         states[i].state = TRACKING_DISABLED;
-        states[i].sid   = 0;
-        states[i].cn0   = -1;
+        states[i].sid.constellation = 0;
+        states[i].sid.band = 0;
+        states[i].sid.sat = 0;
+        states[i].cn0 = -1;
       }
     }
 
@@ -546,7 +557,7 @@ void tracking_send_state()
 
     for (u8 i=0; i<nap_track_n_channels; i++) {
       states[i].state = tracking_channel[i].state;
-      states[i].sid = tracking_channel[i].prn; /* TODO prn -> sid */
+      states[i].sid = sid_to_sbp(tracking_channel[i].sid);
       if (tracking_channel[i].state == TRACKING_RUNNING)
         states[i].cn0 = tracking_channel[i].cn0;
       else

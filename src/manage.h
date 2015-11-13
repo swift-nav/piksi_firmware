@@ -15,6 +15,7 @@
 
 #include <ch.h>
 #include <libswiftnav/common.h>
+#include <libswiftnav/signal.h>
 #include "board/nap/acq_channel.h"
 
 /** \addtogroup manage
@@ -59,7 +60,7 @@
 
 void manage_acq_setup(void);
 
-void manage_set_obs_hint(u8 prn);
+void manage_set_obs_hint(gnss_signal_t sid);
 
 void manage_track_setup(void);
 s8 use_tracking_channel(u8 i);

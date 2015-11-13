@@ -14,6 +14,7 @@
 #define SWIFTNAV_ACQ_H
 
 #include <libswiftnav/common.h>
+#include <libswiftnav/signal.h>
 
 void acq_set_prn(u8 prn);
 
@@ -23,6 +24,6 @@ void acq_service_load_done(void);
 void acq_search(float cf_min, float cf_max, float cf_bin_width);
 void acq_service_irq(void);
 void acq_get_results(float* cp, float* cf, float* cn0);
-void acq_send_result(u8 prn, float snr, float cp, float cf);
+void acq_send_result(gnss_signal_t sid, float snr, float cp, float cf);
 
 #endif
