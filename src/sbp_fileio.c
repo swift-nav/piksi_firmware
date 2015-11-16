@@ -71,12 +71,12 @@ static void read_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
   msg_fileio_read_req_t *msg = (msg_fileio_read_req_t *)msg_;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender!\n");
+    log_error("Invalid sender!");
     return;
   }
 
   if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
-    log_error("Invalid fileio read message!\n");
+    log_error("Invalid fileio read message!");
     return;
   }
 
@@ -113,12 +113,12 @@ static void read_dir_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
   msg_fileio_read_dir_req_t *msg = (msg_fileio_read_dir_req_t *)msg_;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender!\n");
+    log_error("Invalid sender!");
     return;
   }
 
   if ((len <= sizeof(*msg)) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
-    log_error("Invalid fileio read dir message!\n");
+    log_error("Invalid fileio read dir message!");
     return;
   }
 
@@ -157,12 +157,12 @@ static void remove_cb(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)context;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender!\n");
+    log_error("Invalid sender!");
     return;
   }
 
   if ((len < 1) || (len == SBP_FRAMING_MAX_PAYLOAD_SIZE)) {
-    log_error("Invalid fileio remove message!\n");
+    log_error("Invalid fileio remove message!");
     return;
   }
 
@@ -185,14 +185,14 @@ static void write_cb(u16 sender_id, u8 len, u8 msg_[], void* context)
   msg_fileio_write_req_t *msg = (msg_fileio_write_req_t *)msg_;
 
   if (sender_id != SBP_SENDER_ID) {
-    log_error("Invalid sender!\n");
+    log_error("Invalid sender!");
     return;
   }
 
   if ((len <= sizeof(*msg) + 2) ||
       (strnlen(msg->filename, SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg)) ==
                               SBP_FRAMING_MAX_PAYLOAD_SIZE - sizeof(*msg))) {
-    log_error("Invalid fileio write message!\n");
+    log_error("Invalid fileio write message!");
     return;
   }
 

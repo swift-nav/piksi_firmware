@@ -63,7 +63,7 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
 /** NMEA_SENTENCE_DONE: append checksum and dispatch. */
 #define NMEA_SENTENCE_DONE() do { \
     if (sentence_bufp == sentence_buf_end) \
-      log_warn("NMEA %.6s cut off\n", sentence_buf); \
+      log_warn("NMEA %.6s cut off", sentence_buf); \
     nmea_append_checksum(sentence_buf, sizeof(sentence_buf)); \
     nmea_output(sentence_buf, sentence_bufp - sentence_buf + NMEA_SUFFIX_LEN); \
   } while (0)
@@ -190,7 +190,7 @@ void nmea_gpgsa(const tracking_channel_t *chans, const dops_t *dops)
 
   for (u8 i = 0; i < 12; i++) {
     if (i < nap_track_n_channels && chans[i].state == TRACKING_RUNNING)
-      NMEA_SENTENCE_PRINTF("%02d,", chans[i].prn + 1);
+      NMEA_SENTENCE_PRINTF("%02d,", chans[i].sid.sat + 1);
     else
       NMEA_SENTENCE_PRINTF(",");
   }
@@ -230,7 +230,7 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
       if (n < n_used) {
         wgsecef2azel(nav_meas[n].sat_pos, soln->pos_ecef, &az, &el);
         NMEA_SENTENCE_PRINTF(",%02d,%02d,%03d,%02d",
-          nav_meas[n].prn + 1,
+          nav_meas[n].sid.sat + 1,
           (u8)round(el * R2D),
           (u16)round(az * R2D),
           (u8)round(nav_meas[n].snr)

@@ -156,14 +156,14 @@ int main(void)
 
   static char nap_version_string[64] = {0};
   nap_conf_rd_version_string(nap_version_string);
-  log_info("NAP firmware version: %s\n", nap_version_string);
+  log_info("NAP firmware version: %s", nap_version_string);
 
   /* Check we are running a compatible version of the NAP firmware. */
-  const char *required_nap_version = "v0.14";
+  const char *required_nap_version = "v0.16";
   if (compare_version(nap_version_string, required_nap_version) < 0) {
     while (1) {
-      log_error("NAP firmware version >= %s required, please update!\n"
-                "(instructions can be found at http://docs.swift-nav.com/)\n",
+      log_error("NAP firmware version >= %s required, please update!"
+                "(instructions can be found at http://docs.swift-nav.com/)",
                 required_nap_version);
       chThdSleepSeconds(2);
     }
@@ -190,11 +190,7 @@ int main(void)
   sbp_fileio_setup();
   ext_setup();
 
-  if (serial_number < 0) {
-    READ_ONLY_PARAMETER("system_info", "serial_number", "(unknown)", TYPE_STRING);
-  } else {
-    READ_ONLY_PARAMETER("system_info", "serial_number", serial_number, TYPE_INT);
-  }
+  READ_ONLY_PARAMETER("system_info", "serial_number", serial_number, TYPE_INT);
   READ_ONLY_PARAMETER("system_info", "firmware_version", GIT_VERSION,
                       TYPE_STRING);
   READ_ONLY_PARAMETER("system_info", "firmware_built", __DATE__ " " __TIME__,

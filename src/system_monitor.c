@@ -144,7 +144,7 @@ void sleep_until(systime_t *previous, systime_t period)
   *previous = future;
 }
 
-static WORKING_AREA_CCM(wa_system_monitor_thread, 3000);
+static WORKING_AREA_CCM(wa_system_monitor_thread, 1000);
 static msg_t system_monitor_thread(void *arg)
 {
   (void)arg;
@@ -159,10 +159,10 @@ static msg_t system_monitor_thread(void *arg)
     if (ant_status != max2769_ant_status()) {
       ant_status = max2769_ant_status();
       if (ant_status && max2769_ant_setting() == AUTO) {
-        log_info("Now using external antenna.\n");
+        log_info("Now using external antenna.");
       }
       else if (max2769_ant_setting() == AUTO) {
-        log_info("Now using patch antenna.\n");
+        log_info("Now using patch antenna.");
       }
     }
     u32 status_flags = ant_status << 31 | SBP_MAJOR_VERSION << 16 | SBP_MINOR_VERSION << 8;
@@ -199,7 +199,7 @@ static msg_t system_monitor_thread(void *arg)
 
     u32 err = nap_error_rd_blocking();
     if (err) {
-      log_error("SwiftNAP Error: 0x%08X\n", (unsigned int)err);
+      log_error("SwiftNAP Error: 0x%08X", (unsigned int)err);
     }
 
     sleep_until(&time, MS2ST(heartbeat_period_milliseconds));
@@ -228,7 +228,7 @@ static void debug_threads()
   };
   Thread *tp = chRegFirstThread();
   while (tp) {
-  log_info("%s (%u: %s): prio: %lu, flags: %u, wtobjp: %p\n",
+  log_info("%s (%u: %s): prio: %lu, flags: %u, wtobjp: %p",
            tp->p_name, tp->p_state, state[tp->p_state], tp->p_prio,
            tp->p_flags, tp->p_u.wtobjp);
     tp = chRegNextThread(tp);
@@ -257,7 +257,7 @@ static msg_t watchdog_thread(void *arg)
     if (threads_dead) {
       /* TODO: ChibiOS thread state dump */
       log_error("One or more threads appear to be dead: 0x%08X. "
-                "Watchdog reset %s.\n",
+                "Watchdog reset %s.",
                 (unsigned int)threads_dead,
                 use_wdt ? "imminent" : "disabled");
       debug_threads();

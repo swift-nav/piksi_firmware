@@ -57,7 +57,7 @@ void set_time(time_quality_t quality, gps_time_t t)
 
     time_quality = quality;
     time_t unix_t = gps2time(t);
-    log_info("Time set to: %s (quality=%d)\n", ctime(&unix_t), quality);
+    log_info("Time set to: %s (quality=%d)", ctime(&unix_t), quality);
   }
 }
 

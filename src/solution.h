@@ -47,6 +47,7 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops);
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm,
                         u8 fix_type);
+double calc_heading(const double b_ned[3]);
 void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
                             double ref_ecef[3], u8 flags);
 void solution_setup(void);

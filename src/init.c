@@ -132,7 +132,7 @@ void check_nap_auth(void)
     led_off(LED_RED);
     while (1) {
       DO_EVERY(10000000,
-        log_error("NAP Verification Failed\n");
+        log_error("NAP Verification Failed");
         led_toggle(LED_GREEN);
         led_toggle(LED_RED);
       );

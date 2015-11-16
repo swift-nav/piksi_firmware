@@ -85,9 +85,9 @@ void nap_track_update_pack(u8 pack[], s32 carrier_freq, u32 code_phase_rate,
   pack[1] = (code_phase_rate >> 16);
   pack[2] = (code_phase_rate >> 8);
   pack[3] = code_phase_rate;
-  pack[4] = (carrier_freq >> 8);
-  pack[5] = carrier_freq;
-  pack[6] = corr_spacing;
+  pack[4] = ((corr_spacing << 1) & 0xFE) | ((carrier_freq >> 16) & 0x01);
+  pack[5] = carrier_freq >> 8;
+  pack[6] = carrier_freq;
   pack[7] = rollover_count;
 }
 

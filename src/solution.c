@@ -112,6 +112,15 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
 
 }
 
+double calc_heading(const double b_ned[3])
+{
+  double heading = atan2(b_ned[1], b_ned[0]);
+  if (heading < 0) {
+    heading += 2 * M_PI;
+  }
+  return heading * R2D;
+}
+
 /** Creates and sends RTK solution.
  * If the base station position is known,
  * send the NMEA and SBP psuedo absolute msgs.
@@ -143,6 +152,11 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
   msg_baseline_ned_t sbp_ned;
   sbp_make_baseline_ned(&sbp_ned, t, n_sats, b_ned, flags);
   sbp_send_msg(SBP_MSG_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
+
+  double heading = calc_heading(b_ned);
+  msg_baseline_heading_t sbp_heading;
+  sbp_make_heading(&sbp_heading, t, heading, n_sats, flags);
+  sbp_send_msg(SBP_MSG_BASELINE_HEADING, sizeof(sbp_heading), (u8 *)&sbp_heading);
 
   chMtxLock(&base_pos_lock);
   if (base_pos_known || (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
@@ -198,7 +212,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
       /* ret is <0 on error, 2 if float, 1 if fixed */
       flags = (ret == 1) ? 1 : 0;
     } else {
-      log_warn("dgnss_baseline returned error: %d\n", ret);
+      log_warn("dgnss_baseline returned error: %d", ret);
       return;
     }
     break;
@@ -211,9 +225,9 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
                    disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock();
     if (ret == 1)
-      log_warn("output_baseline: Float baseline RAIM repair\n");
+      log_warn("output_baseline: Float baseline RAIM repair");
     if (ret < 0) {
-      log_warn("dgnss_float_baseline returned error: %d\n", ret);
+      log_warn("dgnss_float_baseline returned error: %d", ret);
       return;
     }
     break;
@@ -253,7 +267,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
             m[obs_i].carrier_phase,
             m[obs_i].snr,
             m[obs_i].lock_counter,
-            m[obs_i].prn,
+            m[obs_i].sid,
             &obs[i]) < 0) {
         /* Error packing this observation, skip it. */
         i--;
@@ -293,7 +307,7 @@ static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
   if (tmp > period) {
     TIM_CNT(timer_peripheral) = period;
     log_warn("Solution thread missed deadline, "
-             "TIM counter = %lu, period = %lu\n", tmp, period);
+             "TIM counter = %lu, period = %lu", tmp, period);
   }
   __asm__("CPSIE i;");
 }
@@ -342,7 +356,27 @@ static void solution_simulation()
   }
 }
 
-static WORKING_AREA_CCM(wa_solution_thread, 12004);
+/** Update the tracking channel states with satellite elevation angles
+ * \param nav_meas Navigation measurements with .sat_pos populated
+ * \param n_meas Number of navigation measurements
+ * \param pos_ecef Receiver position
+ */
+static void update_sat_elevations(const navigation_measurement_t nav_meas[],
+                                  u8 n_meas, const double pos_ecef[3])
+{
+  double _, el;
+  for (int i = 0; i < n_meas; i++) {
+    wgsecef2azel(nav_meas[i].sat_pos, pos_ecef, &_, &el);
+    for (int j = 0; j < nap_track_n_channels; j++) {
+      if (sid_is_equal(tracking_channel[j].sid, nav_meas[i].sid)) {
+        tracking_channel[j].elevation = (float)el * R2D;
+        break;
+      }
+    }
+  }
+}
+
+static WORKING_AREA_CCM(wa_solution_thread, 8000);
 static msg_t solution_thread(void *arg)
 {
   (void)arg;
@@ -398,7 +432,7 @@ static msg_t solution_thread(void *arg)
     memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
     n_ready_old = n_ready;
 
-    if (n_ready_tdcp == 0) {
+    if (n_ready_tdcp < 4) {
       /* Not enough sats to compute PVT */
       continue;
     }
@@ -410,11 +444,16 @@ static msg_t solution_thread(void *arg)
                         &position_solution, &dops)) >= 0) {
 
       if (ret == 1)
-        log_warn("calc_PVT: RAIM repair\n");
+        log_warn("calc_PVT: RAIM repair");
 
       /* Update global position solution state. */
       position_updated();
       set_time_fine(nav_tc, position_solution.time);
+
+      /* Save elevation angles every so often */
+      DO_EVERY((u32)soln_freq,
+               update_sat_elevations(nav_meas_tdcp, n_ready_tdcp,
+                                     position_solution.pos_ecef));
 
       if (!simulation_enabled()) {
         /* Output solution. */
@@ -446,7 +485,9 @@ static msg_t solution_thread(void *arg)
                                     es, position_solution.time,
                                     sdiffs);
             chMtxUnlock();
-            output_baseline(num_sdiffs, sdiffs, &position_solution.time);
+            if (num_sdiffs >= 4) {
+              output_baseline(num_sdiffs, sdiffs, &position_solution.time);
+            }
           }
 
         }
@@ -494,7 +535,7 @@ static msg_t solution_thread(void *arg)
            * overwrite the oldest item in the queue. */
           ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
           if (ret != RDY_OK) {
-            log_error("Pool full and mailbox empty!\n");
+            log_error("Pool full and mailbox empty!");
           }
         }
         obs->t = new_obs_time;
@@ -507,7 +548,7 @@ static msg_t solution_thread(void *arg)
            * are equal then we should have already handled the case where the
            * mailbox is full when we handled the case that the pool was full.
            * */
-          log_error("Mailbox should have space!\n");
+          log_error("Mailbox should have space!");
         }
       }
 
@@ -529,7 +570,7 @@ static msg_t solution_thread(void *arg)
        * count. */
       /* pvt_err_msg defined in libswiftnav/pvt.c */
       DO_EVERY((u32)soln_freq,
-        log_warn("PVT solver: %s (code %d)\n", pvt_err_msg[-ret-1], ret);
+        log_warn("PVT solver: %s (code %d)", pvt_err_msg[-ret-1], ret);
       );
 
       /* Send just the DOPs */
@@ -548,7 +589,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
   if (init_known_base) {
     if (n_sds > 4) {
       /* Calculate ambiguities from known baseline. */
-      log_info("Initializing using known baseline\n");
+      log_info("Initializing using known baseline");
       double known_baseline_ecef[3];
       wgsned2ecef(known_baseline, position_solution.pos_ecef,
                   known_baseline_ecef);
@@ -556,13 +597,13 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
                                 known_baseline_ecef);
       init_known_base = false;
     } else {
-      log_warn("> 4 satellites required for known baseline init.\n");
+      log_warn("> 4 satellites required for known baseline init.");
     }
   }
   if (!init_done) {
     if (n_sds > 4) {
       /* Initialize filters. */
-      log_info("Initializing DGNSS filters\n");
+      log_info("Initializing DGNSS filters");
       dgnss_init(n_sds, sds, position_solution.pos_ecef);
       /* Initialize ambiguity states. */
       ambiguities_init(&amb_state.fixed_ambs);
@@ -590,7 +631,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
   }
 }
 
-static WORKING_AREA(wa_time_matched_obs_thread, 22000);
+static WORKING_AREA(wa_time_matched_obs_thread, 20000);
 static msg_t time_matched_obs_thread(void *arg)
 {
   (void)arg;
@@ -621,7 +662,7 @@ static msg_t time_matched_obs_thread(void *arg)
             sds
         );
         chMtxUnlock();
-        u8 sats_to_drop[MAX_SATS];
+        gnss_signal_t sats_to_drop[MAX_SATS];
         u8 num_sats_to_drop = check_lock_counters(n_sds, sds, lock_counters,
                                                   sats_to_drop);
         if (num_sats_to_drop > 0) {
@@ -643,7 +684,7 @@ static msg_t time_matched_obs_thread(void *arg)
           /* In practice this should basically never happen so lets make a note
            * if it does. */
           log_warn("Obs Matching: t_base < t_rover "
-                   "(dt=%f obss.t={%d,%f} base_obss.t={%d,%f})\n", dt,
+                   "(dt=%f obss.t={%d,%f} base_obss.t={%d,%f})", dt,
                    obss->t.wn, obss->t.tow,
                    base_obss.t.wn, base_obss.t.tow
           );
@@ -652,7 +693,7 @@ static msg_t time_matched_obs_thread(void *arg)
           if (ret != RDY_OK) {
             /* Something went wrong with returning it to the buffer, better just
              * free it and carry on. */
-            log_warn("Obs Matching: mailbox full, discarding observation!\n");
+            log_warn("Obs Matching: mailbox full, discarding observation!");
             chPoolFree(&obs_buff_pool, obss);
           }
           break;
@@ -680,11 +721,11 @@ void reset_filters_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   (void)sender_id; (void)len; (void)context;
   switch (msg[0]) {
   case 0:
-    log_info("Filter reset requested\n");
+    log_info("Filter reset requested");
     init_done = false;
     break;
   case 1:
-    log_info("IAR reset requested\n");
+    log_info("IAR reset requested");
     reset_iar = true;
     break;
   default:

@@ -161,7 +161,7 @@ static void update_obss(obss_t *new_obss)
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
-      log_warn("Error calculating base station position: (%s).\n", pvt_err_msg[-ret-1]);
+      log_warn("Error calculating base station position: (%s).", pvt_err_msg[-ret-1]);
     }
   }
   /* If the base station position is known then calculate the satellite ranges.
@@ -235,7 +235,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   double dt = fabs(epoch_count - round(epoch_count)) / obs_freq;
   if (dt > TIME_MATCH_THRESHOLD) {
     log_warn("Unaligned observation from base station ignored, "
-             "tow = %.3f, dt = %.3f\n", t.tow, dt);
+             "tow = %.3f, dt = %.3f", t.tow, dt);
     return;
   }
 
@@ -253,7 +253,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   } else if (prev_t.tow != t.tow ||
              prev_t.wn != t.wn ||
              prev_count + 1 != count) {
-    log_info("Dropped one of the observation packets! Skipping this sequence.\n");
+    log_info("Dropped one of the observation packets! Skipping this sequence.");
     prev_count = -1;
     return;
   } else {
@@ -276,17 +276,17 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   for (u8 i=0; i<obs_in_msg; i++) {
     /* Check the PRN is valid. e.g. simulation mode outputs test observations
      * with PRNs >200. */
-    if (obs[i].sid > 31) { /* TODO prn - sid; assume everything below is 0x1F masked! */
+    if (obs[i].sid.sat > 31) { /* TODO prn - sid; assume everything below is 0x1F masked! */
       continue;
     }
 
     /* Flag this as visible/viable to acquisition/search */
-    manage_set_obs_hint(obs[i].sid);
+    manage_set_obs_hint(sid_from_sbp(obs[i].sid));
 
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
     chMtxLock(&es_mutex);
-    if (ephemeris_good(&es[obs[i].sid], t)) {
+    if (ephemeris_good(&es[obs[i].sid.sat], t)) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
@@ -294,12 +294,12 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_rx.nm[base_obss_rx.n].carrier_phase,
         &base_obss_rx.nm[base_obss_rx.n].snr,
         &base_obss_rx.nm[base_obss_rx.n].lock_counter,
-        &base_obss_rx.nm[base_obss_rx.n].prn
+        &base_obss_rx.nm[base_obss_rx.n].sid
       );
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(&es[obs[i].sid], t,
+      calc_sat_state(&es[obs[i].sid.sat], t,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);
@@ -327,7 +327,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 static void deprecated_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context; (void) len; (void) msg; (void) sender_id;
-  log_error("Receiving an old deprecated observation message.\n");
+  log_error("Receiving an old deprecated observation message.");
 }
 
 /** Setup the base station observation handling subsystem. */

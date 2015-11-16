@@ -20,6 +20,7 @@
 #include "board/nap/acq_channel.h"
 #include "acq.h"
 #include "sbp.h"
+#include "sbp_utils.h"
 
 /** \defgroup acq Acquisition
  * Do acquisition searches via interrupt driven scheduling of SwiftNAP
@@ -33,7 +34,7 @@ void acq_set_prn(u8 prn)
   chBSemInit(&load_wait_sem, TRUE);
   nap_acq_code_wr_blocking(prn);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
-    log_error("acq: Timeout waiting for code load!\n");
+    log_error("acq: Timeout waiting for code load!");
   }
 }
 
@@ -44,11 +45,11 @@ void acq_set_prn(u8 prn)
  * \param cp  Code phase of best point.
  * \param cf  Carrier frequency of best point.
  */
-void acq_send_result(u8 prn, float snr, float cp, float cf)
+void acq_send_result(gnss_signal_t sid, float snr, float cp, float cf)
 {
   msg_acq_result_t acq_result_msg;
 
-  acq_result_msg.sid = prn; /* TODO prn -> sid */
+  acq_result_msg.sid = sid_to_sbp(sid);
   acq_result_msg.snr = snr;
   acq_result_msg.cp = cp;
   acq_result_msg.cf = cf;
@@ -76,7 +77,7 @@ bool acq_load(u32 count)
   nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
-    log_info("acq: Sample load timeout. Probably set timing strobe in the past.\n");
+    log_info("acq: Sample load timeout. Probably set timing strobe in the past.");
     return false;
   }
   return true;
@@ -102,7 +103,7 @@ static struct {
   u8 p_head;
   u8 p_tail;
 
-  u64 power_acc;      /**< Sum of powers of all acquisition set points. */
+  float power_acc;    /**< Sum of powers of all acquisition set points. */
   u64 best_power;     /**< Highest power of all acquisition set points. */
   s16 best_cf;        /**< Carrier freq corresponding to highest power. */
   u16 best_cp;        /**< Code phase corresponding to highest power. */
@@ -141,7 +142,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
 
   for (s16 cf = cf_min; cf <= cf_max; cf += cf_step) {
     if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
-      log_error("acq: Search timeout (cf = %d)!\n", cf);
+      log_error("acq: Search timeout (cf = %d)!", cf);
     }
     acq_state.pipeline[acq_state.p_head].cf = cf;
     acq_state.p_head = (acq_state.p_head + 1) % NAP_ACQ_PIPELINE_STAGES;
@@ -150,7 +151,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
 
   for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {
     if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
-      log_error("acq: Search timeout!\n");
+      log_error("acq: Search timeout!");
     }
   }
 }
@@ -163,7 +164,7 @@ void acq_service_irq(void)
 
   u16 index_max;
   u16 corr_max;
-  u16 ave;
+  float ave;
 
   nap_acq_corr_rd_blocking(&index_max, &corr_max, &ave);
   acq_state.power_acc += ave;
@@ -192,8 +193,23 @@ void acq_get_results(float* cp, float* cf, float* cn0)
   *cf = (float)acq_state.best_cf / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ;
   /* "SNR" estimated by peak power over mean power. */
   float snr = (float)acq_state.best_power / (acq_state.power_acc / acq_state.count);
+
+  /* If there's a failure in chain, which results in the FFT being fed zeros
+   * output power could return zero. Potential failure modes:
+   * 1. GPS Front End is misconfigured and returning zeros or has lifted pin
+   * 2. PRN is incorrect or corrupted to zeros
+   * or if the FPGA has a critical failure 
+   * that causes it to not raise interrupts count could be zero.  Catch
+   * this condition so we don't propagate NaN up through the stack */
+  if ((acq_state.power_acc == 0) || (acq_state.count == 0)) {
+    log_error("acq: Power or frequency bin count is 0, causing SNR to be NaN. "
+              "(best=%" PRIu64 ", acc=%f, count=%" PRIu32 ")",
+              acq_state.best_power, acq_state.power_acc, acq_state.count);
+    *cn0 = 0;
+  } else {
   *cn0 = 10 * log10(snr)
        + 10 * log10(1.0 / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ); /* Bandwidth */
+  }
 }
 
 /** \} */
