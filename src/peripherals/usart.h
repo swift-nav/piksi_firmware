@@ -59,6 +59,8 @@ extern usart_settings_t uartb_usart;
 
 #define USART_DEFAULT_BAUD_FTDI 1000000
 #define USART_DEFAULT_BAUD_TTL  115200
+#define USART_DEFAULT_BAUD_RADIO 57600
+
 
 /** USART DMA state structure. */
 typedef struct {
