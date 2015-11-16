@@ -50,12 +50,13 @@
 #define LD_PARAMS_NORMAL   "0.05, 1.4, 150, 50"
 #define LD_PARAMS_OPT      "0.02, 1.1, 150, 50"
 #define LD_PARAMS_EXTRAOPT "0.02, 0.8, 150, 50"
+#define LD_PARAMS_DISABLE  "0.02, 1e-6, 1, 1"
 
 char loop_params_string[120] = LOOP_PARAMS_MED;
-char lock_detect_params_string[24] = LD_PARAMS_NORMAL;
+char lock_detect_params_string[24] = LD_PARAMS_DISABLE;
 bool use_alias_detection = true;
 
-#define CN0_EST_LPF_CUTOFF 0.3
+#define CN0_EST_LPF_CUTOFF 5
 
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
@@ -68,7 +69,7 @@ static struct lock_detect_params {
   u16 lp, lo;
 } lock_detect_params;
 
-static float track_cn0_drop_thres = 30.0;
+static float track_cn0_drop_thres = 31.0;
 static u16 iq_output_mask = 0;
 
 /** \defgroup tracking Tracking
