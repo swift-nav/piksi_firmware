@@ -398,18 +398,6 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
 void nmea_send_msgs(gnss_solution *soln, u8 n, 
                     navigation_measurement_t *nm)
 {
-  if (gpgsv_msg_rate < 1) {
-    gpgsv_msg_rate = 1;
-  }
-  if (gprmc_msg_rate < 1) {
-    gpgsv_msg_rate = 1;
-  }
-  if (gpvtg_msg_rate < 1) {
-    gpgsv_msg_rate = 1;
-  }
-  if (gpgll_msg_rate < 1) {
-    gpgsv_msg_rate = 1;
-  }
   DO_EVERY(gpgsv_msg_rate,
     nmea_gpgsv(n, nm, soln);
   );
