@@ -38,6 +38,7 @@
 #include "settings.h"
 #include "sbp_fileio.h"
 #include "ephemeris.h"
+#include "pps.h"
 
 extern void ext_setup(void);
 
@@ -189,6 +190,7 @@ int main(void)
 
   sbp_fileio_setup();
   ext_setup();
+  pps_setup();
 
   READ_ONLY_PARAMETER("system_info", "serial_number", serial_number, TYPE_INT);
   READ_ONLY_PARAMETER("system_info", "firmware_version", GIT_VERSION,
