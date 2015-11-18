@@ -22,7 +22,7 @@
  */
 #define DO_EVERY(n, cmd) do { \
   static u32 do_every_count = 0; \
-  if (do_every_count % (n) == 0) { \
+  if ((n) > 0 && do_every_count % (n) == 0) { \
     cmd; \
   } \
   do_every_count++; \
