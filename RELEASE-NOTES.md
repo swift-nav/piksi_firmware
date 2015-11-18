@@ -3,6 +3,7 @@ Piksi Firmware Release Notes
 
 Contents
 --------
+ * [v0.21](#v0.21)
  * [v0.20](#v0.20)
  * [v0.19](#v0.19)
  * [v0.18](#v0.18)
@@ -16,9 +17,19 @@ Contents
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
 
-v0.20 <a name="v0.20"></a>
+v0.21 <a name="v0.21"></a>
 -----
 
+#### Core
+ * Fixes "dgnss_baseline returned error: -2" bug when dropping a satellite
+ * Add heading output from baseline vector
+ * 1PPS output on debug connector
+ * New tracking lock detection architecture
+ * Allow NMEA rates to be set to zero to disable
+ * Numerous minor fixes and improvements
+
+v0.20 <a name="v0.20"></a>
+-----
 #### Core
  * Updates to libsbp for stability
   * Deprecate MSG_PRINT in favor of MSG_LOG which includes log level in protocol
