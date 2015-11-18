@@ -198,6 +198,7 @@ void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
   *snr = ((double)msg->cn0) / MSG_OBS_SNR_MULTIPLIER;
   *lock_counter = ((u16)msg->lock);
   *sid = sid_from_sbp(msg->sid);
+  sid->sat &= 0x1F;
 }
 
 /** Pack GPS observables into a `msg_obs_content_t` struct.
@@ -278,6 +279,7 @@ void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e)
    e->valid     =  msg->valid;
    e->healthy   =  msg->healthy;
    e->sid       =  sid_from_sbp(msg->sid);
+   e->sid.sat  &=  0x1F;
    e->iode      =  msg->iode;
 }
 
