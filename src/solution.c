@@ -418,9 +418,23 @@ static msg_t solution_thread(void *arg)
     static u8 n_ready_old = 0;
     u64 nav_tc = nap_timing_count();
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
+
     chMtxLock(&es_mutex);
-    calc_navigation_measurement(n_ready, meas, nav_meas,
-                                (double)((u32)nav_tc)/SAMPLE_FREQ, es);
+    if (time_quality == TIME_FINE) {
+      /* If we have timing then we can calculate the relationship between
+       * receiver time and GPS time and hence provide the pseudorange
+       * calculation with the local GPS time of reception. */
+      gps_time_t nav_time = rx2gpstime(nav_tc);
+      calc_navigation_measurement(n_ready, meas, nav_meas,
+                                  (double)((u32)nav_tc)/SAMPLE_FREQ, &nav_time, es);
+    } else {
+      /* If a FINE quality time solution is not available then don't pass in a
+       * `nav_time`. This will result in valid pseudoranges but with a large
+       * and arbitrary receiver clock error. We may want to discard these
+       * observations after doing a PVT solution. */
+      calc_navigation_measurement(n_ready, meas, nav_meas,
+                                  (double)((u32)nav_tc)/SAMPLE_FREQ, NULL, es);
+    }
     chMtxUnlock();
 
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
