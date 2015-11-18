@@ -21,6 +21,7 @@
 #include <libswiftnav/observation.h>
 #include <libswiftnav/dgnss_management.h>
 #include <libswiftnav/baseline.h>
+#include <libswiftnav/track.h>
 #include <libswiftnav/linear_algebra.h>
 
 #include <libopencm3/stm32/f4/timer.h>
@@ -60,6 +61,8 @@ double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 104;
 
 static u16 lock_counters[MAX_SATS];
+
+hatch_state_t hatch_state[MAX_CHANNELS];
 
 bool disable_raim = false;
 
@@ -446,6 +449,10 @@ static msg_t solution_thread(void *arg)
     memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
     n_ready_old = n_ready;
 
+    /* Hatch filter for carrier smoothed code. */
+    hatch_filter_update(hatch_state, MAX_CHANNELS, HATCH_N_DEFAULT,
+                        n_ready_tdcp, nav_meas_tdcp);
+
     if (n_ready_tdcp < 4) {
       /* Not enough sats to compute PVT */
       continue;
@@ -824,6 +831,8 @@ void solution_setup()
   chPoolLoadArray(&obs_buff_pool, obs_buff, OBS_N_BUFF);
 
   chMtxInit(&amb_state_lock);
+
+  hatch_filter_init(hatch_state, MAX_CHANNELS);
 
   /* Initialise solution thread wakeup semaphore */
   chBSemInit(&solution_wakeup_sem, TRUE);
