@@ -62,6 +62,7 @@ u16 msg_obs_max_size = 104;
 static u16 lock_counters[MAX_SATS];
 
 bool disable_raim = false;
+bool send_heading = false;
 
 void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 {
@@ -153,10 +154,12 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
   sbp_make_baseline_ned(&sbp_ned, t, n_sats, b_ned, flags);
   sbp_send_msg(SBP_MSG_BASELINE_NED, sizeof(sbp_ned), (u8 *)&sbp_ned);
 
-  double heading = calc_heading(b_ned);
-  msg_baseline_heading_t sbp_heading;
-  sbp_make_heading(&sbp_heading, t, heading, n_sats, flags);
-  sbp_send_msg(SBP_MSG_BASELINE_HEADING, sizeof(sbp_heading), (u8 *)&sbp_heading);
+  if (send_heading) {
+    double heading = calc_heading(b_ned);
+    msg_baseline_heading_t sbp_heading;
+    sbp_make_heading(&sbp_heading, t, heading, n_sats, flags);
+    sbp_send_msg(SBP_MSG_BASELINE_HEADING, sizeof(sbp_heading), (u8 *)&sbp_heading);
+  }
 
   chMtxLock(&base_pos_lock);
   if (base_pos_known || (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
@@ -784,6 +787,7 @@ void solution_setup()
   SETTING("sbp", "obs_msg_max_size", msg_obs_max_size, TYPE_INT);
 
   SETTING("solution", "disable_raim", disable_raim, TYPE_BOOL);
+  SETTING("solution", "send_heading", send_heading, TYPE_BOOL);
 
   nmea_setup();
 
