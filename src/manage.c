@@ -99,12 +99,12 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   almanac_t *new_almanac = (almanac_t*)msg;
 
-  log_info("Received alamanc for PRN %02d", new_almanac->prn);
-  memcpy(&almanac[new_almanac->prn-1], new_almanac, sizeof(almanac_t));
+  log_info("Received alamanc for PRN %02d", new_almanac->sid.sat);
+  memcpy(&almanac[new_almanac->sid.sat-1], new_almanac, sizeof(almanac_t));
 
   int fd = cfs_open("almanac", CFS_WRITE);
   if (fd != -1) {
-    cfs_seek(fd, (new_almanac->prn-1)*sizeof(almanac_t), CFS_SEEK_SET);
+    cfs_seek(fd, (new_almanac->sid.sat-1)*sizeof(almanac_t), CFS_SEEK_SET);
     if (cfs_write(fd, new_almanac, sizeof(almanac_t)) != sizeof(almanac_t)) {
       log_error("Error writing to almanac file");
     } else {
