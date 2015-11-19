@@ -37,7 +37,8 @@ int main(void)
     acq_schedule_load(nap_timing_count() + 1000);
     while(!(acq_get_load_done()));
 
-    nap_acq_code_wr_blocking(prn);
+    gnss_signal_t sid = {.constellation = CONSTELLATION_GPS, .band = BAND_L1, .sat = prn};
+    nap_acq_code_wr_blocking(sid);
     acq_start(prn, 0, 1023, -7000, 7000, 300);
     while(!(acq_get_done()));
 

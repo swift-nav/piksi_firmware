@@ -341,9 +341,9 @@ static void manage_acq()
   u32 timer_count;
   float cn0, cp, cf;
 
-  acq_set_prn(prn);
+  acq_set_sid(sid);
 
-  /* We have our PRN chosen, now load some fresh data
+  /* We have our SID chosen, now load some fresh data
    * into the acquisition ram on the Swift NAP for
    * an initial coarse acquisition.
    */

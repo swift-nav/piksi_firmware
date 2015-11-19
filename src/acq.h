@@ -16,7 +16,7 @@
 #include <libswiftnav/common.h>
 #include <libswiftnav/signal.h>
 
-void acq_set_prn(u8 prn);
+void acq_set_sid(gnss_signal_t sid);
 
 bool acq_load(u32 count);
 void acq_service_load_done(void);

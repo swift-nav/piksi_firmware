@@ -15,6 +15,7 @@
 #define SWIFTNAV_TRACK_CHANNEL_H
 
 #include <libswiftnav/common.h>
+#include <libswiftnav/signal.h>
 
 #include "../../main.h"
 #include "nap_common.h"
@@ -76,7 +77,7 @@ void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[]);
 void nap_track_phase_unpack(u8 packed[], s32* carrier_phase, u64* code_phase);
 void nap_track_phase_rd_blocking(u8 channel, s32* carrier_phase,
                                  u64* code_phase);
-void nap_track_code_wr_blocking(u8 channel, u8 prn);
+void nap_track_code_wr_blocking(u8 channel, gnss_signal_t sid);
 
 #endif  /* SWIFTNAV_TRACK_CHANNEL_H */
 

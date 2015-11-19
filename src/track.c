@@ -214,11 +214,8 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   /* Start with code phase of zero as we have conspired for the
    * channel to be initialised on an EARLY code phase rollover.
    */
-  /* FIXME other constellation/band support */
-  assert(sid.constellation == CONSTELLATION_GPS);
-  assert(sid.band == BAND_L1);
-  nap_track_code_wr_blocking(channel, sid.sat);
-  nap_track_init_wr_blocking(channel, sid.sat, 0, 0);
+  nap_track_code_wr_blocking(channel, sid);
+  nap_track_init_wr_blocking(channel, 0, 0, 0);
   nap_track_update_wr_blocking(
     channel,
     carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ,
