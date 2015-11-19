@@ -97,25 +97,7 @@ static void manage_track(void);
 static sbp_msg_callbacks_node_t almanac_callback_node;
 static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void)sender_id; (void)len; (void) context;
-
-  almanac_t *new_almanac = (almanac_t*)msg;
-
-  log_info("Received alamanc for PRN %02d", new_almanac->sid.sat);
-  memcpy(&almanac[new_almanac->sid.sat-1], new_almanac, sizeof(almanac_t));
-
-  int fd = cfs_open("almanac", CFS_WRITE);
-  if (fd != -1) {
-    cfs_seek(fd, (new_almanac->sid.sat-1)*sizeof(almanac_t), CFS_SEEK_SET);
-    if (cfs_write(fd, new_almanac, sizeof(almanac_t)) != sizeof(almanac_t)) {
-      log_error("Error writing to almanac file");
-    } else {
-      log_info("Saved almanac to flash");
-    }
-    cfs_close(fd);
-  } else {
-    log_error("Error opening almanac file");
-  }
+  (void)sender_id; (void)len; (void)context; (void)msg;
 }
 
 static sbp_msg_callbacks_node_t mask_sat_callback_node;
@@ -167,21 +149,7 @@ void manage_acq_setup()
     acq_status[i].dopp_hint_low = ACQ_FULL_CF_MIN;
     acq_status[i].dopp_hint_high = ACQ_FULL_CF_MAX;
     acq_status[i].sid = sid_from_index(i);
-  }
-
-  int fd = cfs_open("almanac", CFS_READ);
-  if (fd != -1) {
-    cfs_read(fd, almanac, 32*sizeof(almanac_t));
-    log_info("Loaded almanac from flash");
-    cfs_close(fd);
-  } else {
-    log_info("No almanac file present in flash, create an empty one");
-    cfs_coffee_reserve("almanac", 32*sizeof(almanac_t));
-    cfs_coffee_configure_log("almanac", 256, sizeof(almanac_t));
-
-    for (u32 i=0; i<NUM_SATS; i++) {
-      almanac[i].valid = 0;
-    }
+    almanac[i].valid = 0;
   }
 
   sbp_register_cbk(
