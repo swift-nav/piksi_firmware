@@ -421,9 +421,19 @@ static msg_t solution_thread(void *arg)
     static u8 n_ready_old = 0;
     u64 nav_tc = nap_timing_count();
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
+
+    const channel_measurement_t *p_meas[n_ready];
+    navigation_measurement_t *p_nav_meas[n_ready];
+    const ephemeris_t *p_e_meas[n_ready];
+    for (u32 i=0; i<n_ready; i++) {
+      p_meas[i] = &meas[i];
+      p_nav_meas[i] = &nav_meas[i];
+      p_e_meas[i] = &es[meas[i].sid.sat];
+    }
+
     chMtxLock(&es_mutex);
-    calc_navigation_measurement(n_ready, meas, nav_meas,
-                                (double)((u32)nav_tc)/SAMPLE_FREQ, es);
+    calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
+                                (double)((u32)nav_tc)/SAMPLE_FREQ, p_e_meas);
     chMtxUnlock();
 
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
@@ -481,11 +491,16 @@ static msg_t solution_thread(void *arg)
           if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
               base_obss.has_pos) {
             chMtxLock(&es_mutex);
+
+            const ephemeris_t *e_nav_meas_tdcp[n_ready_tdcp];
+            for (u32 i=0; i<n_ready_tdcp; i++)
+              e_nav_meas_tdcp[i] = &es[nav_meas_tdcp[i].sid.sat];
+
             sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
             u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                     base_obss.n, base_obss.nm,
                                     base_obss.sat_dists, base_obss.pos_ecef,
-                                    es, position_solution.time,
+                                    e_nav_meas_tdcp, position_solution.time,
                                     sdiffs);
             chMtxUnlock();
             if (num_sdiffs >= 4) {
@@ -665,8 +680,13 @@ static msg_t time_matched_obs_thread(void *arg)
             sds
         );
         chMtxUnlock();
+
+        u16 *sds_lock_counters[n_sds];
+        for (u32 i=0; i<n_sds; i++)
+          sds_lock_counters[i] = &lock_counters[sds[i].sid.sat];
+
         gnss_signal_t sats_to_drop[MAX_SATS];
-        u8 num_sats_to_drop = check_lock_counters(n_sds, sds, lock_counters,
+        u8 num_sats_to_drop = check_lock_counters(n_sds, sds, sds_lock_counters,
                                                   sats_to_drop);
         if (num_sats_to_drop > 0) {
           /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
