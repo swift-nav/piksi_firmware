@@ -26,6 +26,8 @@ v0.21 <a name="v0.21"></a>
  * 1PPS output on debug connector
  * New tracking lock detection architecture
  * Allow NMEA rates to be set to zero to disable
+ * Reduce default baud rate for 3DR radios
+ * Reduce observation message size for Mavlink encapsulation
  * Numerous minor fixes and improvements
 
 v0.20 <a name="v0.20"></a>
