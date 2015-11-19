@@ -59,7 +59,7 @@ u32 obs_output_divisor = 2;
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 102;
 
-static u16 lock_counters[MAX_SATS];
+static u16 lock_counters[NUM_SATS];
 
 bool disable_raim = false;
 bool send_heading = false;
@@ -683,9 +683,9 @@ static msg_t time_matched_obs_thread(void *arg)
 
         u16 *sds_lock_counters[n_sds];
         for (u32 i=0; i<n_sds; i++)
-          sds_lock_counters[i] = &lock_counters[sds[i].sid.sat];
+          sds_lock_counters[i] = &lock_counters[sid_to_index(sds[i].sid)];
 
-        gnss_signal_t sats_to_drop[MAX_SATS];
+        gnss_signal_t sats_to_drop[n_sds];
         u8 num_sats_to_drop = check_lock_counters(n_sds, sds, sds_lock_counters,
                                                   sats_to_drop);
         if (num_sats_to_drop > 0) {

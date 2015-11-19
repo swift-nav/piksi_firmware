@@ -25,6 +25,7 @@
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
+#include <libswiftnav/signal.h>
 
 /*  code: nbw zeta k carr_to_code
  carrier:                    nbw  zeta k fll_aid */
@@ -84,17 +85,17 @@ static u16 iq_output_mask = 0;
  */
 tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
 
-/* PRN lock counter
- * A map of PRN to an initially random number that increments each time that
- * PRN begins being tracked.
+/* signal lock counter
+ * A map of signal to an initially random number that increments each time that
+ * signal begins being tracked.
  */
-static u16 tracking_lock_counters[MAX_SATS];
+static u16 tracking_lock_counters[NUM_SATS];
 
 /* Initialize the lock counters to random numbers
  */
 void initialize_lock_counters(void)
 {
-  for (u8 i=0; i < MAX_SATS; i++) {
+  for (u32 i=0; i < NUM_SATS; i++) {
     tracking_lock_counters[i] = random_int();
   }
 }
@@ -495,13 +496,10 @@ void tracking_channel_disable(u8 channel)
  */
 void tracking_channel_ambiguity_unknown(u8 channel)
 {
-  /* FIXME: lock counters per constellation/band */
   gnss_signal_t sid = tracking_channel[channel].sid;
-  assert(sid.constellation == CONSTELLATION_GPS);
-  assert(sid.band == BAND_L1);
 
   tracking_channel[channel].nav_msg.bit_polarity = BIT_POLARITY_UNKNOWN;
-  tracking_channel[channel].lock_counter = ++tracking_lock_counters[sid.sat];
+  tracking_channel[channel].lock_counter = ++tracking_lock_counters[sid_to_index(sid)];
 }
 
 /** Update channel measurement for a tracking channel.
