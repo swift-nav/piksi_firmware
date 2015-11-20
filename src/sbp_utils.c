@@ -30,22 +30,36 @@
 
 sbp_gnss_signal_t sid_to_sbp(const gnss_signal_t from)
 {
-  sbp_gnss_signal_t ret = {
+  sbp_gnss_signal_t sbp_sid = {
     .constellation = from.constellation,
     .band = from.band,
     .sat = from.sat,
   };
-  return ret;
+
+  /* Maintain legacy compatibility with GPS PRN encoding. Sat values for other
+   * constellations are "real" satellite identifiers.
+   */
+  if (from.constellation == CONSTELLATION_GPS)
+    sbp_sid.sat -= GPS_FIRST_PRN;
+
+  return sbp_sid;
 }
 
 gnss_signal_t sid_from_sbp(const sbp_gnss_signal_t from)
 {
-  gnss_signal_t ret = {
+  gnss_signal_t sid = {
     .constellation = from.constellation,
     .band = from.band,
     .sat = from.sat,
   };
-  return ret;
+
+  /* Maintain legacy compatibility with GPS PRN encoding. Sat values for other
+   * constellations are "real" satellite identifiers.
+   */
+  if (sid.constellation == CONSTELLATION_GPS)
+    sid.sat += GPS_FIRST_PRN;
+
+  return sid;
 }
 
 void sbp_make_gps_time(msg_gps_time_t *t_out, const gps_time_t *t_in, u8 flags)
