@@ -40,6 +40,7 @@
 #include "cfs/cfs-coffee.h"
 #include "peripherals/random.h"
 #include "./system_monitor.h"
+#include "settings.h"
 
 /** \defgroup manage Manage
  * Manage acquisition and tracking.
@@ -73,7 +74,7 @@ typedef struct {
   float dopp_hint_high;    /**< High bound of doppler search hint. */
   gnss_signal_t sid;       /**< Signal identifier. */
 } acq_status_t;
-acq_status_t acq_status[NUM_SATS];
+static acq_status_t acq_status[NUM_SATS];
 
 #define SCORE_COLDSTART     100
 #define SCORE_WARMSTART     200
@@ -89,6 +90,7 @@ static almanac_t almanac[NUM_SATS];
 
 static float track_cn0_use_thres = 31.0; /* dBHz */
 static float elevation_mask = 0.0; /* degrees */
+static bool sbas_enabled = false;
 
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
@@ -143,12 +145,20 @@ static msg_t manage_acq_thread(void *arg)
 
 void manage_acq_setup()
 {
+  SETTING("acquisition", "sbas enabled", sbas_enabled, TYPE_BOOL);
+
   for (u32 i=0; i<NUM_SATS; i++) {
     acq_status[i].state = ACQ_PRN_ACQUIRING;
     memset(&acq_status[i].score, 0, sizeof(acq_status[i].score));
     acq_status[i].dopp_hint_low = ACQ_FULL_CF_MIN;
     acq_status[i].dopp_hint_high = ACQ_FULL_CF_MAX;
     acq_status[i].sid = sid_from_index(i);
+
+    if (!sbas_enabled &&
+        (acq_status[i].sid.constellation == CONSTELLATION_SBAS)) {
+      acq_status[i].masked = true;
+    }
+
     almanac[i].valid = 0;
   }
 
@@ -257,6 +267,11 @@ static acq_status_t * choose_acq_sat(void)
     }
   }
 
+  if (total_score == 0) {
+    log_error("Failed to pick a sat for acquisition!");
+    return NULL;
+  }
+
   u32 pick = random_int() % total_score;
 
   for (u32 i=0; i<NUM_SATS; i++) {
@@ -274,7 +289,7 @@ static acq_status_t * choose_acq_sat(void)
     }
   }
 
-  log_error("Failed to pick a sat for acquisition!");
+  assert("Error picking a sat for acquisition");
   return NULL;
 }
 
@@ -469,13 +484,14 @@ static void manage_track()
   for (u8 i=0; i<nap_track_n_channels; i++) {
 
     tracking_channel_t *ch = &tracking_channel[i];
-    acq_status_t *acq = &acq_status[sid_to_index(ch->sid)];
 
     /* Skip channels that aren't in use */
     if (ch->state != TRACKING_RUNNING ||
         /* Give newly-initialized channels a chance to converge */
         ch->update_count < TRACK_INIT_T)
       continue;
+
+    acq_status_t *acq = &acq_status[sid_to_index(ch->sid)];
 
     /* Is ephemeris marked unhealthy? */
     const ephemeris_t *e = ephemeris_get(ch->sid);
