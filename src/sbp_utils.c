@@ -307,7 +307,7 @@ void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
   msg->toe_tow   = toe.tow;
   msg->toe_wn    = toe.wn;
   msg->toc_tow   = toc.tow;
-  msg->toe_wn    = toc.wn;
+  msg->toc_wn    = toc.wn;
   msg->valid     = e->valid;
   msg->healthy   = e->healthy;
   msg->sid       = sid_to_sbp(e->sid);

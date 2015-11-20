@@ -22,13 +22,15 @@ v0.21 <a name="v0.21"></a>
 
 #### Core
  * Fixes "dgnss_baseline returned error: -2" bug when dropping a satellite.
- * Reduce occurence of "status glitches" that were observed by users integrating Piksi with Pixhawk by increasing RTK availablity.
- * 1PPS output on debug connector (pin DEBUG1) 
+ * Reduce occurence of "status glitches" that were observed by users
+   integrating Piksi with Pixhawk by increasing RTK availablity.
+ * 1PPS output on debug connector (pin DEBUG1)
  * New tracking lock detection architecture
  * Allow NMEA rates to be set to zero to disable
  * Reduce default baud and air rates for 3DR radios
  * Reduce observation message size for Mavlink encapsulation
  * Reduce serial bus traffic to improve console responsiveness on user machines
+ * Fix uninitialized week number in SBP ephemeris TOC
  * Numerous minor fixes and improvements
 
 v0.20 <a name="v0.20"></a>
