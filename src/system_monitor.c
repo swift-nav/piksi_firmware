@@ -194,8 +194,10 @@ static msg_t system_monitor_thread(void *arg)
       iar_state.num_hyps = dgnss_iar_num_hyps();
     }
     sbp_send_msg(SBP_MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
-
-    send_thread_states();
+    
+    DO_EVERY(2, 
+     send_thread_states(); 
+    );
 
     u32 err = nap_error_rd_blocking();
     if (err) {
