@@ -23,10 +23,12 @@
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/signal.h>
 
 #include "main.h"
 #include "board/nap/track_channel.h"
 #include "acq.h"
+#include "ephemeris.h"
 #include "track.h"
 #include "timing.h"
 #include "position.h"
@@ -83,7 +85,6 @@ acq_prn_t acq_prn_param[32];
 #define DOPP_UNCERT_EPHEM   500
 
 almanac_t almanac[32];
-extern ephemeris_t es[32];
 
 static float track_cn0_use_thres = 31.0; /* dBHz */
 float elevation_mask = 0.0; /* degrees */
@@ -231,9 +232,11 @@ static u16 manage_warm_start(u8 prn, gps_time_t t,
 
     /* Do we have a suitable ephemeris for this sat?  If so, use
        that in preference to the almanac. */
-    if (ephemeris_good(&es[prn], t)) {
+    gnss_signal_t sid = {.sat = prn};
+    const ephemeris_t *e = ephemeris_get(sid);
+    if (ephemeris_good(e, t)) {
       double sat_pos[3], sat_vel[3], el_d;
-      calc_sat_state(&es[prn], t, sat_pos, sat_vel, &_, &_);
+      calc_sat_state(e, t, sat_pos, sat_vel, &_, &_);
       wgsecef2azel(sat_pos, position_solution.pos_ecef, &_, &el_d);
       el = (float)(el_d) * R2D;
       if (el < elevation_mask)
@@ -515,7 +518,8 @@ static void manage_track()
       continue;
 
     /* Is ephemeris marked unhealthy? */
-    if (es[ch->sid.sat].valid && !es[ch->sid.sat].healthy) {
+    const ephemeris_t *e = ephemeris_get(ch->sid);
+    if (e->valid && !e->healthy) {
       log_info("PRN%d unhealthy, dropping", ch->sid.sat+1);
       drop_channel(i);
       acq_prn_param[ch->sid.sat].state = ACQ_PRN_UNHEALTHY;
@@ -598,7 +602,7 @@ s8 use_tracking_channel(u8 i)
       .wn = WN_UNKNOWN,
       .tow = 1e-3 * ch->TOW_ms
     };
-    return ephemeris_good(&es[ch->sid.sat], t);
+    return ephemeris_good(ephemeris_get(ch->sid), t);
   } else return 0;
 }
 

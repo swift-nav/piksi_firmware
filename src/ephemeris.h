@@ -15,11 +15,12 @@
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/ephemeris.h>
-
-extern Mutex es_mutex;
-extern ephemeris_t es[MAX_SATS];
+#include <libswiftnav/signal.h>
 
 void ephemeris_setup(void);
+void ephemeris_lock(void);
+void ephemeris_unlock(void);
+ephemeris_t *ephemeris_get(gnss_signal_t sid);
 
 #endif
 
