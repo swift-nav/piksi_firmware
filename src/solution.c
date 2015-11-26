@@ -507,6 +507,13 @@ static msg_t solution_thread(void *arg)
       double t_check = expected_tow * (soln_freq / obs_output_divisor);
       if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
           fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+
+	/* Send the observations before we propagate them*/
+        if (!simulation_enabled()) {
+          send_observations(n_ready_tdcp, &position_solution.time, 
+                            nav_meas_tdcp);
+        }
+
         /* Propagate observation to desired time. */
         for (u8 i=0; i<n_ready_tdcp; i++) {
           nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
@@ -518,10 +525,6 @@ static msg_t solution_thread(void *arg)
         gps_time_t new_obs_time;
         new_obs_time.wn = position_solution.time.wn;
         new_obs_time.tow = expected_tow;
-
-        if (!simulation_enabled()) {
-          send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
-        }
 
         /* TODO: use a buffer from the pool from the start instead of
          * allocating nav_meas_tdcp as well. Downside, if we don't end up
