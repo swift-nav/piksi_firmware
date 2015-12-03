@@ -39,7 +39,7 @@ usart_settings_t ftdi_usart = {
 
 usart_settings_t uarta_usart = {
   .mode               = SBP,
-  .baud_rate          = USART_DEFAULT_BAUD_TTL,
+  .baud_rate          = USART_DEFAULT_BAUD_RADIO,
   .sbp_message_mask   = 0x40,
   .configure_telemetry_radio_on_boot = 1,
 };

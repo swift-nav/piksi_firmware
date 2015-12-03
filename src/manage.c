@@ -461,8 +461,8 @@ static msg_t manage_track_thread(void *arg)
   (void)arg;
   chRegSetThreadName("manage track");
   while (TRUE) {
-    chThdSleepMilliseconds(200);
-    DO_EVERY(5,
+    chThdSleepMilliseconds(500);
+    DO_EVERY(2,
       check_clear_unhealthy();
       manage_track();
       nmea_gpgsa(tracking_channel, 0);
