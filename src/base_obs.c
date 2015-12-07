@@ -56,13 +56,13 @@ bool_t base_pos_known = false;
 double base_pos_ecef[3];
 
 /** SBP callback for when the base station sends us a message containing its
- * known location.
+ * known location in LLH coordinates.
  * Stores the base station position in the global #base_pos_ecef variable and
  * sets #base_pos_known to `true`.
  */
-static void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+static void base_pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
-  (void) context; (void) len; (void) msg; (void) sender_id;
+  (void) context; (void) len; (void) sender_id;
 
   double llh_degrees[3];
   double llh[3];
@@ -74,6 +74,21 @@ static void base_pos_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   chMtxLock(&base_pos_lock);
   wgsllh2ecef(llh, base_pos_ecef);
+  base_pos_known = true;
+  chMtxUnlock();
+}
+
+/** SBP callback for when the base station sends us a message containing its
+ * known location in ECEF coordinates.
+ * Stores the base station position in the global #base_pos_ecef variable and
+ * sets #base_pos_known to `true`.
+ */
+static void base_pos_ecef_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void) context; (void) len; (void) sender_id;
+
+  chMtxLock(&base_pos_lock);
+  memcpy(base_pos_ecef, msg, 3*sizeof(double));
   base_pos_known = true;
   chMtxUnlock();
 }
@@ -340,11 +355,18 @@ void base_obs_setup()
 
   /* Register callbacks on base station messages. */
 
-  static sbp_msg_callbacks_node_t base_pos_node;
+  static sbp_msg_callbacks_node_t base_pos_llh_node;
   sbp_register_cbk(
-    SBP_MSG_BASE_POS,
-    &base_pos_callback,
-    &base_pos_node
+    SBP_MSG_BASE_POS_LLH,
+    &base_pos_llh_callback,
+    &base_pos_llh_node
+  );
+
+  static sbp_msg_callbacks_node_t base_pos_ecef_node;
+  sbp_register_cbk(
+    SBP_MSG_BASE_POS_ECEF,
+    &base_pos_ecef_callback,
+    &base_pos_ecef_node
   );
 
   static sbp_msg_callbacks_node_t obs_packed_node;
