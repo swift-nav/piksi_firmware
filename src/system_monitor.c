@@ -183,7 +183,7 @@ static msg_t system_monitor_thread(void *arg)
       if (base_distance > BASE_STATION_DISTANCE_THRESHOLD) {
         log_warn("Invalid surveyed position coordinates\n");
       } else {
-        sbp_send_msg(SBP_MSG_BASE_POS, sizeof(msg_base_pos_t), (u8 *)&base_llh);
+        sbp_send_msg(SBP_MSG_BASE_POS_ECEF, sizeof(msg_base_pos_ecef_t), (u8 *)&base_ecef);
       }
     }
 
