@@ -18,6 +18,7 @@
 #include <libswiftnav/nav_msg.h>
 #include <libswiftnav/track.h>
 #include <libswiftnav/signal.h>
+#include <libswiftnav/bit_sync.h>
 
 #include "board/nap/nap_common.h"
 #include "board/nap/track_channel.h"
@@ -56,6 +57,7 @@ typedef struct {
   double carrier_freq;         /**< Carrier frequency Hz. */
   u32 corr_sample_count;       /**< Number of samples in correlation period. */
   corr_t cs[3];                /**< EPL correlation results in correlation period. */
+  bit_sync_t bit_sync;         /**< Bit sync state. */
   nav_msg_t nav_msg;           /**< Navigation message of channel SV. */
   u16 lock_counter;            /**< Lock counter. Increments when tracking new signal. */
   cn0_est_state_t cn0_est;     /**< C/N0 Estimator. */

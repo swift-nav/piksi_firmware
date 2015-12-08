@@ -154,7 +154,8 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   /* Initialize all fields in the channel to 0 */
   memset(chan, 0, sizeof(tracking_channel_t));
 
-  nav_msg_init(&chan->nav_msg, sid);
+  bit_sync_init(&chan->bit_sync, sid);
+  nav_msg_init(&chan->nav_msg);
 
   /* Adjust the channel start time as the start_sample_count passed
    * in corresponds to a PROMPT code phase rollover but we want to
@@ -177,7 +178,7 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   /* Note: The only coherent integration interval currently supported
      for first-stage tracking (i.e. loop_params_stage[0].coherent_ms)
      is 1. */
-  chan->int_ms = MIN(l->coherent_ms, chan->nav_msg.bit_length);
+  chan->int_ms = MIN(l->coherent_ms, chan->bit_sync.bit_length);
 
   /* Calculate code phase rate with carrier aiding. */
   float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
@@ -339,14 +340,19 @@ void tracking_channel_update(u8 channel)
 
       chan->update_count += chan->int_ms;
 
-      s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
-
-      if ((TOW_ms >= 0) && chan->TOW_ms != TOW_ms) {
-        if (chan->TOW_ms != TOW_INVALID) {
-          log_error("%s TOW mismatch: %ld, %lu",
-                    buf, chan->TOW_ms, TOW_ms);
+      /* Update bit sync */
+      s32 bit_integrate;
+      if (bit_sync_update(&chan->bit_sync, chan->cs[1].I, chan->int_ms,
+                          &bit_integrate)) {
+        /* Update TOW */
+        s32 TOW_ms = nav_msg_update(&chan->nav_msg, bit_integrate > 0);
+        if ((TOW_ms >= 0) && chan->TOW_ms != TOW_ms) {
+          if (chan->TOW_ms != TOW_INVALID) {
+            log_error("%s TOW mismatch: %ld, %lu",
+                      buf, chan->TOW_ms, TOW_ms);
+          }
+          chan->TOW_ms = TOW_ms;
         }
-        chan->TOW_ms = TOW_ms;
       }
 
       /* Correlations should already be in chan->cs thanks to
@@ -432,12 +438,12 @@ void tracking_channel_update(u8 channel)
           /* Must have (at least optimistic) phase lock */
           (chan->lock_detect.outo) &&
           /* Must have nav bit sync, and be correctly aligned */
-          (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
+          (chan->bit_sync.bit_phase == chan->bit_sync.bit_phase_ref)) {
         log_info("%s synced @ %u ms, %.1f dBHz",
                  buf, (unsigned int)chan->update_count, chan->cn0);
         chan->stage = 1;
         const struct loop_params *l = &loop_params_stage[1];
-        chan->int_ms = MIN(l->coherent_ms, chan->nav_msg.bit_length);
+        chan->int_ms = MIN(l->coherent_ms, chan->bit_sync.bit_length);
         chan->short_cycle = true;
 
         cn0_est_init(&chan->cn0_est, 1e3 / chan->int_ms, chan->cn0,

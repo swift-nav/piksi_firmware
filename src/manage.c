@@ -507,7 +507,7 @@ static void manage_track()
     }
 
     /* Do we not have nav bit sync yet? */
-    if (ch->nav_msg.bit_phase_ref == BITSYNC_UNSYNCED) {
+    if (ch->bit_sync.bit_phase_ref == BITSYNC_UNSYNCED) {
       drop_channel(i);
       continue;
     }
