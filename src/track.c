@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <ch.h>
 
 #include "board/nap/track_channel.h"
 #include "sbp.h"
@@ -58,6 +59,13 @@ char lock_detect_params_string[24] = LD_PARAMS_DISABLE;
 bool use_alias_detection = true;
 
 #define CN0_EST_LPF_CUTOFF 5
+#define GPS_WEEK_LENGTH_ms (1000 * WEEK_SECS)
+
+#define NAV_BIT_FIFO_INDEX_MASK ((NAV_BIT_FIFO_SIZE) - 1)
+#define NAV_BIT_FIFO_INDEX_DIFF(write_index, read_index) \
+          ((nav_bit_fifo_index_t)((write_index) - (read_index)))
+#define NAV_BIT_FIFO_LENGTH(p_fifo) \
+          (NAV_BIT_FIFO_INDEX_DIFF((p_fifo)->write_index, (p_fifo)->read_index))
 
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
@@ -90,6 +98,138 @@ tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
  * signal begins being tracked.
  */
 static u16 tracking_lock_counters[NUM_SATS];
+
+static MUTEX_DECL(nav_time_sync_mutex);
+
+static void nav_bit_fifo_init(nav_bit_fifo_t *fifo);
+static bool nav_bit_fifo_write(nav_bit_fifo_t *fifo,
+                               const nav_bit_fifo_element_t *element);
+static bool nav_bit_fifo_read(nav_bit_fifo_t *fifo,
+                              nav_bit_fifo_element_t *element);
+static void nav_time_sync_init(nav_time_sync_t *sync);
+static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
+                              nav_bit_fifo_index_t read_index);
+static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
+                              nav_bit_fifo_index_t *read_index);
+
+/** Initialize a nav_bit_fifo_t struct. */
+static void nav_bit_fifo_init(nav_bit_fifo_t *fifo)
+{
+  fifo->read_index = 0;
+  fifo->write_index = 0;
+}
+
+/** Write data to the nav bit FIFO.
+ *
+ * \note This function should only be called internally by the tracking thread.
+ *
+ * \param fifo        nav_bit_fifo_t struct to use.
+ * \param element     Element to write to the FIFO.
+ *
+ * \return true if element was read, false otherwise.
+ */
+static bool nav_bit_fifo_write(nav_bit_fifo_t *fifo,
+                               const nav_bit_fifo_element_t *element)
+{
+  if (NAV_BIT_FIFO_LENGTH(fifo) < NAV_BIT_FIFO_SIZE) {
+    asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+    memcpy(&fifo->elements[fifo->write_index & NAV_BIT_FIFO_INDEX_MASK],
+           element, sizeof(nav_bit_fifo_element_t));
+    asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+    fifo->write_index++;
+    return true;
+  }
+
+  return false;
+}
+
+/** Read pending data from the nav bit FIFO.
+ *
+ * \note This function should only be called externally by the decoder thread.
+ *
+ * \param fifo        nav_bit_fifo_t struct to use.
+ * \param element     Output element read from the FIFO.
+ *
+ * \return true if element was read, false otherwise.
+ */
+static bool nav_bit_fifo_read(nav_bit_fifo_t *fifo,
+                              nav_bit_fifo_element_t *element)
+{
+  if (NAV_BIT_FIFO_LENGTH(fifo) > 0) {
+    asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+    memcpy(element, &fifo->elements[fifo->read_index & NAV_BIT_FIFO_INDEX_MASK],
+           sizeof(nav_bit_fifo_element_t));
+    asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+    fifo->read_index++;
+    return true;
+  }
+
+  return false;
+}
+
+/** Initialize a nav_time_sync_t struct. */
+static void nav_time_sync_init(nav_time_sync_t *sync)
+{
+  sync->valid = false;
+}
+
+/** Write pending time sync data from the decoder thread.
+ *
+ * \note This function should only be called externally by the decoder thread.
+ *
+ * \param sync          nav_time_sync_t struct to use.
+ * \param TOW_ms        TOW in ms.
+ * \param bit_polarity  Bit polarity.
+ * \param read_index    Nav bit FIFO read index to which the above values
+ *                      are synchronized.
+ *
+ * \return true if data was stored successfully, false otherwise.
+ */
+static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
+                              nav_bit_fifo_index_t read_index)
+{
+  bool result = false;
+  chMtxLock(&nav_time_sync_mutex);
+
+  sync->TOW_ms = TOW_ms;
+  sync->read_index = read_index;
+  sync->valid = true;
+  result = true;
+
+  Mutex *m = chMtxUnlock();
+  assert(m == &nav_time_sync_mutex);
+  return result;
+}
+
+/** Read pending time sync data provided by the decoder thread.
+ *
+ * \note This function should only be called internally by the tracking thread.
+ *
+ * \param sync          nav_time_sync_t struct to use.
+ * \param TOW_ms        TOW in ms.
+ * \param bit_polarity  Bit polarity.
+ * \param read_index    Nav bit FIFO read index to which the above values
+ *                      are synchronized.
+ *
+ * \return true if outputs are valid, false otherwise.
+ */
+static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
+                              nav_bit_fifo_index_t *read_index)
+{
+  bool result = false;
+  chMtxLock(&nav_time_sync_mutex);
+
+  if (sync->valid) {
+    *TOW_ms = sync->TOW_ms;
+    *read_index = sync->read_index;
+    sync->valid = false;
+    result = true;
+  }
+
+  Mutex *m = chMtxUnlock();
+  assert(m == &nav_time_sync_mutex);
+  return result;
+}
 
 /* Initialize the lock counters to random numbers
  */
@@ -134,6 +274,13 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
   return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
 }
 
+/** Compress a 32 bit integration value down to 8 bits. */
+s8 nav_bit_quantize(s32 bit_integrate)
+{
+  /* TODO: make this better */
+  return bit_integrate >= 0 ? 127 : -127;
+}
+
 /** Initialises a tracking channel.
  * Initialises a tracking channel on the Swift NAP. The start_sample_count
  * must be contrived to be at or close to a PRN edge (PROMPT code phase = 0).
@@ -156,6 +303,8 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
 
   bit_sync_init(&chan->bit_sync, sid);
   nav_msg_init(&chan->nav_msg);
+  nav_bit_fifo_init(&chan->nav_bit_fifo);
+  nav_time_sync_init(&chan->nav_time_sync);
 
   /* Adjust the channel start time as the start_sample_count passed
    * in corresponds to a PROMPT code phase rollover but we want to
@@ -310,11 +459,40 @@ void tracking_channel_update(u8 channel)
       chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
       chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
 
+      /* Latch TOW from nav message if pending */
+      s32 pending_TOW_ms;
+      nav_bit_fifo_index_t pending_TOW_read_index;
+      if (nav_time_sync_get(&chan->nav_time_sync, &pending_TOW_ms,
+                            &pending_TOW_read_index)) {
+
+        /* Compute time since the pending data was read from the FIFO */
+        nav_bit_fifo_index_t fifo_length =
+          NAV_BIT_FIFO_INDEX_DIFF(chan->nav_bit_fifo.write_index,
+                                  pending_TOW_read_index);
+        u32 fifo_time_diff_ms = fifo_length * chan->bit_sync.bit_length;
+
+        /* Add full bit times + fractional bit time to the specified TOW */
+        s32 TOW_ms = pending_TOW_ms + fifo_time_diff_ms +
+                       chan->nav_bit_TOW_offset_ms;
+
+        if (TOW_ms >= GPS_WEEK_LENGTH_ms)
+          TOW_ms -= GPS_WEEK_LENGTH_ms;
+
+        /* Log error if updated TOW does not match current value */
+        if ((chan->TOW_ms != TOW_INVALID) && (chan->TOW_ms != TOW_ms)) {
+          log_error("%s TOW mismatch: %ld, %lu", buf, chan->TOW_ms, TOW_ms);
+        }
+        chan->TOW_ms = TOW_ms;
+      }
+
+      u8 int_ms = chan->short_cycle ? 1 : (chan->int_ms-1);
+      chan->nav_bit_TOW_offset_ms += int_ms;
+
       if (chan->TOW_ms != TOW_INVALID) {
         /* Have a valid time of week - increment it. */
-        chan->TOW_ms += chan->short_cycle ? 1 : (chan->int_ms-1);
-        if (chan->TOW_ms >= 7*24*60*60*1000)
-          chan->TOW_ms -= 7*24*60*60*1000;
+        chan->TOW_ms += int_ms;
+        if (chan->TOW_ms >= GPS_WEEK_LENGTH_ms)
+          chan->TOW_ms -= GPS_WEEK_LENGTH_ms;
         /* TODO: maybe keep track of week number in channel state, or
            derive it from system time */
       }
@@ -344,15 +522,17 @@ void tracking_channel_update(u8 channel)
       s32 bit_integrate;
       if (bit_sync_update(&chan->bit_sync, chan->cs[1].I, chan->int_ms,
                           &bit_integrate)) {
-        /* Update TOW */
-        s32 TOW_ms = nav_msg_update(&chan->nav_msg, bit_integrate > 0);
-        if ((TOW_ms >= 0) && chan->TOW_ms != TOW_ms) {
-          if (chan->TOW_ms != TOW_INVALID) {
-            log_error("%s TOW mismatch: %ld, %lu",
-                      buf, chan->TOW_ms, TOW_ms);
-          }
-          chan->TOW_ms = TOW_ms;
+
+        s8 soft_bit = nav_bit_quantize(bit_integrate);
+
+        // write to FIFO
+        nav_bit_fifo_element_t element = { .soft_bit = soft_bit };
+        if (!nav_bit_fifo_write(&chan->nav_bit_fifo, &element)) {
+          log_warn("%s nav bit FIFO overrun", buf);
         }
+
+        // clear nav bit TOW offset
+        chan->nav_bit_TOW_offset_ms = 0;
       }
 
       /* Correlations should already be in chan->cs thanks to
@@ -665,6 +845,49 @@ void tracking_setup()
                  TYPE_STRING, parse_lock_detect_params);
   SETTING("track", "cn0_drop", track_cn0_drop_thres, TYPE_FLOAT);
   SETTING("track", "alias_detect", use_alias_detection, TYPE_BOOL);
+}
+
+/** Read the next pending nav bit for a tracking channel.
+ *
+ * \note This function should should be called from the same thread as
+ * tracking_channel_time_sync().
+ *
+ * \param channel     Tracking channel to use.
+ * \param soft_bit    Output soft nav bit value.
+ *
+ * \return true if *soft_bit is valid, false otherwise.
+ */
+bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit)
+{
+  tracking_channel_t *chan = &tracking_channel[channel];
+  nav_bit_fifo_element_t element;
+  if (nav_bit_fifo_read(&chan->nav_bit_fifo, &element)) {
+    *soft_bit = element.soft_bit;
+    return true;
+  }
+  return false;
+}
+
+/** Propagate decoded time of week back to a tracking channel.
+ *
+ * \note This function should be called from the same thread as
+ * tracking_channel_nav_bit_get().
+ * \note It is assumed that the specified data is synchronized with the most
+ * recent nav bit read from the FIFO using tracking_channel_nav_bit_get().
+ *
+ * \param channel       Tracking channel to use.
+ * \param TOW_ms        Time of week in milliseconds.
+ *
+ * \return true if data was enqueued successfully, false otherwise.
+ */
+bool tracking_channel_tow_set(u8 channel, s32 TOW_ms)
+{
+  assert(TOW_ms >= 0);
+  assert(TOW_ms < GPS_WEEK_LENGTH_ms);
+
+  tracking_channel_t *chan = &tracking_channel[channel];
+  nav_bit_fifo_index_t read_index = chan->nav_bit_fifo.read_index;
+  return nav_time_sync_set(&chan->nav_time_sync, TOW_ms, read_index);
 }
 
 /** \} */
