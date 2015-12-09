@@ -69,9 +69,20 @@ static msg_t nav_msg_thread(void *arg)
 
 
     for (u8 i=0; i<nap_track_n_channels; i++) {
-      chThdSleepMilliseconds(100);
+      chThdSleepMilliseconds(10);
       tracking_channel_t *ch = &tracking_channel[i];
       ephemeris_t e = {.sid = ch->sid};
+
+      /* Process incoming nav bits */
+      s8 soft_bit;
+      while (tracking_channel_nav_bit_get(i, &soft_bit)) {
+        /* Update TOW */
+        bool bit_val = soft_bit >= 0;
+        s32 TOW_ms = nav_msg_update(&ch->nav_msg, bit_val);
+        if (TOW_ms >= 0) {
+          tracking_channel_tow_set(i, TOW_ms);
+        }
+      }
 
       /* Check if there is a new nav msg subframe to process.
        * TODO: move this into a function */
