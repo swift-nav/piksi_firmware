@@ -39,6 +39,7 @@
 #include "sbp_fileio.h"
 #include "ephemeris.h"
 #include "pps.h"
+#include "decode.h"
 
 extern void ext_setup(void);
 
@@ -178,6 +179,7 @@ int main(void)
   ext_event_setup();
   position_setup();
   tracking_setup();
+  decode_setup();
 
   rng_setup();
   manage_acq_setup();

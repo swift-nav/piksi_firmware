@@ -30,6 +30,7 @@
 #include "acq.h"
 #include "ephemeris.h"
 #include "track.h"
+#include "decode.h"
 #include "timing.h"
 #include "position.h"
 #include "manage.h"
@@ -366,6 +367,7 @@ static void manage_acq()
     return;
   }
 
+  /* Make sure a tracking channel is available */
   u8 chan = manage_track_new_acq();
   if (chan == MANAGE_NO_CHANNELS_FREE) {
     /* No channels are free to accept our new satellite :( */
@@ -379,6 +381,12 @@ static void manage_acq()
     }
     return;
   }
+
+  /* Make sure a decoder channel is available */
+  if (!decoder_channel_available(acq->sid)) {
+    return;
+  }
+
   /* Transition to tracking. */
   u32 track_count = nap_timing_count() + 20000;
   cp = propagate_code_phase(cp, cf, track_count - timer_count);
@@ -390,6 +398,11 @@ static void manage_acq()
   tracking_channel_init(chan, acq->sid, cf, track_count, cn0,
                         TRACKING_ELEVATION_UNKNOWN);
   /* TODO: Initialize elevation from ephemeris if we know it precisely */
+
+  /* Start the decoder channel */
+  if (!decoder_channel_init(chan, acq->sid)) {
+    log_warn("PRN%d decoder channel init failed", acq->sid.sat+1);
+  }
 
   acq->state = ACQ_PRN_TRACKING;
   nap_timing_strobe_wait(100);
@@ -465,6 +478,7 @@ void manage_track_setup()
 }
 
 static void drop_channel(u8 channel_id) {
+  decoder_channel_disable(channel_id);
   tracking_channel_disable(channel_id);
   const tracking_channel_t *ch = &tracking_channel[channel_id];
   acq_status_t *acq = &acq_status[sid_to_index(ch->sid)];
