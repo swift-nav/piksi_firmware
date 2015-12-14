@@ -30,6 +30,7 @@
 #include "acq.h"
 #include "ephemeris.h"
 #include "track.h"
+#include "decode.h"
 #include "timing.h"
 #include "position.h"
 #include "manage.h"
@@ -92,7 +93,7 @@ static float track_cn0_use_thres = 31.0; /* dBHz */
 static float elevation_mask = 0.0; /* degrees */
 static bool sbas_enabled = false;
 
-static u8 manage_track_new_acq(void);
+static u8 manage_track_new_acq(gnss_signal_t sid);
 static void manage_acq(void);
 static void manage_track(void);
 
@@ -367,7 +368,8 @@ static void manage_acq()
     return;
   }
 
-  u8 chan = manage_track_new_acq();
+  /* Make sure a tracking channel and a decoder channel are available */
+  u8 chan = manage_track_new_acq(acq->sid);
   if (chan == MANAGE_NO_CHANNELS_FREE) {
     /* No channels are free to accept our new satellite :( */
     /* TODO: Perhaps we can try to warm start this one
@@ -380,6 +382,7 @@ static void manage_acq()
     }
     return;
   }
+
   /* Transition to tracking. */
   u32 track_count = nap_timing_count() + 20000;
   cp = propagate_code_phase(cp, cf, track_count - timer_count);
@@ -392,6 +395,11 @@ static void manage_acq()
                         TRACKING_ELEVATION_UNKNOWN);
   /* TODO: Initialize elevation from ephemeris if we know it precisely */
 
+  /* Start the decoder channel */
+  if (!decoder_channel_init(chan, acq->sid)) {
+    log_error("decoder channel init failed");
+  }
+
   acq->state = ACQ_PRN_TRACKING;
   nap_timing_strobe_wait(100);
 }
@@ -400,13 +408,14 @@ static void manage_acq()
  *
  * \return Index of first unused tracking channel.
  */
-static u8 manage_track_new_acq(void)
+static u8 manage_track_new_acq(gnss_signal_t sid)
 {
   /* Decide which (if any) tracking channel to put
    * a newly acquired satellite into.
    */
   for (u8 i=0; i<nap_track_n_channels; i++) {
-    if (tracking_channel[i].state == TRACKING_DISABLED) {
+    if ((tracking_channel[i].state == TRACKING_DISABLED) &&
+        decoder_channel_available(i, sid)) {
       return i;
     }
   }
@@ -466,6 +475,7 @@ void manage_track_setup()
 }
 
 static void drop_channel(u8 channel_id) {
+  decoder_channel_disable(channel_id);
   tracking_channel_disable(channel_id);
   const tracking_channel_t *ch = &tracking_channel[channel_id];
   acq_status_t *acq = &acq_status[sid_to_index(ch->sid)];
@@ -569,7 +579,7 @@ s8 use_tracking_channel(u8 i)
       /* Channel time of week has been decoded. */
       && (ch->TOW_ms != TOW_INVALID)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
-      && (ch->nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
+      && (ch->bit_polarity != BIT_POLARITY_UNKNOWN)
       /* Estimated C/N0 is above some threshold */
       && (ch->cn0 > track_cn0_use_thres))
       {

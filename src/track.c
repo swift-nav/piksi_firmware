@@ -108,9 +108,9 @@ static bool nav_bit_fifo_read(nav_bit_fifo_t *fifo,
                               nav_bit_fifo_element_t *element);
 static void nav_time_sync_init(nav_time_sync_t *sync);
 static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
-                              nav_bit_fifo_index_t read_index);
+                              s8 bit_polarity, nav_bit_fifo_index_t read_index);
 static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
-                              nav_bit_fifo_index_t *read_index);
+                              s8 *bit_polarity, nav_bit_fifo_index_t *read_index);
 
 /** Initialize a nav_bit_fifo_t struct. */
 static void nav_bit_fifo_init(nav_bit_fifo_t *fifo)
@@ -186,12 +186,13 @@ static void nav_time_sync_init(nav_time_sync_t *sync)
  * \return true if data was stored successfully, false otherwise.
  */
 static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
-                              nav_bit_fifo_index_t read_index)
+                              s8 bit_polarity, nav_bit_fifo_index_t read_index)
 {
   bool result = false;
   chMtxLock(&nav_time_sync_mutex);
 
   sync->TOW_ms = TOW_ms;
+  sync->bit_polarity = bit_polarity;
   sync->read_index = read_index;
   sync->valid = true;
   result = true;
@@ -214,13 +215,14 @@ static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
  * \return true if outputs are valid, false otherwise.
  */
 static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
-                              nav_bit_fifo_index_t *read_index)
+                              s8 *bit_polarity, nav_bit_fifo_index_t *read_index)
 {
   bool result = false;
   chMtxLock(&nav_time_sync_mutex);
 
   if (sync->valid) {
     *TOW_ms = sync->TOW_ms;
+    *bit_polarity = sync->bit_polarity;
     *read_index = sync->read_index;
     sync->valid = false;
     result = true;
@@ -302,7 +304,6 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   memset(chan, 0, sizeof(tracking_channel_t));
 
   bit_sync_init(&chan->bit_sync, sid);
-  nav_msg_init(&chan->nav_msg);
   nav_bit_fifo_init(&chan->nav_bit_fifo);
   nav_time_sync_init(&chan->nav_time_sync);
 
@@ -321,6 +322,7 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   /* Initialize TOW_ms and lock_count. */
   tracking_channel_ambiguity_unknown(channel);
   chan->TOW_ms = TOW_INVALID;
+  chan->bit_polarity = BIT_POLARITY_UNKNOWN;
 
   const struct loop_params *l = &loop_params_stage[0];
 
@@ -461,9 +463,10 @@ void tracking_channel_update(u8 channel)
 
       /* Latch TOW from nav message if pending */
       s32 pending_TOW_ms;
+      s8 pending_bit_polarity;
       nav_bit_fifo_index_t pending_TOW_read_index;
       if (nav_time_sync_get(&chan->nav_time_sync, &pending_TOW_ms,
-                            &pending_TOW_read_index)) {
+                            &pending_bit_polarity, &pending_TOW_read_index)) {
 
         /* Compute time since the pending data was read from the FIFO */
         nav_bit_fifo_index_t fifo_length =
@@ -483,6 +486,7 @@ void tracking_channel_update(u8 channel)
           log_error("%s TOW mismatch: %ld, %lu", buf, chan->TOW_ms, TOW_ms);
         }
         chan->TOW_ms = TOW_ms;
+        chan->bit_polarity = pending_bit_polarity;
       }
 
       u8 int_ms = chan->short_cycle ? 1 : (chan->int_ms-1);
@@ -692,7 +696,7 @@ void tracking_channel_ambiguity_unknown(u8 channel)
 {
   gnss_signal_t sid = tracking_channel[channel].sid;
 
-  tracking_channel[channel].nav_msg.bit_polarity = BIT_POLARITY_UNKNOWN;
+  tracking_channel[channel].bit_polarity = BIT_POLARITY_UNKNOWN;
   tracking_channel[channel].lock_counter = ++tracking_lock_counters[sid_to_index(sid)];
 }
 
@@ -713,7 +717,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->time_of_week_ms = chan->TOW_ms;
   meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
   meas->snr = chan->cn0;
-  if (chan->nav_msg.bit_polarity == BIT_POLARITY_INVERTED) {
+  if (chan->bit_polarity == BIT_POLARITY_INVERTED) {
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = chan->lock_counter;
@@ -868,7 +872,7 @@ bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit)
   return false;
 }
 
-/** Propagate decoded time of week back to a tracking channel.
+/** Propagate decoded time of week and bit polarity back to a tracking channel.
  *
  * \note This function should be called from the same thread as
  * tracking_channel_nav_bit_get().
@@ -877,17 +881,21 @@ bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit)
  *
  * \param channel       Tracking channel to use.
  * \param TOW_ms        Time of week in milliseconds.
+ * \param bit_polarity  Bit polarity.
  *
  * \return true if data was enqueued successfully, false otherwise.
  */
-bool tracking_channel_tow_set(u8 channel, s32 TOW_ms)
+bool tracking_channel_time_sync(u8 channel, s32 TOW_ms, s8 bit_polarity)
 {
   assert(TOW_ms >= 0);
   assert(TOW_ms < GPS_WEEK_LENGTH_ms);
+  assert((bit_polarity == BIT_POLARITY_NORMAL) ||
+         (bit_polarity == BIT_POLARITY_INVERTED));
 
   tracking_channel_t *chan = &tracking_channel[channel];
   nav_bit_fifo_index_t read_index = chan->nav_bit_fifo.read_index;
-  return nav_time_sync_set(&chan->nav_time_sync, TOW_ms, read_index);
+  return nav_time_sync_set(&chan->nav_time_sync,
+                           TOW_ms, bit_polarity, read_index);
 }
 
 /** \} */

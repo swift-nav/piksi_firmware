@@ -47,6 +47,7 @@ typedef struct {
 
 typedef struct {
   s32 TOW_ms;
+  s8 bit_polarity;
   nav_bit_fifo_index_t read_index;
   bool valid;
 } nav_time_sync_t;
@@ -79,7 +80,7 @@ typedef struct {
   u32 corr_sample_count;       /**< Number of samples in correlation period. */
   corr_t cs[3];                /**< EPL correlation results in correlation period. */
   bit_sync_t bit_sync;         /**< Bit sync state. */
-  nav_msg_t nav_msg;           /**< Navigation message of channel SV. */
+  s8 bit_polarity;             /**< Polarity of nav message bits. */
   u16 lock_counter;            /**< Lock counter. Increments when tracking new signal. */
   cn0_est_state_t cn0_est;     /**< C/N0 Estimator. */
   float cn0;                   /**< Current estimate of C/N0. */
@@ -124,6 +125,6 @@ void tracking_send_state(void);
 void tracking_setup(void);
 void tracking_drop_satellite(gnss_signal_t sid);
 bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit);
-bool tracking_channel_tow_set(u8 channel, s32 TOW_ms);
+bool tracking_channel_time_sync(u8 channel, s32 TOW_ms, s8 bit_polarity);
 
 #endif
