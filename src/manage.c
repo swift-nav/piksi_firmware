@@ -565,7 +565,7 @@ s8 use_tracking_channel(u8 i)
       /* Channel time of week has been decoded. */
       && (ch->TOW_ms != TOW_INVALID)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
-      && (ch->nav_msg.bit_polarity != BIT_POLARITY_UNKNOWN)
+      && (ch->bit_polarity != BIT_POLARITY_UNKNOWN)
       /* Estimated C/N0 is above some threshold */
       && (ch->cn0 > track_cn0_use_thres))
       {

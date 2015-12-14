@@ -102,9 +102,9 @@ static bool nav_bit_fifo_write(nav_bit_fifo_t *fifo, s8 soft_bit);
 static bool nav_bit_fifo_read(nav_bit_fifo_t *fifo, s8 *soft_bit);
 static void nav_time_sync_init(nav_time_sync_t *sync);
 static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
-                              nav_bit_fifo_index_t read_index);
+                              s8 bit_polarity, nav_bit_fifo_index_t read_index);
 static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
-                              nav_bit_fifo_index_t *read_index);
+                              s8 *bit_polarity, nav_bit_fifo_index_t *read_index);
 
 static bool nav_bit_fifo_write(nav_bit_fifo_t *fifo, s8 soft_bit)
 {
@@ -138,7 +138,7 @@ static void nav_time_sync_init(nav_time_sync_t *sync)
 }
 
 static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
-                              nav_bit_fifo_index_t read_index)
+                              s8 bit_polarity, nav_bit_fifo_index_t read_index)
 {
   /* Only allow write when data is not pending */
   if (sync->pending_update_valid)
@@ -146,6 +146,7 @@ static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
 
   asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
   sync->pending_update.TOW_ms = TOW_ms;
+  sync->pending_update.bit_polarity = bit_polarity;
   sync->pending_update.read_index = read_index;
   asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
 
@@ -154,7 +155,7 @@ static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
 }
 
 static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
-                              nav_bit_fifo_index_t *read_index)
+                              s8 *bit_polarity, nav_bit_fifo_index_t *read_index)
 {
   /* Only allow read when data is pending */
   if (!sync->pending_update_valid)
@@ -162,6 +163,7 @@ static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
 
   asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
   *TOW_ms = sync->pending_update.TOW_ms;
+  *bit_polarity = sync->pending_update.bit_polarity;
   *read_index = sync->pending_update.read_index;
   asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
 
@@ -238,7 +240,6 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   memset(chan, 0, sizeof(tracking_channel_t));
 
   bit_sync_init(&chan->bit_sync, sid);
-  nav_msg_init(&chan->nav_msg, sid);
   nav_time_sync_init(&chan->nav_time_sync);
 
   /* Adjust the channel start time as the start_sample_count passed
@@ -256,6 +257,7 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   /* Initialize TOW_ms and lock_count. */
   tracking_channel_ambiguity_unknown(channel);
   chan->TOW_ms = TOW_INVALID;
+  chan->bit_polarity = BIT_POLARITY_UNKNOWN;
 
   const struct loop_params *l = &loop_params_stage[0];
 
@@ -391,9 +393,10 @@ void tracking_channel_update(u8 channel)
 
       /* Latch TOW from nav message if pending */
       s32 pending_TOW_ms;
+      s8 pending_bit_polarity;
       nav_bit_fifo_index_t pending_TOW_read_index;
       if (nav_time_sync_get(&chan->nav_time_sync, &pending_TOW_ms,
-                            &pending_TOW_read_index)) {
+                            &pending_bit_polarity, &pending_TOW_read_index)) {
 
         /* Compute time since the pending data was read from the FIFO */
         nav_bit_fifo_index_t fifo_length =
@@ -414,6 +417,7 @@ void tracking_channel_update(u8 channel)
                     chan->sid.sat+1, chan->TOW_ms, TOW_ms);
         }
         chan->TOW_ms = TOW_ms;
+        chan->bit_polarity = pending_bit_polarity;
       }
 
       u8 int_ms = chan->short_cycle ? 1 : (chan->int_ms-1);
@@ -620,7 +624,7 @@ void tracking_channel_ambiguity_unknown(u8 channel)
 {
   gnss_signal_t sid = tracking_channel[channel].sid;
 
-  tracking_channel[channel].nav_msg.bit_polarity = BIT_POLARITY_UNKNOWN;
+  tracking_channel[channel].bit_polarity = BIT_POLARITY_UNKNOWN;
   tracking_channel[channel].lock_counter = ++tracking_lock_counters[sid_to_index(sid)];
 }
 
@@ -641,7 +645,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->time_of_week_ms = chan->TOW_ms;
   meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
   meas->snr = chan->cn0;
-  if (chan->nav_msg.bit_polarity == BIT_POLARITY_INVERTED) {
+  if (chan->bit_polarity == BIT_POLARITY_INVERTED) {
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = chan->lock_counter;
@@ -781,14 +785,16 @@ bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit)
   return nav_bit_fifo_read(&chan->nav_bit_fifo, soft_bit);
 }
 
-bool tracking_channel_tow_set(u8 channel, s32 TOW_ms)
+bool tracking_channel_time_sync(u8 channel, s32 TOW_ms, s8 bit_polarity)
 {
   assert(TOW_ms >= 0);
   assert(TOW_ms < GPS_WEEK_LENGTH_ms);
+  assert((bit_polarity == BIT_POLARITY_NORMAL) ||
+         (bit_polarity == BIT_POLARITY_INVERTED));
 
   tracking_channel_t* chan = &tracking_channel[channel];
   nav_bit_fifo_index_t read_index = chan->nav_bit_fifo.read_index;
-  return nav_time_sync_set(&chan->nav_time_sync, TOW_ms, read_index);
+  return nav_time_sync_set(&chan->nav_time_sync, TOW_ms, bit_polarity, read_index);
 }
 
 /** \} */
