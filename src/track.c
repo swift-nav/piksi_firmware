@@ -154,6 +154,8 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   /* Initialize all fields in the channel to 0 */
   memset(chan, 0, sizeof(tracking_channel_t));
 
+  nav_msg_init(&chan->nav_msg, sid);
+
   /* Adjust the channel start time as the start_sample_count passed
    * in corresponds to a PROMPT code phase rollover but we want to
    * start the channel on an EARLY code phase rollover.
@@ -170,21 +172,23 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   tracking_channel_ambiguity_unknown(channel);
   chan->TOW_ms = TOW_INVALID;
 
+  const struct loop_params *l = &loop_params_stage[0];
+
+  /* Note: The only coherent integration interval currently supported
+     for first-stage tracking (i.e. loop_params_stage[0].coherent_ms)
+     is 1. */
+  chan->int_ms = MIN(l->coherent_ms, chan->nav_msg.bit_length);
+
   /* Calculate code phase rate with carrier aiding. */
   float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
 
-  const struct loop_params *l = &loop_params_stage[0];
-  aided_tl_init(&(chan->tl_state), 1e3 / l->coherent_ms,
+  aided_tl_init(&(chan->tl_state), 1e3 / chan->int_ms,
                 code_phase_rate - GPS_CA_CHIPPING_RATE,
                 l->code_bw, l->code_zeta, l->code_k,
                 l->carr_to_code,
                 carrier_freq,
                 l->carr_bw, l->carr_zeta, l->carr_k,
                 l->carr_fll_aid_gain);
-  /* Note: The only coherent integration interval currently supported
-     for first-stage tracking (i.e. loop_params_stage[0].coherent_ms)
-     is 1. */
-  chan->int_ms = l->coherent_ms;
 
   chan->code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
@@ -193,13 +197,10 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   chan->carrier_freq_fp = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
   chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
   chan->sample_count = start_sample_count;
-
-  nav_msg_init(&chan->nav_msg);
-
   chan->short_cycle = true;
 
   /* Initialise C/N0 estimator */
-  cn0_est_init(&chan->cn0_est, 1e3/l->coherent_ms, cn0_init, CN0_EST_LPF_CUTOFF, 1e3/l->coherent_ms);
+  cn0_est_init(&chan->cn0_est, 1e3/chan->int_ms, cn0_init, CN0_EST_LPF_CUTOFF, 1e3/chan->int_ms);
 
   lock_detect_init(&chan->lock_detect,
                    lock_detect_params.k1, lock_detect_params.k2,
@@ -428,22 +429,22 @@ void tracking_channel_update(u8 channel)
         log_info("PRN %d synced @ %u ms, %.1f dBHz",
                  chan->sid.sat+1, (unsigned int)chan->update_count, chan->cn0);
         chan->stage = 1;
-        struct loop_params *l = &loop_params_stage[1];
-        chan->int_ms = l->coherent_ms;
+        const struct loop_params *l = &loop_params_stage[1];
+        chan->int_ms = MIN(l->coherent_ms, chan->nav_msg.bit_length);
         chan->short_cycle = true;
 
-        cn0_est_init(&chan->cn0_est, 1e3 / l->coherent_ms, chan->cn0,
-                     CN0_EST_LPF_CUTOFF, 1e3 / l->coherent_ms);
+        cn0_est_init(&chan->cn0_est, 1e3 / chan->int_ms, chan->cn0,
+                     CN0_EST_LPF_CUTOFF, 1e3 / chan->int_ms);
 
         /* Recalculate filter coefficients */
-        aided_tl_retune(&chan->tl_state, 1e3 / l->coherent_ms,
+        aided_tl_retune(&chan->tl_state, 1e3 / chan->int_ms,
                         l->code_bw, l->code_zeta, l->code_k,
                         l->carr_to_code,
                         l->carr_bw, l->carr_zeta, l->carr_k,
                         l->carr_fll_aid_gain);
 
         lock_detect_reinit(&chan->lock_detect,
-                           lock_detect_params.k1 * l->coherent_ms,
+                           lock_detect_params.k1 * chan->int_ms,
                            lock_detect_params.k2,
                            /* TODO: Should also adjust lp and lo? */
                            lock_detect_params.lp, lock_detect_params.lo);
