@@ -20,6 +20,7 @@
 #include <libswiftnav/ephemeris.h>
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/signal.h>
 
 #include "board/leds.h"
 #include "position.h"
@@ -289,19 +290,18 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   /* Pull out the contents of the message. */
   packed_obs_content_t *obs = (packed_obs_content_t *)(msg + sizeof(observation_header_t));
   for (u8 i=0; i<obs_in_msg; i++) {
-    /* Check the PRN is valid. e.g. simulation mode outputs test observations
-     * with PRNs >200. */
-    if (obs[i].sid.sat > 31) { /* TODO prn - sid; assume everything below is 0x1F masked! */
+    gnss_signal_t sid = sid_from_sbp(obs[i].sid);
+    if (!sid_valid(sid))
       continue;
-    }
 
     /* Flag this as visible/viable to acquisition/search */
-    manage_set_obs_hint(sid_from_sbp(obs[i].sid));
+    manage_set_obs_hint(sid);
 
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
-    chMtxLock(&es_mutex);
-    if (ephemeris_good(&es[obs[i].sid.sat], t)) {
+    ephemeris_lock();
+    ephemeris_t *e = ephemeris_get(sid);
+    if (ephemeris_good(e, t)) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
@@ -314,7 +314,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(&es[obs[i].sid.sat], t,
+      calc_sat_state(e, t,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);
@@ -327,7 +327,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       base_obss_rx.nm[base_obss_rx.n].tot = t;
       base_obss_rx.n++;
     }
-    chMtxUnlock();
+    ephemeris_unlock();
   }
 
   /* If we can, and all the obs have been received, update to using the new

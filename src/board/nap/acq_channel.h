@@ -15,6 +15,7 @@
 #define SWIFTNAV_ACQ_CHANNEL_H
 
 #include <libswiftnav/common.h>
+#include <libswiftnav/signal.h>
 
 #include "../../main.h"
 #include "nap_common.h"
@@ -51,7 +52,7 @@ void nap_acq_load_wr_disable_blocking(void);
 void nap_acq_init_wr_params_blocking(s16 carrier_freq);
 void nap_acq_init_wr_disable_blocking(void);
 void nap_acq_corr_rd_blocking(u16 *index, u16 *max, float *ave);
-void nap_acq_code_wr_blocking(u8 prn);
+void nap_acq_code_wr_blocking(gnss_signal_t sid);
 
 #endif  /* SWIFTNAV_ACQ_CHANNEL_H */
 

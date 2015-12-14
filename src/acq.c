@@ -29,10 +29,10 @@
 
 static BinarySemaphore load_wait_sem;
 
-void acq_set_prn(u8 prn)
+void acq_set_sid(gnss_signal_t sid)
 {
   chBSemInit(&load_wait_sem, TRUE);
-  nap_acq_code_wr_blocking(prn);
+  nap_acq_code_wr_blocking(sid);
   if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
     log_error("acq: Timeout waiting for code load!");
   }
@@ -40,7 +40,7 @@ void acq_set_prn(u8 prn)
 
 /** Send results of an acquisition to the host.
  *
- * \param prn  PRN (0-31) of the acquisition
+ * \param sid SID of the acquisition
  * \param snr Signal to noise ratio of best point from acquisition.
  * \param cp  Code phase of best point.
  * \param cf  Carrier frequency of best point.

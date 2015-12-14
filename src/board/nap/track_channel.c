@@ -221,10 +221,10 @@ void nap_track_phase_rd_blocking(u8 channel, s32* carrier_phase,
  *
  * \param prn PRN number (0-31) of CA code to be written.
  */
-void nap_track_code_wr_blocking(u8 channel, u8 prn)
+void nap_track_code_wr_blocking(u8 channel, gnss_signal_t sid)
 {
   nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
-                     + NAP_REG_TRACK_CODE_OFFSET, 128, 0, ca_code(prn));
+                     + NAP_REG_TRACK_CODE_OFFSET, 128, 0, ca_code(sid));
 }
 
 /** \} */

@@ -127,11 +127,11 @@ void nap_acq_corr_rd_blocking(u16 *index, u16 *max, float *ave)
  * CA Code for SV to be searched for must be written into channel's code ram
  * before acquisitions are started.
  *
- * \param prn PRN number (0-31) of CA code to be written.
+ * \param sid Signal identifier corresponding to CA code to be written.
  */
-void nap_acq_code_wr_blocking(u8 prn)
+void nap_acq_code_wr_blocking(gnss_signal_t sid)
 {
-  nap_xfer_blocking(NAP_REG_ACQ_CODE, 128, 0, ca_code(prn));
+  nap_xfer_blocking(NAP_REG_ACQ_CODE, 128, 0, ca_code(sid));
 }
 
 /** \} */

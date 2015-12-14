@@ -30,22 +30,36 @@
 
 sbp_gnss_signal_t sid_to_sbp(const gnss_signal_t from)
 {
-  sbp_gnss_signal_t ret = {
+  sbp_gnss_signal_t sbp_sid = {
     .constellation = from.constellation,
     .band = from.band,
     .sat = from.sat,
   };
-  return ret;
+
+  /* Maintain legacy compatibility with GPS PRN encoding. Sat values for other
+   * constellations are "real" satellite identifiers.
+   */
+  if (from.constellation == CONSTELLATION_GPS)
+    sbp_sid.sat -= GPS_FIRST_PRN;
+
+  return sbp_sid;
 }
 
 gnss_signal_t sid_from_sbp(const sbp_gnss_signal_t from)
 {
-  gnss_signal_t ret = {
+  gnss_signal_t sid = {
     .constellation = from.constellation,
     .band = from.band,
     .sat = from.sat,
   };
-  return ret;
+
+  /* Maintain legacy compatibility with GPS PRN encoding. Sat values for other
+   * constellations are "real" satellite identifiers.
+   */
+  if (sid.constellation == CONSTELLATION_GPS)
+    sid.sat += GPS_FIRST_PRN;
+
+  return sid;
 }
 
 void sbp_make_gps_time(msg_gps_time_t *t_out, const gps_time_t *t_in, u8 flags)
@@ -252,66 +266,66 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
 
 void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e)
 {
-   e->tgd       =  msg->tgd;
-   e->crs       =  msg->c_rs;
-   e->crc       =  msg->c_rc;
-   e->cuc       =  msg->c_uc;
-   e->cus       =  msg->c_us;
-   e->cic       =  msg->c_ic;
-   e->cis       =  msg->c_is;
-   e->dn        =  msg->dn;
-   e->m0        =  msg->m0;
-   e->ecc       =  msg->ecc;
-   e->sqrta     =  msg->sqrta;
-   e->omega0    =  msg->omega0;
-   e->omegadot  =  msg->omegadot;
-   e->w         =  msg->w;
-   e->inc       =  msg->inc;
-   e->inc_dot   =  msg->inc_dot;
-   e->af0       =  msg->af0;
-   e->af1       =  msg->af1;
-   e->af2       =  msg->af2;
-   e->toe.tow   =  msg->toe_tow;
-   e->toe.wn    =  msg->toe_wn;
-   e->toc.tow   =  msg->toc_tow;
-   e->toc.wn    =  msg->toe_wn;
-   e->valid     =  msg->valid;
-   e->healthy   =  msg->healthy;
-   e->sid       =  sid_from_sbp(msg->sid);
-   e->iode      =  msg->iode;
+  e->kepler.tgd       = msg->tgd;
+  e->kepler.crs       = msg->c_rs;
+  e->kepler.crc       = msg->c_rc;
+  e->kepler.cuc       = msg->c_uc;
+  e->kepler.cus       = msg->c_us;
+  e->kepler.cic       = msg->c_ic;
+  e->kepler.cis       = msg->c_is;
+  e->kepler.dn        = msg->dn;
+  e->kepler.m0        = msg->m0;
+  e->kepler.ecc       = msg->ecc;
+  e->kepler.sqrta     = msg->sqrta;
+  e->kepler.omega0    = msg->omega0;
+  e->kepler.omegadot  = msg->omegadot;
+  e->kepler.w         = msg->w;
+  e->kepler.inc       = msg->inc;
+  e->kepler.inc_dot   = msg->inc_dot;
+  e->kepler.af0       = msg->af0;
+  e->kepler.af1       = msg->af1;
+  e->kepler.af2       = msg->af2;
+  e->toe.tow          = msg->toe_tow;
+  e->toe.wn           = msg->toe_wn;
+  e->kepler.toc.tow   = msg->toc_tow;
+  e->kepler.toc.wn    = msg->toe_wn;
+  e->valid            = msg->valid;
+  e->healthy          = msg->healthy;
+  e->sid              = sid_from_sbp(msg->sid);
+  e->kepler.iode      = msg->iode;
 }
 
 void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
 {
-  gps_time_t toe = e->toe;
-  gps_time_t toc = e->toc;
-  msg->tgd       = e->tgd;
-  msg->c_rs      = e->crs;
-  msg->c_rc      = e->crc;
-  msg->c_uc      = e->cuc;
-  msg->c_us      = e->cus;
-  msg->c_ic      = e->cic;
-  msg->c_is      = e->cis;
-  msg->dn        = e->dn;
-  msg->m0        = e->m0;
-  msg->ecc       = e->ecc;
-  msg->sqrta     = e->sqrta;
-  msg->omega0    = e->omega0;
-  msg->omegadot  = e->omegadot;
-  msg->w         = e->w;
-  msg->inc       = e->inc;
-  msg->inc_dot   = e->inc_dot;
-  msg->af0       = e->af0;
-  msg->af1       = e->af1;
-  msg->af2       = e->af2;
-  msg->toe_tow   = toe.tow;
-  msg->toe_wn    = toe.wn;
-  msg->toc_tow   = toc.tow;
-  msg->toc_wn    = toc.wn;
-  msg->valid     = e->valid;
-  msg->healthy   = e->healthy;
-  msg->sid       = sid_to_sbp(e->sid);
-  msg->iode      = e->iode;
+  gps_time_t toe      = e->toe;
+  gps_time_t toc      = e->kepler.toc;
+  msg->tgd            = e->kepler.tgd;
+  msg->c_rs           = e->kepler.crs;
+  msg->c_rc           = e->kepler.crc;
+  msg->c_uc           = e->kepler.cuc;
+  msg->c_us           = e->kepler.cus;
+  msg->c_ic           = e->kepler.cic;
+  msg->c_is           = e->kepler.cis;
+  msg->dn             = e->kepler.dn;
+  msg->m0             = e->kepler.m0;
+  msg->ecc            = e->kepler.ecc;
+  msg->sqrta          = e->kepler.sqrta;
+  msg->omega0         = e->kepler.omega0;
+  msg->omegadot       = e->kepler.omegadot;
+  msg->w              = e->kepler.w;
+  msg->inc            = e->kepler.inc;
+  msg->inc_dot        = e->kepler.inc_dot;
+  msg->af0            = e->kepler.af0;
+  msg->af1            = e->kepler.af1;
+  msg->af2            = e->kepler.af2;
+  msg->toe_tow        = toe.tow;
+  msg->toe_wn         = toe.wn;
+  msg->toc_tow        = toc.tow;
+  msg->toc_wn         = toc.wn;
+  msg->valid          = e->valid;
+  msg->healthy        = e->healthy;
+  msg->sid            = sid_to_sbp(e->sid);
+  msg->iode           = e->kepler.iode;
 }
 
 /** \} */
