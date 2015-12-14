@@ -58,6 +58,7 @@ char lock_detect_params_string[24] = LD_PARAMS_DISABLE;
 bool use_alias_detection = true;
 
 #define CN0_EST_LPF_CUTOFF 5
+#define ALIAS_DETECT_AVG_TIME_ms 500
 
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
@@ -205,9 +206,9 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
                    lock_detect_params.k1, lock_detect_params.k2,
                    lock_detect_params.lp, lock_detect_params.lo);
 
-  /* TODO: Reconfigure alias detection between stages */
-  alias_detect_init(&chan->alias_detect, 500/loop_params_stage[1].coherent_ms,
-                    (loop_params_stage[1].coherent_ms-1)*1e-3);
+  /* Time between averaged samples is 1/2 of short cycle + 1/2 of long cycle */
+  alias_detect_init(&chan->alias_detect, ALIAS_DETECT_AVG_TIME_ms/chan->int_ms,
+                    chan->int_ms * 1e-3 / 2.0);
 
   /* Starting carrier phase is set to zero as we don't
    * know the carrier freq well enough to calculate it.
@@ -406,7 +407,10 @@ void tracking_channel_update(u8 channel)
         s32 I = (cs[1].I - chan->alias_detect.first_I) / (chan->int_ms - 1);
         s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
         float err = alias_detect_second(&chan->alias_detect, I, Q);
-        if (fabs(err) > (250 / chan->int_ms)) {
+
+        /* Closest aliases occur at +/- 0.5 cycles per integration period.
+         * Correct if error magnitude is greater than half of this number. */
+        if (fabs(err) > (1.0 / (4.0 * chan->int_ms * 1e-3))) {
           if (chan->lock_detect.outp)
             log_warn("False phase lock detect PRN%d: err=%f", chan->sid.sat+1, err);
 
@@ -447,6 +451,9 @@ void tracking_channel_update(u8 channel)
                            lock_detect_params.k2,
                            /* TODO: Should also adjust lp and lo? */
                            lock_detect_params.lp, lock_detect_params.lo);
+
+        alias_detect_reinit(&chan->alias_detect, ALIAS_DETECT_AVG_TIME_ms/chan->int_ms,
+                            chan->int_ms * 1e-3 / 2.0);
 
         /* Indicate that a mode change has occurred. */
         chan->mode_change_count = chan->update_count;
