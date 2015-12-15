@@ -313,8 +313,14 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       );
       double clock_err;
       double clock_rate_err;
+
+      base_obss_rx.nm[base_obss_rx.n].tot.tow = t.tow \
+    		  - base_obss_rx.nm[base_obss_rx.n].raw_pseudorange / GPS_C;
+      gps_time_match_weeks(&base_obss_rx.nm[base_obss_rx.n].tot,
+                           &t);
+
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(e, t,
+      calc_sat_state(e, base_obss_rx.nm[base_obss_rx.n].tot,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);
