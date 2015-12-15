@@ -91,6 +91,7 @@ static almanac_t almanac[NUM_SATS];
 static float track_cn0_use_thres = 31.0; /* dBHz */
 static float elevation_mask = 0.0; /* degrees */
 static bool sbas_enabled = false;
+static bool qzss_enabled = false;
 
 static u8 manage_track_new_acq(void);
 static void manage_acq(void);
@@ -146,6 +147,7 @@ static msg_t manage_acq_thread(void *arg)
 void manage_acq_setup()
 {
   SETTING("acquisition", "sbas enabled", sbas_enabled, TYPE_BOOL);
+  SETTING("acquisition", "qzss enabled", qzss_enabled, TYPE_BOOL);
 
   for (u32 i=0; i<NUM_SATS; i++) {
     acq_status[i].state = ACQ_PRN_ACQUIRING;
@@ -156,6 +158,11 @@ void manage_acq_setup()
 
     if (!sbas_enabled &&
         (acq_status[i].sid.constellation == CONSTELLATION_SBAS)) {
+      acq_status[i].masked = true;
+    }
+
+    if (!qzss_enabled &&
+        (acq_status[i].sid.constellation == CONSTELLATION_QZSS)) {
       acq_status[i].masked = true;
     }
 
