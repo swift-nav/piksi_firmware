@@ -452,6 +452,12 @@ static msg_t solution_thread(void *arg)
 
     dops_t dops;
     s8 ret;
+
+    if (!simulation_enabled()) {
+      /* Update observation time. */
+      send_observations(n_ready_tdcp, &nav_meas_tdcp[0].tot, nav_meas_tdcp);
+    }
+
     /* disable_raim controlled by external setting. Defaults to false. */
     if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp, disable_raim,
                         &position_solution, &dops)) >= 0) {
@@ -536,10 +542,6 @@ static msg_t solution_thread(void *arg)
         gps_time_t new_obs_time;
         new_obs_time.wn = position_solution.time.wn;
         new_obs_time.tow = expected_tow;
-
-        if (!simulation_enabled()) {
-          send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
-        }
 
         /* TODO: use a buffer from the pool from the start instead of
          * allocating nav_meas_tdcp as well. Downside, if we don't end up
