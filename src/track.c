@@ -58,6 +58,13 @@ char lock_detect_params_string[24] = LD_PARAMS_DISABLE;
 bool use_alias_detection = true;
 
 #define CN0_EST_LPF_CUTOFF 5
+#define GPS_WEEK_LENGTH_ms (7*24*60*60*1000)
+
+#define NAV_BIT_FIFO_INDEX_MASK ((NAV_BIT_FIFO_SIZE) - 1)
+#define NAV_BIT_FIFO_INDEX_DIFF(write_index, read_index) \
+          ((nav_bit_fifo_index_t)((write_index) - (read_index)))
+#define NAV_BIT_FIFO_LENGTH(p_fifo) \
+          (NAV_BIT_FIFO_INDEX_DIFF((p_fifo)->write_index, (p_fifo)->read_index))
 
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
@@ -90,6 +97,79 @@ tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
  * signal begins being tracked.
  */
 static u16 tracking_lock_counters[NUM_SATS];
+
+static bool nav_bit_fifo_write(nav_bit_fifo_t *fifo, s8 soft_bit);
+static bool nav_bit_fifo_read(nav_bit_fifo_t *fifo, s8 *soft_bit);
+static void nav_time_sync_init(nav_time_sync_t *sync);
+static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
+                              s8 bit_polarity, nav_bit_fifo_index_t read_index);
+static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
+                              s8 *bit_polarity, nav_bit_fifo_index_t *read_index);
+
+static bool nav_bit_fifo_write(nav_bit_fifo_t *fifo, s8 soft_bit)
+{
+  if (NAV_BIT_FIFO_LENGTH(fifo) >= NAV_BIT_FIFO_SIZE)
+    return false;
+
+  asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+  fifo->elements[fifo->write_index & NAV_BIT_FIFO_INDEX_MASK].soft_bit = soft_bit;
+  asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+
+  fifo->write_index++;
+  return true;
+}
+
+static bool nav_bit_fifo_read(nav_bit_fifo_t *fifo, s8 *soft_bit)
+{
+  if (NAV_BIT_FIFO_LENGTH(fifo) <= 0)
+    return false;
+
+  asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+  *soft_bit = fifo->elements[fifo->read_index & NAV_BIT_FIFO_INDEX_MASK].soft_bit;
+  asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+
+  fifo->read_index++;
+  return true;
+}
+
+static void nav_time_sync_init(nav_time_sync_t *sync)
+{
+  sync->pending_update_valid = false;
+}
+
+static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
+                              s8 bit_polarity, nav_bit_fifo_index_t read_index)
+{
+  /* Only allow write when data is not pending */
+  if (sync->pending_update_valid)
+    return false;
+
+  asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+  sync->pending_update.TOW_ms = TOW_ms;
+  sync->pending_update.bit_polarity = bit_polarity;
+  sync->pending_update.read_index = read_index;
+  asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+
+  sync->pending_update_valid = true;
+  return true;
+}
+
+static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
+                              s8 *bit_polarity, nav_bit_fifo_index_t *read_index)
+{
+  /* Only allow read when data is pending */
+  if (!sync->pending_update_valid)
+    return false;
+
+  asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+  *TOW_ms = sync->pending_update.TOW_ms;
+  *bit_polarity = sync->pending_update.bit_polarity;
+  *read_index = sync->pending_update.read_index;
+  asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+
+  sync->pending_update_valid = false;
+  return true;
+}
 
 /* Initialize the lock counters to random numbers
  */
@@ -134,6 +214,11 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
   return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
 }
 
+s8 nav_bit_quantize(s32 bit_integrate)
+{
+  return bit_integrate >= 0 ? 127 : -127;
+}
+
 /** Initialises a tracking channel.
  * Initialises a tracking channel on the Swift NAP. The start_sample_count
  * must be contrived to be at or close to a PRN edge (PROMPT code phase = 0).
@@ -154,6 +239,9 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   /* Initialize all fields in the channel to 0 */
   memset(chan, 0, sizeof(tracking_channel_t));
 
+  bit_sync_init(&chan->bit_sync, sid);
+  nav_time_sync_init(&chan->nav_time_sync);
+
   /* Adjust the channel start time as the start_sample_count passed
    * in corresponds to a PROMPT code phase rollover but we want to
    * start the channel on an EARLY code phase rollover.
@@ -169,22 +257,25 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   /* Initialize TOW_ms and lock_count. */
   tracking_channel_ambiguity_unknown(channel);
   chan->TOW_ms = TOW_INVALID;
+  chan->bit_polarity = BIT_POLARITY_UNKNOWN;
+
+  const struct loop_params *l = &loop_params_stage[0];
+
+  /* Note: The only coherent integration interval currently supported
+     for first-stage tracking (i.e. loop_params_stage[0].coherent_ms)
+     is 1. */
+  chan->int_ms = MIN(l->coherent_ms, chan->bit_sync.bit_length);
 
   /* Calculate code phase rate with carrier aiding. */
   float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
 
-  const struct loop_params *l = &loop_params_stage[0];
-  aided_tl_init(&(chan->tl_state), 1e3 / l->coherent_ms,
+  aided_tl_init(&(chan->tl_state), 1e3 / chan->int_ms,
                 code_phase_rate - GPS_CA_CHIPPING_RATE,
                 l->code_bw, l->code_zeta, l->code_k,
                 l->carr_to_code,
                 carrier_freq,
                 l->carr_bw, l->carr_zeta, l->carr_k,
                 l->carr_fll_aid_gain);
-  /* Note: The only coherent integration interval currently supported
-     for first-stage tracking (i.e. loop_params_stage[0].coherent_ms)
-     is 1. */
-  chan->int_ms = l->coherent_ms;
 
   chan->code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
@@ -193,13 +284,10 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   chan->carrier_freq_fp = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
   chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
   chan->sample_count = start_sample_count;
-
-  nav_msg_init(&chan->nav_msg);
-
   chan->short_cycle = true;
 
   /* Initialise C/N0 estimator */
-  cn0_est_init(&chan->cn0_est, 1e3/l->coherent_ms, cn0_init, CN0_EST_LPF_CUTOFF, 1e3/l->coherent_ms);
+  cn0_est_init(&chan->cn0_est, 1e3/chan->int_ms, cn0_init, CN0_EST_LPF_CUTOFF, 1e3/chan->int_ms);
 
   lock_detect_init(&chan->lock_detect,
                    lock_detect_params.k1, lock_detect_params.k2,
@@ -303,11 +391,43 @@ void tracking_channel_update(u8 channel)
       chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
       chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
 
+      /* Latch TOW from nav message if pending */
+      s32 pending_TOW_ms;
+      s8 pending_bit_polarity;
+      nav_bit_fifo_index_t pending_TOW_read_index;
+      if (nav_time_sync_get(&chan->nav_time_sync, &pending_TOW_ms,
+                            &pending_bit_polarity, &pending_TOW_read_index)) {
+
+        /* Compute time since the pending data was read from the FIFO */
+        nav_bit_fifo_index_t fifo_length =
+          NAV_BIT_FIFO_INDEX_DIFF(chan->nav_bit_fifo.write_index,
+                                  pending_TOW_read_index);
+        u32 fifo_time_diff_ms = fifo_length * chan->bit_sync.bit_length;
+
+        /* Add full bit times + fractional bit time to the specified TOW */
+        s32 TOW_ms = pending_TOW_ms + GPS_WEEK_LENGTH_ms
+          + fifo_time_diff_ms + chan->nav_bit_TOW_offset_ms;
+
+        if (TOW_ms >= GPS_WEEK_LENGTH_ms)
+          TOW_ms -= GPS_WEEK_LENGTH_ms;
+
+        /* Log error if updated TOW does not match current value */
+        if ((chan->TOW_ms != TOW_INVALID) && (chan->TOW_ms != TOW_ms)) {
+          log_error("PRN %d TOW mismatch: %d, %d",
+                    chan->sid.sat+1, chan->TOW_ms, TOW_ms);
+        }
+        chan->TOW_ms = TOW_ms;
+        chan->bit_polarity = pending_bit_polarity;
+      }
+
+      u8 int_ms = chan->short_cycle ? 1 : (chan->int_ms-1);
+      chan->nav_bit_TOW_offset_ms += int_ms;
+
       if (chan->TOW_ms != TOW_INVALID) {
         /* Have a valid time of week - increment it. */
-        chan->TOW_ms += chan->short_cycle ? 1 : (chan->int_ms-1);
-        if (chan->TOW_ms >= 7*24*60*60*1000)
-          chan->TOW_ms -= 7*24*60*60*1000;
+        chan->TOW_ms += int_ms;
+        if (chan->TOW_ms >= GPS_WEEK_LENGTH_ms)
+          chan->TOW_ms -= GPS_WEEK_LENGTH_ms;
         /* TODO: maybe keep track of week number in channel state, or
            derive it from system time */
       }
@@ -333,14 +453,20 @@ void tracking_channel_update(u8 channel)
 
       chan->update_count += chan->int_ms;
 
-      s32 TOW_ms = nav_msg_update(&chan->nav_msg, chan->cs[1].I, chan->int_ms);
+      /* Update bit sync */
+      s32 bit_integrate;
+      if (bit_sync_update(&chan->bit_sync, chan->cs[1].I, chan->int_ms,
+                          &bit_integrate)) {
 
-      if ((TOW_ms >= 0) && chan->TOW_ms != TOW_ms) {
-        if (chan->TOW_ms != TOW_INVALID) {
-          log_error("PRN %d TOW mismatch: %ld, %lu",
-                    chan->sid.sat+1, chan->TOW_ms, TOW_ms);
+        s8 soft_bit = nav_bit_quantize(bit_integrate);
+
+        // write to FIFO
+        if (!nav_bit_fifo_write(&chan->nav_bit_fifo, soft_bit)) {
+          log_warn("PRN %d nav bit FIFO overrun", chan->sid.sat+1);
         }
-        chan->TOW_ms = TOW_ms;
+
+        // clear nav bit TOW offset
+        chan->nav_bit_TOW_offset_ms = 0;
       }
 
       /* Correlations should already be in chan->cs thanks to
@@ -424,26 +550,26 @@ void tracking_channel_update(u8 channel)
           /* Must have (at least optimistic) phase lock */
           (chan->lock_detect.outo) &&
           /* Must have nav bit sync, and be correctly aligned */
-          (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
+          (chan->bit_sync.bit_phase == chan->bit_sync.bit_phase_ref)) {
         log_info("PRN %d synced @ %u ms, %.1f dBHz",
                  chan->sid.sat+1, (unsigned int)chan->update_count, chan->cn0);
         chan->stage = 1;
-        struct loop_params *l = &loop_params_stage[1];
-        chan->int_ms = l->coherent_ms;
+        const struct loop_params *l = &loop_params_stage[1];
+        chan->int_ms = MIN(l->coherent_ms, chan->bit_sync.bit_length);
         chan->short_cycle = true;
 
-        cn0_est_init(&chan->cn0_est, 1e3 / l->coherent_ms, chan->cn0,
-                     CN0_EST_LPF_CUTOFF, 1e3 / l->coherent_ms);
+        cn0_est_init(&chan->cn0_est, 1e3 / chan->int_ms, chan->cn0,
+                     CN0_EST_LPF_CUTOFF, 1e3 / chan->int_ms);
 
         /* Recalculate filter coefficients */
-        aided_tl_retune(&chan->tl_state, 1e3 / l->coherent_ms,
+        aided_tl_retune(&chan->tl_state, 1e3 / chan->int_ms,
                         l->code_bw, l->code_zeta, l->code_k,
                         l->carr_to_code,
                         l->carr_bw, l->carr_zeta, l->carr_k,
                         l->carr_fll_aid_gain);
 
         lock_detect_reinit(&chan->lock_detect,
-                           lock_detect_params.k1 * l->coherent_ms,
+                           lock_detect_params.k1 * chan->int_ms,
                            lock_detect_params.k2,
                            /* TODO: Should also adjust lp and lo? */
                            lock_detect_params.lp, lock_detect_params.lo);
@@ -498,7 +624,7 @@ void tracking_channel_ambiguity_unknown(u8 channel)
 {
   gnss_signal_t sid = tracking_channel[channel].sid;
 
-  tracking_channel[channel].nav_msg.bit_polarity = BIT_POLARITY_UNKNOWN;
+  tracking_channel[channel].bit_polarity = BIT_POLARITY_UNKNOWN;
   tracking_channel[channel].lock_counter = ++tracking_lock_counters[sid_to_index(sid)];
 }
 
@@ -519,7 +645,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->time_of_week_ms = chan->TOW_ms;
   meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
   meas->snr = chan->cn0;
-  if (chan->nav_msg.bit_polarity == BIT_POLARITY_INVERTED) {
+  if (chan->bit_polarity == BIT_POLARITY_INVERTED) {
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = chan->lock_counter;
@@ -651,6 +777,24 @@ void tracking_setup()
                  TYPE_STRING, parse_lock_detect_params);
   SETTING("track", "cn0_drop", track_cn0_drop_thres, TYPE_FLOAT);
   SETTING("track", "alias_detect", use_alias_detection, TYPE_BOOL);
+}
+
+bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit)
+{
+  tracking_channel_t* chan = &tracking_channel[channel];
+  return nav_bit_fifo_read(&chan->nav_bit_fifo, soft_bit);
+}
+
+bool tracking_channel_time_sync(u8 channel, s32 TOW_ms, s8 bit_polarity)
+{
+  assert(TOW_ms >= 0);
+  assert(TOW_ms < GPS_WEEK_LENGTH_ms);
+  assert((bit_polarity == BIT_POLARITY_NORMAL) ||
+         (bit_polarity == BIT_POLARITY_INVERTED));
+
+  tracking_channel_t* chan = &tracking_channel[channel];
+  nav_bit_fifo_index_t read_index = chan->nav_bit_fifo.read_index;
+  return nav_time_sync_set(&chan->nav_time_sync, TOW_ms, bit_polarity, read_index);
 }
 
 /** \} */

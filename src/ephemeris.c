@@ -27,7 +27,7 @@ MUTEX_DECL(es_mutex);
 static ephemeris_t es[NUM_SATS] _CCM;
 static ephemeris_t es_candidate[NUM_SATS] _CCM;
 
-static void ephemeris_new(ephemeris_t *e)
+void ephemeris_new(ephemeris_t *e)
 {
   assert(sid_valid(e->sid));
 
@@ -54,54 +54,6 @@ static void ephemeris_new(ephemeris_t *e)
     es_candidate[index] = *e;
     ephemeris_unlock();
   }
-}
-
-static WORKING_AREA_CCM(wa_nav_msg_thread, 3000);
-static msg_t nav_msg_thread(void *arg)
-{
-  (void)arg;
-  chRegSetThreadName("nav msg");
-
-  while (TRUE) {
-
-    /* TODO: This should be trigged by a semaphore from the tracking loop, not
-     * just ran periodically. */
-
-
-    for (u8 i=0; i<nap_track_n_channels; i++) {
-      chThdSleepMilliseconds(100);
-      tracking_channel_t *ch = &tracking_channel[i];
-      ephemeris_t e = {.sid = ch->sid};
-
-      /* Check if there is a new nav msg subframe to process.
-       * TODO: move this into a function */
-      if ((ch->state != TRACKING_RUNNING) ||
-          (ch->nav_msg.subframe_start_index == 0))
-        continue;
-
-      /* Decode ephemeris to temporary struct */
-      __asm__("CPSID i;");
-      s8 ret = process_subframe(&ch->nav_msg, &e);
-      __asm__("CPSIE i;");
-
-      if (ret <= 0)
-        continue;
-
-      /* Decoded a new ephemeris. */
-      ephemeris_new(&e);
-
-      ephemeris_t *eph = ephemeris_get(ch->sid);
-      if (!eph->healthy) {
-        log_info("PRN %02d unhealthy", ch->sid.sat+1);
-      } else {
-        msg_ephemeris_t msg;
-        pack_ephemeris(eph, &msg);
-        sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(msg_ephemeris_t), (u8 *)&msg);
-      }
-    }
-  }
-
-  return 0;
 }
 
 static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -137,9 +89,6 @@ void ephemeris_setup(void)
     &ephemeris_msg_callback,
     &ephemeris_msg_node
   );
-
-  chThdCreateStatic(wa_nav_msg_thread, sizeof(wa_nav_msg_thread),
-                    NORMALPRIO-1, nav_msg_thread, NULL);
 }
 
 void ephemeris_lock(void)
