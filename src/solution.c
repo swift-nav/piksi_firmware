@@ -425,7 +425,7 @@ static msg_t solution_thread(void *arg)
     const channel_measurement_t *p_meas[n_ready];
     navigation_measurement_t *p_nav_meas[n_ready];
     const ephemeris_t *p_e_meas[n_ready];
-    for (u32 i=0; i<n_ready; i++) {
+    for (u8 i=0; i<n_ready; i++) {
       p_meas[i] = &meas[i];
       p_nav_meas[i] = &nav_meas[i];
       p_e_meas[i] = ephemeris_get(meas[i].sid);

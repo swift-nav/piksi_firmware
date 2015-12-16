@@ -48,10 +48,10 @@ static msg_t ephemeris_thread(void *arg)
       gps_time_t t = get_current_time();
 
       /* Quickly check validity before locking */
-      if (ephemeris_good(e, t)) {
+      if (ephemeris_valid(e, &t)) {
         ephemeris_lock();
         /* Now that we are locked, reverify validity and transmit */
-        if (ephemeris_good(e, t)) {
+        if (ephemeris_valid(e, &t)) {
           msg_ephemeris_t msg;
           pack_ephemeris(e, &msg);
           sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(msg_ephemeris_t), (u8 *)&msg);
@@ -82,7 +82,7 @@ void ephemeris_new(ephemeris_t *e)
 
   gps_time_t t = get_current_time();
   u32 index = sid_to_index(e->sid);
-  if (!ephemeris_good(&es[index], &t)) {
+  if (!ephemeris_valid(&es[index], &t)) {
     /* Our currently used ephemeris is bad, so we assume this is better. */
     log_info("New untrusted ephemeris for %s", buf);
     ephemeris_lock();

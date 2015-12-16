@@ -116,9 +116,9 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
   ephemeris_new(&e);
 
   ephemeris_t *eph = ephemeris_get(channel_info->sid);
-  if (!eph->healthy) {
+  if (!eph->valid) {
     char buf[SID_STR_LEN_MAX];
     sid_to_string(buf, sizeof(buf), channel_info->sid);
-    log_info("%s unhealthy", buf);
+    log_info("%s ephemeris is invalid", buf);
   }
 }
