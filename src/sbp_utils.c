@@ -180,7 +180,7 @@ void sbp_make_baseline_ned(msg_baseline_ned_t *baseline_ned, const gps_time_t *t
   baseline_ned->flags = flags;
 }
 
-void sbp_make_heading(msg_baseline_heading_t *baseline_heading, const gps_time_t *t, 
+void sbp_make_heading(msg_baseline_heading_t *baseline_heading, const gps_time_t *t,
                       const double heading, u8 n_sats, u8 flags) {
     baseline_heading->tow = round(t->tow * 1e3);
     baseline_heading->heading = (u32)round(heading * 1e3);
@@ -293,6 +293,7 @@ void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e)
   e->healthy          = msg->healthy;
   e->sid              = sid_from_sbp(msg->sid);
   e->kepler.iode      = msg->iode;
+  e->kepler.iodc      = msg->iodc;
 }
 
 void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
@@ -326,6 +327,7 @@ void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
   msg->healthy        = e->healthy;
   msg->sid            = sid_to_sbp(e->sid);
   msg->iode           = e->kepler.iode;
+  msg->iodc           = e->kepler.iodc;
 }
 
 /** \} */
