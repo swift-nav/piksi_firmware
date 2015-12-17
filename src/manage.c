@@ -114,14 +114,15 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   msg_mask_satellite_t *m = (msg_mask_satellite_t *)msg;
   gnss_signal_t sid = sid_from_sbp(m->sid);
 
+  char sid_str[SID_STR_LEN_MAX];
+  sid_to_string(sid_str, sizeof(sid_str), sid);
+
   if (sid_valid(sid)) {
     acq_status_t *acq = &acq_status[sid_to_index(sid)];
     acq->masked = (m->mask & MASK_ACQUISITION) ? true : false;
     if (m->mask & MASK_TRACKING) {
       tracking_drop_satellite(sid);
     }
-    char sid_str[SID_STR_LEN_MAX];
-    sid_to_string(sid_str, sizeof(sid_str), sid);
     log_info("Mask for %s = 0x%02x", sid_str, m->mask);
   } else {
     log_warn("Mask not set for invalid SID");
@@ -485,6 +486,9 @@ static void manage_track()
 
     tracking_channel_t *ch = &tracking_channel[i];
 
+    char buf[SID_STR_LEN_MAX];
+    sid_to_string(buf, sizeof(buf), ch->sid);
+
     /* Skip channels that aren't in use */
     if (ch->state != TRACKING_RUNNING ||
         /* Give newly-initialized channels a chance to converge */
@@ -496,7 +500,7 @@ static void manage_track()
     /* Is ephemeris marked unhealthy? */
     const ephemeris_t *e = ephemeris_get(ch->sid);
     if (e->valid && !e->healthy) {
-      log_info("PRN%d unhealthy, dropping", ch->sid.sat+1);
+      log_info("%s unhealthy, dropping", buf);
       drop_channel(i);
       acq->state = ACQ_PRN_UNHEALTHY;
       continue;
@@ -521,21 +525,21 @@ static void manage_track()
     /* Optimistic phase lock detector "unlocked" for a while? */
     /* TODO: This isn't doing much.  Use the pessimistic detector instead? */
     if ((int)(uc - ch->ld_opti_locked_count) > TRACK_DROP_UNLOCKED_T) {
-      log_info("PRN%d PLL unlocked too long, dropping", ch->sid.sat+1);
+      log_info("%s PLL unlocked too long, dropping", buf);
       drop_channel(i);
       continue;
     }
 
     /* CN0 below threshold for a while? */
     if ((int)(uc - ch->cn0_above_drop_thres_count) > TRACK_DROP_CN0_T) {
-      log_info("PRN%d low CN0 too long, dropping", ch->sid.sat+1);
+      log_info("%s low CN0 too long, dropping", buf);
       drop_channel(i);
       continue;
     }
 
     /* Is satellite below our elevation mask? */
     if (ch->elevation < elevation_mask) {
-      log_info("PRN%d below elevation mask, dropping", ch->sid.sat+1);
+      log_info("%s below elevation mask, dropping", buf);
       drop_channel(i);
       /* Erase the tracking hint score, and any others it might have */
       memset(&acq->score, 0, sizeof(acq->score));

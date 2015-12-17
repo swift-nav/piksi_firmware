@@ -31,25 +31,28 @@ static void ephemeris_new(ephemeris_t *e)
 {
   assert(sid_valid(e->sid));
 
+  char buf[SID_STR_LEN_MAX];
+  sid_to_string(buf, sizeof(buf), e->sid);
+
   gps_time_t t = get_current_time();
   u32 index = sid_to_index(e->sid);
   if (!ephemeris_good(&es[index], t)) {
     /* Our currently used ephemeris is bad, so we assume this is better. */
-    log_info("New untrusted ephemeris for PRN %02d", e->sid.sat+1);
+    log_info("New untrusted ephemeris for %s", buf);
     ephemeris_lock();
     es[index] = es_candidate[index] = *e;
     ephemeris_unlock();
 
   } else if (ephemeris_equal(&es_candidate[index], e)) {
     /* The received ephemeris matches our candidate, so we trust it. */
-    log_info("New trusted ephemeris for PRN %02d", e->sid.sat+1);
+    log_info("New trusted ephemeris for %s", buf);
     ephemeris_lock();
     es[index] = *e;
     ephemeris_unlock();
   } else {
     /* This is our first reception of this new ephemeris, so treat it with
      * suspicion and call it the new candidate. */
-    log_info("New ephemeris candidate for PRN %02d", e->sid.sat+1);
+    log_info("New ephemeris candidate for %s", buf);
     ephemeris_lock();
     es_candidate[index] = *e;
     ephemeris_unlock();
@@ -73,6 +76,9 @@ static msg_t nav_msg_thread(void *arg)
       tracking_channel_t *ch = &tracking_channel[i];
       ephemeris_t e = {.sid = ch->sid};
 
+      char buf[SID_STR_LEN_MAX];
+      sid_to_string(buf, sizeof(buf), ch->sid);
+
       /* Check if there is a new nav msg subframe to process.
        * TODO: move this into a function */
       if ((ch->state != TRACKING_RUNNING) ||
@@ -92,7 +98,7 @@ static msg_t nav_msg_thread(void *arg)
 
       ephemeris_t *eph = ephemeris_get(ch->sid);
       if (!eph->healthy) {
-        log_info("PRN %02d unhealthy", ch->sid.sat+1);
+        log_info("%s unhealthy", buf);
       } else {
         msg_ephemeris_t msg;
         pack_ephemeris(eph, &msg);

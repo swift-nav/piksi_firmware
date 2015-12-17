@@ -287,6 +287,9 @@ void tracking_channel_update(u8 channel)
 {
   tracking_channel_t* chan = &tracking_channel[channel];
 
+  char buf[SID_STR_LEN_MAX];
+  sid_to_string(buf, sizeof(buf), chan->sid);
+
   switch(chan->state)
   {
     case TRACKING_RUNNING:
@@ -337,8 +340,8 @@ void tracking_channel_update(u8 channel)
 
       if ((TOW_ms >= 0) && chan->TOW_ms != TOW_ms) {
         if (chan->TOW_ms != TOW_INVALID) {
-          log_error("PRN %d TOW mismatch: %ld, %lu",
-                    chan->sid.sat+1, chan->TOW_ms, TOW_ms);
+          log_error("%s TOW mismatch: %ld, %lu",
+                    buf, chan->TOW_ms, TOW_ms);
         }
         chan->TOW_ms = TOW_ms;
       }
@@ -360,8 +363,9 @@ void tracking_channel_update(u8 channel)
 
       /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
       if (last_outp && !chan->lock_detect.outp) {
-        if (chan->stage > 0)
-          log_info("PRN %d PLL stress", chan->sid.sat+1);
+        if (chan->stage > 0) {
+          log_info("%s PLL stress", buf);
+        }
         tracking_channel_ambiguity_unknown(channel);
       }
 
@@ -407,8 +411,9 @@ void tracking_channel_update(u8 channel)
         s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
         float err = alias_detect_second(&chan->alias_detect, I, Q);
         if (fabs(err) > (250 / chan->int_ms)) {
-          if (chan->lock_detect.outp)
-            log_warn("False phase lock detect PRN%d: err=%f", chan->sid.sat+1, err);
+          if (chan->lock_detect.outp) {
+            log_warn("False phase lock detected on %s: err=%f", buf, err);
+          }
 
           tracking_channel_ambiguity_unknown(channel);
           /* Indicate that a mode change has occurred. */
@@ -425,8 +430,8 @@ void tracking_channel_update(u8 channel)
           (chan->lock_detect.outo) &&
           /* Must have nav bit sync, and be correctly aligned */
           (chan->nav_msg.bit_phase == chan->nav_msg.bit_phase_ref)) {
-        log_info("PRN %d synced @ %u ms, %.1f dBHz",
-                 chan->sid.sat+1, (unsigned int)chan->update_count, chan->cn0);
+        log_info("%s synced @ %u ms, %.1f dBHz",
+                 buf, (unsigned int)chan->update_count, chan->cn0);
         chan->stage = 1;
         struct loop_params *l = &loop_params_stage[1];
         chan->int_ms = l->coherent_ms;
@@ -467,7 +472,7 @@ void tracking_channel_update(u8 channel)
       tracking_channel_disable(channel);
       break;
     default:
-      log_error("CH%d (PRN%02d) invalid state %d", channel, chan->sid.sat+1, chan->state);
+      log_error("CH%d (%s) invalid state %d", channel, buf, chan->state);
       tracking_channel_disable(channel);
       break;
   }
@@ -582,7 +587,7 @@ static bool parse_loop_params(struct setting *s, const char *val)
 
     int n_chars_read = 0;
     unsigned int tmp; /* newlib's sscanf doesn't support hh size modifier */
-    
+
     if (sscanf(str, "( %u ms , ( %f , %f , %f , %f ) , ( %f , %f , %f , %f ) ) , %n",
                &tmp,
                &l->code_bw, &l->code_zeta, &l->code_k, &l->carr_to_code,
