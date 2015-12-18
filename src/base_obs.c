@@ -325,6 +325,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       base_obss_rx.nm[base_obss_rx.n].pseudorange =
             base_obss_rx.nm[base_obss_rx.n].raw_pseudorange + clock_err * GPS_C;
       /* Set the time */
+      /* TODO: (kleeman) this is definitely wrong. */
       base_obss_rx.nm[base_obss_rx.n].tot = t;
       base_obss_rx.n++;
     }
