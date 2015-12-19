@@ -411,8 +411,6 @@ static void solution_thread(void *arg)
     navigation_measurement_t *p_nav_meas[n_ready];
     const ephemeris_t *p_e_meas[n_ready];
 
-    /* Create navigation measurements from the channel measurements*/
-
     /* Create arrays of pointers for use in calc_navigation_measurement */
     for (u8 i=0; i<n_ready; i++) {
       p_meas[i] = &meas[i];
@@ -420,6 +418,7 @@ static void solution_thread(void *arg)
       p_e_meas[i] = ephemeris_get(meas[i].sid);
     }
 
+    /* Create navigation measurements from the channel measurements */
     ephemeris_lock();
     gps_time_t nav_time = rx2gpstime(nav_tc);
     if (time_quality == TIME_FINE) {
@@ -468,7 +467,7 @@ static void solution_thread(void *arg)
         log_warn("PVT solver: %s (code %d)", pvt_err_msg[-ret-1], ret);
       );
 
-      /* Send just the DOPs and exit the loop*/
+      /* Send just the DOPs and exit the loop */
       solution_send_sbp(0, &dops);
       continue;
     }
@@ -555,11 +554,11 @@ static void solution_thread(void *arg)
     if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
         fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
       /* Propagate observation to desired time. */
+      /* We have to use the tdcp_doppler result to account for TCXO drift. */
       for (u8 i=0; i<n_ready_tdcp; i++) {
-        nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
-          (GPS_C / GPS_L1_HZ);
+        nav_meas_tdcp[i].raw_pseudorange -= t_err * nav_meas_tdcp[i].doppler
+                                            * (GPS_C / GPS_L1_HZ);
         nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
-
       }
 
       /* Update observation time. */
