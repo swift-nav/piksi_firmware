@@ -573,7 +573,7 @@ static msg_t solution_thread(void *arg)
         fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
       /* Propagate observation to desired time. */
       for (u8 i=0; i<n_ready_tdcp; i++) {
-        nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
+        nav_meas_tdcp[i].raw_pseudorange -= t_err * nav_meas_tdcp[i].doppler *
           (GPS_C / GPS_L1_HZ);
         nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
       }
