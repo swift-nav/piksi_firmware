@@ -306,7 +306,7 @@ void tracking_channel_update(u8 channel)
       chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
       chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
 
-      if (chan->TOW_ms != TOW_INVALID) {
+      if (chan->TOW_ms != TOW_INVALID) { // TODO move to time.h
         /* Have a valid time of week - increment it. */
         chan->TOW_ms += chan->short_cycle ? 1 : (chan->int_ms-1);
         if (chan->TOW_ms >= 7*24*60*60*1000)
