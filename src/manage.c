@@ -196,7 +196,7 @@ void manage_acq_setup()
  *  from ephemeris or almanac, if available and elevation > mask
  * \return Score (higher is better)
  */
-static u16 manage_warm_start(gnss_signal_t sid, gps_time_t t,
+static u16 manage_warm_start(gnss_signal_t sid, gps_time_t* t,
                              float *dopp_hint_low, float *dopp_hint_high)
 {
     /* Do we have any idea where/when we are?  If not, no score. */
@@ -232,12 +232,12 @@ static u16 manage_warm_start(gnss_signal_t sid, gps_time_t t,
     } else {
       const almanac_t *a = &almanac[sid_to_index(sid)];
       if (a->valid) {
-        calc_sat_az_el_almanac(a, t.tow, t.wn-1024,
+        calc_sat_az_el_almanac(a, t->tow, t->wn-1024,
                                position_solution.pos_ecef, &_, &el_d);
         el = (float)(el_d) * R2D;
         if (el < elevation_mask)
           return SCORE_BELOWMASK;
-        dopp_hint = -calc_sat_doppler_almanac(a, t.tow, t.wn,
+        dopp_hint = -calc_sat_doppler_almanac(a, t->tow, t->wn,
                                               position_solution.pos_ecef);
       } else {
         return SCORE_COLDSTART; /* Couldn't determine satellite state. */
@@ -260,7 +260,7 @@ static acq_status_t * choose_acq_sat(void)
       continue;
 
     acq_status[i].score[ACQ_HINT_WARMSTART] =
-      manage_warm_start(acq_status[i].sid, t,
+      manage_warm_start(acq_status[i].sid, &t,
                         &acq_status[i].dopp_hint_low,
                         &acq_status[i].dopp_hint_high);
 
@@ -591,7 +591,7 @@ s8 use_tracking_channel(u8 i)
       .wn = WN_UNKNOWN,
       .tow = 1e-3 * ch->TOW_ms
     };
-    return ephemeris_good(ephemeris_get(ch->sid), t);
+    return ephemeris_good(ephemeris_get(ch->sid), &t);
   } else return 0;
 }
 

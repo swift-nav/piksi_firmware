@@ -117,7 +117,7 @@ void nmea_setup(void)
  * including the '*'
  *
  * \param size Length of the buffer.
- * 
+ *
  */
 static void nmea_append_checksum(char *s, size_t size)
 {
@@ -151,7 +151,7 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
   time_t unix_t;
   struct tm t;
 
-  unix_t = gps2time(*gps_t);
+  unix_t = gps2time(gps_t);
   gmtime_r(&unix_t, &t);
 
   double frac_s = fmod(gps_t->tow, 1.0);
@@ -247,28 +247,28 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
 }
 
 /** Assemble an NMEA GPRMC message and send it out NMEA USARTs.
- * NMEA RMC contains minimum GPS data 
+ * NMEA RMC contains minimum GPS data
  *
  * \param soln Pointer to gnss_solution struct
  * \param gps_t Pointer to the current GPS Time
  */
 void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
 {
-  
+
   /* NMEA Parameters
    * Ex.
    * $GPRMC,220516,A,5133.82,N,00042.24,W,173.8,231.8,130694,004.2,W*70
    *   |      |    |    |    |    |     |   |      |      |     |  |  |
    * Command  |    |   Lat  N/S   |     |   |      | Date Stamp | W/E |
    *    Time (UTC) |            Long   W/E  |  True Course      |   Cksum
-   *            Validity (A-OK)           Speed            Variation 
+   *            Validity (A-OK)           Speed            Variation
    * Variation is ignored as we have no way to maintain that information
    * currently
    */
   time_t unix_t;
   struct tm t;
 
-  unix_t = gps2time(*gps_t);
+  unix_t = gps2time(gps_t);
   gmtime_r(&unix_t, &t);
   double frac_s = fmod(gps_t->tow, 1.0);
 
@@ -301,7 +301,7 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
                 ",", /* Variation */
                 t.tm_hour, t.tm_min, t.tm_sec + frac_s,
                 lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
-                velocity, course * R2D, 
+                velocity, course * R2D,
                 t.tm_mday, t.tm_mon + 1, t.tm_year % 100);
   NMEA_SENTENCE_DONE();
 }
@@ -358,11 +358,11 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
    *   |       |    |    |     |    |   |
    * Command   |   N/S Lon    E/W   | Valid
    *          LAT                  UTC
-   */ 
+   */
   time_t unix_t;
   struct tm t;
 
-  unix_t = gps2time(*gps_t);
+  unix_t = gps2time(gps_t);
   gmtime_r(&unix_t, &t);
 
   double frac_s = fmod(gps_t->tow, 1.0);
@@ -395,7 +395,7 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
  * \param n        Number of satellites in use
  * \param nav_meas Array of n navigation_measurement structs.
  */
-void nmea_send_msgs(gnss_solution *soln, u8 n, 
+void nmea_send_msgs(gnss_solution *soln, u8 n,
                     navigation_measurement_t *nm)
 {
   DO_EVERY(gpgsv_msg_rate,

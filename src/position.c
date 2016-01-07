@@ -70,7 +70,7 @@ void position_updated(void)
   vector_subtract(3, position_solution.pos_ecef, last_ecef, temp);
   double dx = vector_norm(3, temp);
 
-  double dt = gpsdifftime(position_solution.time, last_time);
+  double dt = gpsdifftime(&position_solution.time, &last_time);
 
   if (dt > 30 * 60 || dx > 10e3) {
     int fd = cfs_open("posn", CFS_WRITE);
@@ -93,4 +93,3 @@ void position_updated(void)
 }
 
 /** \} */
-
