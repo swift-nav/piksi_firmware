@@ -17,7 +17,7 @@
 #include <libsbp/navigation.h>
 #include <libsbp/observation.h>
 #include <libsbp/gnss_signal.h>
-#include <libswiftnav/gpstime.h>
+#include <libswiftnav/time.h>
 #include <libswiftnav/pvt.h>
 #include <libswiftnav/signal.h>
 
