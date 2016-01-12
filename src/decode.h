@@ -15,35 +15,50 @@
 #include <libswiftnav/common.h>
 #include <libswiftnav/signal.h>
 
+/** \addtogroup decoding
+ * \{ */
+
 typedef void decoder_data_t;
 
+/** Instance of a decoder implementation. */
 typedef struct {
-  bool active;
-  decoder_data_t *data;
+  bool active;          /**< true if decoder is in use. */
+  decoder_data_t *data; /**< Pointer to data used by decoder instance. */
 } decoder_t;
 
+/** Info associated with a decoder channel. */
 typedef struct {
-  gnss_signal_t sid;
-  u8 tracking_channel;
+  gnss_signal_t sid;    /**< Current signal being decoded. */
+  u8 tracking_channel;  /**< Associated tracking channel. */
 } decoder_channel_info_t;
 
+/** Decoder interface function template. */
 typedef void (*decoder_interface_function_t)(
                  const decoder_channel_info_t *channel_info,
                  decoder_data_t *decoder_data);
 
+/** Interface to a decoder implementation. */
 typedef struct {
-  gnss_signal_t sid;
+  gnss_signal_t sid;    /**< Signal type for which the implementation may be
+                             used. Only CONSTELLATION and BAND fields apply. */
+  /** Init function. Called to set up decoder instance when decoding begins. */
   decoder_interface_function_t init;
+  /** Disable function. Called when decoding stops. */
   decoder_interface_function_t disable;
+  /** Process function. Called periodically. Should be used to receive and
+   * decode navigation message bits. */
   decoder_interface_function_t process;
-  decoder_t *decoders;
-  u8 num_decoders;
+  decoder_t *decoders;  /**< Array of decoder instances used by this interface. */
+  u8 num_decoders;      /**< Number of decoder instances in decoders array. */
 } decoder_interface_t;
 
+/** List element passed to decoder_interface_register(). */
 typedef struct decoder_interface_list_element_t {
   const decoder_interface_t *interface;
   struct decoder_interface_list_element_t *next;
 } decoder_interface_list_element_t;
+
+/** \} */
 
 void decode_setup(void);
 void decoder_interface_register(decoder_interface_list_element_t *element);

@@ -16,6 +16,46 @@
 #include "track.h"
 #include "decode.h"
 
+/** \defgroup decoding Decoding
+ * Receive data bits from tracking channels and decode navigation messages.
+ * \{ */
+
+/*
+ * Channel States and Transitions:
+ *
+ * DISABLED
+ *  - Channel will not be accessed by the decoder thread. Set configuration,
+ *    associate an inactive decoder instance, and then issue *EVENT_ENABLE* to
+ *    set the decoder active and transition state to ENABLED.
+ *
+ * ENABLED
+ *  - Channel is running and may be accessed by the decoder thread. Only
+ *    allowed external action is an atomic state transition from ENABLED to
+ *    DISABLE_REQUEST by issuing *EVENT_DISABLE_REQUEST*.
+ *
+ * DISABLE_REQUEST
+ *  - Channel is running but will be disabled by the decoder thread imminently.
+ *    No external action is allowed. Decoder thread should issue *EVENT_DISABLE*
+ *    to set the decoder inactive and transition state to DISABLED.
+ *
+ *
+ *
+ * Notes on atomicity and thread safety:
+ * - When enabling a decoder channel, the only sequence point is setting channel
+ *   state = STATE_ENABLED. Parameters may be set in any order, and it does not
+ *   matter when the decoder instance is set to active, as long as all of this
+ *   is completed before channel state = STATE_ENABLED. Channel state gates all
+ *   accesses to a decoder channel and associated decoder instance from the
+ *   decoder thread.
+ *
+ * - When disabling a decoder channel (from the decoder thread), the only
+ *   sequence points are releasing the decoder channel (channel state =
+ *   STATE_DISABLED) and the decoder instance (active = false). All accesses
+ *   to the these structures must complete before the corresponding release.
+ *   It does not matter in which order the two structures are released as they
+ *   are allocated independently when initializing decoding.
+ */
+
 #define NUM_DECODER_CHANNELS  12
 
 typedef enum {
@@ -30,10 +70,11 @@ typedef enum {
   EVENT_DISABLE
 } event_t;
 
+/** Top-level generic decoder channel. */
 typedef struct {
-  decoder_channel_state_t state;
-  decoder_channel_info_t info;
-  decoder_t *decoder;
+  decoder_channel_state_t state;  /**< State of this channel. */
+  decoder_channel_info_t info;    /**< Info associated with this channel. */
+  decoder_t *decoder;             /**< Associated decoder instance. */
 } decoder_channel_t;
 
 static decoder_interface_list_element_t *decoder_interface_list = 0;
@@ -61,6 +102,7 @@ static const decoder_interface_t decoder_interface_default = {
   .num_decoders = 0
 };
 
+/** Set up the decoding module. */
 void decode_setup(void)
 {
   for (u32 i=0; i<NUM_DECODER_CHANNELS; i++) {
@@ -72,6 +114,12 @@ void decode_setup(void)
                     NORMALPRIO-1, decode_thread, NULL);
 }
 
+/** Register a decoder interface to enable decoding for a constellation / band.
+ *
+ * \note element and all subordinate data must be statically allocated!
+ *
+ * \param element   Struct describing the interface to register.
+ */
 void decoder_interface_register(decoder_interface_list_element_t *element)
 {
   decoder_interface_list_element_t **e = &decoder_interface_list;
@@ -83,7 +131,14 @@ void decoder_interface_register(decoder_interface_list_element_t *element)
   *e = element;
 }
 
-/* Determine if a decoder channel is available for the specified sid */
+/** Determine if a decoder channel is available for the specified tracking
+ * channel and sid.
+ *
+ * \param tracking_channel  Tracking channel to use.
+ * \param sid               Signal to be decoded.
+ *
+ * \return true if a decoder channel is available, false otherwise.
+ */
 bool decoder_channel_available(u8 tracking_channel, gnss_signal_t sid)
 {
   decoder_channel_t *d = decoder_channel_get(tracking_channel);
@@ -98,8 +153,14 @@ bool decoder_channel_available(u8 tracking_channel, gnss_signal_t sid)
   return true;
 }
 
-/* Initialize a decoder channel to process telemetry for sid from the specified
-   tracking channel. */
+/** Initialize a decoder channel to process telemetry for sid from the
+ * specified tracking channel.
+ *
+ * \param tracking_channel  Tracking channel to use.
+ * \param sid               Signal to be decoded.
+ *
+ * \return true if a decoder channel was initialized, false otherwise.
+ */
 bool decoder_channel_init(u8 tracking_channel, gnss_signal_t sid)
 {
   decoder_channel_t *d = decoder_channel_get(tracking_channel);
@@ -127,7 +188,13 @@ bool decoder_channel_init(u8 tracking_channel, gnss_signal_t sid)
   return true;
 }
 
-/* Disable the decoder channel associated with the specified tracking channel. */
+/** Disable the decoder channel associated with the specified
+ * tracking channel.
+ *
+ * \param tracking_channel  Tracking channel to use.
+ *
+ * \return true if a decoder channel was disabled, false otherwise.
+ */
 bool decoder_channel_disable(u8 tracking_channel)
 {
   decoder_channel_t *d = decoder_channel_get(tracking_channel);
@@ -173,6 +240,12 @@ static msg_t decode_thread(void *arg)
   return 0;
 }
 
+/** Retrieve the decoder interface for the specified sid.
+ *
+ * \param sid               Signal to be decoded.
+ *
+ * \return Associated decoder interface. May be the default interface.
+ */
 static const decoder_interface_t * decoder_interface_get(gnss_signal_t sid)
 {
   decoder_interface_list_element_t *e = decoder_interface_list;
@@ -188,6 +261,12 @@ static const decoder_interface_t * decoder_interface_get(gnss_signal_t sid)
   return &decoder_interface_default;
 }
 
+/** Retrieve the decoder channel associated with the specified tracking channel.
+ *
+ * \param tracking_channel  Tracking channel to use.
+ *
+ * \return Associated decoder channel.
+ */
 static decoder_channel_t * decoder_channel_get(u8 tracking_channel)
 {
   /* TODO: Decouple tracking / decoder channels somewhat.
@@ -198,6 +277,14 @@ static decoder_channel_t * decoder_channel_get(u8 tracking_channel)
   return &decoder_channels[tracking_channel];
 }
 
+/** Find an inactive decoder instance for the specified decoder interface.
+ *
+ * \param interface       Decoder interface to use.
+ * \param decoder         Output inactive decoder instance.
+ *
+ * \return true if *decoder points to an inactive decoder instance,
+ * false otherwise.
+ */
 static bool available_decoder_get(const decoder_interface_t *interface,
                                   decoder_t **decoder)
 {
@@ -212,6 +299,15 @@ static bool available_decoder_get(const decoder_interface_t *interface,
   return false;
 }
 
+/** Return the state of a decoder channel.
+ *
+ * \note This function performs an acquire operation, meaning that it ensures
+ * the returned state was read before any subsequent memory accesses.
+ *
+ * \param d         Decoder channel to use.
+ *
+ * \return state of the decoder channel.
+ */
 static decoder_channel_state_t decoder_channel_state_get(const decoder_channel_t *d)
 {
   decoder_channel_state_t state = d->state;
@@ -219,6 +315,15 @@ static decoder_channel_state_t decoder_channel_state_get(const decoder_channel_t
   return state;
 }
 
+/** Return the state of a decoder instance.
+ *
+ * \note This function performs an acquire operation, meaning that it ensures
+ * the returned state was read before any subsequent memory accesses.
+ *
+ * \param decoder   Decoder to use.
+ *
+ * \return true if the decoder is active, false if inactive.
+ */
 static bool decoder_active(const decoder_t *decoder)
 {
   bool active = decoder->active;
@@ -226,12 +331,25 @@ static bool decoder_active(const decoder_t *decoder)
   return active;
 }
 
+/** Execute an interface function on a decoder channel.
+ *
+ * \param d         Decoder channel to use.
+ * \param func      Interface function to execute.
+ */
 static void interface_function(decoder_channel_t *d,
                                decoder_interface_function_t func)
 {
   return func(&d->info, d->decoder->data);
 }
 
+/** Update the state of a decoder channel and its associated decoder instance.
+ *
+ * \note This function performs a release operation, meaning that it ensures
+ * all prior memory accesses have completed before updating state information.
+ *
+ * \param d       Decoder channel to use.
+ * \param event   Event to process.
+ */
 static void event(decoder_channel_t *d, event_t event)
 {
   switch (event) {
@@ -263,3 +381,5 @@ static void event(decoder_channel_t *d, event_t event)
   break;
   }
 }
+
+/** \} */
