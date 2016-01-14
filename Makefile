@@ -18,7 +18,7 @@ else
 	MAKEFLAGS += PRN=$(PRN)
 endif
 
-.PHONY: all tests firmware docs .FORCE
+.PHONY: all tests firmware docs hitl .FORCE
 
 all: firmware # tests
 
@@ -69,5 +69,14 @@ clean:
 docs:
 	$(MAKE) -C docs/diagrams
 	doxygen docs/Doxyfile
+
+hitl: firmware
+	@printf "Running default HITL jobs\n"
+	if cd build/hitl_tools; then \
+		git pull; \
+	else \
+		git clone git@github.com:swift-nav/hitl_tools.git build/hitl_tools --depth 1; \
+	fi
+	bash build/hitl_tools/make_hitl.sh
 
 .FORCE:
