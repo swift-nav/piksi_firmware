@@ -279,8 +279,13 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
 /** Compress a 32 bit integration value down to 8 bits. */
 s8 nav_bit_quantize(s32 bit_integrate)
 {
-  /* TODO: make this better */
-  return bit_integrate >= 0 ? 127 : -127;
+  //  0 through  2^24 - 1 ->  0 = weakest positive bit
+  // -1 through -2^24     -> -1 = weakest negative bit
+
+  if (bit_integrate >= 0)
+    return bit_integrate / (1 << 24);
+  else
+    return ((bit_integrate + 1) / (1 << 24)) - 1;
 }
 
 /** Initialises a tracking channel.
