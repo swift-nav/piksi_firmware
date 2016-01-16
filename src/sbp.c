@@ -52,6 +52,9 @@ msg_uart_state_t uart_state_msg;
 
 double latency_count;
 double latency_accum_ms;
+double period_count;
+double period_accum_ms;
+
 systime_t last_obs_msg_ticks = 0;
 
 sbp_state_t uarta_sbp_state;
@@ -70,6 +73,10 @@ static msg_t sbp_thread(void *arg)
   uart_state_msg.latency.lmin = 0;
   uart_state_msg.latency.lmax = 0;
   uart_state_msg.latency.current = -1;
+  uart_state_msg.obs_period.avg = -1;
+  uart_state_msg.obs_period.lmin = 0;
+  uart_state_msg.obs_period.lmax = 0;
+  uart_state_msg.obs_period.current = -1;
 
   while (TRUE) {
     chThdSleepMilliseconds(10);
@@ -88,6 +95,7 @@ static msg_t sbp_thread(void *arg)
 
       if (latency_count > 0) {
         uart_state_msg.latency.avg = (s32) (latency_accum_ms / latency_count);
+        uart_state_msg.obs_period.avg = (s32) (period_accum_ms / latency_count);
       }
 
       sbp_send_msg(SBP_MSG_UART_STATE, sizeof(msg_uart_state_t),
@@ -102,8 +110,7 @@ static msg_t sbp_thread(void *arg)
 
       log_obs_latency_tick();
     );
-  }
-
+ }
   return 0;
 }
 
@@ -355,25 +362,41 @@ void log_(u8 level, const char *msg, ...)
 
 void log_obs_latency(float latency_ms)
 {
-  last_obs_msg_ticks = chTimeNow();
+
+  float obs_period_ms;
+  systime_t now = chTimeNow();
+  obs_period_ms = (now - last_obs_msg_ticks) / (double)CH_FREQUENCY * 1000;
+  last_obs_msg_ticks = now;
 
   latency_accum_ms += (double) latency_ms;
+  period_accum_ms += (double) obs_period_ms;
   latency_count += 1;
 
   uart_state_msg.latency.current = (s32) ((LATENCY_SMOOTHING * ((float)latency_ms)) +
     ((1 - LATENCY_SMOOTHING) * (float) (uart_state_msg.latency.current)));
 
+  uart_state_msg.obs_period.current = (s32) ((LATENCY_SMOOTHING * ((float) (obs_period_ms)) +
+    (1 - LATENCY_SMOOTHING) * (float) (uart_state_msg.obs_period.current)));
+
   /* Don't change the min and max latencies if we appear to have a zero latency
    * speed. */
-  if (latency_ms <= 0)
+  if (latency_ms <= 0 || obs_period_ms <= 0) {
+    log_warn("Incoherent observation reception: latency:%f, period: %f", latency_ms, obs_period_ms);
     return;
-
+  }
   if (uart_state_msg.latency.lmin > latency_ms ||
       uart_state_msg.latency.lmin == 0) {
     uart_state_msg.latency.lmin = latency_ms;
   }
   if (uart_state_msg.latency.lmax < latency_ms) {
     uart_state_msg.latency.lmax = latency_ms;
+  }
+  if (uart_state_msg.obs_period.lmin > (s32) obs_period_ms ||
+      uart_state_msg.obs_period.lmin == 0) {
+    uart_state_msg.obs_period.lmin = obs_period_ms;
+  }
+  if (uart_state_msg.obs_period.lmax < (s32) obs_period_ms) {
+    uart_state_msg.obs_period.lmax = obs_period_ms;
   }
 }
 
@@ -384,7 +407,9 @@ void log_obs_latency_tick()
 
   if (last_obs_msg_ticks == 0 || elapsed > LOG_OBS_LATENCY_WINDOW_DURATION) {
     uart_state_msg.latency.current = -1;
+    uart_state_msg.obs_period.current = -1;
   }
+
 }
 
 /** \} */
