@@ -97,6 +97,7 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/board/max2769.o \
         $(SWIFTNAV_ROOT)/src/board/leds.o \
         $(SWIFTNAV_ROOT)/src/peripherals/3drradio.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/openlog.o \
         $(SWIFTNAV_ROOT)/src/peripherals/stm_flash.o \
         $(SWIFTNAV_ROOT)/src/peripherals/spi.o \
         $(SWIFTNAV_ROOT)/src/peripherals/usart.o \

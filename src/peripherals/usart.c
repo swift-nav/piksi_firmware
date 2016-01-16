@@ -22,6 +22,7 @@
 #include "../settings.h"
 #include "usart.h"
 #include "3drradio.h"
+#include "openlog.h"
 
 /** \addtogroup io
  * \{ */
@@ -35,6 +36,7 @@ usart_settings_t ftdi_usart = {
   .baud_rate          = USART_DEFAULT_BAUD_FTDI,
   .sbp_message_mask   = 0xFFFF,
   .configure_telemetry_radio_on_boot = 0,
+  .openlog_enable = 0
 };
 
 usart_settings_t uarta_usart = {
@@ -42,6 +44,7 @@ usart_settings_t uarta_usart = {
   .baud_rate          = USART_DEFAULT_BAUD_RADIO,
   .sbp_message_mask   = 0x40,
   .configure_telemetry_radio_on_boot = 1,
+  .openlog_enable = 1
 };
 
 usart_settings_t uartb_usart = {
@@ -49,6 +52,7 @@ usart_settings_t uartb_usart = {
   .baud_rate        = USART_DEFAULT_BAUD_TTL,
   .sbp_message_mask = 0xFF00,
   .configure_telemetry_radio_on_boot = 1,
+  .openlog_enable = 1
 };
 
 bool all_uarts_enabled = false;
@@ -73,7 +77,6 @@ usart_dma_state uartb_state;
 void usart_set_parameters(u32 usart, u32 baud)
 {
   /* Setup UART parameters. */
-  baud = baud;
   usart_disable(usart);
   usart_set_baudrate(usart, baud);
   usart_set_databits(usart, 8);
@@ -93,6 +96,7 @@ void usarts_setup()
 {
 
   radio_setup();
+  openlog_setup();
 
   int TYPE_PORTMODE = settings_type_register_enum(portmode_enum, &portmode);
 
@@ -105,6 +109,7 @@ void usarts_setup()
   SETTING("uart_uarta", "sbp_message_mask", uarta_usart.sbp_message_mask, TYPE_INT);
   SETTING("uart_uarta", "configure_telemetry_radio_on_boot",
           uarta_usart.configure_telemetry_radio_on_boot, TYPE_BOOL);
+  SETTING("uart_uarta", "openlog_enable", uarta_usart.openlog_enable, TYPE_BOOL);
   SETTING_NOTIFY("uart_uarta", "baudrate", uarta_usart.baud_rate, TYPE_INT,
           baudrate_change_notify);
 
@@ -112,6 +117,7 @@ void usarts_setup()
   SETTING("uart_uartb", "sbp_message_mask", uartb_usart.sbp_message_mask, TYPE_INT);
   SETTING("uart_uartb", "configure_telemetry_radio_on_boot",
           uartb_usart.configure_telemetry_radio_on_boot, TYPE_BOOL);
+  SETTING("uart_uartb", "openlog_enable",  uartb_usart.openlog_enable, TYPE_BOOL);
   SETTING_NOTIFY("uart_uartb", "baudrate", uartb_usart.baud_rate, TYPE_INT,
           baudrate_change_notify);
 
@@ -137,11 +143,11 @@ bool baudrate_change_notify(struct setting *s, const char *val)
  * USART 6, 1 and 3 peripherals are configured
  * (connected to the FTDI, UARTA and UARTB ports on the Piksi respectively).
  */
-void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_preconfigure_hooks)
+void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_configure_hooks)
 {
 
-  /* Ensure that the first time around, we do the preconfigure hooks */
-  if (!all_uarts_enabled && !do_preconfigure_hooks)
+  /* Ensure that the first time around, we do the configure hooks */
+  if (!all_uarts_enabled && !do_configure_hooks)
     return;
 
   /* First give everything a clock. */
@@ -182,7 +188,7 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
   chBSemInit(&ftdi_state.claimed, FALSE);
   ftdi_state.configured = true;
 
-  if (do_preconfigure_hooks) {
+  if (do_configure_hooks) {
 
     /* TODO: Should this really be here? */
     if ((RCC_CSR & 0xFF000000) != RCC_CSR_PINRSTF) {
@@ -221,8 +227,16 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
   chBSemInit(&uartb_state.claimed, FALSE);
   uartb_state.configured = true;
 
-  all_uarts_enabled = true;
+  if (do_configure_hooks) {
+    if (uarta_usart.openlog_enable) {
+      openlog_configure_hook(&uarta_state, "UARTA");
+    }
+    if (uartb_usart.openlog_enable) {
+      openlog_configure_hook(&uartb_state, "UARTB");
+    }
+  }
 
+  all_uarts_enabled = true;
 }
 
 /** Disable all USARTs. */
@@ -264,8 +278,29 @@ void usarts_disable()
  */
 bool usart_claim(usart_dma_state* s, const void *module)
 {
+  return usart_claim_timeout(s, module, TIME_IMMEDIATE);
+}
+
+/** Claim this USART for exclusive use by the calling module.
+ * This prevents the USART from being used by other modules, and inhibits
+ * the standard protocols.  This allows modem (or other) drivers to claim
+ * the USART and prevent SBP or other protocol driver from interfering with
+ * communications.
+ *
+ * The same module may nest claims to the port.  The port must be released
+ * as many times as it was claimed before it will be available for
+ * for another module.
+ *
+ * \see ::usart_release
+ * \param s The USART DMA state structure.
+ * \param module A pointer to identify the calling module.  This is compared
+ *               by value of the pointer.  The pointer target is unused.
+ * \param time Maximum number of system ticks to wait
+ */
+bool usart_claim_timeout(usart_dma_state* s, const void *module, systime_t time)
+{
   chSysLock();
-  if (s->configured && (chBSemWaitTimeoutS(&s->claimed, 0) == RDY_OK)) {
+  if (s->configured && (chBSemWaitTimeoutS(&s->claimed, time) == RDY_OK)) {
     s->claimed_by = module;
     s->claim_nest = 0;
     chSysUnlock();
