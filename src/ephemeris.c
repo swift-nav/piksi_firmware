@@ -23,9 +23,55 @@
 #include "timing.h"
 #include "ephemeris.h"
 
+#define EPHEMERIS_TRANSMIT_EPOCH_SPACING_ms   (15 * 1000)
+#define EPHEMERIS_MESSAGE_SPACING_ms          (200)
+
 MUTEX_DECL(es_mutex);
 static ephemeris_t es[NUM_SATS] _CCM;
 static ephemeris_t es_candidate[NUM_SATS] _CCM;
+
+static WORKING_AREA_CCM(wa_ephemeris_thread, 1400);
+
+static msg_t ephemeris_thread(void *arg);
+
+static msg_t ephemeris_thread(void *arg)
+{
+  (void)arg;
+  chRegSetThreadName("ephemeris");
+
+  systime_t tx_epoch = chTimeNow();
+  while (1) {
+
+    for (u32 i=0; i<NUM_SATS; i++) {
+      bool success = false;
+      const ephemeris_t *e = &es[i];
+      gps_time_t t = get_current_time();
+
+      /* Quickly check validity before locking */
+      if (ephemeris_good(e, t)) {
+        ephemeris_lock();
+        /* Now that we are locked, reverify validity and transmit */
+        if (ephemeris_good(e, t)) {
+          msg_ephemeris_t msg;
+          pack_ephemeris(e, &msg);
+          sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(msg_ephemeris_t), (u8 *)&msg);
+          success = true;
+        }
+        ephemeris_unlock();
+      }
+
+      if (success) {
+        chThdSleep(MS2ST(EPHEMERIS_MESSAGE_SPACING_ms));
+      }
+    }
+
+    // wait for the next transmit epoch
+    tx_epoch += MS2ST(EPHEMERIS_TRANSMIT_EPOCH_SPACING_ms);
+    chThdSleepUntil(tx_epoch);
+  }
+
+  return 0;
+}
 
 void ephemeris_new(ephemeris_t *e)
 {
@@ -92,6 +138,9 @@ void ephemeris_setup(void)
     &ephemeris_msg_callback,
     &ephemeris_msg_node
   );
+
+  chThdCreateStatic(wa_ephemeris_thread, sizeof(wa_ephemeris_thread),
+                    NORMALPRIO-10, ephemeris_thread, NULL);
 }
 
 void ephemeris_lock(void)

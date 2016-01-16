@@ -120,9 +120,5 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
     char buf[SID_STR_LEN_MAX];
     sid_to_string(buf, sizeof(buf), channel_info->sid);
     log_info("%s unhealthy", buf);
-  } else {
-    msg_ephemeris_t msg;
-    pack_ephemeris(eph, &msg);
-    sbp_send_msg(SBP_MSG_EPHEMERIS, sizeof(msg_ephemeris_t), (u8 *)&msg);
   }
 }
