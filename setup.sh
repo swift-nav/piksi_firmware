@@ -162,7 +162,8 @@ function run_all_platforms () {
         exit 1
     fi
     # setup_ansible_plugins
-    ansible-playbook -i setup/ansible/inventory.ini \
+    ANSIBLE_SUDO_OPTION=${ANSIBLE_SUDO_OPTION-"--ask-sudo-pass"}
+    ansible-playbook $ANSIBLE_SUDO_OPTION -i setup/ansible/inventory.ini \
         setup/ansible/provision.yml --connection=local
     log_info "Done!"
     log_info ""

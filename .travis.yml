@@ -1,11 +1,6 @@
 sudo: required
 
-install:
-  - sudo pip install requests[security]
-
 script:
-  - sudo bash setup.sh -x install
-  #- git submodule init
-  #- git submodule update
+  - ANSIBLE_SUDO_OPTION="" sudo bash setup.sh -x install
   - make
 
