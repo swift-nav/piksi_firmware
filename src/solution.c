@@ -22,6 +22,8 @@
 #include <libswiftnav/dgnss_management.h>
 #include <libswiftnav/baseline.h>
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/ionosphere.h>
+#include <libswiftnav/tropo.h>
 
 #include <libopencm3/stm32/f4/timer.h>
 #include <libopencm3/stm32/f4/rcc.h>
@@ -464,9 +466,40 @@ static msg_t solution_thread(void *arg)
       set_time_fine(nav_tc, position_solution.time);
 
       /* Save elevation angles every so often */
-      DO_EVERY((u32)soln_freq,
+      DO_EVERY((u32)soln_freq, // TODO review the frequency of this?
                update_sat_elevations(nav_meas_tdcp, n_ready_tdcp,
                                      position_solution.pos_ecef));
+
+      /* Adjust SPP for ionoshperic error */
+      ionosphere_t iono_params = { 0.1118e-7, -0.7451e-8, -0.5960e-7, 0.1192e-6,
+                                   0.1167e6, -0.2294e6, -0.1311e6, 0.1049e7 };
+
+      // TODO use values from ephemeris_t
+
+      // TODO integrate with update above, higher rate? or just expand to also do azimuth?
+      for (int i = 0; i < n_ready_tdcp; i++) {
+        double a, e;
+        wgsecef2azel(nav_meas_tdcp[i].sat_pos, position_solution.pos_ecef, &a, &e); // TODO add az to track az
+
+        double iono_err = calc_ionosphere(position_solution.time,
+                                          position_solution.pos_llh[0],
+                                          position_solution.pos_llh[1],
+                                          a, e,
+                                          &iono_params);
+
+        double tropo_err = tropo_correction(e);
+
+        // TODO check sign
+        nav_meas_tdcp[i].pseudorange -= iono_err;
+        nav_meas_tdcp[i].pseudorange -= tropo_err;
+
+        char buf[SID_STR_LEN_MAX];
+        sid_to_string(buf, sizeof(buf), nav_meas_tdcp[i].sid);
+
+        //DO_EVERY((u32)soln_freq,
+          //log_info("%s: tropo = %.2f m, iono = %.2f m, el = %.0f deg", buf, tropo_err, iono_err, e * R2D);
+        //);
+      }
 
       if (!simulation_enabled()) {
         /* Output solution. */
