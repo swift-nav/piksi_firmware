@@ -1,0 +1,14 @@
+sudo: required
+
+os:
+  - linux
+  - osx
+
+install:
+  - ANSIBLE_SUDO_OPTION="" bash setup.sh -x install
+
+script:
+  # setup.sh PATH update doesn't seem to work on Travis, add manually for now
+  - export PATH=$PATH:~/gcc-arm-none-eabi/bin
+  - make
+

@@ -1,6 +1,8 @@
 piksi_firmware
 ==============
 
+[![Build status][1]][2]
+
 Firmware for the Swift Navigation Piksi GPS Receiver.
 
 Documentation available online at http://docs.swift-nav.com/piksi_firmware
@@ -42,3 +44,7 @@ There are a few options:
 
 For additional details about the toolchain installation, please see
   http://docs.swift-nav.com/wiki/Piksi_Developer_Getting_Started_Guide .
+
+[1]: https://travis-ci.org/swift-nav/piksi_firmware.svg?branch=master
+[2]: https://travis-ci.org/swift-nav/piksi_firmware
+

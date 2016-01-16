@@ -161,8 +161,11 @@ function run_all_platforms () {
         log_error "This script does not support this platform. Please contact mookerji@swiftnav.com."
         exit 1
     fi
+    # by default, ask for sudo password but allow this behaviour to be
+    # overridden by specifying ANSIBLE_SUDO_OPTION="" for use with e.g. travis
+    ANSIBLE_SUDO_OPTION=${ANSIBLE_SUDO_OPTION-"--ask-sudo-pass"}
     # setup_ansible_plugins
-    ansible-playbook --ask-sudo-pass -i setup/ansible/inventory.ini \
+    ansible-playbook $ANSIBLE_SUDO_OPTION -i setup/ansible/inventory.ini \
         setup/ansible/provision.yml --connection=local
     log_info "Done!"
     log_info ""
