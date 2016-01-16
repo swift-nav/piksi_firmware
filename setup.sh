@@ -162,7 +162,7 @@ function run_all_platforms () {
         exit 1
     fi
     # setup_ansible_plugins
-    ansible-playbook --ask-sudo-pass -i setup/ansible/inventory.ini \
+    ansible-playbook -i setup/ansible/inventory.ini \
         setup/ansible/provision.yml --connection=local
     log_info "Done!"
     log_info ""

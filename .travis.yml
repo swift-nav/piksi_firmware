@@ -1,0 +1,11 @@
+sudo: required
+
+install:
+  - sudo pip install requests[security]
+
+script:
+  - sudo bash setup.sh -x install
+  #- git submodule init
+  #- git submodule update
+  - make
+
