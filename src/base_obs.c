@@ -262,12 +262,6 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     return;
   }
 
-  /* Calculate packet latency. */
-  if (time_quality >= TIME_COARSE) {
-    gps_time_t now = get_current_time();
-    float latency_ms = (float) ((now.tow - t.tow) * 1000.0);
-    log_obs_latency(latency_ms);
-  }
 
   /* Verify sequence integrity */
   if (count == 0) {
@@ -341,6 +335,12 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * obss. */
   if (count == total - 1) {
     update_obss(&base_obss_rx);
+  /* Calculate packet latency. */
+    if (time_quality >= TIME_COARSE) {
+      gps_time_t now = get_current_time();
+      float latency_ms = (float) ((now.tow - t.tow) * 1000.0);
+      log_obs_latency(latency_ms);
+    }
   }
 }
 
