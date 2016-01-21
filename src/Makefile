@@ -92,7 +92,6 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/board/nap/nap_conf.o \
         $(SWIFTNAV_ROOT)/src/board/nap/acq_channel.o \
         $(SWIFTNAV_ROOT)/src/board/nap/track_channel.o \
-        $(SWIFTNAV_ROOT)/src/board/nap/cw_channel.o \
         $(SWIFTNAV_ROOT)/src/board/m25_flash.o \
         $(SWIFTNAV_ROOT)/src/board/max2769.o \
         $(SWIFTNAV_ROOT)/src/board/leds.o \
@@ -114,7 +113,6 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/sbp_fileio.o \
         $(SWIFTNAV_ROOT)/src/sbp_utils.o \
         $(SWIFTNAV_ROOT)/src/error.o \
-        $(SWIFTNAV_ROOT)/src/cw.o \
         $(SWIFTNAV_ROOT)/src/track.o \
         $(SWIFTNAV_ROOT)/src/acq.o \
         $(SWIFTNAV_ROOT)/src/manage.o \
@@ -265,4 +263,3 @@ ULIBS =
 .DEFAULT_GOAL = all
 include $(SWIFTNAV_ROOT)/ext/Makefile.include
 include $(SWIFTNAV_ROOT)/ChibiOS_rules.mk
-
