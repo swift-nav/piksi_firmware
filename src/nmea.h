@@ -15,7 +15,7 @@
 
 #include <libswiftnav/common.h>
 #include <libswiftnav/pvt.h>
-#include <libswiftnav/gpstime.h>
+#include <libswiftnav/time.h>
 
 #include "track.h"
 

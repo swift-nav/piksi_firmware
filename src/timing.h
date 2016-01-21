@@ -17,7 +17,7 @@
 #include <libopencm3/stm32/f4/timer.h>
 
 #include <libswiftnav/common.h>
-#include <libswiftnav/gpstime.h>
+#include <libswiftnav/time.h>
 
 /** \addtogroup timing Timing
  * \{ */

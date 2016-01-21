@@ -14,7 +14,7 @@
 
 #include <ch.h>
 
-#include <libswiftnav/gpstime.h>
+#include <libswiftnav/time.h>
 #include <libswiftnav/logging.h>
 
 #include "board/nap/nap_common.h"

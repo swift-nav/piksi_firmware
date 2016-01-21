@@ -39,6 +39,8 @@
 #include "sbp_fileio.h"
 #include "ephemeris.h"
 #include "pps.h"
+#include "decode.h"
+#include "decode_gps_l1.h"
 
 extern void ext_setup(void);
 
@@ -136,6 +138,7 @@ s8 compare_version(const char *a, const char *b)
   return (commit_a < commit_b) ? -1 : (commit_a > commit_b);
 }
 
+
 int main(void)
 {
   /* Initialise SysTick timer that will be used as the ChibiOS kernel tick
@@ -178,6 +181,8 @@ int main(void)
   ext_event_setup();
   position_setup();
   tracking_setup();
+  decode_setup();
+  decode_gps_l1_register();
 
   rng_setup();
   manage_acq_setup();
