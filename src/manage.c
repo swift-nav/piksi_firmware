@@ -510,7 +510,7 @@ static void manage_track()
     /* Is ephemeris or alert flag marked unhealthy?*/
     const ephemeris_t *e = ephemeris_get(ch->sid);
     /* TODO: check alert flag */
-    if (/*ch->alert || */!satellite_healthy(e)) {
+    if (/*ch->alert || */(e->valid && satellite_healthy(e))) {
       log_info("%s unhealthy, dropping", buf);
       drop_channel(i);
       acq->state = ACQ_PRN_UNHEALTHY;
@@ -562,7 +562,6 @@ static void manage_track()
 s8 use_tracking_channel(u8 i)
 {
   tracking_channel_t *ch = &tracking_channel[i];
-  ephemeris_t *e = ephemeris_get(ch->sid);
   /* To use a channel's measurements in an SPP or RTK solution, we
      require the following conditions: */
   if ((ch->state == TRACKING_RUNNING)
@@ -595,6 +594,7 @@ s8 use_tracking_channel(u8 i)
       .wn = WN_UNKNOWN,
       .tow = 1e-3 * ch->TOW_ms
     };
+    ephemeris_t *e = ephemeris_get(ch->sid);
     return ephemeris_valid(e, &t) && satellite_healthy(e);
   } else return 0;
 }
