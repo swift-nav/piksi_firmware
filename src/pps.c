@@ -40,7 +40,7 @@ static msg_t pps_thread(void *arg)
     if (time_quality == TIME_FINE) {
       gps_time_t t = get_current_time();
       t.tow = floor(t.tow) + 1;
-      u64 next = round(gps2rxtime(t) * PPS_NAP_CLOCK_RATIO) +
+      u64 next = round(gps2rxtime(&t) * PPS_NAP_CLOCK_RATIO) +
                        (PPS_NAP_CYCLES_OFFSET);
       nap_pps(next);
     }

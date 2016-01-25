@@ -82,7 +82,7 @@ void ephemeris_new(ephemeris_t *e)
 
   gps_time_t t = get_current_time();
   u32 index = sid_to_index(e->sid);
-  if (!ephemeris_good(&es[index], t)) {
+  if (!ephemeris_good(&es[index], &t)) {
     /* Our currently used ephemeris is bad, so we assume this is better. */
     log_info("New untrusted ephemeris for %s", buf);
     ephemeris_lock();

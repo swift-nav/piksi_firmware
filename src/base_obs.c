@@ -301,7 +301,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
      * fill in satellite position etc. parameters. */
     ephemeris_lock();
     ephemeris_t *e = ephemeris_get(sid);
-    if (ephemeris_good(e, t)) {
+    if (ephemeris_good(e, &t)) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
@@ -314,7 +314,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(e, t,
+      calc_sat_state(e, &t,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);
