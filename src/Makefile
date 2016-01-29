@@ -130,6 +130,7 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/pps.o \
         $(SWIFTNAV_ROOT)/src/decode.o \
         $(SWIFTNAV_ROOT)/src/decode_gps_l1.o \
+        $(SWIFTNAV_ROOT)/src/l2c_capability.o \
         main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
@@ -263,3 +264,4 @@ ULIBS =
 .DEFAULT_GOAL = all
 include $(SWIFTNAV_ROOT)/ext/Makefile.include
 include $(SWIFTNAV_ROOT)/ChibiOS_rules.mk
+
