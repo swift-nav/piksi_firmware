@@ -40,6 +40,14 @@
 #include "signal.h"
 #include "system_monitor.h"
 
+#define SOL_GPT GPTD5
+
+static void sol_gpt_cb(GPTDriver *);
+static GPTConfig sol_gpt_config = {
+  .frequency = STM32_TIMCLK1,
+  .callback = sol_gpt_cb,
+};
+
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
 
