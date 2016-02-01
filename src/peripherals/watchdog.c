@@ -11,8 +11,35 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/stm32/f4/iwdg.h>
+#include <hal.h>
+
 #include "./watchdog.h"
+/* FIXME Use ChibiOS-HAL WDG driver */
+
+#define COUNT_LENGTH 12
+#define COUNT_MASK ((1 << COUNT_LENGTH)-1)
+
+#define IWDG_KR_RESET			0xaaaa
+#define IWDG_KR_UNLOCK			0x5555
+#define IWDG_KR_START			0xcccc
+
+#define IWDG_PR_DIV4			0x0
+#define IWDG_PR_DIV8			0x1
+#define IWDG_PR_DIV16			0x2
+#define IWDG_PR_DIV32			0x3
+#define IWDG_PR_DIV64			0x4
+#define IWDG_PR_DIV128			0x5
+#define IWDG_PR_DIV256			0x6
+
+static bool iwdg_reload_busy(void)
+{
+  return IWDG->SR & IWDG_SR_RVU;
+}
+
+static bool iwdg_prescaler_busy(void)
+{
+  return IWDG->SR & IWDG_SR_PVU;
+}
 
 /** \addtogroup peripherals
  * \{ */
@@ -28,15 +55,51 @@
  */
 void watchdog_enable(uint32_t period_ms)
 {
-  iwdg_set_period_ms(period_ms);
-  iwdg_start();
-  iwdg_reset();
+  uint32_t count, prescale, reload, exponent;
+
+  /* Set the count to represent ticks of the 32kHz LSI clock */
+  count = (period_ms << 5);
+
+  /* Strip off the first 12 bits to get the prescale value required */
+  prescale = (count >> 12);
+  if (prescale > 256) {
+  	exponent = IWDG_PR_DIV256; reload = COUNT_MASK;
+  } else if (prescale > 128) {
+  	exponent = IWDG_PR_DIV256; reload = (count >> 8);
+  } else if (prescale > 64) {
+  	exponent = IWDG_PR_DIV128; reload = (count >> 7);
+  } else if (prescale > 32) {
+  	exponent = IWDG_PR_DIV64;  reload = (count >> 6);
+  } else if (prescale > 16) {
+  	exponent = IWDG_PR_DIV32;  reload = (count >> 5);
+  } else if (prescale > 8) {
+  	exponent = IWDG_PR_DIV16;  reload = (count >> 4);
+  } else if (prescale > 4) {
+  	exponent = IWDG_PR_DIV8;   reload = (count >> 3);
+  } else {
+  	exponent = IWDG_PR_DIV4;   reload = (count >> 2);
+  }
+
+  /* Avoid the undefined situation of a zero count */
+  if (count == 0) {
+  	count = 1;
+  }
+
+  while (iwdg_prescaler_busy());
+  IWDG->KR = IWDG_KR_UNLOCK;
+  IWDG->PR = exponent;
+  while (iwdg_reload_busy());
+  IWDG->KR = IWDG_KR_UNLOCK;
+  IWDG->RLR = (reload & COUNT_MASK);
+
+  IWDG->KR = IWDG_KR_START;
+  watchdog_clear();
 }
 
 /** Clear (reset) the independent watchdog timer. */
 void watchdog_clear(void)
 {
-  iwdg_reset();
+  IWDG->KR = IWDG_KR_RESET;
 }
 
 /** \} */

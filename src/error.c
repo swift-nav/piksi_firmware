@@ -11,8 +11,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/stm32/f4/dma.h>
-#include <libopencm3/stm32/f4/usart.h>
+#include <hal.h>
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -44,8 +44,8 @@ static u32 fallback_write_ftdi(u8 *buff, u32 n, void *context)
 {
   (void)context;
   for (u8 i=0; i<n; i++) {
-    while (!(USART6_SR & USART_SR_TXE));
-    USART6_DR = buff[i];
+    while (!(USART6->SR & USART_SR_TXE));
+    USART6->DR = buff[i];
   }
   return n;
 }
@@ -61,8 +61,7 @@ static u32 fallback_write_ftdi(u8 *buff, u32 n, void *context)
 void _screaming_death(const char *pos, const char *msg)
 {
   __asm__("CPSID if;");           /* Disable all interrupts and faults */
-  DMA2_S7CR = 0;                  /* Disable USART TX DMA */
-  USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
+  USART6->CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
 
   #define SPEAKING_MSG_N 222       /* Maximum length of error message */
 
@@ -145,13 +144,13 @@ void fault_handling_setup(void) {
   /* Enable trapping of unaligned accesses - the processor can perform
      most of them, but they're slow and may indicate a program
      error. */
-  SCB_CCR |= (1 << 3);
+  SCB->CCR |= (1 << 3);
 #endif
 
 #ifdef TRAP_INT_DIV_ZERO
   /* Enable trapping of integer division by zero - otherwise the
      operation will silently give a zero quotient. */
-  SCB_CCR |= (1 << 4);  /* SCB_CCR_DIV_0_TRP */
+  SCB->CCR |= (1 << 4);  /* SCB_CCR_DIV_0_TRP */
 }
 #endif
 
@@ -187,8 +186,8 @@ void HardFaultVector(void)
   static char msg[256];
   sprintf(msg, "HFSR=%08X CFSR=%08X MMFAR=%08X BFAR=%08X PSP=%08X LR=%08X "
           "r0=%08X r1=%08X r2=%08X r3=%08X r12=%08X lr=%08X pc=%08X psr=%08X",
-          (unsigned int)SCB_HFSR, (unsigned int)SCB_CFSR,
-          (unsigned int)SCB_MMFAR, (unsigned int)SCB_BFAR,
+          (unsigned int)SCB->HFSR, (unsigned int)SCB->CFSR,
+          (unsigned int)SCB->MMFAR, (unsigned int)SCB->BFAR,
           (unsigned int)psp, (unsigned int)lr,
           (unsigned int)psp[0], (unsigned int)psp[1],
           (unsigned int)psp[2], (unsigned int)psp[3],

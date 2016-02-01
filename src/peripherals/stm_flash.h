@@ -31,4 +31,8 @@ u8 stm_flash_unlock_sector(u8 sector);
 u8 stm_flash_erase_sector(u8 sector);
 u8 stm_flash_program(u32 address, u8 data[], u8 length);
 
+void flash_unlock(void);
+void flash_lock(void);
+void flash_program_byte(u32 addr, u8 data);
+
 #endif

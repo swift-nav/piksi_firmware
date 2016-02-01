@@ -10,9 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/stm32/rcc.h>
-#include <libopencm3/stm32/f4/rng.h>
-
+#include <hal.h>
 #include <ch.h>
 
 #include "libswiftnav/common.h"
@@ -29,15 +27,15 @@ static MUTEX_DECL(rng_mutex);
  */
 void rng_setup(void)
 {
-  rcc_periph_clock_enable(RCC_RNG);
+  rccEnableAHB2(RCC_AHB2ENR_RNGEN, TRUE);
   /* Enable interupt */
-  /* Set the IE bit in the RNG_CR register. */
-  RNG_CR |= RNG_CR_IE;
+  /* Set the IE bit in the RNG->CR register. */
+  RNG->CR |= RNG_CR_IE;
   /* Enable the random number generation by setting the RNGEN bit in
    * the RNG_CR register. This activates the analog part, the RNG_LFSR
    * and the error detector.
    * */
-  RNG_CR |= RNG_CR_RNGEN;
+  RNG->CR |= RNG_CR_RNGEN;
 }
 
 u32 random_int(void)
@@ -50,22 +48,22 @@ u32 random_int(void)
   do {
     u32 sr;
     /* Check for error flags. */
-    if ((sr = RNG_SR)) {
+    if ((sr = RNG->SR)) {
       if (sr & RNG_SR_SEIS) {
         /* Seed error, we must reinitialise */
         log_warn("random: Seed error, restarting RNG 0x%"PRIx32"", sr);
-        RNG_CR &= ~RNG_CR_RNGEN;
-        RNG_CR |= RNG_CR_RNGEN;
+        RNG->CR &= ~RNG_CR_RNGEN;
+        RNG->CR |= RNG_CR_RNGEN;
       }
       /* Write back as zero to clear */
-      RNG_SR = ~(sr & (RNG_SR_SEIS | RNG_SR_CEIS));
+      RNG->SR = ~(sr & (RNG_SR_SEIS | RNG_SR_CEIS));
     }
     /* Check if data is ready. */
-    if ((RNG_SR & RNG_SR_DRDY) == 0)
+    if ((RNG->SR & RNG_SR_DRDY) == 0)
       continue;
 
     tries++;
-    new_value = RNG_DR;
+    new_value = RNG->DR;
   } while ((new_value == last_value) && (tries < RANDOM_MAX_TRIES));
 
   if (new_value == last_value) {

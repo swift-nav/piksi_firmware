@@ -13,6 +13,7 @@
 #include <stdio.h>
 
 #include "cfs/cfs-coffee-arch.h"
+#include "peripherals/stm_flash.h"
 
 /** \addtogroup cfs
  * \{
@@ -55,7 +56,7 @@ void coffee_write(u8* buf, u32 size, u32 offset)
 void coffee_erase(u8 sector)
 {
   flash_unlock();
-  flash_erase_sector(sector+COFFEE_START_SECTOR, FLASH_CR_PROGRAM_X32);
+  stm_flash_erase_sector(sector+COFFEE_START_SECTOR);
   flash_lock();
 }
 

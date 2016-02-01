@@ -14,8 +14,7 @@
 #include <stdio.h>
 
 #include "../error.h"
-#include "../peripherals/spi.h"
-#include "../peripherals/usart.h"
+#include "../peripherals/spi_wrapper.h"
 #include "../sbp.h"
 #include "../flash.h"
 #include "m25_flash.h"
@@ -32,16 +31,16 @@
 void m25_write_enable(void)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
-  spi_xfer(SPI_BUS_FLASH, M25_WREN);
-  spi_slave_deselect();
+  spi_slave_xfer(SPI_SLAVE_FLASH, M25_WREN);
+  spi_slave_deselect(SPI_SLAVE_FLASH);
 }
 
 /** Send "write disable" command to the flash. */
 void m25_write_disable(void)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
-  spi_xfer(SPI_BUS_FLASH, M25_WRDI);
-  spi_slave_deselect();
+  spi_slave_xfer(SPI_SLAVE_FLASH, M25_WRDI);
+  spi_slave_deselect(SPI_SLAVE_FLASH);
 }
 
 /** Read the manufacturer and device identification out of the flash.
@@ -52,11 +51,11 @@ void m25_write_disable(void)
 void m25_read_id(u8 *man_id, u8 *mem_type, u8 *mem_cap)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
-  spi_xfer(SPI_BUS_FLASH, M25_RDID);
-  *man_id = (u8)spi_xfer(SPI_BUS_FLASH, 0x00);
-  *mem_type = (u8)spi_xfer(SPI_BUS_FLASH, 0x00);
-  *mem_cap = (u8)spi_xfer(SPI_BUS_FLASH, 0x00);
-  spi_slave_deselect();
+  spi_slave_xfer(SPI_SLAVE_FLASH, M25_RDID);
+  *man_id = (u8)spi_slave_xfer(SPI_SLAVE_FLASH, 0x00);
+  *mem_type = (u8)spi_slave_xfer(SPI_SLAVE_FLASH, 0x00);
+  *mem_cap = (u8)spi_slave_xfer(SPI_SLAVE_FLASH, 0x00);
+  spi_slave_deselect(SPI_SLAVE_FLASH);
 }
 
 /** Read the status register out of the flash.
@@ -67,9 +66,9 @@ u8 m25_read_status(void)
   u8 sr;
 
   spi_slave_select(SPI_SLAVE_FLASH);
-  spi_xfer(SPI_BUS_FLASH, M25_RDSR);
-  sr = spi_xfer(SPI_BUS_FLASH, 0x00);
-  spi_slave_deselect();
+  spi_slave_xfer(SPI_SLAVE_FLASH, M25_RDSR);
+  sr = spi_slave_xfer(SPI_SLAVE_FLASH, 0x00);
+  spi_slave_deselect(SPI_SLAVE_FLASH);
 
   return sr;
 }
@@ -81,9 +80,9 @@ u8 m25_read_status(void)
 void m25_write_status(u8 sr)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
-  spi_xfer(SPI_BUS_FLASH, M25_WRSR);
-  spi_xfer(SPI_BUS_FLASH, sr);
-  spi_slave_deselect();
+  spi_slave_xfer(SPI_SLAVE_FLASH, M25_WRSR);
+  spi_slave_xfer(SPI_SLAVE_FLASH, sr);
+  spi_slave_deselect(SPI_SLAVE_FLASH);
 }
 
 /** Read data from flash memory.
@@ -103,16 +102,16 @@ u8 m25_read(u32 addr, u8 buff[], u32 len)
 
   spi_slave_select(SPI_SLAVE_FLASH);
 
-  spi_xfer(SPI_BUS_FLASH, M25_READ);
+  spi_slave_xfer(SPI_SLAVE_FLASH, M25_READ);
 
-  spi_xfer(SPI_BUS_FLASH, (addr >> 16) & 0xFF);
-  spi_xfer(SPI_BUS_FLASH, (addr >> 8) & 0xFF);
-  spi_xfer(SPI_BUS_FLASH, addr & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FLASH, (addr >> 16) & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FLASH, (addr >> 8) & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FLASH, addr & 0xFF);
 
   for (u32 i = 0; i < len; i++)
-    buff[i] = spi_xfer(SPI_BUS_FLASH, 0x00);
+    buff[i] = spi_slave_xfer(SPI_SLAVE_FLASH, 0x00);
 
-  spi_slave_deselect();
+  spi_slave_deselect(SPI_SLAVE_FLASH);
 
   return FLASH_OK;
 }
@@ -140,16 +139,16 @@ u8 m25_page_program(u32 addr, u8 buff[], u8 len)
 
   spi_slave_select(SPI_SLAVE_FLASH);
 
-  spi_xfer(SPI_BUS_FLASH, M25_PP);
+  spi_slave_xfer(SPI_SLAVE_FLASH, M25_PP);
 
-  spi_xfer(SPI_BUS_FLASH, (addr >> 16) & 0xFF);
-  spi_xfer(SPI_BUS_FLASH, (addr >> 8) & 0xFF);
-  spi_xfer(SPI_BUS_FLASH, addr & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FLASH, (addr >> 16) & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FLASH, (addr >> 8) & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FLASH, addr & 0xFF);
 
   for (i = 0; i < len; i++)
-    spi_xfer(SPI_BUS_FLASH, buff[i]);
+    spi_slave_xfer(SPI_SLAVE_FLASH, buff[i]);
 
-  spi_slave_deselect();
+  spi_slave_deselect(SPI_SLAVE_FLASH);
 
   while (m25_read_status() & M25_SR_WIP) ;
 
@@ -170,13 +169,13 @@ u8 m25_sector_erase(u32 addr)
 
   spi_slave_select(SPI_SLAVE_FLASH);
 
-  spi_xfer(SPI_BUS_FLASH, M25_SE);
+  spi_slave_xfer(SPI_SLAVE_FLASH, M25_SE);
 
-  spi_xfer(SPI_BUS_FLASH, (addr >> 16) & 0xFF);
-  spi_xfer(SPI_BUS_FLASH, (addr >> 8) & 0xFF);
-  spi_xfer(SPI_BUS_FLASH, addr & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FLASH, (addr >> 16) & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FLASH, (addr >> 8) & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FLASH, addr & 0xFF);
 
-  spi_slave_deselect();
+  spi_slave_deselect(SPI_SLAVE_FLASH);
 
   while (m25_read_status() & M25_SR_WIP) ;
 
@@ -190,9 +189,9 @@ void m25_bulk_erase(void)
 {
   spi_slave_select(SPI_SLAVE_FLASH);
 
-  spi_xfer(SPI_BUS_FLASH, M25_BE);
+  spi_slave_xfer(SPI_SLAVE_FLASH, M25_BE);
 
-  spi_slave_deselect();
+  spi_slave_deselect(SPI_SLAVE_FLASH);
 
   while (m25_read_status() & M25_SR_WIP) ;
 }
