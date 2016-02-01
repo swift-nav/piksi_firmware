@@ -14,7 +14,6 @@
 #define CFS_COFFEE_ARCH_H
 
 #include <libswiftnav/common.h>
-#include <libopencm3/stm32/f4/flash.h>
 
 /** \addtogroup cfs_arch
  * \{

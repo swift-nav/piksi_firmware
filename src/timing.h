@@ -13,9 +13,6 @@
 #ifndef SWIFTNAV_TIME_H
 #define SWIFTNAV_TIME_H
 
-#include <libopencm3/stm32/f4/rcc.h>
-#include <libopencm3/stm32/f4/timer.h>
-
 #include <libswiftnav/common.h>
 #include <libswiftnav/time.h>
 

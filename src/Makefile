@@ -77,6 +77,8 @@ PROJECT = piksi_firmware
 
 # Imported source files and paths
 CHIBIOS = ../ChibiOS-RT
+include $(CHIBIOS)/os/hal/platforms/STM32F4xx/platform.mk
+include $(CHIBIOS)/os/hal/hal.mk
 include $(CHIBIOS)/os/ports/GCC/ARMCMx/STM32F4xx/port.mk
 include $(CHIBIOS)/os/kernel/kernel.mk
 
@@ -87,6 +89,9 @@ LDSCRIPT= STM32F405xG.ld
 # setting.
 CSRC := $(PORTSRC) \
         $(KERNSRC) \
+        $(HALSRC) \
+        $(PLATFORMSRC) \
+        $(SWIFTNAV_ROOT)/src/board/board.o \
         $(SWIFTNAV_ROOT)/src/board/nap/nap_common.o \
         $(SWIFTNAV_ROOT)/src/board/nap/nap_exti.o \
         $(SWIFTNAV_ROOT)/src/board/nap/nap_conf.o \
@@ -97,10 +102,8 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/board/leds.o \
         $(SWIFTNAV_ROOT)/src/peripherals/3drradio.o \
         $(SWIFTNAV_ROOT)/src/peripherals/stm_flash.o \
-        $(SWIFTNAV_ROOT)/src/peripherals/spi.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/spi_wrapper.o \
         $(SWIFTNAV_ROOT)/src/peripherals/usart.o \
-        $(SWIFTNAV_ROOT)/src/peripherals/usart_tx.o \
-        $(SWIFTNAV_ROOT)/src/peripherals/usart_rx.o \
         $(SWIFTNAV_ROOT)/src/peripherals/usart_chat.o \
         $(SWIFTNAV_ROOT)/src/peripherals/random.o \
         $(SWIFTNAV_ROOT)/src/peripherals/watchdog.o \
@@ -163,11 +166,13 @@ TCPPSRC =
 # List ASM source files here
 ASMSRC = $(PORTASM)
 
-INCDIR = $(PORTINC) $(KERNINC) $(CHIBIOS)/os/various \
+INCDIR = $(PORTINC) $(KERNINC) \
+         $(HALINC) $(PLATFORMINC) \
+         $(CHIBIOS)/os/various \
          $(SWIFTNAV_ROOT)/libsbp/c/include \
          $(SWIFTNAV_ROOT)/libswiftnav/include \
          $(SWIFTNAV_ROOT)/src \
-         $(SWIFTNAV_ROOT)/libopencm3/include
+         $(SWIFTNAV_ROOT)/src/board \
 
 #
 # Project, sources and paths
@@ -224,8 +229,7 @@ DADEFS =
 DINCDIR =
 
 # List the default directory to look for the libraries here
-DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
-          $(SWIFTNAV_ROOT)/libsbp/c/build/src \
+DLIBDIR = $(SWIFTNAV_ROOT)/libsbp/c/build/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/CBLAS/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/BLAS/SRC \
@@ -234,7 +238,7 @@ DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src
 
 # List all default libraries here
-DLIBS = -lopencm3_stm32f4 -lsbp-static -lswiftnav-static \
+DLIBS = -lsbp-static -lswiftnav-static \
         -llapack -lcblas -lblas \
         -lf2c -lm -lc -lnosys
 

@@ -10,8 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/stm32/f4/flash.h>
-#include <libopencm3/stm32/f4/rcc.h>
+#include <hal.h>
 
 #include <libsbp/flash.h>
 #include <libsbp/sbp.h>
@@ -25,21 +24,6 @@
 #include "board/nap/nap_conf.h"
 #include "sbp.h"
 #include "error.h"
-
-/** Clock settings for 130.944 MHz from 16.368 MHz HSE. */
-const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
-{
-  .pllm           = 16,
-  .plln           = 256,
-  .pllp           = 2,
-  .pllq           = 6,
-  .hpre           = RCC_CFGR_HPRE_DIV_NONE,
-  .ppre1          = RCC_CFGR_PPRE_DIV_4,
-  .ppre2          = RCC_CFGR_PPRE_DIV_4,
-  .flash_config   = FLASH_ACR_ICE | FLASH_ACR_DCE | FLASH_ACR_LATENCY_3WS,
-  .apb1_frequency = 32736000,
-  .apb2_frequency = 32736000,
-};
 
 #define AIRCR_SYSRESETREQ			(1 << 2)
 /** Resets the device back into the bootloader. */

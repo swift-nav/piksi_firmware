@@ -11,11 +11,9 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/stm32/exti.h>
-#include <libopencm3/stm32/f4/gpio.h>
-#include <libopencm3/stm32/f4/rcc.h>
 
 #include <ch.h>
+#include <hal.h>
 
 #include "nap_exti.h"
 
@@ -39,7 +37,15 @@ static WORKING_AREA_CCM(wa_nap_exti, 2000);
 static msg_t nap_exti_thread(void *arg);
 static u32 nap_irq_rd_blocking(void);
 
+void exti1_isr(EXTDriver *, expchannel_t);
+
 static BinarySemaphore nap_exti_sem;
+static EXTConfig extconfig  = {
+  .channels[1] = {
+    .mode = EXT_MODE_GPIOA | EXT_CH_MODE_RISING_EDGE,
+    .cb = exti1_isr,
+  },
+};
 
 /** Set up NAP GPIO interrupt.
  * Interrupt alerts STM that a channel in NAP needs to be serviced.
@@ -49,37 +55,27 @@ void nap_exti_setup(void)
   /* Signal from the FPGA is on PA1. */
   chBSemInit(&nap_exti_sem, TRUE);
 
-  /* Enable clock to GPIOA. */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
-  /* Enable clock to SYSCFG which contains the EXTI functionality. */
-  RCC_APB2ENR |= RCC_APB2ENR_SYSCFGEN;
-
-  exti_select_source(EXTI1, GPIOA);
-  exti_set_trigger(EXTI1, EXTI_TRIGGER_RISING);
-  exti_reset_request(EXTI1);
-  exti_enable_request(EXTI1);
+  extStart(&EXTD1, &extconfig);
+  extChannelEnable(&EXTD1, 1);
 
   /* Enable EXTI1 interrupt */
   chThdCreateStatic(wa_nap_exti, sizeof(wa_nap_exti), HIGHPRIO-1, nap_exti_thread, NULL);
-  nvicEnableVector(NVIC_EXTI1_IRQ, CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+2));
 }
 
 /** NAP interrupt service routine.
  * Reads the IRQ register from NAP to determine what inside the NAP needs to be
  * serviced, and then calls the appropriate service routine.
  */
-void exti1_isr(void)
+void exti1_isr(EXTDriver *driver, expchannel_t channel)
 {
-  CH_IRQ_PROLOGUE();
+  (void)driver; (void)channel;
   chSysLockFromIsr();
 
-  exti_reset_request(EXTI1);
 
   /* Wake up processing thread */
   chBSemSignalI(&nap_exti_sem);
 
   chSysUnlockFromIsr();
-  CH_IRQ_EPILOGUE();
 }
 
 
@@ -126,7 +122,7 @@ static msg_t nap_exti_thread(void *arg)
      * NAP then the IRQ line will stay high. Therefore if
      * the line is still high, don't suspend the thread.
      */
-    while (GPIOA_IDR & GPIO1) {
+    while (palReadPad(GPIOA, 1)) {
       handle_nap_exti();
     }
 

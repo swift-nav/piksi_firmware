@@ -16,6 +16,7 @@
 #include <libsbp/system.h>
 #include <libswiftnav/logging.h>
 
+#include <hal.h>
 #include <ch.h>
 
 #include "peripherals/random.h"
@@ -148,6 +149,8 @@ int main(void)
   STBase->RVR = SYSTEM_CLOCK / CH_FREQUENCY - 1;
   STBase->CVR = 0;
   STBase->CSR = CLKSOURCE_CORE_BITS | ENABLE_ON_BITS | TICKINT_ENABLED_BITS;
+
+  halInit();
 
   /* Kernel initialization, the main() function becomes a thread with
    * priority NORMALPRIO and the RTOS is active. */
