@@ -12,10 +12,7 @@
 
 #include <libswiftnav/logging.h>
 
-#include <libopencm3/stm32/f4/gpio.h>
-#include <libopencm3/stm32/f4/rcc.h>
-
-#include "../peripherals/spi.h"
+#include "../peripherals/spi_wrapper.h"
 #include "../settings.h"
 #include "max2769.h"
 
@@ -36,11 +33,11 @@ void max2769_write(u8 addr, u32 data)
   u32 write_word = ((data << 4) & 0xFFFFFFF0) | (addr & 0x0F);
 
   spi_slave_select(SPI_SLAVE_FRONTEND);
-  spi_xfer(SPI_BUS_FRONTEND, (write_word >> 24) & 0xFF);
-  spi_xfer(SPI_BUS_FRONTEND, (write_word >> 16) & 0xFF);
-  spi_xfer(SPI_BUS_FRONTEND, (write_word >>  8) & 0xFF);
-  spi_xfer(SPI_BUS_FRONTEND, (write_word >>  0) & 0xFF);
-  spi_slave_deselect();
+  spi_slave_xfer(SPI_SLAVE_FRONTEND, (write_word >> 24) & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FRONTEND, (write_word >> 16) & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FRONTEND, (write_word >>  8) & 0xFF);
+  spi_slave_xfer(SPI_SLAVE_FRONTEND, (write_word >>  0) & 0xFF);
+  spi_slave_deselect(SPI_SLAVE_FRONTEND);
 }
 
 u32 max2769_conf1;
@@ -58,17 +55,16 @@ u32 max2769_test2;
 void max2769_configure(void)
 {
   /* Setup MAX2769 PGM (PB8) - low */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPBEN;
-  gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, GPIO8);
-  gpio_clear(GPIOB, GPIO8);
+  palSetPadMode(GPIOB, GPIOB_MAX_PGM, PAL_MODE_OUTPUT_PUSHPULL);
+  palClearPad(GPIOB, GPIOB_MAX_PGM);
 
   /* Setup MAX2769 NSHDN (PB9) - high */
-  gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO9);
-  gpio_set(GPIOB, GPIO9);
+  palSetPadMode(GPIOB, GPIOB_MAX_NSHDN, PAL_MODE_OUTPUT_PUSHPULL);
+  palSetPad(GPIOB, GPIOB_MAX_NSHDN);
 
   /* Setup MAX2769 NIDLE (PB10) - high */
-  gpio_mode_setup(GPIOB, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, GPIO10);
-  gpio_set(GPIOB, GPIO10);
+  palSetPadMode(GPIOB, GPIOB_MAX_NIDLE, PAL_MODE_OUTPUT_PUSHPULL);
+  palSetPad(GPIOB, GPIOB_MAX_NIDLE);
 
   max2769_conf1 = MAX2769_CONF1_CHIPEN |
                   MAX2769_CONF1_ILNA1(15) |
@@ -193,13 +189,12 @@ void max2769_setup(void)
   SETTING_NOTIFY("frontend", "antenna_selection", antenna, TYPE_ANTENNA, antenna_changed);
 
   /* Enable GPIO5 to read antenna status */
-  RCC_AHB1ENR |= RCC_AHB1ENR;
-  gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO5);
+  palSetPadMode(GPIOC, GPIOC_MAX_ANT_FLAG, PAL_MODE_INPUT);
 }
 
 bool max2769_ant_status(void)
 {
-  return gpio_get(GPIOC, GPIO5);
+  return palReadPad(GPIOC, GPIOC_MAX_ANT_FLAG);
 }
 
 antenna_type_t max2769_ant_setting(void)

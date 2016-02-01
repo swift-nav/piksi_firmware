@@ -23,8 +23,7 @@
 #include <libswiftnav/baseline.h>
 #include <libswiftnav/linear_algebra.h>
 
-#include <libopencm3/stm32/f4/timer.h>
-#include <libopencm3/stm32/f4/rcc.h>
+#include <hal.h>
 
 #include "board/leds.h"
 #include "position.h"
@@ -39,6 +38,14 @@
 #include "base_obs.h"
 #include "ephemeris.h"
 #include "./system_monitor.h"
+
+#define SOL_GPT GPTD5
+
+static void sol_gpt_cb(GPTDriver *);
+static GPTConfig sol_gpt_config = {
+  .frequency = STM32_TIMCLK1,
+  .callback = sol_gpt_cb,
+};
 
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
@@ -286,39 +293,35 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 }
 
 static BinarySemaphore solution_wakeup_sem;
-#define tim5_isr Vector108
-#define NVIC_TIM5_IRQ 50
-void tim5_isr()
+static void sol_gpt_cb(GPTDriver *gptd)
 {
-  CH_IRQ_PROLOGUE();
+  (void)gptd;
   chSysLockFromIsr();
 
   /* Wake up processing thread */
   chBSemSignalI(&solution_wakeup_sem);
 
-  timer_clear_flag(TIM5, TIM_SR_UIF);
 
   chSysUnlockFromIsr();
-  CH_IRQ_EPILOGUE();
 }
 
-static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
+static void timer_set_period_check(GPTDriver *gptd, uint32_t period)
 {
-  __asm__("CPSID i;");
-  TIM_ARR(timer_peripheral) = period;
-  uint32_t tmp = TIM_CNT(timer_peripheral);
+  chSysLock();
+  gptChangeIntervalI(gptd, period);
+  u32 tmp = gpt_lld_get_counter(gptd);
   if (tmp > period) {
-    TIM_CNT(timer_peripheral) = period;
+    gpt_lld_set_counter(gptd, period);
     log_warn("Solution thread missed deadline, "
              "TIM counter = %lu, period = %lu", tmp, period);
   }
-  __asm__("CPSIE i;");
+  chSysUnlock();
 }
 
 static void solution_simulation()
 {
   /* Set the timer period appropriately. */
-  timer_set_period_check(TIM5, round(65472000 * (1.0/soln_freq)));
+  timer_set_period_check(&SOL_GPT, round(SOL_GPT.clock * (1.0/soln_freq)));
 
   simulation_step();
 
@@ -580,7 +583,7 @@ static msg_t solution_thread(void *arg)
 
       /* Reset timer period with the count that we will estimate will being
        * us up to the next solution time. */
-      timer_set_period_check(TIM5, round(65472000 * dt));
+      timer_set_period_check(&SOL_GPT, round(SOL_GPT.clock * dt));
 
     } else {
       /* An error occurred with calc_PVT! */
@@ -825,16 +828,8 @@ void solution_setup()
   chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread),
                     HIGHPRIO-2, solution_thread, NULL);
   /* Enable TIM5 clock. */
-  rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM5EN);
-  nvicEnableVector(NVIC_TIM5_IRQ,
-      CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+1));
-  timer_reset(TIM5);
-  timer_set_mode(TIM5, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
-  timer_set_prescaler(TIM5, 0);
-  timer_disable_preload(TIM5);
-  timer_set_period(TIM5, 65472000); /* 1 second. */
-  timer_enable_counter(TIM5);
-  timer_enable_irq(TIM5, TIM_DIER_UIE);
+  gptStart(&SOL_GPT, &sol_gpt_config);
+  gptStartContinuous(&SOL_GPT, SOL_GPT.clock);
 
   chThdCreateStatic(wa_time_matched_obs_thread,
                     sizeof(wa_time_matched_obs_thread), LOWPRIO,

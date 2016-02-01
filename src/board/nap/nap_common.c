@@ -11,12 +11,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/stm32/f4/gpio.h>
-#include <libopencm3/stm32/f4/rcc.h>
 #include <libsbp/sbp.h>
 
 #include "../../error.h"
-#include "../../peripherals/spi.h"
+#include "../../peripherals/spi_wrapper.h"
 #include "../../sbp.h"
 #include "../../init.h"
 #include "../max2769.h"
@@ -47,12 +45,10 @@ BinarySemaphore timing_strobe_sem;
 void nap_setup()
 {
   /* Setup the FPGA conf done line. */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
-  gpio_mode_setup(GPIOC, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO1);
+  palSetPadMode(GPIOC, GPIOC_FPGA_DONE, PAL_MODE_INPUT);
 
   /* Setup the FPGA hash read done line. */
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPAEN;
-  gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO3);
+  palSetPadMode(GPIOA, GPIOA_NAP_HASH_DONE, PAL_MODE_INPUT);
 
   /* Set up the FPGA CONF_B line. */
   nap_conf_b_setup();
@@ -61,7 +57,6 @@ void nap_setup()
 
   /* Initialise the SPI peripheral so that we can set up the RF frontend. */
   spi_setup();
-  //spi_dma_setup();
 
   /* Configure the front end. */
   max2769_configure();
@@ -80,10 +75,9 @@ void nap_setup()
 
   /* FPGA is done using SPI2: re-initialise the SPI peripheral. */
   spi_setup();
-  spi1_dma_setup();
 
   /* Switch the STM's clock to use the Frontend clock from the NAP */
-  rcc_clock_setup_hse_3v3(&hse_16_368MHz_in_130_944MHz_out_3v3);
+  stm32_clock_init();
 
   /* Set up the NAP interrupt line. */
   nap_exti_setup();
@@ -103,15 +97,14 @@ void nap_setup()
  */
 u8 nap_conf_done(void)
 {
-  return gpio_get(GPIOC, GPIO1) ? 1 : 0;
+  return palReadPad(GPIOC, GPIOC_FPGA_DONE);
 }
 
 /** Setup the GPIO for the FPGA CONF B pin. */
 void nap_conf_b_setup(void)
 {
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
-  gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO12);
-  gpio_set(GPIOC, GPIO12);
+  palSetPadMode(GPIOC, GPIOC_FPGA_PROGRAM_B, PAL_MODE_OUTPUT_PUSHPULL);
+  palSetPad(GPIOC, GPIOC_FPGA_PROGRAM_B);
 }
 
 /** Set the FPGA CONF B pin high.
@@ -119,7 +112,7 @@ void nap_conf_b_setup(void)
  */
 void nap_conf_b_set(void)
 {
-  gpio_set(GPIOC, GPIO12);
+  palSetPad(GPIOC, GPIOC_FPGA_PROGRAM_B);
 }
 
 /** Set the FPGA CONF B pin low.
@@ -128,7 +121,7 @@ void nap_conf_b_set(void)
  */
 void nap_conf_b_clear(void)
 {
-  gpio_clear(GPIOC, GPIO12);
+  palClearPad(GPIOC, GPIOC_FPGA_PROGRAM_B);
 }
 
 /** See if NAP has finished reading authentication hash from configuration
@@ -138,7 +131,7 @@ void nap_conf_b_clear(void)
  */
 u8 nap_hash_rd_done(void)
 {
-  return gpio_get(GPIOA, GPIO3) ? 0 : 1;
+  return palReadPad(GPIOA, GPIOA_NAP_HASH_DONE) ? 0 : 1;
 }
 
 /** Return status of NAP authentication hash comparison.
@@ -196,21 +189,21 @@ void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[],
 {
   spi_slave_select(SPI_SLAVE_FPGA);
 
-  spi_xfer(SPI_BUS_FPGA, reg_id);
+  spi_slave_xfer(SPI_SLAVE_FPGA, reg_id);
 
   /* Spin for shorter transfers to avoid the overhead of context switching. */
-  if (n_bytes < 8) {
+  if (SPI_USE_ASYNC && (n_bytes >= 8)) {
+    spi_slave_xfer_async(SPI_SLAVE_FPGA, n_bytes, data_in, data_out);
+  } else {
     /* If data_in is NULL then discard read data. */
     if (data_in)
       for (u16 i = 0; i < n_bytes; i++)
-        data_in[i] = spi_xfer(SPI_BUS_FPGA, data_out[i]);
+        data_in[i] = spi_slave_xfer(SPI_SLAVE_FPGA, data_out[i]);
     else
       for (u16 i = 0; i < n_bytes; i++)
-        spi_xfer(SPI_BUS_FPGA, data_out[i]);
-  } else {
-        spi1_xfer_dma(n_bytes, data_in, data_out);
+        spi_slave_xfer(SPI_SLAVE_FPGA, data_out[i]);
   }
-  spi_slave_deselect();
+  spi_slave_deselect(SPI_SLAVE_FPGA);
 }
 
 /** Get the current NAP internal sample clock count.
