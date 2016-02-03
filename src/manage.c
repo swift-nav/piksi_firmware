@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Copyright (C) 2011-2014, 2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
+ *          Pasi Miettinen <pasi.miettinen@exafore.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -75,7 +76,9 @@ typedef struct {
   float dopp_hint_high;    /**< High bound of doppler search hint. */
   gnss_signal_t sid;       /**< Signal identifier. */
 } acq_status_t;
-static acq_status_t acq_status[NUM_SATS];
+
+static acq_status_t gps_l1ca_acq_status[NUM_SATS_GPS];
+static acq_status_t sbas_l1ca_acq_status[NUM_SATS_SBAS];
 
 #define SCORE_COLDSTART     100
 #define SCORE_WARMSTART     200
@@ -87,7 +90,8 @@ static acq_status_t acq_status[NUM_SATS];
 #define DOPP_UNCERT_ALMANAC 4000
 #define DOPP_UNCERT_EPHEM   500
 
-static almanac_t almanac[NUM_SATS];
+static almanac_t gps_l1ca_almanac[NUM_SATS_GPS];
+static almanac_t sbas_l1ca_almanac[NUM_SATS_SBAS];
 
 static float track_cn0_use_thres = 31.0; /* dBHz */
 static float elevation_mask = 0.0; /* degrees */
@@ -104,6 +108,29 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 }
 
 static sbp_msg_callbacks_node_t mask_sat_callback_node;
+
+static acq_status_t * select_acq_status(gnss_signal_t const *sid)
+{
+  acq_status_t *acq = NULL;
+  bool valid = sid_valid(*sid);
+  assert(valid);
+  if (valid) {
+    switch (sid_to_constellation(*sid)) {
+    case CONSTELLATION_GPS:
+      acq = &gps_l1ca_acq_status[sid_to_index(*sid, INDEX_SAT_IN_CONS)];
+      break;
+    case CONSTELLATION_SBAS:
+      acq = &sbas_l1ca_acq_status[sid_to_index(*sid, INDEX_SAT_IN_CONS)];
+      break;
+    default:
+      assert("invalid constellation");
+      break;
+    }
+  }
+  return acq;
+}
+
+
 static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void) context;
@@ -118,16 +145,12 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   char sid_str[SID_STR_LEN_MAX];
   sid_to_string(sid_str, sizeof(sid_str), sid);
 
-  if (sid_valid(sid)) {
-    acq_status_t *acq = &acq_status[sid_to_index(sid)];
-    acq->masked = (m->mask & MASK_ACQUISITION) ? true : false;
-    if (m->mask & MASK_TRACKING) {
-      tracking_drop_satellite(sid);
-    }
-    log_info("Mask for %s = 0x%02x", sid_str, m->mask);
-  } else {
-    log_warn("Mask not set for invalid SID");
+  acq_status_t *acq = select_acq_status(&sid);
+  acq->masked = (m->mask & MASK_ACQUISITION) ? true : false;
+  if (m->mask & MASK_TRACKING) {
+    tracking_drop_satellite(sid);
   }
+  log_info("Mask for %s = 0x%02x", sid_str, m->mask);
 }
 
 static WORKING_AREA_CCM(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
@@ -149,19 +172,30 @@ void manage_acq_setup()
 {
   SETTING("acquisition", "sbas enabled", sbas_enabled, TYPE_BOOL);
 
-  for (u32 i=0; i<NUM_SATS; i++) {
-    acq_status[i].state = ACQ_PRN_ACQUIRING;
-    memset(&acq_status[i].score, 0, sizeof(acq_status[i].score));
-    acq_status[i].dopp_hint_low = ACQ_FULL_CF_MIN;
-    acq_status[i].dopp_hint_high = ACQ_FULL_CF_MAX;
-    acq_status[i].sid = sid_from_index(i);
+  for (u32 i=0; i<NUM_SATS_GPS; i++) {
+    gps_l1ca_acq_status[i].state = ACQ_PRN_ACQUIRING;
+    memset(&gps_l1ca_acq_status[i].score, 0,
+        sizeof(gps_l1ca_acq_status[i].score));
+    gps_l1ca_acq_status[i].dopp_hint_low = ACQ_FULL_CF_MIN;
+    gps_l1ca_acq_status[i].dopp_hint_high = ACQ_FULL_CF_MAX;
+    gps_l1ca_acq_status[i].sid = construct_sid(CODE_GPS_L1CA, i + 1);
 
-    if (!sbas_enabled &&
-        (acq_status[i].sid.constellation == CONSTELLATION_SBAS)) {
-      acq_status[i].masked = true;
+    gps_l1ca_almanac[i].valid = 0;
+  }
+
+  for (u32 i=0; i<NUM_SATS_SBAS; i++) {
+    sbas_l1ca_acq_status[i].state = ACQ_PRN_ACQUIRING;
+    memset(&sbas_l1ca_acq_status[i].score, 0,
+        sizeof(sbas_l1ca_acq_status[i].score));
+    sbas_l1ca_acq_status[i].dopp_hint_low = ACQ_FULL_CF_MIN;
+    sbas_l1ca_acq_status[i].dopp_hint_high = ACQ_FULL_CF_MAX;
+    sbas_l1ca_acq_status[i].sid = construct_sid(CODE_SBAS_L1CA, i + 1);
+
+    if (!sbas_enabled) {
+      sbas_l1ca_acq_status[i].masked = true;
     }
 
-    almanac[i].valid = 0;
+    sbas_l1ca_almanac[i].valid = 0;
   }
 
   sbp_register_cbk(
@@ -230,7 +264,8 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
       if (time_quality >= TIME_FINE)
         dopp_uncertainty = DOPP_UNCERT_EPHEM;
     } else {
-      const almanac_t *a = &almanac[sid_to_index(sid)];
+      const almanac_t *a = &gps_l1ca_almanac[sid_to_index(sid,
+          INDEX_SAT_IN_CONS)];
       if (a->valid) {
         calc_sat_az_el_almanac(a, t->tow, t->wn-1024,
                                position_solution.pos_ecef, &_, &el_d);
@@ -249,12 +284,12 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
     return SCORE_COLDSTART + SCORE_WARMSTART * el / 90.f;
 }
 
-static acq_status_t * choose_acq_sat(void)
+static u32 run_warm_start_management(acq_status_t * acq_status, u8 len)
 {
   u32 total_score = 0;
   gps_time_t t = get_current_time();
 
-  for (u32 i=0; i<NUM_SATS; i++) {
+  for (u32 i=0; i<len; i++) {
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
         acq_status[i].masked)
       continue;
@@ -269,14 +304,12 @@ static acq_status_t * choose_acq_sat(void)
     }
   }
 
-  if (total_score == 0) {
-    log_error("Failed to pick a sat for acquisition!");
-    return NULL;
-  }
+  return total_score;
+}
 
-  u32 pick = random_int() % total_score;
-
-  for (u32 i=0; i<NUM_SATS; i++) {
+static acq_status_t * pick_acq_sat(acq_status_t * acq_status, u8 len, u32 *pick)
+{
+  for (u32 i=0; i<len; i++) {
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
         acq_status[i].masked)
       continue;
@@ -284,12 +317,39 @@ static acq_status_t * choose_acq_sat(void)
     u32 sat_score = 0;
     for (enum acq_hint hint = 0; hint < ACQ_HINT_NUM; hint++)
       sat_score += acq_status[i].score[hint];
-    if (pick < sat_score) {
+    if (*pick < sat_score) {
       return &acq_status[i];
     } else {
-      pick -= sat_score;
+      *pick -= sat_score;
     }
   }
+
+  return NULL;
+}
+
+static acq_status_t * choose_acq_sat(void)
+{
+  u32 total_score = 0;
+
+  total_score += run_warm_start_management(gps_l1ca_acq_status, NUM_SATS_GPS);
+  total_score += run_warm_start_management(sbas_l1ca_acq_status, NUM_SATS_SBAS);
+
+  if (total_score == 0) {
+    log_error("Failed to pick a sat for acquisition!");
+    return NULL;
+  }
+
+  u32 pick = random_int() % total_score;
+  acq_status_t *acq_sat =
+      pick_acq_sat(gps_l1ca_acq_status, NUM_SATS_GPS, &pick);
+
+  if (NULL != acq_sat)
+    return acq_sat;
+
+  acq_sat = pick_acq_sat(sbas_l1ca_acq_status, NUM_SATS_SBAS, &pick);
+
+  if (NULL != acq_sat)
+    return acq_sat;
 
   assert("Error picking a sat for acquisition");
   return NULL;
@@ -309,8 +369,21 @@ void manage_set_obs_hint(gnss_signal_t sid)
 {
   bool valid = sid_valid(sid);
   assert(valid);
-  if (valid)
-    acq_status[sid_to_index(sid)].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
+  if (valid) {
+    switch (sid_to_constellation(sid)) {
+    case CONSTELLATION_GPS:
+      gps_l1ca_acq_status[sid_to_index(sid, INDEX_SAT_IN_CONS)].\
+           score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
+      break;
+    case CONSTELLATION_SBAS:
+      sbas_l1ca_acq_status[sid_to_index(sid, INDEX_SAT_IN_CONS)].\
+           score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
+      break;
+    default:
+      assert("invalid constellation");
+      break;
+    }
+  }
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
@@ -434,9 +507,14 @@ static void check_clear_unhealthy(void)
 
   ticks = chTimeNow();
 
-  for (u32 i=0; i<NUM_SATS; i++) {
-    if (acq_status[i].state == ACQ_PRN_UNHEALTHY)
-      acq_status[i].state = ACQ_PRN_ACQUIRING;
+  for (u32 i=0; i<NUM_SATS_GPS; i++) {
+    if (gps_l1ca_acq_status[i].state == ACQ_PRN_UNHEALTHY)
+      gps_l1ca_acq_status[i].state = ACQ_PRN_ACQUIRING;
+  }
+
+  for (u32 i=0; i<NUM_SATS_SBAS; i++) {
+    if (sbas_l1ca_acq_status[i].state == ACQ_PRN_UNHEALTHY)
+      sbas_l1ca_acq_status[i].state = ACQ_PRN_ACQUIRING;
   }
 }
 
@@ -478,7 +556,7 @@ static void drop_channel(u8 channel_id) {
   decoder_channel_disable(channel_id);
   tracking_channel_disable(channel_id);
   const tracking_channel_t *ch = &tracking_channel[channel_id];
-  acq_status_t *acq = &acq_status[sid_to_index(ch->sid)];
+  acq_status_t *acq = select_acq_status(&ch->sid);
   if (ch->update_count > TRACK_REACQ_T) {
     /* FIXME other constellations/bands */
     acq->score[ACQ_HINT_PREV_TRACK] = SCORE_TRACK;
@@ -505,7 +583,7 @@ static void manage_track()
         ch->update_count < TRACK_INIT_T)
       continue;
 
-    acq_status_t *acq = &acq_status[sid_to_index(ch->sid)];
+    acq_status_t *acq = select_acq_status(&ch->sid);
 
     /* Is ephemeris or alert flag marked unhealthy?*/
     const ephemeris_t *e = ephemeris_get(ch->sid);

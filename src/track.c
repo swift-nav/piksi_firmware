@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Copyright (C) 2011-2014, 2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
+ *          Pasi Miettinen <pasi.miettinen@exafore.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -97,7 +98,8 @@ tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
  * A map of signal to an initially random number that increments each time that
  * signal begins being tracked.
  */
-static u16 tracking_lock_counters[NUM_SATS];
+static u16 gps_l1ca_tracking_lock_counters[NUM_SATS_GPS];
+static u16 sbas_l1ca_tracking_lock_counters[NUM_SATS_SBAS];
 
 static MUTEX_DECL(nav_time_sync_mutex);
 
@@ -237,8 +239,11 @@ static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
  */
 void initialize_lock_counters(void)
 {
-  for (u32 i=0; i < NUM_SATS; i++) {
-    tracking_lock_counters[i] = random_int();
+  for (u32 i=0; i < NUM_SATS_GPS; i++) {
+    gps_l1ca_tracking_lock_counters[i] = random_int();
+  }
+  for (u32 i=0; i < NUM_SATS_SBAS; i++) {
+    sbas_l1ca_tracking_lock_counters[i] = random_int();
   }
 }
 
@@ -702,7 +707,21 @@ void tracking_channel_ambiguity_unknown(u8 channel)
   gnss_signal_t sid = tracking_channel[channel].sid;
 
   tracking_channel[channel].bit_polarity = BIT_POLARITY_UNKNOWN;
-  tracking_channel[channel].lock_counter = ++tracking_lock_counters[sid_to_index(sid)];
+
+  switch (sid_to_constellation(sid)) {
+  case CONSTELLATION_GPS:
+    tracking_channel[channel].lock_counter =
+        ++gps_l1ca_tracking_lock_counters[sid_to_index(sid, INDEX_SAT_IN_CONS)];
+    break;
+  case CONSTELLATION_SBAS:
+    tracking_channel[channel].lock_counter =
+        ++sbas_l1ca_tracking_lock_counters[sid_to_index(sid,
+            INDEX_SAT_IN_CONS)];
+    break;
+  default:
+    assert("invalid constellation");
+    break;
+  }
 }
 
 /** Update channel measurement for a tracking channel.
@@ -745,8 +764,7 @@ void tracking_send_state()
     if (num_sats < nap_track_n_channels) {
       for (u8 i = num_sats; i < nap_track_n_channels; i++) {
         states[i].state = TRACKING_DISABLED;
-        states[i].sid.constellation = 0;
-        states[i].sid.band = 0;
+        states[i].sid.code = 0;
         states[i].sid.sat = 0;
         states[i].cn0 = -1;
       }
