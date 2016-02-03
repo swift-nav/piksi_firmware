@@ -27,8 +27,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 1
   },
   .healthy   = 1,
@@ -49,8 +48,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 2
   },
   .healthy   = 1,
@@ -71,8 +69,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 3
   },
   .healthy   = 1,
@@ -93,8 +90,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 4
   },
   .healthy   = 1,
@@ -115,8 +111,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 5
   },
   .healthy   = 1,
@@ -137,8 +132,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 7
   },
   .healthy   = 1,
@@ -159,8 +153,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 8
   },
   .healthy   = 1,
@@ -181,8 +174,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 9
   },
   .healthy   = 1,
@@ -203,8 +195,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 10
   },
   .healthy   = 1,
@@ -225,8 +216,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 11
   },
   .healthy   = 1,
@@ -247,8 +237,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 12
   },
   .healthy   = 1,
@@ -269,8 +258,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 13
   },
   .healthy   = 1,
@@ -291,8 +279,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 14
   },
   .healthy   = 1,
@@ -313,8 +300,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 15
   },
   .healthy   = 1,
@@ -335,8 +321,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 16
   },
   .healthy   = 1,
@@ -357,8 +342,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 17
   },
   .healthy   = 1,
@@ -379,8 +363,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 18
   },
   .healthy   = 1,
@@ -401,8 +384,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 19
   },
   .healthy   = 1,
@@ -423,8 +405,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 20
   },
   .healthy   = 1,
@@ -445,8 +426,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 21
   },
   .healthy   = 1,
@@ -467,8 +447,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 22
   },
   .healthy   = 1,
@@ -489,8 +468,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 23
   },
   .healthy   = 1,
@@ -511,8 +489,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 24
   },
   .healthy   = 1,
@@ -533,8 +510,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 25
   },
   .healthy   = 1,
@@ -555,8 +531,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 26
   },
   .healthy   = 1,
@@ -577,8 +552,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 27
   },
   .healthy   = 1,
@@ -599,8 +573,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 28
   },
   .healthy   = 1,
@@ -621,8 +594,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 29
   },
   .healthy   = 1,
@@ -643,8 +615,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 30
   },
   .healthy   = 0,
@@ -665,8 +636,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 31
   },
   .healthy   = 1,
@@ -687,8 +657,7 @@ const almanac_t simulation_almanacs[31] = {
     .week      = 763
   },
   .sid = { 
-    .constellation = 0,
-    .band = 0,
+    .code = 0,
     .sat = 32
   },
   .healthy   = 1,
