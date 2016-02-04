@@ -101,12 +101,6 @@ static void handle_nap_exti(void)
     chBSemReset(&timing_strobe_sem, TRUE);
   }
 
-  if (irq & NAP_IRQ_CW_DONE)
-    cw_service_irq();
-
-  if (irq & NAP_IRQ_CW_LOAD_DONE)
-    cw_service_load_done();
-
   if (irq & NAP_IRQ_EXT_EVENT)
     ext_event_service();
 
