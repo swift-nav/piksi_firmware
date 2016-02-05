@@ -1,9 +1,9 @@
 -include $(SWIFTNAV_ROOT)/ext/*/Makefile.include
 
-CSRC += $(SWIFTNAV_ROOT)/ext/ext.c
+CSRC += $(SWIFTNAV_ROOT)/ext/external.c
 
-$(SWIFTNAV_ROOT)/ext/ext.c: FORCE
-	@echo "Generating ext.c"
+$(SWIFTNAV_ROOT)/ext/external.c: FORCE
+	@echo "Generating external.c"
 	-@rm $@
 	@for f in $(EXT_SETUP); do \
 		echo "extern void $$f(void);" >> $@; \

@@ -27,9 +27,9 @@ int uart_setting_type(void);
 void usart_escape(enum uart u);
 bool usart_sendwait(enum uart u, const char *send, const char *wait, u32 timeout);
 
-static inline usart_dma_state * uart_state(enum uart u)
+static inline usart_state * uart_state(enum uart u)
 {
-  usart_dma_state * const state[] = {
+  usart_state * const state[] = {
     NULL, &ftdi_state, &uarta_state, &uartb_state,
   };
   return state[u];
