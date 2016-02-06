@@ -124,7 +124,8 @@ static void update_obss(obss_t *new_obss)
    * calculate the Doppler shift. */
   base_obss.n = tdcp_doppler(new_obss->n, new_obss->nm,
                              n_old, nm_old, base_obss.nm);
-  /* Copy over the time. */
+
+  /* Copy over the obervation time. May include a receiver clock error*/
   base_obss.t = new_obss->t;
 
   /* Copy the current observations over to nm_old so we can difference
@@ -136,19 +137,12 @@ static void update_obss(obss_t *new_obss)
   /* Reset the `has_pos` flag. */
   u8 has_pos_old = base_obss.has_pos;
   base_obss.has_pos = 0;
-  /* Check if the base station has sent us its position explicitly via a
-   * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
-   * that. No need to lock before reading here as base_pos_* is only written
-   * from this thread (SBP).
-   */
-  if (base_pos_known) {
-    /* Copy the known base station position into `base_obss`. */
-    memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
-    /* Indicate that the position is valid. */
-    base_obss.has_pos = 1;
-  /* The base station wasn't sent to us explicitly but if we have >= 4
-   * satellites we can calculate it ourselves (approximately). */
-  } else if (base_obss.n >= 4) {
+
+  /* If we have >= 4 satellites we can calculate the approximate base station
+     position. We also calculate the GPS system time of the measurements which
+     may be different than the observation time offset by the receiver clock
+     error. */
+  if (base_obss.n >= 4) {
     gnss_solution soln;
     dops_t dops;
 
@@ -173,13 +167,31 @@ static void update_obss(obss_t *new_obss)
       } else {
         memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
       }
+
       base_obss.has_pos = 1;
+
+      /* Copy over the GPS system time which corrects for the receiver clock
+         error */
+      base_obss.t = soln.time;
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
       log_warn("Error calculating base station position: (%s).", pvt_err_msg[-ret-1]);
     }
   }
+
+  /* Check if the base station has sent us its position explicitly via a
+   * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
+   * that. No need to lock before reading here as base_pos_* is only written
+   * from this thread (SBP).
+   */
+  if (base_pos_known) {
+    /* Copy the known base station position into `base_obss`. */
+    memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
+    /* Indicate that the position is valid. */
+    base_obss.has_pos = 1;
+  }
+
   /* If the base station position is known then calculate the satellite ranges.
    * This calculation will be used later by the propagation functions. */
   if (base_obss.has_pos) {
@@ -189,8 +201,10 @@ static void update_obss(obss_t *new_obss)
       base_obss.sat_dists[i] = vector_norm(3, dx);
     }
   }
+
   /* Unlock base_obss mutex. */
   chMtxUnlock();
+
   /* Signal that a complete base observation has been received. */
   chBSemSignal(&base_obs_received);
 }
