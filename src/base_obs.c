@@ -170,9 +170,31 @@ static void update_obss(obss_t *new_obss)
 
       base_obss.has_pos = 1;
 
-      /* Copy over the GPS system time which corrects for the receiver clock
-         error. */
-      base_obss.t = soln.time;
+      /* Calculate the time of the nearest solution epoch, were we expected
+       * to be and calculate how far we were away from it. */
+      double soln_freq = 0.1;
+      double expected_tow = round(soln.time.tow*soln_freq)
+                              / soln_freq;
+      double t_err = expected_tow - soln.time.tow; // TODO print this
+
+      /* Only send observations that are closely aligned with the desired
+       * solution epochs to ensure they haven't been propagated too far. */
+      /* Output obervations only every obs_output_divisor times, taking
+       * care to ensure that the observations are aligned. */
+      double t_check = expected_tow * (soln_freq / obs_output_divisor);
+      if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
+          fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+        /* Propagate observation to desired time. */
+        for (u8 i = 0; i < base_obss.n; i++) {
+          base_obss.nm[i].raw_pseudorange -= t_err * base_obss.nm[i].doppler *
+            (GPS_C / GPS_L1_HZ);
+          base_obss.nm[i].carrier_phase += t_err * base_obss.nm[i].doppler;
+        }
+
+        /* Update observation time. */
+        base_obss.t.wn = soln.time.wn;
+        base_obss.t.tow = expected_tow;
+      }
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
@@ -180,29 +202,6 @@ static void update_obss(obss_t *new_obss)
     }
   }
 
-  /* Check if the base station has sent us its position explicitly via a
-   * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
-   * that. No need to lock before reading here as base_pos_* is only written
-   * from this thread (SBP).
-   */
-  if (base_pos_known) {
-    /* Copy the known base station position into `base_obss`. */
-    memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
-    /* Indicate that the position is valid. */
-    base_obss.has_pos = 1;
-  }
-
-  /* If the base station position is known then calculate the satellite ranges.
-   * This calculation will be used later by the propagation functions. */
-  if (base_obss.has_pos) {
-    for (u8 i=0; i < base_obss.n; i++) {
-      double dx[3];
-      vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
-      base_obss.sat_dists[i] = vector_norm(3, dx);
-    }
-  }
-
-  /* TODO I just duplicated the code here. */
   for(u8 i = 0; i < base_obss.n; i++) {
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
@@ -227,6 +226,28 @@ static void update_obss(obss_t *new_obss)
       base_obss.nm[i].tot = base_obss.t;
     }
     ephemeris_unlock();
+  }
+
+  /* Check if the base station has sent us its position explicitly via a
+   * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
+   * that. No need to lock before reading here as base_pos_* is only written
+   * from this thread (SBP).
+   */
+  if (base_pos_known) {
+    /* Copy the known base station position into `base_obss`. */
+    memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
+    /* Indicate that the position is valid. */
+    base_obss.has_pos = 1;
+  }
+
+  /* If the base station position is known then calculate the satellite ranges.
+   * This calculation will be used later by the propagation functions. */
+  if (base_obss.has_pos) {
+    for (u8 i=0; i < base_obss.n; i++) {
+      double dx[3];
+      vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
+      base_obss.sat_dists[i] = vector_norm(3, dx);
+    }
   }
 
   /* Unlock base_obss mutex. */
