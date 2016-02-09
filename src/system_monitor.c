@@ -12,7 +12,9 @@
 
 #include <string.h>
 
+#define memory_pool_t MemoryPool
 #include <ch.h>
+#undef memory_pool_t
 
 #include <libsbp/system.h>
 #include <libsbp/version.h>
@@ -43,24 +45,24 @@
 /* Time between sending system monitor and heartbeat messages in milliseconds */
 static uint32_t heartbeat_period_milliseconds = 1000;
 /* Use watchdog timer or not */
-static bool_t use_wdt = true;
+static bool use_wdt = true;
 
 /* Build up the event mask for the thread activity watchdog.  Equivalent to
    EVENT_MASK(0) | EVENT_MASK(1) | ... | EVENT_MASK(WD_NOTIFY_NUM_THREADS) */
 static eventmask_t thread_activity_mask = ((1UL << WD_NOTIFY_NUM_THREADS) - 1);
 
-static Thread *watchdog_thread_handle;
+static thread_t *watchdog_thread_handle;
 
 /* Base station mode settings. */
 /* TODO: Relocate to a different file? */
-static bool_t broadcast_surveyed_position = false;
+static bool broadcast_surveyed_position = false;
 static double base_llh[3];
 
 /* Global CPU time accumulator, used to measure thread CPU usage. */
 u64 g_ctime = 0;
 
 
-u32 check_stack_free(Thread *tp)
+u32 check_stack_free(thread_t *tp)
 {
   u32 *stack = (u32 *)tp->p_stklimit;
   u32 i;
@@ -73,13 +75,13 @@ u32 check_stack_free(Thread *tp)
 
 void send_thread_states()
 {
-  Thread *tp = chRegFirstThread();
+  thread_t *tp = chRegFirstThread();
   while (tp) {
     msg_thread_state_t tp_state;
     u16 cpu = 1000.0f * tp->p_ctime / (float)g_ctime;
     tp_state.cpu = cpu;
     tp_state.stack_free = check_stack_free(tp);
-    strncpy(tp_state.name, chRegGetThreadName(tp), sizeof(tp_state.name));
+    strncpy(tp_state.name, chRegGetThreadNameX(tp), sizeof(tp_state.name));
     sbp_send_msg(SBP_MSG_THREAD_STATE, sizeof(tp_state), (u8 *)&tp_state);
 
     tp->p_ctime = 0;  /* Reset thread CPU cycle count */
@@ -89,7 +91,7 @@ void send_thread_states()
 }
 
 static WORKING_AREA_CCM(wa_track_status_thread, 256);
-static msg_t track_status_thread(void *arg)
+static void track_status_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("track status");
@@ -115,7 +117,6 @@ static msg_t track_status_thread(void *arg)
       }
     }
   }
-  return 0;
 }
 
 /** Sleep thread until a period has elapsed.
@@ -133,7 +134,7 @@ void sleep_until(systime_t *previous, systime_t period)
 {
   systime_t future = *previous + period;
   chSysLock();
-  systime_t now = chTimeNow();
+  systime_t now = chVTGetSystemTimeX();
   int must_delay = now < *previous ?
     (now < future && future < *previous) :
     (now < future || future < *previous);
@@ -145,12 +146,12 @@ void sleep_until(systime_t *previous, systime_t period)
 }
 
 static WORKING_AREA_CCM(wa_system_monitor_thread, 1000);
-static msg_t system_monitor_thread(void *arg)
+static void system_monitor_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("system monitor");
 
-  systime_t time = chTimeNow();
+  systime_t time = chVTGetSystemTime();
 
   bool ant_status = 0;
 
@@ -206,7 +207,6 @@ static msg_t system_monitor_thread(void *arg)
 
     sleep_until(&time, MS2ST(heartbeat_period_milliseconds));
   }
-  return 0;
 }
 
 static void debug_threads()
@@ -228,7 +228,7 @@ static void debug_threads()
     "WTQUEUE",
     "FINAL"
   };
-  Thread *tp = chRegFirstThread();
+  thread_t *tp = chRegFirstThread();
   while (tp) {
   log_info("%s (%u: %s): prio: %lu, flags: %u, wtobjp: %p",
            tp->p_name, tp->p_state, state[tp->p_state], tp->p_prio,
@@ -238,7 +238,7 @@ static void debug_threads()
 }
 
 static WORKING_AREA_CCM(wa_watchdog_thread, 1024);
-static msg_t watchdog_thread(void *arg)
+static void watchdog_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("Watchdog");
@@ -269,15 +269,14 @@ static msg_t watchdog_thread(void *arg)
     }
 
   }
-  return 0;
 }
 
 void system_monitor_setup()
 {
   /* Setup cycle counter for measuring thread CPU time. */
-  SCS_DEMCR |= 0x01000000;
-  DWT_CYCCNT = 0; /* Reset the counter. */
-  DWT_CTRL |= 1 ; /* Enable the counter. */
+  CoreDebug->DEMCR |= 0x01000000;
+  DWT->CYCCNT = 0; /* Reset the counter. */
+  DWT->CTRL |= 1 ; /* Enable the counter. */
 
   SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
   SETTING("system_monitor", "watchdog", use_wdt, TYPE_BOOL);

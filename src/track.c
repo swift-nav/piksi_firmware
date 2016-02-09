@@ -72,9 +72,9 @@ typedef struct {
    * in this module. */
   tracker_internal_data_t internal_data;
   /** Mutex used to protect access to the channel. */
-  Mutex mutex;
+  mutex_t mutex;
   /** Mutex used to handle NAP shutdown delay. */
-  Mutex nap_mutex;
+  mutex_t nap_mutex;
   /** Elevation angle, degrees. TODO: find a better place for this. */
   s8 elevation;
   /** Associated tracker interface. */
@@ -136,8 +136,8 @@ void track_setup(void)
   for (u32 i=0; i<NUM_TRACKER_CHANNELS; i++) {
     tracker_channels[i].state = STATE_DISABLED;
     tracker_channels[i].tracker = 0;
-    chMtxInit(&tracker_channels[i].mutex);
-    chMtxInit(&tracker_channels[i].nap_mutex);
+    chMtxObjectInit(&tracker_channels[i].mutex);
+    chMtxObjectInit(&tracker_channels[i].nap_mutex);
   }
 }
 
@@ -345,8 +345,7 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
     /* Change the channel state to ENABLED. */
     event(tracker_channel, EVENT_ENABLE);
 
-    Mutex *m = chMtxUnlock();
-    assert(m == &tracker_channel->nap_mutex);
+    chMtxUnlock(&tracker_channel->nap_mutex);
   }
   tracker_channel_unlock(tracker_channel);
 
@@ -714,7 +713,7 @@ static void tracker_channel_process(tracker_channel_t *tracker_channel,
       {
         interface_function(tracker_channel,
                            tracker_channel->interface->disable);
-        tracker_channel->disable_time = chTimeNow();
+        tracker_channel->disable_time = chVTGetSystemTimeX();
         event(tracker_channel, EVENT_DISABLE);
       }
       tracker_channel_unlock(tracker_channel);
@@ -730,8 +729,7 @@ static void tracker_channel_process(tracker_channel_t *tracker_channel,
         if (tracker_channel_state_get(tracker_channel) == STATE_DISABLED) {
           nap_channel_disable(tracker_channel);
         }
-        Mutex *m = chMtxUnlock();
-        assert(m == &tracker_channel->nap_mutex);
+        chMtxUnlock(&tracker_channel->nap_mutex);
       }
       break;
     }
@@ -841,7 +839,7 @@ static bool tracker_channel_runnable(const tracker_channel_t *tracker_channel,
 {
   if (tracker_channel_state_get(tracker_channel) != STATE_DISABLED)
       return false;
-  if (chTimeElapsedSince(tracker_channel->disable_time) <
+  if (chVTTimeElapsedSinceX(tracker_channel->disable_time) <
         MS2ST(CHANNEL_SHUTDOWN_TIME_ms))
     return false;
 
@@ -999,8 +997,7 @@ static void tracker_channel_lock(tracker_channel_t *tracker_channel)
  */
 static void tracker_channel_unlock(tracker_channel_t *tracker_channel)
 {
-  Mutex *m = chMtxUnlock();
-  assert(m == &tracker_channel->mutex);
+  chMtxUnlock(&tracker_channel->mutex);
 }
 
 /** \} */

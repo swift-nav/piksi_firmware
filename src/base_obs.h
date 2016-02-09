@@ -47,12 +47,12 @@ typedef struct {
 
 /* \} */
 
-extern Mutex base_obs_lock;
-extern BinarySemaphore base_obs_received;
+extern mutex_t base_obs_lock;
+extern binary_semaphore_t base_obs_received;
 extern obss_t base_obss;
 
-extern Mutex base_pos_lock;
-extern bool_t base_pos_known;
+extern mutex_t base_pos_lock;
+extern bool base_pos_known;
 extern double base_pos_ecef[3];
 
 void base_obs_setup(void);

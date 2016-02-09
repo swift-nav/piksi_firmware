@@ -23,7 +23,9 @@
 #include <libswiftnav/baseline.h>
 #include <libswiftnav/linear_algebra.h>
 
+#define memory_pool_t MemoryPool
 #include <ch.h>
+#undef memory_pool_t
 
 #include "board/leds.h"
 #include "position.h"
@@ -49,7 +51,7 @@ static GPTConfig sol_gpt_config = {
 };
 
 MemoryPool obs_buff_pool;
-Mailbox obs_mailbox;
+mailbox_t obs_mailbox;
 
 dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_LOW_LATENCY;
 dgnss_filter_t dgnss_filter = FILTER_FIXED;
@@ -113,7 +115,7 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm,
                         u8 fix_mode)
 {
-  if (chTimeElapsedSince(last_dgnss) > DGNSS_TIMEOUT) {
+  if (chVTTimeElapsedSinceX(last_dgnss) > DGNSS_TIMEOUT) {
     nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
                fix_mode, dops->hdop);
   }
@@ -172,7 +174,7 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
   chMtxLock(&base_pos_lock);
   if (base_pos_known || (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
       simulation_enabled_for(SIMULATION_MODE_RTK))) {
-    last_dgnss = chTimeNow();
+    last_dgnss = chVTGetSystemTime();
     double pseudo_absolute_ecef[3];
     double pseudo_absolute_llh[3];
     /* if simulation use the simulator's base station position */
@@ -201,7 +203,7 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
     sbp_make_pos_ecef_vect(&pos_ecef, pseudo_absolute_ecef, t, n_sats, sbp_flags);
     sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
   }
-  chMtxUnlock();
+  chMtxUnlock(&base_pos_lock);
 }
 
 static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
@@ -218,7 +220,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     ret = dgnss_baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
                          &amb_state, &num_used, b,
                          disable_raim, DEFAULT_RAIM_THRESHOLD);
-    chMtxUnlock();
+    chMtxUnlock(&amb_state_lock);
     if (ret > 0) {
       /* ret is <0 on error, 2 if float, 1 if fixed */
       flags = (ret == 1) ? 1 : 0;
@@ -234,7 +236,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     ret = baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
                    &amb_state.float_ambs, &num_used, b,
                    disable_raim, DEFAULT_RAIM_THRESHOLD);
-    chMtxUnlock();
+    chMtxUnlock(&amb_state_lock);
     if (ret == 1)
       log_warn("output_baseline: Float baseline RAIM repair");
     if (ret < 0) {
@@ -352,23 +354,23 @@ static void update_sat_elevations(const navigation_measurement_t nav_meas[],
 void chThdSleepUntilCheck(systime_t time)
 {
   chSysLock();
-  if ((int)(time -= chTimeNow()) > 0) {
+  if ((int)(time -= chVTGetSystemTimeX()) > 0) {
     chThdSleepS(time);
     chSysUnlock();
   } else {
     chSysUnlock();
     log_warn("Solution thread missed deadline, "
-             "time = %lu, deadline = %lu", chTimeNow(), time);
+             "time = %lu, deadline = %lu", chVTGetSystemTimeX(), time);
   }
 }
 
 static WORKING_AREA_CCM(wa_solution_thread, 8000);
-static msg_t solution_thread(void *arg)
+static void solution_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("solution");
 
-  systime_t deadline = chTimeNow() + MS2ST(100);
+  systime_t deadline = chVTGetSystemTimeX() + MS2ST(100);
   static navigation_measurement_t nav_meas_old[MAX_CHANNELS];
 
   while (TRUE) {
@@ -495,7 +497,7 @@ static msg_t solution_thread(void *arg)
 
         }
       }
-      chMtxUnlock();
+      chMtxUnlock(&base_obs_lock);
 
       /* Calculate the time of the nearest solution epoch, were we expected
        * to be and calculate how far we were away from it. */
@@ -537,7 +539,7 @@ static msg_t solution_thread(void *arg)
           /* Pool is empty, grab a buffer from the mailbox instead, i.e.
            * overwrite the oldest item in the queue. */
           ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
-          if (ret != RDY_OK) {
+          if (ret != MSG_OK) {
             log_error("Pool full and mailbox empty!");
           }
         }
@@ -545,7 +547,7 @@ static msg_t solution_thread(void *arg)
         obs->n = n_ready_tdcp;
         memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
         ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
-        if (ret != RDY_OK) {
+        if (ret != MSG_OK) {
           /* We could grab another item from the mailbox, discard it and then
            * post our obs again but if the size of the mailbox and the pool
            * are equal then we should have already handled the case where the
@@ -580,7 +582,6 @@ static msg_t solution_thread(void *arg)
       solution_send_sbp(0, &dops);
     }
   }
-  return 0;
 }
 
 static bool init_done = false;
@@ -624,7 +625,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
     /* Update ambiguity states. */
     chMtxLock(&amb_state_lock);
     dgnss_update_ambiguity_state(&amb_state);
-    chMtxUnlock();
+    chMtxUnlock(&amb_state_lock);
     /* If we are in time matched mode then calculate and output the baseline
      * for this observation. */
     if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED &&
@@ -634,8 +635,8 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
   }
 }
 
-static WORKING_AREA(wa_time_matched_obs_thread, 20000);
-static msg_t time_matched_obs_thread(void *arg)
+static THD_WORKING_AREA(wa_time_matched_obs_thread, 20000);
+static void time_matched_obs_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("time matched obs");
@@ -644,14 +645,14 @@ static msg_t time_matched_obs_thread(void *arg)
     chBSemWait(&base_obs_received);
 
     /* Blink red LED for 20ms. */
-    systime_t t_blink = chTimeNow() + MS2ST(50);
+    systime_t t_blink = chVTGetSystemTime() + MS2ST(50);
     led_on(LED_RED);
 
     obss_t *obss;
     /* Look through the mailbox (FIFO queue) of locally generated observations
      * looking for one that matches in time. */
     while (chMBFetch(&obs_mailbox, (msg_t *)&obss, TIME_IMMEDIATE)
-            == RDY_OK) {
+            == MSG_OK) {
 
       chMtxLock(&base_obs_lock);
       double dt = gpsdifftime(&obss->t, &base_obss.t);
@@ -664,7 +665,7 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
-        chMtxUnlock();
+        chMtxUnlock(&base_obs_lock);
 
         u16 *sds_lock_counters[n_sds];
         for (u32 i=0; i<n_sds; i++)
@@ -683,7 +684,7 @@ static msg_t time_matched_obs_thread(void *arg)
         chPoolFree(&obs_buff_pool, obss);
         break;
       } else {
-        chMtxUnlock();
+        chMtxUnlock(&base_obs_lock);
         if (dt > 0) {
           /* Time of base obs before time of local obs, we must not have a local
            * observation matching this base observation, break and wait for a
@@ -698,7 +699,7 @@ static msg_t time_matched_obs_thread(void *arg)
           );
           /* Return the buffer to the mailbox so we can try it again later. */
           msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
-          if (ret != RDY_OK) {
+          if (ret != MSG_OK) {
             /* Something went wrong with returning it to the buffer, better just
              * free it and carry on. */
             log_warn("Obs Matching: mailbox full, discarding observation!");
@@ -714,14 +715,13 @@ static msg_t time_matched_obs_thread(void *arg)
     }
 
     chSysLock();
-    if (t_blink > chTimeNow()) {
-      chThdSleepS(t_blink - chTimeNow());
+    if (t_blink > chVTGetSystemTime()) {
+      chThdSleepS(t_blink - chVTGetSystemTime());
     }
     chSysUnlock();
 
     led_off(LED_RED);
   }
-  return 0;
 }
 
 void reset_filters_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -750,7 +750,7 @@ void init_base_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 void solution_setup()
 {
   /* Set time of last differential solution in the past. */
-  last_dgnss = chTimeNow() - DGNSS_TIMEOUT;
+  last_dgnss = chVTGetSystemTime() - DGNSS_TIMEOUT;
 
   SETTING("solution", "soln_freq", soln_freq, TYPE_FLOAT);
   SETTING("solution", "output_every_n_obs", obs_output_divisor, TYPE_INT);
@@ -797,8 +797,8 @@ void solution_setup()
   nmea_setup();
 
   static msg_t obs_mailbox_buff[OBS_N_BUFF];
-  chMBInit(&obs_mailbox, obs_mailbox_buff, OBS_N_BUFF);
-  chPoolInit(&obs_buff_pool, sizeof(obss_t), NULL);
+  chMBObjectInit(&obs_mailbox, obs_mailbox_buff, OBS_N_BUFF);
+  chPoolObjectInit(&obs_buff_pool, sizeof(obss_t), NULL);
   static obss_t obs_buff[OBS_N_BUFF] _CCM;
   chPoolLoadArray(&obs_buff_pool, obs_buff, OBS_N_BUFF);
 

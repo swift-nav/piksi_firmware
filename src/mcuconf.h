@@ -134,7 +134,6 @@
 #define STM32_GPT_TIM12_IRQ_PRIORITY        7
 #define STM32_GPT_TIM14_IRQ_PRIORITY        7
 
-#define gpt_lld_get_counter(gptp) ((gptp)->tim->CNT)
 #define gpt_lld_set_counter(gptp, val) do {(gptp)->tim->CNT = (val);} while(0)
 
 /*
@@ -241,7 +240,7 @@
 #define STM32_SPI_SPI1_IRQ_PRIORITY         10
 #define STM32_SPI_SPI2_IRQ_PRIORITY         10
 #define STM32_SPI_SPI3_IRQ_PRIORITY         10
-#define STM32_SPI_DMA_ERROR_HOOK(spip)      chSysHalt()
+#define STM32_SPI_DMA_ERROR_HOOK(spip)      chSysHalt("SPI DMA error")
 
 /*
  * UART driver system settings.

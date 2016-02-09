@@ -13,7 +13,8 @@
 #ifndef SWIFTNAV_SPI_H
 #define SWIFTNAV_SPI_H
 
-#include "hal.h"
+#include <hal.h>
+#include <libswiftnav/common.h>
 
 /** \addtogroup spi
  * \{ */

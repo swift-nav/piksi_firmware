@@ -164,7 +164,7 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 }
 
 static WORKING_AREA_CCM(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
-static msg_t manage_acq_thread(void *arg)
+static void manage_acq_thread(void *arg)
 {
   /* TODO: This should be trigged by a semaphore from the acq ISR code, not
    * just ran periodically. */
@@ -175,8 +175,6 @@ static msg_t manage_acq_thread(void *arg)
     manage_tracking_startup();
     watchdog_notify(WD_NOTIFY_ACQ_MGMT);
   }
-
-  return 0;
 }
 
 void manage_acq_setup()
@@ -444,10 +442,10 @@ static u8 manage_track_new_acq(gnss_signal_t sid)
 static void check_clear_unhealthy(void)
 {
   static systime_t ticks;
-  if (chTimeElapsedSince(ticks) < S2ST(24*60*60))
+  if (chVTTimeElapsedSinceX(ticks) < S2ST(24*60*60))
     return;
 
-  ticks = chTimeNow();
+  ticks = chVTGetSystemTime();
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
     if (acq_status[i].state == ACQ_PRN_UNHEALTHY)
@@ -456,7 +454,7 @@ static void check_clear_unhealthy(void)
 }
 
 static WORKING_AREA_CCM(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
-static msg_t manage_track_thread(void *arg)
+static void manage_track_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("manage track");
@@ -470,8 +468,6 @@ static msg_t manage_track_thread(void *arg)
     );
     tracking_send_state();
   }
-
-  return 0;
 }
 
 void manage_track_setup()
@@ -651,8 +647,7 @@ bool tracking_startup_request(const tracking_startup_params_t *startup_params)
     result = tracking_startup_fifo_write(&tracking_startup_fifo,
                                          startup_params);
 
-    Mutex *m = chMtxUnlock();
-    assert(m == &tracking_startup_mutex);
+    chMtxUnlock(&tracking_startup_mutex);
   }
 
   return result;

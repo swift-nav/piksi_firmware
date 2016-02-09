@@ -34,12 +34,12 @@
 u32 nap_exti_count;
 
 static WORKING_AREA_CCM(wa_nap_exti, 2000);
-static msg_t nap_exti_thread(void *arg);
+static void nap_exti_thread(void *arg);
 static u32 nap_irq_rd_blocking(void);
 
 void exti1_isr(EXTDriver *, expchannel_t);
 
-static BinarySemaphore nap_exti_sem;
+static BSEMAPHORE_DECL(nap_exti_sem, TRUE);
 static EXTConfig extconfig  = {
   .channels[1] = {
     .mode = EXT_MODE_GPIOA | EXT_CH_MODE_RISING_EDGE,
@@ -53,7 +53,6 @@ static EXTConfig extconfig  = {
 void nap_exti_setup(void)
 {
   /* Signal from the FPGA is on PA1. */
-  chBSemInit(&nap_exti_sem, TRUE);
 
   extStart(&EXTD1, &extconfig);
   extChannelEnable(&EXTD1, 1);
@@ -69,22 +68,18 @@ void nap_exti_setup(void)
 void exti1_isr(EXTDriver *driver, expchannel_t channel)
 {
   (void)driver; (void)channel;
-  chSysLockFromIsr();
+  chSysLockFromISR();
 
 
   /* Wake up processing thread */
   chBSemSignalI(&nap_exti_sem);
 
-  chSysUnlockFromIsr();
+  chSysUnlockFromISR();
 }
 
 
 static void handle_nap_exti(void)
 {
-  /* XXX Including ch.h in nap_common.h for an extern declaration causes
-   * serious breakage. */
-  extern BinarySemaphore timing_strobe_sem;
-
   u32 irq = nap_irq_rd_blocking();
 
   if (irq & NAP_IRQ_ACQ_DONE)
@@ -108,7 +103,7 @@ static void handle_nap_exti(void)
   nap_exti_count++;
 }
 
-static msg_t nap_exti_thread(void *arg)
+static void nap_exti_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("NAP ISR");
@@ -127,7 +122,6 @@ static msg_t nap_exti_thread(void *arg)
     }
 
   }
-  return 0;
 }
 
 /** Get number of NAP ISR's that have occurred.

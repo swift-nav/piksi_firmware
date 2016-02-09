@@ -141,7 +141,7 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
   usart_set_parameters(&SD1, uarta_baud);
   usart_set_parameters(&SD3, uartb_baud);
 
-  chBSemInit(&ftdi_state.claimed, FALSE);
+  chBSemObjectInit(&ftdi_state.claimed, FALSE);
   ftdi_state.configured = true;
 
   if (do_preconfigure_hooks) {
@@ -169,10 +169,10 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
     }
   }
 
-  chBSemInit(&uarta_state.claimed, FALSE);
+  chBSemObjectInit(&uarta_state.claimed, FALSE);
   uarta_state.configured = true;
 
-  chBSemInit(&uartb_state.claimed, FALSE);
+  chBSemObjectInit(&uartb_state.claimed, FALSE);
   uartb_state.configured = true;
 
   all_uarts_enabled = true;
@@ -211,7 +211,7 @@ void usarts_disable()
 bool usart_claim(usart_state* s, const void *module)
 {
   chSysLock();
-  if (s->configured && (chBSemWaitTimeoutS(&s->claimed, 0) == RDY_OK)) {
+  if (s->configured && (chBSemWaitTimeoutS(&s->claimed, 0) == MSG_OK)) {
     s->claimed_by = module;
     s->claim_nest = 0;
     chSysUnlock();
@@ -298,13 +298,12 @@ u32 usart_read(usart_state* s, u8 data[], u32 len)
  */
 float usart_throughput(struct usart_stats* s)
 {
-  systime_t now_ticks = chTimeNow();
-  float elapsed = ((float)((now_ticks - s->last_byte_ticks) /
-    (double)CH_FREQUENCY*1000.0));
+  float elapsed = ((float)chVTTimeElapsedSinceX(s->last_byte_ticks) /
+    (double)CH_CFG_ST_FREQUENCY*1000.0);
   float kbps = s->byte_counter / elapsed;
 
   s->byte_counter = 0;
-  s->last_byte_ticks = now_ticks;
+  s->last_byte_ticks = chVTGetSystemTime();
 
   return kbps;
 }
