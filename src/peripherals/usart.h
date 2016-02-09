@@ -63,7 +63,7 @@ typedef struct {
                               were calculated */
   } rx;
   struct usart_stats tx;
-  BinarySemaphore claimed; /**< Taken by module when channel is in use. */
+  binary_semaphore_t claimed; /**< Taken by module when channel is in use. */
   const void *claimed_by;
   int claim_nest;
 } usart_state;

@@ -17,7 +17,7 @@
 
 #include "spi_wrapper.h"
 
-static Mutex spi_mutex;
+static MUTEX_DECL(spi_mutex);
 
 static const struct {
   SPIDriver *driver;
@@ -33,7 +33,6 @@ static const struct {
  */
 void spi_setup(void)
 {
-  chMtxInit(&spi_mutex);
 
   palSetPadMode(GPIOA, GPIOA_SPI1NSS, PAL_MODE_OUTPUT_PUSHPULL);
   palSetPadMode(GPIOA, GPIOA_SPI1SCK, PAL_MODE_ALTERNATE(5));
@@ -83,7 +82,7 @@ void spi_slave_deselect(u8 slave)
   spiUnselect(spi_slave[slave].driver);
   spiStop(spi_slave[slave].driver);
 
-  chMtxUnlock();
+  chMtxUnlock(&spi_mutex);
 }
 
 u8 spi_slave_xfer(u8 slave, u8 data)

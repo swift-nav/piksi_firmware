@@ -82,7 +82,7 @@ static decoder_channel_t decoder_channels[NUM_DECODER_CHANNELS];
 
 static WORKING_AREA_CCM(wa_decode_thread, 3000);
 
-static msg_t decode_thread(void *arg);
+static void decode_thread(void *arg);
 static const decoder_interface_t * decoder_interface_get(gnss_signal_t sid);
 static decoder_channel_t * decoder_channel_get(u8 tracking_channel);
 static bool available_decoder_get(const decoder_interface_t *interface,
@@ -206,7 +206,7 @@ bool decoder_channel_disable(u8 tracking_channel)
   return true;
 }
 
-static msg_t decode_thread(void *arg)
+static void decode_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("decode");
@@ -236,8 +236,6 @@ static msg_t decode_thread(void *arg)
 
     chThdSleep(MS2ST(1));
   }
-
-  return 0;
 }
 
 /** Retrieve the decoder interface for the specified sid.

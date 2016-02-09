@@ -32,14 +32,12 @@ static ephemeris_t es_candidate[NUM_SATS] _CCM;
 
 static WORKING_AREA_CCM(wa_ephemeris_thread, 1400);
 
-static msg_t ephemeris_thread(void *arg);
-
-static msg_t ephemeris_thread(void *arg)
+static void ephemeris_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("ephemeris");
 
-  systime_t tx_epoch = chTimeNow();
+  systime_t tx_epoch = chVTGetSystemTime();
   while (1) {
 
     for (u32 i=0; i<NUM_SATS; i++) {
@@ -69,8 +67,6 @@ static msg_t ephemeris_thread(void *arg)
     tx_epoch += MS2ST(EPHEMERIS_TRANSMIT_EPOCH_SPACING_ms);
     chThdSleepUntil(tx_epoch);
   }
-
-  return 0;
 }
 
 void ephemeris_new(ephemeris_t *e)
@@ -150,8 +146,7 @@ void ephemeris_lock(void)
 
 void ephemeris_unlock(void)
 {
-  Mutex *m = chMtxUnlock();
-  assert(m == &es_mutex);
+  chMtxUnlock(&es_mutex);
 }
 
 ephemeris_t *ephemeris_get(gnss_signal_t sid)

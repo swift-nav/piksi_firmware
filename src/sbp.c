@@ -59,7 +59,7 @@ sbp_state_t ftdi_sbp_state;
 static const char SBP_MODULE[] = "sbp";
 
 static WORKING_AREA_CCM(wa_sbp_thread, 6084);
-static msg_t sbp_thread(void *arg)
+static void sbp_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("SBP");
@@ -101,8 +101,6 @@ static msg_t sbp_thread(void *arg)
       log_obs_latency_tick();
     );
   }
-
-  return 0;
 }
 
 /** Setup the SBP interface.
@@ -353,7 +351,7 @@ void log_(u8 level, const char *msg, ...)
 
 void log_obs_latency(float latency_ms)
 {
-  last_obs_msg_ticks = chTimeNow();
+  last_obs_msg_ticks = chVTGetSystemTime();
 
   latency_accum_ms += (double) latency_ms;
   latency_count += 1;
@@ -377,8 +375,7 @@ void log_obs_latency(float latency_ms)
 
 void log_obs_latency_tick()
 {
-  systime_t now_ticks = chTimeNow();
-  double elapsed = (now_ticks - last_obs_msg_ticks) / (double)CH_FREQUENCY;
+  double elapsed = chVTTimeElapsedSinceX(last_obs_msg_ticks) / (double)CH_CFG_ST_FREQUENCY;
 
   if (last_obs_msg_ticks == 0 || elapsed > LOG_OBS_LATENCY_WINDOW_DURATION) {
     uart_state_msg.latency.current = -1;
