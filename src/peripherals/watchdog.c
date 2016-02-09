@@ -14,7 +14,6 @@
 #include <hal.h>
 
 #include "./watchdog.h"
-/* FIXME Use ChibiOS-HAL WDG driver */
 
 #define COUNT_LENGTH 12
 #define COUNT_MASK ((1 << COUNT_LENGTH)-1)
@@ -31,15 +30,7 @@
 #define IWDG_PR_DIV128			0x5
 #define IWDG_PR_DIV256			0x6
 
-static bool iwdg_reload_busy(void)
-{
-  return IWDG->SR & IWDG_SR_RVU;
-}
-
-static bool iwdg_prescaler_busy(void)
-{
-  return IWDG->SR & IWDG_SR_PVU;
-}
+static WDGConfig wdg_config;
 
 /** \addtogroup peripherals
  * \{ */
@@ -85,21 +76,15 @@ void watchdog_enable(uint32_t period_ms)
   	count = 1;
   }
 
-  while (iwdg_prescaler_busy());
-  IWDG->KR = IWDG_KR_UNLOCK;
-  IWDG->PR = exponent;
-  while (iwdg_reload_busy());
-  IWDG->KR = IWDG_KR_UNLOCK;
-  IWDG->RLR = (reload & COUNT_MASK);
-
-  IWDG->KR = IWDG_KR_START;
-  watchdog_clear();
+  wdg_config.pr = exponent;
+  wdg_config.rlr = reload & COUNT_MASK;
+  wdgStart(&WDGD1, &wdg_config);
 }
 
 /** Clear (reset) the independent watchdog timer. */
 void watchdog_clear(void)
 {
-  IWDG->KR = IWDG_KR_RESET;
+  wdgReset(&WDGD1);
 }
 
 /** \} */
