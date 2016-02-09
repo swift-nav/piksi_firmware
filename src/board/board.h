@@ -55,9 +55,8 @@
  * IO pins assignments.
  */
 #define GPIOA_TIM2CH1ETR            0
-#define GPIOA_TIM2CH2               1
+#define GPIOA_NAP_IRQ               1
 #define GPIOA_TIM2CH3               2
-#define GPIOA_TIM2CH4               3
 #define GPIOA_NAP_HASH_DONE         3
 #define GPIOA_SPI1NSS               4
 #define GPIOA_SPI1SCK               5
@@ -208,6 +207,35 @@
 #define GPIOI_PIN14                 14
 #define GPIOI_PIN15                 15
 
+/* SPI Bus lines */
+#define LINE_SPI1NSS                PAL_LINE(GPIOA, GPIOA_SPI1NSS)
+#define LINE_SPI1SCK                PAL_LINE(GPIOA, GPIOA_SPI1SCK)
+#define LINE_SPI1MISO               PAL_LINE(GPIOA, GPIOA_SPI1MISO)
+#define LINE_SPI1MOSI               PAL_LINE(GPIOA, GPIOA_SPI1MOSI)
+
+#define LINE_SPI2NSS_FLASH          PAL_LINE(GPIOB, GPIOB_SPI2NSS_FLASH)
+#define LINE_SPI2NSS_MAX            PAL_LINE(GPIOB, GPIOB_SPI2NSS_MAX)
+#define LINE_SPI2SCK                PAL_LINE(GPIOB, GPIOB_SPI2SCK)
+#define LINE_SPI2MISO               PAL_LINE(GPIOB, GPIOB_SPI2MISO)
+#define LINE_SPI2MOSI               PAL_LINE(GPIOB, GPIOB_SPI2MOSI)
+
+/* MAX2769 lines */
+#define LINE_MAX_PGM                PAL_LINE(GPIOB, GPIOB_MAX_PGM)
+#define LINE_MAX_NSHDN              PAL_LINE(GPIOB, GPIOB_MAX_NSHDN)
+#define LINE_MAX_NIDLE              PAL_LINE(GPIOB, GPIOB_MAX_NIDLE)
+#define LINE_MAX_ANT_FLAG           PAL_LINE(GPIOC, GPIOC_MAX_ANT_FLAG)
+
+/* FPGA lines */
+#define LINE_FPGA_INIT_B            PAL_LINE(GPIOC, GPIOC_FPGA_INIT_B)
+#define LINE_FPGA_DONE              PAL_LINE(GPIOC, GPIOC_FPGA_DONE)
+#define LINE_FPGA_PROGRAM_B         PAL_LINE(GPIOC, GPIOC_FPGA_PROGRAM_B)
+#define LINE_NAP_HASH_DONE          PAL_LINE(GPIOA, GPIOA_NAP_HASH_DONE)
+#define LINE_NAP_IRQ                PAL_LINE(GPIOA, GPIOA_NAP_IRQ)
+
+/* LED lines */
+#define LINE_LED1                   PAL_LINE(GPIOC, GPIOC_LED1)
+#define LINE_LED2                   PAL_LINE(GPIOC, GPIOC_LED2)
+
 /*
  * I/O ports initial setup, this configuration is established soon after reset
  * in the initialization code.
@@ -231,9 +259,9 @@
 #define PIN_AFIO_AF(n, v)           ((v##U) << ((n % 8) * 4))
 
 #define VAL_GPIOA_MODER             (PIN_MODE_INPUT(GPIOA_TIM2CH1ETR) |     \
-                                     PIN_MODE_INPUT(GPIOA_TIM2CH2) |        \
+                                     PIN_MODE_INPUT(GPIOA_NAP_IRQ) |        \
                                      PIN_MODE_INPUT(GPIOA_TIM2CH3) |        \
-                                     PIN_MODE_INPUT(GPIOA_TIM2CH4) |        \
+                                     PIN_MODE_INPUT(GPIOA_NAP_HASH_DONE) |        \
                                      PIN_MODE_OUTPUT(GPIOA_SPI1NSS) |    \
                                      PIN_MODE_ALTERNATE(GPIOA_SPI1SCK) |    \
                                      PIN_MODE_ALTERNATE(GPIOA_SPI1MISO) |   \
@@ -247,9 +275,9 @@
                                      PIN_MODE_ALTERNATE(GPIOA_JTAG_TCK) |   \
                                      PIN_MODE_ALTERNATE(GPIOA_JTAG_TDI))
 #define VAL_GPIOA_OTYPER            (PIN_OTYPE_PUSHPULL(GPIOA_TIM2CH1ETR) | \
-                                     PIN_OTYPE_PUSHPULL(GPIOA_TIM2CH2) |    \
+                                     PIN_OTYPE_PUSHPULL(GPIOA_NAP_IRQ) |    \
                                      PIN_OTYPE_PUSHPULL(GPIOA_TIM2CH3) |    \
-                                     PIN_OTYPE_PUSHPULL(GPIOA_TIM2CH4) |    \
+                                     PIN_OTYPE_PUSHPULL(GPIOA_NAP_HASH_DONE) |    \
                                      PIN_OTYPE_PUSHPULL(GPIOA_SPI1NSS) |    \
                                      PIN_OTYPE_PUSHPULL(GPIOA_SPI1SCK) |    \
                                      PIN_OTYPE_PUSHPULL(GPIOA_SPI1MISO) |   \
@@ -263,9 +291,9 @@
                                      PIN_OTYPE_PUSHPULL(GPIOA_JTAG_TCK) |   \
                                      PIN_OTYPE_PUSHPULL(GPIOA_JTAG_TDI))
 #define VAL_GPIOA_OSPEEDR           (PIN_OSPEED_100M(GPIOA_TIM2CH1ETR) |    \
-                                     PIN_OSPEED_100M(GPIOA_TIM2CH2) |       \
+                                     PIN_OSPEED_100M(GPIOA_NAP_IRQ) |       \
                                      PIN_OSPEED_100M(GPIOA_TIM2CH3) |       \
-                                     PIN_OSPEED_100M(GPIOA_TIM2CH4) |       \
+                                     PIN_OSPEED_100M(GPIOA_NAP_HASH_DONE) |       \
                                      PIN_OSPEED_50M(GPIOA_SPI1NSS) |        \
                                      PIN_OSPEED_50M(GPIOA_SPI1SCK) |        \
                                      PIN_OSPEED_50M(GPIOA_SPI1MISO) |       \
@@ -279,9 +307,9 @@
                                      PIN_OSPEED_100M(GPIOA_JTAG_TCK) |      \
                                      PIN_OSPEED_100M(GPIOA_JTAG_TDI))
 #define VAL_GPIOA_PUPDR             (PIN_PUPDR_FLOATING(GPIOA_TIM2CH1ETR) | \
-                                     PIN_PUPDR_PULLUP(GPIOA_TIM2CH2) |      \
+                                     PIN_PUPDR_PULLUP(GPIOA_NAP_IRQ) |      \
                                      PIN_PUPDR_PULLUP(GPIOA_TIM2CH3) |      \
-                                     PIN_PUPDR_PULLUP(GPIOA_TIM2CH4) |      \
+                                     PIN_PUPDR_PULLDOWN(GPIOA_NAP_HASH_DONE) |      \
                                      PIN_PUPDR_FLOATING(GPIOA_SPI1NSS) |    \
                                      PIN_PUPDR_FLOATING(GPIOA_SPI1SCK) |    \
                                      PIN_PUPDR_FLOATING(GPIOA_SPI1MISO) |   \
@@ -295,9 +323,9 @@
                                      PIN_PUPDR_FLOATING(GPIOA_JTAG_TCK) |   \
                                      PIN_PUPDR_FLOATING(GPIOA_JTAG_TDI))
 #define VAL_GPIOA_ODR               (PIN_ODR_HIGH(GPIOA_TIM2CH1ETR) |       \
-                                     PIN_ODR_HIGH(GPIOA_TIM2CH2) |          \
+                                     PIN_ODR_HIGH(GPIOA_NAP_IRQ) |          \
                                      PIN_ODR_HIGH(GPIOA_TIM2CH3) |          \
-                                     PIN_ODR_HIGH(GPIOA_TIM2CH4) |          \
+                                     PIN_ODR_HIGH(GPIOA_NAP_HASH_DONE) |          \
                                      PIN_ODR_HIGH(GPIOA_SPI1NSS) |          \
                                      PIN_ODR_HIGH(GPIOA_SPI1SCK) |          \
                                      PIN_ODR_HIGH(GPIOA_SPI1MISO) |         \
@@ -311,9 +339,9 @@
                                      PIN_ODR_HIGH(GPIOA_JTAG_TCK) |         \
                                      PIN_ODR_HIGH(GPIOA_JTAG_TDI))
 #define VAL_GPIOA_AFRL              (PIN_AFIO_AF(GPIOA_TIM2CH1ETR, 0) |     \
-                                     PIN_AFIO_AF(GPIOA_TIM2CH2, 0) |        \
+                                     PIN_AFIO_AF(GPIOA_NAP_IRQ, 0) |        \
                                      PIN_AFIO_AF(GPIOA_TIM2CH3, 0) |        \
-                                     PIN_AFIO_AF(GPIOA_TIM2CH4, 0) |        \
+                                     PIN_AFIO_AF(GPIOA_NAP_HASH_DONE, 0) |        \
                                      PIN_AFIO_AF(GPIOA_SPI1NSS, 0) |        \
                                      PIN_AFIO_AF(GPIOA_SPI1SCK, 5) |        \
                                      PIN_AFIO_AF(GPIOA_SPI1MISO, 5) |       \
@@ -400,7 +428,7 @@
                                      PIN_ODR_HIGH(GPIOB_PIN5) |             \
                                      PIN_ODR_HIGH(GPIOB_PIN6) |             \
                                      PIN_ODR_HIGH(GPIOB_PIN7) |             \
-                                     PIN_ODR_HIGH(GPIOB_MAX_PGM) |          \
+                                     PIN_ODR_LOW(GPIOB_MAX_PGM) |          \
                                      PIN_ODR_HIGH(GPIOB_MAX_NSHDN) |        \
                                      PIN_ODR_HIGH(GPIOB_MAX_NIDLE) |        \
                                      PIN_ODR_HIGH(GPIOB_SPI2NSS_MAX) |      \

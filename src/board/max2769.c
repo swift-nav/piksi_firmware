@@ -54,18 +54,6 @@ u32 max2769_test2;
 /** Setup MAX2769 GPIOs and write default settings to MAX2769 registers. */
 void max2769_configure(void)
 {
-  /* Setup MAX2769 PGM (PB8) - low */
-  palSetPadMode(GPIOB, GPIOB_MAX_PGM, PAL_MODE_OUTPUT_PUSHPULL);
-  palClearPad(GPIOB, GPIOB_MAX_PGM);
-
-  /* Setup MAX2769 NSHDN (PB9) - high */
-  palSetPadMode(GPIOB, GPIOB_MAX_NSHDN, PAL_MODE_OUTPUT_PUSHPULL);
-  palSetPad(GPIOB, GPIOB_MAX_NSHDN);
-
-  /* Setup MAX2769 NIDLE (PB10) - high */
-  palSetPadMode(GPIOB, GPIOB_MAX_NIDLE, PAL_MODE_OUTPUT_PUSHPULL);
-  palSetPad(GPIOB, GPIOB_MAX_NIDLE);
-
   max2769_conf1 = MAX2769_CONF1_CHIPEN |
                   MAX2769_CONF1_ILNA1(15) |
                   MAX2769_CONF1_ILNA2(3) |
@@ -187,14 +175,11 @@ void max2769_setup(void)
   static struct setting_type antenna_setting;
   int TYPE_ANTENNA = settings_type_register_enum(antenna_enum, &antenna_setting);
   SETTING_NOTIFY("frontend", "antenna_selection", antenna, TYPE_ANTENNA, antenna_changed);
-
-  /* Enable GPIO5 to read antenna status */
-  palSetPadMode(GPIOC, GPIOC_MAX_ANT_FLAG, PAL_MODE_INPUT);
 }
 
 bool max2769_ant_status(void)
 {
-  return palReadPad(GPIOC, GPIOC_MAX_ANT_FLAG);
+  return palReadLine(LINE_MAX_ANT_FLAG);
 }
 
 antenna_type_t max2769_ant_setting(void)
