@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2014 Swift Navigation Inc.
+ * Copyright (C) 2012-2014, 2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -314,8 +314,7 @@ void simulation_step_tracking_and_observations(double elapsed)
       /* As for tracking, we just set each sat consecutively in each channel. */
       /* This will cause weird jumps when a satellite rises or sets. */
       gnss_signal_t sid = {
-        .constellation = simulation_almanacs[i].sid.constellation,
-        .band = simulation_almanacs[i].sid.band,
+        .code = simulation_almanacs[i].sid.code,
         .sat = simulation_almanacs[i].sid.sat + SIM_PRN_OFFSET
       };
       sim_state.tracking_channel[num_sats_selected].state = TRACKING_RUNNING;
@@ -337,8 +336,7 @@ void simulation_step_tracking_and_observations(double elapsed)
 void populate_nav_meas(navigation_measurement_t *nav_meas, double dist, double elevation, int almanac_i)
 {
   nav_meas->sid = (gnss_signal_t) {
-    .constellation = simulation_almanacs[almanac_i].sid.constellation,
-    .band = simulation_almanacs[almanac_i].sid.band,
+    .code = simulation_almanacs[almanac_i].sid.code,
     .sat = simulation_almanacs[almanac_i].sid.sat + SIM_PRN_OFFSET
   };
 

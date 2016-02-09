@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2015 Swift Navigation Inc.
+ * Copyright (C) 2011-2016 Swift Navigation Inc.
  * Contact: Jacob McNamee <jacob@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -36,7 +36,7 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
                                    decoder_data_t *decoder_data);
 
 static const decoder_interface_t decoder_interface_gps_l1 = {
-  .sid =          {.constellation = CONSTELLATION_GPS, .band = BAND_L1},
+  .sid =          {.code = CODE_GPS_L1CA},
   .init =         decoder_gps_l1_init,
   .disable =      decoder_gps_l1_disable,
   .process =      decoder_gps_l1_process,
@@ -116,9 +116,9 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
   ephemeris_new(&e);
 
   ephemeris_t *eph = ephemeris_get(channel_info->sid);
-  if (!eph->healthy) {
+  if (!eph->valid) {
     char buf[SID_STR_LEN_MAX];
     sid_to_string(buf, sizeof(buf), channel_info->sid);
-    log_info("%s unhealthy", buf);
+    log_info("%s ephemeris is invalid", buf);
   }
 }

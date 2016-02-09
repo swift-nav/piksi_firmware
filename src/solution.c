@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2014 Swift Navigation Inc.
+ * Copyright (C) 2014, 2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
+ *          Pasi Miettinen <pasi.miettinen@exafore.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -40,6 +41,8 @@
 #include "ephemeris.h"
 #include "./system_monitor.h"
 
+#include <assert.h>
+
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
 
@@ -59,7 +62,8 @@ u32 obs_output_divisor = 2;
 double known_baseline[3] = {0, 0, 0};
 u16 msg_obs_max_size = 102;
 
-static u16 lock_counters[NUM_SATS];
+static u16 gps_l1ca_lock_counters[NUM_SATS_GPS];
+static u16 sbas_l1ca_lock_counters[NUM_SATS_SBAS];
 
 bool disable_raim = false;
 bool send_heading = false;
@@ -329,7 +333,7 @@ static void solution_simulation()
   double expected_tow = \
     round(soln->time.tow * soln_freq) / soln_freq;
   soln->time.tow = expected_tow;
-  soln->time = normalize_gps_time(soln->time);
+  normalize_gps_time(&soln->time);
 
   if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
     /* Then we send fake messages. */
@@ -425,7 +429,7 @@ static msg_t solution_thread(void *arg)
     const channel_measurement_t *p_meas[n_ready];
     navigation_measurement_t *p_nav_meas[n_ready];
     const ephemeris_t *p_e_meas[n_ready];
-    for (u32 i=0; i<n_ready; i++) {
+    for (u8 i=0; i<n_ready; i++) {
       p_meas[i] = &meas[i];
       p_nav_meas[i] = &nav_meas[i];
       p_e_meas[i] = ephemeris_get(meas[i].sid);
@@ -481,7 +485,7 @@ static msg_t solution_thread(void *arg)
       double pdt;
       chMtxLock(&base_obs_lock);
       if (base_obss.n > 0 && !simulation_enabled()) {
-        if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
+        if ((pdt = gpsdifftime(&position_solution.time, &base_obss.t))
               < MAX_AGE_OF_DIFFERENTIAL) {
 
           /* Propagate base station observations to the current time and
@@ -500,7 +504,7 @@ static msg_t solution_thread(void *arg)
             u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                     base_obss.n, base_obss.nm,
                                     base_obss.sat_dists, base_obss.pos_ecef,
-                                    e_nav_meas_tdcp, position_solution.time,
+                                    e_nav_meas_tdcp, &position_solution.time,
                                     sdiffs);
             ephemeris_unlock();
             if (num_sdiffs >= 4) {
@@ -669,7 +673,7 @@ static msg_t time_matched_obs_thread(void *arg)
             == RDY_OK) {
 
       chMtxLock(&base_obs_lock);
-      double dt = gpsdifftime(obss->t, base_obss.t);
+      double dt = gpsdifftime(&obss->t, &base_obss.t);
 
       if (fabs(dt) < TIME_MATCH_THRESHOLD) {
         /* Times match! Process obs and base_obss */
@@ -682,16 +686,31 @@ static msg_t time_matched_obs_thread(void *arg)
         chMtxUnlock();
 
         u16 *sds_lock_counters[n_sds];
-        for (u32 i=0; i<n_sds; i++)
-          sds_lock_counters[i] = &lock_counters[sid_to_index(sds[i].sid)];
+        for (u32 i=0; i<n_sds; i++) {
+          switch (sid_to_constellation(sds[i].sid)) {
+          case CONSTELLATION_GPS:
+            sds_lock_counters[i] =
+              &gps_l1ca_lock_counters[sid_to_index(sds[i].sid,
+                  INDEX_SAT_IN_CONS)];
+            break;
+          case CONSTELLATION_SBAS:
+            sds_lock_counters[i] =
+              &sbas_l1ca_lock_counters[sid_to_index(sds[i].sid,
+                  INDEX_SAT_IN_CONS)];
+            break;
+          default:
+            assert("invalid constellation");
+            break;
+          }
+        }
 
         gnss_signal_t sats_to_drop[n_sds];
         u8 num_sats_to_drop = check_lock_counters(n_sds, sds, sds_lock_counters,
                                                   sats_to_drop);
         if (num_sats_to_drop > 0) {
-          /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
-           * Dropping an sdiff will cause dgnss_update to drop that sat from
-           * our filters. */
+          /* Copies all valid sdiffs back into sds, omitting each of
+           * sats_to_drop. Dropping an sdiff will cause dgnss_update to drop
+           * that sat from our filters. */
           n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
         }
         process_matched_obs(n_sds, &obss->t, sds);

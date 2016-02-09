@@ -53,10 +53,10 @@ void set_time(time_quality_t quality, gps_time_t t)
   if (quality > time_quality) {
     clock_state.t0_gps = t;
     clock_state.t0_gps.tow -= nap_timing_count() * RX_DT_NOMINAL;
-    clock_state.t0_gps = normalize_gps_time(clock_state.t0_gps);
+    normalize_gps_time(&clock_state.t0_gps);
 
     time_quality = quality;
-    time_t unix_t = gps2time(t);
+    time_t unix_t = gps2time(&t);
     log_info("Time set to: %s (quality=%d)", ctime(&unix_t), quality);
   }
 }
@@ -114,8 +114,8 @@ void clock_est_update(clock_est_state_t *s, gps_time_t meas_gpst,
   double y[2];
   gps_time_t pred_gpst = s->t0_gps;
   pred_gpst.tow += localt * s->clock_period;
-  pred_gpst = normalize_gps_time(pred_gpst);
-  y[0] = gpsdifftime(meas_gpst, pred_gpst);
+  normalize_gps_time(&pred_gpst);
+  y[0] = gpsdifftime(&meas_gpst, &pred_gpst);
   y[1] = meas_clock_period - s->clock_period;
 
   double S[2][2];
@@ -133,7 +133,7 @@ void clock_est_update(clock_est_state_t *s, gps_time_t meas_gpst,
   double dx[2];
   matrix_multiply(2, 2, 1, (const double *)K, (const double *)y, (double *)dx);
   s->t0_gps.tow += dx[0];
-  s->t0_gps = normalize_gps_time(s->t0_gps);
+  normalize_gps_time(&s->t0_gps);
   s->clock_period += dx[1];
 
   matrix_multiply(2, 2, 2, (const double *)K, (const double *)phi_t_0, (double *)temp);
@@ -154,7 +154,7 @@ void set_time_fine(u64 tc, gps_time_t t)
 {
   clock_state.t0_gps = t;
   clock_state.t0_gps.tow -= tc * RX_DT_NOMINAL;
-  clock_state.t0_gps = normalize_gps_time(clock_state.t0_gps);
+  normalize_gps_time(&clock_state.t0_gps);
 
   time_quality = TIME_FINE;
 }
@@ -195,7 +195,7 @@ gps_time_t rx2gpstime(double tc)
   gps_time_t t = clock_state.t0_gps;
 
   t.tow += tc * clock_state.clock_period;
-  t = normalize_gps_time(t);
+  normalize_gps_time(&t);
   return t;
 }
 
@@ -208,9 +208,9 @@ gps_time_t rx2gpstime(double tc)
  * \param t gps_time_t to convert.
  * \return Timing count in units of RX_DT_NOMINAL.
  */
-double gps2rxtime(gps_time_t t)
+double gps2rxtime(gps_time_t* t)
 {
-  return gpsdifftime(t, clock_state.t0_gps) / clock_state.clock_period;
+  return gpsdifftime(t, &clock_state.t0_gps) / clock_state.clock_period;
 }
 
 /** Callback to set receiver GPS time estimate. */
