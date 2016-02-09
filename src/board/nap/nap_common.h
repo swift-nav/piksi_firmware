@@ -14,6 +14,8 @@
 #ifndef SWIFTNAV_NAP_COMMON_H
 #define SWIFTNAV_NAP_COMMON_H
 
+#include <ch.h>
+
 #include <libswiftnav/common.h>
 #include "../../ext_events.h"
 
@@ -54,6 +56,8 @@ typedef struct {
   u64 I;  /**< In-phase correlation accumulation. */
   u64 Q;  /**< Quadrature correlation accumulation. */
 } acc_t;
+
+extern binary_semaphore_t timing_strobe_sem;
 
 /** \} */
 

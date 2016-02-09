@@ -198,8 +198,7 @@ static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
   sync->valid = true;
   result = true;
 
-  Mutex *m = chMtxUnlock();
-  assert(m == &nav_time_sync_mutex);
+  chMtxUnlock(&nav_time_sync_mutex);
   return result;
 }
 
@@ -229,8 +228,7 @@ static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
     result = true;
   }
 
-  Mutex *m = chMtxUnlock();
-  assert(m == &nav_time_sync_mutex);
+  chMtxUnlock(&nav_time_sync_mutex);
   return result;
 }
 

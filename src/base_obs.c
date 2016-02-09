@@ -42,17 +42,17 @@ extern bool disable_raim;
  * \{ */
 
 /** Mutex to control access to the base station observations. */
-Mutex base_obs_lock;
+MUTEX_DECL(base_obs_lock);
 /** Semaphore that is flagged when a new set of observations are received. */
-BinarySemaphore base_obs_received;
+BSEMAPHORE_DECL(base_obs_received, TRUE);
 /** Most recent observations from the base station. */
 obss_t base_obss;
 
 /** Mutex to control access to the base station position state.
  * (#base_pos_ecef and #base_pos_known) */
-Mutex base_pos_lock;
+MUTEX_DECL(base_pos_lock);
 /** Is the base station position known? i.e. is #base_pos_ecef valid? */
-bool_t base_pos_known = false;
+bool base_pos_known = false;
 /** Base station known position in ECEF as sent to us by the base station in
  * the BASE_POS message.  */
 double base_pos_ecef[3];
@@ -77,7 +77,7 @@ static void base_pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void* context
   chMtxLock(&base_pos_lock);
   wgsllh2ecef(llh, base_pos_ecef);
   base_pos_known = true;
-  chMtxUnlock();
+  chMtxUnlock(&base_pos_lock);
 }
 
 /** SBP callback for when the base station sends us a message containing its
@@ -92,7 +92,7 @@ static void base_pos_ecef_callback(u16 sender_id, u8 len, u8 msg[], void* contex
   chMtxLock(&base_pos_lock);
   memcpy(base_pos_ecef, msg, 3*sizeof(double));
   base_pos_known = true;
-  chMtxUnlock();
+  chMtxUnlock(&base_pos_lock);
 }
 
 /** Update the #base_obss state given a new set of obss.
@@ -191,7 +191,7 @@ static void update_obss(obss_t *new_obss)
     }
   }
   /* Unlock base_obss mutex. */
-  chMtxUnlock();
+  chMtxUnlock(&base_obs_lock);
   /* Signal that a complete base observation has been received. */
   chBSemSignal(&base_obs_received);
 }
@@ -349,11 +349,6 @@ static void deprecated_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 /** Setup the base station observation handling subsystem. */
 void base_obs_setup()
 {
-  /* Initialise all Mutex and Semaphore objects. */
-  chMtxInit(&base_obs_lock);
-  chBSemInit(&base_obs_received, TRUE);
-  chMtxInit(&base_pos_lock);
-
   /* Register callbacks on base station messages. */
 
   static sbp_msg_callbacks_node_t base_pos_llh_node;

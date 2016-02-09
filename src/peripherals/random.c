@@ -72,6 +72,6 @@ u32 random_int(void)
   }
   last_value = new_value;
 
-  chMtxUnlock();
+  chMtxUnlock(&rng_mutex);
   return new_value;
 }

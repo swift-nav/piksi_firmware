@@ -24,7 +24,7 @@
 
 #include <ch.h>
 
-BinarySemaphore timing_strobe_sem;
+BSEMAPHORE_DECL(timing_strobe_sem, TRUE);
 
 /** \addtogroup board
  * \{ */
@@ -86,8 +86,6 @@ void nap_setup()
    * channels, etc) from configuration flash.
    */
   nap_conf_rd_parameters();
-
-  chBSemInit(&timing_strobe_sem, TRUE);
 }
 
 /** Check if NAP configuration is finished.
@@ -236,7 +234,7 @@ u64 nap_timing_count(void)
 
   u64 total_count = (u64)count | ((u64)rollover_count << 32);
 
-  chMtxUnlock();
+  chMtxUnlock(&timing_count_mutex);
   return total_count;
 }
 
@@ -328,7 +326,7 @@ void nap_timing_strobe(u32 falling_edge_count)
 
 bool nap_timing_strobe_wait(u32 timeout)
 {
-  return chBSemWaitTimeout(&timing_strobe_sem, timeout) == RDY_RESET;
+  return chBSemWaitTimeout(&timing_strobe_sem, timeout) == MSG_RESET;
 }
 
 /** Read NAP's error register.

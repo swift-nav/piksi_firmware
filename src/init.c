@@ -25,7 +25,9 @@
 #include "sbp.h"
 #include "error.h"
 
-#define AIRCR_SYSRESETREQ			(1 << 2)
+#define SCB_AIRCR_VECTKEY                       (0x5FA << SCB_AIRCR_VECTKEY_Pos)
+#define SCB_AIRCR_SYSRESETREQ                   (1 << 2)
+
 /** Resets the device back into the bootloader. */
 static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -36,9 +38,9 @@ static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    */
   __asm__("DSB;");
   /* Keep priority group unchanged. */
-  SCB_AIRCR = AIRCR_VECTKEY |
-              AIRCR_PRIGROUP_MASK |
-              AIRCR_SYSRESETREQ;
+  SCB->AIRCR = SCB_AIRCR_VECTKEY |
+               SCB_AIRCR_PRIGROUP_Msk |
+               SCB_AIRCR_SYSRESETREQ;
   __asm__("DSB;");
   /* Wait until reset. */
   while(1);

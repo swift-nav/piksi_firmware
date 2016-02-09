@@ -1,3 +1,4 @@
+.*.sw*
 core-*
 ext/ext.c
 .DS_Store
