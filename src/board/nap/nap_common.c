@@ -44,14 +44,6 @@ BSEMAPHORE_DECL(timing_strobe_sem, TRUE);
  */
 void nap_setup()
 {
-  /* Setup the FPGA conf done line. */
-  palSetPadMode(GPIOC, GPIOC_FPGA_DONE, PAL_MODE_INPUT);
-
-  /* Setup the FPGA hash read done line. */
-  palSetPadMode(GPIOA, GPIOA_NAP_HASH_DONE, PAL_MODE_INPUT);
-
-  /* Set up the FPGA CONF_B line. */
-  nap_conf_b_setup();
   /* Force FPGA to delay configuration (i.e. use of SPI2) by setting it low. */
   nap_conf_b_clear();
 
@@ -95,14 +87,7 @@ void nap_setup()
  */
 u8 nap_conf_done(void)
 {
-  return palReadPad(GPIOC, GPIOC_FPGA_DONE);
-}
-
-/** Setup the GPIO for the FPGA CONF B pin. */
-void nap_conf_b_setup(void)
-{
-  palSetPadMode(GPIOC, GPIOC_FPGA_PROGRAM_B, PAL_MODE_OUTPUT_PUSHPULL);
-  palSetPad(GPIOC, GPIOC_FPGA_PROGRAM_B);
+  return palReadLine(LINE_FPGA_DONE);
 }
 
 /** Set the FPGA CONF B pin high.
@@ -110,7 +95,7 @@ void nap_conf_b_setup(void)
  */
 void nap_conf_b_set(void)
 {
-  palSetPad(GPIOC, GPIOC_FPGA_PROGRAM_B);
+  palSetLine(LINE_FPGA_PROGRAM_B);
 }
 
 /** Set the FPGA CONF B pin low.
@@ -119,7 +104,7 @@ void nap_conf_b_set(void)
  */
 void nap_conf_b_clear(void)
 {
-  palClearPad(GPIOC, GPIOC_FPGA_PROGRAM_B);
+  palClearLine(LINE_FPGA_PROGRAM_B);
 }
 
 /** See if NAP has finished reading authentication hash from configuration
@@ -129,7 +114,7 @@ void nap_conf_b_clear(void)
  */
 u8 nap_hash_rd_done(void)
 {
-  return palReadPad(GPIOA, GPIOA_NAP_HASH_DONE) ? 0 : 1;
+  return palReadLine(LINE_NAP_HASH_DONE) ? 0 : 1;
 }
 
 /** Return status of NAP authentication hash comparison.

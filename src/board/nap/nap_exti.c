@@ -117,7 +117,7 @@ static void nap_exti_thread(void *arg)
      * NAP then the IRQ line will stay high. Therefore if
      * the line is still high, don't suspend the thread.
      */
-    while (palReadPad(GPIOA, 1)) {
+    while (palReadLine(LINE_NAP_IRQ)) {
       handle_nap_exti();
     }
 

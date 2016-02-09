@@ -25,9 +25,6 @@
 /** Setup the LED GPIOs. */
 void led_setup(void)
 {
-  palSetPadMode(GPIOC, GPIOC_LED1, PAL_MODE_OUTPUT_PUSHPULL);
-  palSetPadMode(GPIOC, GPIOC_LED2, PAL_MODE_OUTPUT_PUSHPULL);
-
   led_off(LED_GREEN);
   led_off(LED_RED);
 }
@@ -39,11 +36,11 @@ void led_off(u8 led)
 {
   switch (led) {
   case LED_1:
-    palSetPad(GPIOC, GPIOC_LED1);
+    palSetLine(LINE_LED1);
     break;
 
   case LED_2:
-    palSetPad(GPIOC, GPIOC_LED2);
+    palSetLine(LINE_LED2);
     break;
 
   default:
@@ -58,11 +55,11 @@ void led_on(u8 led)
 {
   switch (led) {
   case LED_1:
-    palClearPad(GPIOC, GPIOC_LED1);
+    palClearLine(LINE_LED1);
     break;
 
   case LED_2:
-    palClearPad(GPIOC, GPIOC_LED2);
+    palClearLine(LINE_LED2);
     break;
 
   default:
@@ -78,11 +75,11 @@ void led_toggle(u8 led)
 {
   switch (led) {
   case LED_1:
-    palTogglePad(GPIOC, GPIOC_LED1);
+    palToggleLine(LINE_LED1);
     break;
 
   case LED_2:
-    palTogglePad(GPIOC, GPIOC_LED2);
+    palToggleLine(LINE_LED2);
     break;
 
   default:
