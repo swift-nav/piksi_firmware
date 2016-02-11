@@ -294,6 +294,8 @@ void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e)
   e->sid              = sid_from_sbp(msg->sid);
   e->kepler.iode      = msg->iode;
   e->kepler.iodc      = msg->iodc;
+  e->fit_interval     = 4; /* TODO: this is a work around until SBP updated */
+  e->ura              = 2.0f; /* TODO: this is a work around until SBP updated*/
 }
 
 void pack_ephemeris(const ephemeris_t *e, msg_ephemeris_t *msg)
