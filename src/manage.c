@@ -510,7 +510,7 @@ static void manage_track()
     /* Is ephemeris or alert flag marked unhealthy?*/
     const ephemeris_t *e = ephemeris_get(ch->sid);
     /* TODO: check alert flag */
-    if (/*ch->alert || */(e->valid && !satellite_healthy(e))) {
+    if (e->valid && !satellite_healthy(e)) {
       log_info("%s unhealthy, dropping", buf);
       drop_channel(i);
       acq->state = ACQ_PRN_UNHEALTHY;
@@ -582,9 +582,8 @@ s8 use_tracking_channel(u8 i)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
       && (ch->bit_polarity != BIT_POLARITY_UNKNOWN)
       /* Estimated C/N0 is above some threshold */
-      && (ch->cn0 > track_cn0_use_thres)
+      && (ch->cn0 > track_cn0_use_thres))
       /* TODO: Alert flag is not set */
-      /* && (!ch->alert) */)
       {
     /* Ephemeris must be valid, not stale. Satellite must be healthy.
        This also acts as a sanity check on the channel TOW.*/
