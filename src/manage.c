@@ -196,7 +196,7 @@ void manage_acq_setup()
  *  from ephemeris or almanac, if available and elevation > mask
  * \return Score (higher is better)
  */
-static u16 manage_warm_start(gnss_signal_t sid, gps_time_t t,
+static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
                              float *dopp_hint_low, float *dopp_hint_high)
 {
     /* Do we have any idea where/when we are?  If not, no score. */
@@ -212,7 +212,7 @@ static u16 manage_warm_start(gnss_signal_t sid, gps_time_t t,
     /* Do we have a suitable ephemeris for this sat?  If so, use
        that in preference to the almanac. */
     const ephemeris_t *e = ephemeris_get(sid);
-    if (ephemeris_good(e, t)) {
+    if (ephemeris_valid(e, t)) {
       double sat_pos[3], sat_vel[3], el_d;
       calc_sat_state(e, t, sat_pos, sat_vel, &_, &_);
       wgsecef2azel(sat_pos, position_solution.pos_ecef, &_, &el_d);
@@ -232,12 +232,12 @@ static u16 manage_warm_start(gnss_signal_t sid, gps_time_t t,
     } else {
       const almanac_t *a = &almanac[sid_to_index(sid)];
       if (a->valid) {
-        calc_sat_az_el_almanac(a, t.tow, t.wn-1024,
+        calc_sat_az_el_almanac(a, t->tow, t->wn-1024,
                                position_solution.pos_ecef, &_, &el_d);
         el = (float)(el_d) * R2D;
         if (el < elevation_mask)
           return SCORE_BELOWMASK;
-        dopp_hint = -calc_sat_doppler_almanac(a, t.tow, t.wn,
+        dopp_hint = -calc_sat_doppler_almanac(a, t->tow, t->wn,
                                               position_solution.pos_ecef);
       } else {
         return SCORE_COLDSTART; /* Couldn't determine satellite state. */
@@ -260,7 +260,7 @@ static acq_status_t * choose_acq_sat(void)
       continue;
 
     acq_status[i].score[ACQ_HINT_WARMSTART] =
-      manage_warm_start(acq_status[i].sid, t,
+      manage_warm_start(acq_status[i].sid, &t,
                         &acq_status[i].dopp_hint_low,
                         &acq_status[i].dopp_hint_high);
 
@@ -489,7 +489,7 @@ static void drop_channel(u8 channel_id) {
 }
 
 /** Disable any tracking channel that has lost phase lock or is
-    flagged unhealthy in ephem. */
+    flagged unhealthy in ephem or alert flag. */
 static void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
@@ -507,9 +507,10 @@ static void manage_track()
 
     acq_status_t *acq = &acq_status[sid_to_index(ch->sid)];
 
-    /* Is ephemeris marked unhealthy? */
+    /* Is ephemeris or alert flag marked unhealthy?*/
     const ephemeris_t *e = ephemeris_get(ch->sid);
-    if (e->valid && !e->healthy) {
+    /* TODO: check alert flag */
+    if (e->valid && !satellite_healthy(e)) {
       log_info("%s unhealthy, dropping", buf);
       drop_channel(i);
       acq->state = ACQ_PRN_UNHEALTHY;
@@ -582,8 +583,9 @@ s8 use_tracking_channel(u8 i)
       && (ch->bit_polarity != BIT_POLARITY_UNKNOWN)
       /* Estimated C/N0 is above some threshold */
       && (ch->cn0 > track_cn0_use_thres))
+      /* TODO: Alert flag is not set */
       {
-    /* Ephemeris must be valid and not stale.
+    /* Ephemeris must be valid, not stale. Satellite must be healthy.
        This also acts as a sanity check on the channel TOW.*/
     gps_time_t t = {
       /* TODO: the following makes the week number part of the
@@ -591,7 +593,8 @@ s8 use_tracking_channel(u8 i)
       .wn = WN_UNKNOWN,
       .tow = 1e-3 * ch->TOW_ms
     };
-    return ephemeris_good(ephemeris_get(ch->sid), t);
+    ephemeris_t *e = ephemeris_get(ch->sid);
+    return ephemeris_valid(e, &t) && satellite_healthy(e);
   } else return 0;
 }
 

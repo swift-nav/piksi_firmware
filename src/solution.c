@@ -329,7 +329,7 @@ static void solution_simulation()
   double expected_tow = \
     round(soln->time.tow * soln_freq) / soln_freq;
   soln->time.tow = expected_tow;
-  soln->time = normalize_gps_time(soln->time);
+  normalize_gps_time(&soln->time);
 
   if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
     /* Then we send fake messages. */
@@ -425,7 +425,7 @@ static msg_t solution_thread(void *arg)
     const channel_measurement_t *p_meas[n_ready];
     navigation_measurement_t *p_nav_meas[n_ready];
     const ephemeris_t *p_e_meas[n_ready];
-    for (u32 i=0; i<n_ready; i++) {
+    for (u8 i=0; i<n_ready; i++) {
       p_meas[i] = &meas[i];
       p_nav_meas[i] = &nav_meas[i];
       p_e_meas[i] = ephemeris_get(meas[i].sid);
@@ -481,7 +481,7 @@ static msg_t solution_thread(void *arg)
       double pdt;
       chMtxLock(&base_obs_lock);
       if (base_obss.n > 0 && !simulation_enabled()) {
-        if ((pdt = gpsdifftime(position_solution.time, base_obss.t))
+        if ((pdt = gpsdifftime(&position_solution.time, &base_obss.t))
               < MAX_AGE_OF_DIFFERENTIAL) {
 
           /* Propagate base station observations to the current time and
@@ -500,7 +500,7 @@ static msg_t solution_thread(void *arg)
             u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                     base_obss.n, base_obss.nm,
                                     base_obss.sat_dists, base_obss.pos_ecef,
-                                    e_nav_meas_tdcp, position_solution.time,
+                                    e_nav_meas_tdcp, &position_solution.time,
                                     sdiffs);
             ephemeris_unlock();
             if (num_sdiffs >= 4) {
@@ -669,7 +669,7 @@ static msg_t time_matched_obs_thread(void *arg)
             == RDY_OK) {
 
       chMtxLock(&base_obs_lock);
-      double dt = gpsdifftime(obss->t, base_obss.t);
+      double dt = gpsdifftime(&obss->t, &base_obss.t);
 
       if (fabs(dt) < TIME_MATCH_THRESHOLD) {
         /* Times match! Process obs and base_obss */
