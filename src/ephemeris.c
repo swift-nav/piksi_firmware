@@ -76,7 +76,7 @@ static msg_t ephemeris_thread(void *arg)
 
 void ephemeris_new(ephemeris_t *e)
 {
-  assert(sid_valid(e->sid));
+  assert(sid_supported(e->sid));
 
   char buf[SID_STR_LEN_MAX];
   sid_to_string(buf, sizeof(buf), e->sid);
@@ -117,7 +117,7 @@ static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void* contex
 
   ephemeris_t e;
   unpack_ephemeris((msg_ephemeris_t *)msg, &e);
-  if (!sid_valid(e.sid)) {
+  if (!sid_supported(e.sid)) {
     log_warn("Ignoring ephemeris for invalid sat");
     return;
   }
@@ -157,6 +157,6 @@ void ephemeris_unlock(void)
 
 ephemeris_t *ephemeris_get(gnss_signal_t sid)
 {
-  assert(sid_valid(sid));
+  assert(sid_supported(sid));
   return &es[sid_to_global_index(sid)];
 }

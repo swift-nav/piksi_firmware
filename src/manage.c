@@ -119,7 +119,7 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   char sid_str[SID_STR_LEN_MAX];
   sid_to_string(sid_str, sizeof(sid_str), sid);
 
-  if (sid_valid(sid)) {
+  if (sid_supported(sid)) {
     acq_status_t *acq = &acq_status[sid_to_global_index(sid)];
     acq->masked = (m->mask & MASK_ACQUISITION) ? true : false;
     if (m->mask & MASK_TRACKING) {
@@ -308,7 +308,7 @@ cturvey 10-Feb-2015
 */
 void manage_set_obs_hint(gnss_signal_t sid)
 {
-  bool valid = sid_valid(sid);
+  bool valid = sid_supported(sid);
   assert(valid);
   if (valid)
     acq_status[sid_to_global_index(sid)].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
