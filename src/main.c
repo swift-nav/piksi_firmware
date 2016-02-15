@@ -16,6 +16,7 @@
 #include <libsbp/system.h>
 #include <libswiftnav/logging.h>
 
+#include <hal.h>
 #include <ch.h>
 
 #include "peripherals/random.h"
@@ -143,9 +144,13 @@ int main(void)
 {
   /* Initialise SysTick timer that will be used as the ChibiOS kernel tick
    * timer. */
-  STBase->RVR = SYSTEM_CLOCK / CH_FREQUENCY - 1;
-  STBase->CVR = 0;
-  STBase->CSR = CLKSOURCE_CORE_BITS | ENABLE_ON_BITS | TICKINT_ENABLED_BITS;
+  SysTick->LOAD = SYSTEM_CLOCK / CH_CFG_ST_FREQUENCY - 1;
+  SysTick->VAL = 0;
+  SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk |
+                  SysTick_CTRL_TICKINT_Msk |
+                  SysTick_CTRL_ENABLE_Msk;
+
+  halInit();
 
   /* Kernel initialization, the main() function becomes a thread with
    * priority NORMALPRIO and the RTOS is active. */

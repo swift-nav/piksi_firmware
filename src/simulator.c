@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <float.h>
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/coord_system.h>
@@ -131,7 +132,8 @@ double rand_gaussian(const double variance)
   hasSpare = true;
 
   rand1 = rand() / ((double) RAND_MAX);
-  if(rand1 < 1e-100) rand1 = 1e-100;
+  if(rand1 < FLT_MIN)
+    rand1 = FLT_MIN;
   rand1 = -2 * log(rand1);
   rand2 = (rand() / ((double) RAND_MAX)) * (M_PI*2.0);
 
@@ -183,9 +185,9 @@ void simulation_step(void)
 {
 
   //First we propagate the current fake PVT solution
-  systime_t now_ticks = chTimeNow();
+  systime_t now_ticks = chVTGetSystemTime();
 
-  double elapsed = (now_ticks - sim_state.last_update_ticks)/(double)CH_FREQUENCY;
+  double elapsed = (now_ticks - sim_state.last_update_ticks)/(double)CH_CFG_ST_FREQUENCY;
   sim_state.last_update_ticks = now_ticks;
 
   /* Update the time */

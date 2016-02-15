@@ -14,6 +14,8 @@
 #ifndef SWIFTNAV_NAP_COMMON_H
 #define SWIFTNAV_NAP_COMMON_H
 
+#include <ch.h>
+
 #include <libswiftnav/common.h>
 #include "../../ext_events.h"
 
@@ -55,6 +57,8 @@ typedef struct {
   u64 Q;  /**< Quadrature correlation accumulation. */
 } acc_t;
 
+extern binary_semaphore_t timing_strobe_sem;
+
 /** \} */
 
 void nap_setup(void);
@@ -62,7 +66,6 @@ void nap_setup(void);
 u8 nap_conf_done(void);
 u8 nap_hash_rd_done(void);
 
-void nap_conf_b_setup(void);
 void nap_conf_b_set(void);
 void nap_conf_b_clear(void);
 

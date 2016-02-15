@@ -64,6 +64,10 @@ ifeq ($(USE_FPU),)
   USE_FPU = hard
 endif
 
+ifeq ($(USE_PROCESS_STACKSIZE),)
+  USE_PROCESS_STACKSIZE = 0x738
+endif
+
 #
 # Architecture or project specific options
 ##############################################################################
@@ -76,17 +80,26 @@ endif
 PROJECT = piksi_firmware
 
 # Imported source files and paths
-CHIBIOS = ../ChibiOS-RT
-include $(CHIBIOS)/os/ports/GCC/ARMCMx/STM32F4xx/port.mk
-include $(CHIBIOS)/os/kernel/kernel.mk
+CHIBIOS = ../ChibiOS
+include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/startup_stm32f4xx.mk
+include $(CHIBIOS)/os/hal/hal.mk
+include $(CHIBIOS)/os/hal/osal/rt/osal.mk
+include $(CHIBIOS)/os/hal/ports/STM32/STM32F4xx/platform.mk
+include $(CHIBIOS)/os/rt/rt.mk
+include $(CHIBIOS)/os/rt/ports/ARMCMx/compilers/GCC/mk/port_v7m.mk
 
 # Define linker script file here
 LDSCRIPT= STM32F405xG.ld
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
-CSRC := $(PORTSRC) \
+CSRC := $(STARTUPSRC) \
+        $(PORTSRC) \
         $(KERNSRC) \
+        $(HALSRC) \
+        $(OSALSRC) \
+        $(PLATFORMSRC) \
+        $(SWIFTNAV_ROOT)/src/board/board.o \
         $(SWIFTNAV_ROOT)/src/board/nap/nap_common.o \
         $(SWIFTNAV_ROOT)/src/board/nap/nap_exti.o \
         $(SWIFTNAV_ROOT)/src/board/nap/nap_conf.o \
@@ -97,10 +110,8 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/board/leds.o \
         $(SWIFTNAV_ROOT)/src/peripherals/3drradio.o \
         $(SWIFTNAV_ROOT)/src/peripherals/stm_flash.o \
-        $(SWIFTNAV_ROOT)/src/peripherals/spi.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/spi_wrapper.o \
         $(SWIFTNAV_ROOT)/src/peripherals/usart.o \
-        $(SWIFTNAV_ROOT)/src/peripherals/usart_tx.o \
-        $(SWIFTNAV_ROOT)/src/peripherals/usart_rx.o \
         $(SWIFTNAV_ROOT)/src/peripherals/usart_chat.o \
         $(SWIFTNAV_ROOT)/src/peripherals/random.o \
         $(SWIFTNAV_ROOT)/src/peripherals/watchdog.o \
@@ -157,13 +168,15 @@ TCSRC =
 TCPPSRC =
 
 # List ASM source files here
-ASMSRC = $(PORTASM)
+ASMSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 
-INCDIR = $(PORTINC) $(KERNINC) $(CHIBIOS)/os/various \
+INCDIR = $(STARTUPINC) $(PORTINC) $(KERNINC) \
+         $(HALINC) $(OSALINC) $(PLATFORMINC) \
+         $(CHIBIOS)/os/various \
          $(SWIFTNAV_ROOT)/libsbp/c/include \
          $(SWIFTNAV_ROOT)/libswiftnav/include \
          $(SWIFTNAV_ROOT)/src \
-         $(SWIFTNAV_ROOT)/libopencm3/include
+         $(SWIFTNAV_ROOT)/src/board \
 
 #
 # Project, sources and paths
@@ -220,8 +233,7 @@ DADEFS =
 DINCDIR =
 
 # List the default directory to look for the libraries here
-DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
-          $(SWIFTNAV_ROOT)/libsbp/c/build/src \
+DLIBDIR = $(SWIFTNAV_ROOT)/libsbp/c/build/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/CBLAS/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/BLAS/SRC \
@@ -230,7 +242,7 @@ DLIBDIR = $(SWIFTNAV_ROOT)/libopencm3/lib \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src
 
 # List all default libraries here
-DLIBS = -lopencm3_stm32f4 -lsbp-static -lswiftnav-static \
+DLIBS = -lsbp-static -lswiftnav-static \
         -llapack -lcblas -lblas \
         -lf2c -lm -lc -lnosys
 
@@ -262,4 +274,7 @@ ULIBS =
 ##############################################################################
 .DEFAULT_GOAL = all
 include $(SWIFTNAV_ROOT)/ext/Makefile.include
-include $(SWIFTNAV_ROOT)/ChibiOS_rules.mk
+
+RULESPATH = $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC
+include $(RULESPATH)/rules.mk
+

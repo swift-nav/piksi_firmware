@@ -13,8 +13,7 @@
 #include <string.h>
 
 #include <ch.h>
-
-#include <libopencm3/stm32/f4/usart.h>
+#include <hal.h>
 
 #include <libswiftnav/logging.h>
 
@@ -34,78 +33,11 @@ static const u32 baud_rates[] = {115200, 57600};//, 230400, 38400, 19200};
 /* This is the command string we send to the radios */
 static char commandstr[MAXLEN] = "AT&F,ATS1=57,ATS2=64,ATS5=0,AT&W,ATZ";
 
-/** Wait until the UART has data ready to be received.
-* or until ms time passes.
-*
-* THIS FUNCTION BLOCKS!
-*
-* \param usart   The libopencm3-defined UART base address to wait for
-* \param ms      The maximum time in milliseconds to wait for data
-*
-* \return        True if data is available, False if timeout occurs
-*/
-bool usart_wait_recv_ready_with_timeout(uint32_t usart, u32 ms)
-{
-  /* Wait until the data has been transferred from the shift register. */
-
-  systime_t start_ticks = chTimeNow();
-
-  volatile uint32_t flag = 0;
-  while (flag == 0 && (chTimeNow() - start_ticks < MS2ST(ms))) {
-    flag = (USART_SR(usart) & USART_SR_RXNE);
-  }
-  return flag != 0;
-}
-
-/** Blocks until a given string appears on the uart,
-* or until ms time passes.
-*
-* THIS FUNCTION BLOCKS!
-*
-* \param usart   The libopencm3-defined UART base address to wait for
-* \param str     The null-terminated string to look for.
-*                (Does not expect a null terminal from UART)
-* \param ms      The maximum time to wait for the ENTIRE string to be received
-* \return        True if an OK was found, false otherwise.
-*/
-bool busy_wait_for_str(u32 usart, char* str, u32 ms)
-{
-  u16 recv = 0;
-  u8 step = 0;
-
-  u8 len = strlen(str);
-  systime_t start_ticks = chTimeNow();
-  while ((step < len) && ((chTimeNow() - start_ticks) < MS2ST(ms))) {
-
-    if (usart_wait_recv_ready_with_timeout(usart, WAIT_BETWEEN_BYTES)) {
-      /* Cut out any parity bit if it exists. */
-      recv = usart_recv(usart) & 0x00FF;
-      if (recv == str[step]) {
-        step++;
-      } else {
-        step = 0;
-      }
-    }
-  }
-  return step == len;
-}
-
-/** Blocks until the entire string is sent to the UART.
-*/
-void usart_send_str_blocking(u32 usart, char* str)
-{
-  while (*str != 0) {
-    usart_send_blocking(usart, *str & 0x00FF);
-    str++;
-  }
-  usart_wait_send_ready(usart);
-}
-
 /**
 * This function hooks into the UART setup code before DMA gets enabled,
 * and configures any 3DR radio it finds on the given uart.
 */
-void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
+void radio_preconfigure_hook(enum uart u, u32 default_baud, char* uart_name)
 {
 
   /** TODO:
@@ -128,13 +60,12 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
     baud_index++;
 
     /* Configure the UART for the current baudrate */
-    usart_set_parameters(usart, baud_rate);
+    usart_set_parameters(uart_state(u)->sd, baud_rate);
 
     /* Try to get a radio into AT command mode */
     while (!found_radio && (tries < RADIO_RETRY_COUNT)) {
       tries++;
-      usart_send_str_blocking(usart, "+++");
-      found_radio = busy_wait_for_str(usart, "OK\r\n", WAIT_FOR_3DR_MS);
+      found_radio = usart_sendwait(u, "+++", "OK\r\n", WAIT_FOR_3DR_MS);
     }
 
   }
@@ -148,18 +79,15 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
     while (*command != 0) {
 
       if (*command == ',') {
-        usart_send_str_blocking(usart, "\r\n");
-        busy_wait_for_str(usart, "OK\r\n", WAIT_BETWEEN_COMMANDS);
+        usart_sendwait(u, "\r\n", "OK\r\n", WAIT_BETWEEN_COMMANDS);
       } else {
-        u16 c = (uint8_t)*command;
-        usart_send_blocking(usart, c);
+        usart_write(uart_state(u), (u8*)command, 1);
       }
 
       command++;
     }
 
-    usart_send_str_blocking(usart, "\r\n");
-    busy_wait_for_str(usart, "\x00", WAIT_BETWEEN_COMMANDS);
+    usart_sendwait(u, "\r\n", "OK\r\n", WAIT_BETWEEN_COMMANDS);
 
   } else {
     log_info("No telemetry radio found on %s, skipping configuration.",
@@ -167,7 +95,7 @@ void radio_preconfigure_hook(u32 usart, u32 default_baud, char* uart_name)
   }
 
   /* Reset the UART to the original baudrate. */
-  usart_set_parameters(usart, default_baud);
+  usart_set_parameters(uart_state(u)->sd, default_baud);
 
 }
 

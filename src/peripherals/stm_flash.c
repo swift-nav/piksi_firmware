@@ -10,7 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/stm32/f4/flash.h>
+#include <hal.h>
 
 #include <libsbp/flash.h>
 
@@ -19,6 +19,10 @@
 #include "../flash.h"
 
 #include "stm_flash.h"
+
+void flash_erase_sector(uint8_t sector);
+static void flash_program(u32 addr, const u8 *data, u8 len);
+static void flash_unlock_option_bytes(void);
 
 /** \defgroup peripherals Peripherals
  * Functions to interact with the on-chip STM32F4 peripherals.
@@ -43,10 +47,10 @@ u8 stm_flash_lock_sector(u8 sector)
     return FLASH_INVALID_SECTOR;
 
   flash_unlock_option_bytes();
-  while (FLASH_SR & FLASH_SR_BSY) ;
-  FLASH_OPTCR &= ~(1 << (16+sector));
-  FLASH_OPTCR |= FLASH_OPTCR_OPTSTRT;
-  while (FLASH_SR & FLASH_SR_BSY) ;
+  while (FLASH->SR & FLASH_SR_BSY) ;
+  FLASH->OPTCR &= ~(1 << (16+sector));
+  FLASH->OPTCR |= FLASH_OPTCR_OPTSTRT;
+  while (FLASH->SR & FLASH_SR_BSY) ;
 
   return FLASH_OK;
 }
@@ -64,10 +68,10 @@ u8 stm_flash_unlock_sector(u8 sector)
     return FLASH_INVALID_SECTOR;
 
   flash_unlock_option_bytes();
-  while (FLASH_SR & FLASH_SR_BSY) ;
-  FLASH_OPTCR |= (1 << (16+sector));
-  FLASH_OPTCR |= FLASH_OPTCR_OPTSTRT;
-  while (FLASH_SR & FLASH_SR_BSY) ;
+  while (FLASH->SR & FLASH_SR_BSY) ;
+  FLASH->OPTCR |= (1 << (16+sector));
+  FLASH->OPTCR |= FLASH_OPTCR_OPTSTRT;
+  while (FLASH->SR & FLASH_SR_BSY) ;
 
   return FLASH_OK;
 }
@@ -86,7 +90,7 @@ u8 stm_flash_erase_sector(u8 sector)
    * See "PM0081 : STM32F40xxx and STM32F41xxx Flash programming manual"
    */
   flash_unlock();
-  flash_erase_sector(sector, FLASH_CR_PROGRAM_X32);
+  flash_erase_sector(sector);
   flash_lock();
 
   return FLASH_OK;
@@ -118,6 +122,55 @@ u8 stm_flash_program(u32 address, u8 data[], u8 length)
   flash_lock();
 
   return FLASH_OK;
+}
+
+static void flash_program(u32 addr, const u8 *data, u8 len)
+{
+  while(--len)
+    flash_program_byte(addr++, *data++);
+}
+
+void flash_program_byte(u32 addr, u8 data)
+{
+  while (FLASH->SR & FLASH_SR_BSY);
+  FLASH->CR &= ~(3 << 8);
+  FLASH->CR |= FLASH_CR_PG;
+  *(u8*)(addr) = data;
+  while (FLASH->SR & FLASH_SR_BSY);
+  FLASH->CR &= ~FLASH_CR_PG;
+}
+
+void flash_unlock(void)
+{
+	FLASH->CR |= FLASH_CR_LOCK;
+	FLASH->KEYR = 0x45670123;
+	FLASH->KEYR = 0xcdef89ab;
+}
+
+void flash_lock(void)
+{
+	FLASH->CR |= FLASH_CR_LOCK;
+}
+
+void flash_erase_sector(uint8_t sector)
+{
+  while (FLASH->SR & FLASH_SR_BSY);
+
+  FLASH->CR &= ~(0xF << 3);
+  FLASH->CR |= (sector << 3) & 0x78;
+  FLASH->CR |= FLASH_CR_SER;
+  FLASH->CR |= FLASH_CR_STRT;
+
+  while (FLASH->SR & FLASH_SR_BSY);
+  FLASH->CR &= ~FLASH_CR_SER;
+  FLASH->CR &= ~(0xF << 3);
+}
+
+static void flash_unlock_option_bytes(void)
+{
+	FLASH->OPTCR |= FLASH_OPTCR_OPTLOCK;
+	FLASH->OPTKEYR = 0x08192a3b;
+	FLASH->OPTKEYR = 0x4c5d6e7f;
 }
 
 /** \} */

@@ -23,8 +23,10 @@
 #include <libswiftnav/baseline.h>
 #include <libswiftnav/linear_algebra.h>
 
-#include <libopencm3/stm32/f4/timer.h>
-#include <libopencm3/stm32/f4/rcc.h>
+#define memory_pool_t MemoryPool
+#include <ch.h>
+#include <hal.h>
+#undef memory_pool_t
 
 #include "board/leds.h"
 #include "position.h"
@@ -38,10 +40,18 @@
 #include "timing.h"
 #include "base_obs.h"
 #include "ephemeris.h"
-#include "./system_monitor.h"
+#include "system_monitor.h"
+
+#define SOL_GPT GPTD5
+
+static void sol_gpt_cb(GPTDriver *);
+static GPTConfig sol_gpt_config = {
+  .frequency = STM32_TIMCLK1,
+  .callback = sol_gpt_cb,
+};
 
 MemoryPool obs_buff_pool;
-Mailbox obs_mailbox;
+mailbox_t obs_mailbox;
 
 dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_LOW_LATENCY;
 dgnss_filter_t dgnss_filter = FILTER_FIXED;
@@ -49,7 +59,7 @@ dgnss_filter_t dgnss_filter = FILTER_FIXED;
 /** RTK integer ambiguity states. */
 ambiguity_state_t amb_state;
 /** Mutex to control access to the ambiguity states. */
-Mutex amb_state_lock;
+MUTEX_DECL(amb_state_lock);
 
 systime_t last_dgnss;
 
@@ -105,7 +115,7 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm,
                         u8 fix_mode)
 {
-  if (chTimeElapsedSince(last_dgnss) > DGNSS_TIMEOUT) {
+  if (chVTTimeElapsedSinceX(last_dgnss) > DGNSS_TIMEOUT) {
     nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
                fix_mode, dops->hdop);
   }
@@ -164,7 +174,7 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
   chMtxLock(&base_pos_lock);
   if (base_pos_known || (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
       simulation_enabled_for(SIMULATION_MODE_RTK))) {
-    last_dgnss = chTimeNow();
+    last_dgnss = chVTGetSystemTime();
     double pseudo_absolute_ecef[3];
     double pseudo_absolute_llh[3];
     /* if simulation use the simulator's base station position */
@@ -193,7 +203,7 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
     sbp_make_pos_ecef_vect(&pos_ecef, pseudo_absolute_ecef, t, n_sats, sbp_flags);
     sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
   }
-  chMtxUnlock();
+  chMtxUnlock(&base_pos_lock);
 }
 
 static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
@@ -210,7 +220,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     ret = dgnss_baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
                          &amb_state, &num_used, b,
                          disable_raim, DEFAULT_RAIM_THRESHOLD);
-    chMtxUnlock();
+    chMtxUnlock(&amb_state_lock);
     if (ret > 0) {
       /* ret is <0 on error, 2 if float, 1 if fixed */
       flags = (ret == 1) ? 1 : 0;
@@ -226,7 +236,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     ret = baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
                    &amb_state.float_ambs, &num_used, b,
                    disable_raim, DEFAULT_RAIM_THRESHOLD);
-    chMtxUnlock();
+    chMtxUnlock(&amb_state_lock);
     if (ret == 1)
       log_warn("output_baseline: Float baseline RAIM repair");
     if (ret < 0) {
@@ -285,40 +295,35 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
   }
 }
 
-static BinarySemaphore solution_wakeup_sem;
-#define tim5_isr Vector108
-#define NVIC_TIM5_IRQ 50
-void tim5_isr()
+static BSEMAPHORE_DECL(solution_wakeup_sem, TRUE);
+static void sol_gpt_cb(GPTDriver *gptd)
 {
-  CH_IRQ_PROLOGUE();
-  chSysLockFromIsr();
+  (void)gptd;
+  chSysLockFromISR();
 
   /* Wake up processing thread */
   chBSemSignalI(&solution_wakeup_sem);
 
-  timer_clear_flag(TIM5, TIM_SR_UIF);
-
-  chSysUnlockFromIsr();
-  CH_IRQ_EPILOGUE();
+  chSysUnlockFromISR();
 }
 
-static void timer_set_period_check(uint32_t timer_peripheral, uint32_t period)
+static void timer_set_period_check(GPTDriver *gptd, uint32_t period)
 {
-  __asm__("CPSID i;");
-  TIM_ARR(timer_peripheral) = period;
-  uint32_t tmp = TIM_CNT(timer_peripheral);
+  chSysLock();
+  gptChangeIntervalI(gptd, period);
+  u32 tmp = gptGetCounterX(gptd);
   if (tmp > period) {
-    TIM_CNT(timer_peripheral) = period;
+    gpt_lld_set_counter(gptd, period);
     log_warn("Solution thread missed deadline, "
              "TIM counter = %lu, period = %lu", tmp, period);
   }
-  __asm__("CPSIE i;");
+  chSysUnlock();
 }
 
 static void solution_simulation()
 {
   /* Set the timer period appropriately. */
-  timer_set_period_check(TIM5, round(65472000 * (1.0/soln_freq)));
+  timer_set_period_check(&SOL_GPT, round(SOL_GPT.clock * (1.0/soln_freq)));
 
   simulation_step();
 
@@ -380,7 +385,7 @@ static void update_sat_elevations(const navigation_measurement_t nav_meas[],
 }
 
 static WORKING_AREA_CCM(wa_solution_thread, 8000);
-static msg_t solution_thread(void *arg)
+static void solution_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("solution");
@@ -510,7 +515,7 @@ static msg_t solution_thread(void *arg)
 
         }
       }
-      chMtxUnlock();
+      chMtxUnlock(&base_obs_lock);
 
       /* Calculate the time of the nearest solution epoch, were we expected
        * to be and calculate how far we were away from it. */
@@ -552,7 +557,7 @@ static msg_t solution_thread(void *arg)
           /* Pool is empty, grab a buffer from the mailbox instead, i.e.
            * overwrite the oldest item in the queue. */
           ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
-          if (ret != RDY_OK) {
+          if (ret != MSG_OK) {
             log_error("Pool full and mailbox empty!");
           }
         }
@@ -560,7 +565,7 @@ static msg_t solution_thread(void *arg)
         obs->n = n_ready_tdcp;
         memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
         ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
-        if (ret != RDY_OK) {
+        if (ret != MSG_OK) {
           /* We could grab another item from the mailbox, discard it and then
            * post our obs again but if the size of the mailbox and the pool
            * are equal then we should have already handled the case where the
@@ -580,7 +585,7 @@ static msg_t solution_thread(void *arg)
 
       /* Reset timer period with the count that we will estimate will being
        * us up to the next solution time. */
-      timer_set_period_check(TIM5, round(65472000 * dt));
+      timer_set_period_check(&SOL_GPT, round(SOL_GPT.clock * dt));
 
     } else {
       /* An error occurred with calc_PVT! */
@@ -595,7 +600,6 @@ static msg_t solution_thread(void *arg)
       solution_send_sbp(0, &dops);
     }
   }
-  return 0;
 }
 
 static bool init_done = false;
@@ -639,7 +643,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
     /* Update ambiguity states. */
     chMtxLock(&amb_state_lock);
     dgnss_update_ambiguity_state(&amb_state);
-    chMtxUnlock();
+    chMtxUnlock(&amb_state_lock);
     /* If we are in time matched mode then calculate and output the baseline
      * for this observation. */
     if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED &&
@@ -649,8 +653,8 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
   }
 }
 
-static WORKING_AREA(wa_time_matched_obs_thread, 20000);
-static msg_t time_matched_obs_thread(void *arg)
+static THD_WORKING_AREA(wa_time_matched_obs_thread, 20000);
+static void time_matched_obs_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("time matched obs");
@@ -659,14 +663,14 @@ static msg_t time_matched_obs_thread(void *arg)
     chBSemWait(&base_obs_received);
 
     /* Blink red LED for 20ms. */
-    systime_t t_blink = chTimeNow() + MS2ST(50);
+    systime_t t_blink = chVTGetSystemTime() + MS2ST(50);
     led_on(LED_RED);
 
     obss_t *obss;
     /* Look through the mailbox (FIFO queue) of locally generated observations
      * looking for one that matches in time. */
     while (chMBFetch(&obs_mailbox, (msg_t *)&obss, TIME_IMMEDIATE)
-            == RDY_OK) {
+            == MSG_OK) {
 
       chMtxLock(&base_obs_lock);
       double dt = gpsdifftime(&obss->t, &base_obss.t);
@@ -679,7 +683,7 @@ static msg_t time_matched_obs_thread(void *arg)
             base_obss.n, base_obss.nm,
             sds
         );
-        chMtxUnlock();
+        chMtxUnlock(&base_obs_lock);
 
         u16 *sds_lock_counters[n_sds];
         for (u32 i=0; i<n_sds; i++)
@@ -698,7 +702,7 @@ static msg_t time_matched_obs_thread(void *arg)
         chPoolFree(&obs_buff_pool, obss);
         break;
       } else {
-        chMtxUnlock();
+        chMtxUnlock(&base_obs_lock);
         if (dt > 0) {
           /* Time of base obs before time of local obs, we must not have a local
            * observation matching this base observation, break and wait for a
@@ -713,7 +717,7 @@ static msg_t time_matched_obs_thread(void *arg)
           );
           /* Return the buffer to the mailbox so we can try it again later. */
           msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
-          if (ret != RDY_OK) {
+          if (ret != MSG_OK) {
             /* Something went wrong with returning it to the buffer, better just
              * free it and carry on. */
             log_warn("Obs Matching: mailbox full, discarding observation!");
@@ -729,14 +733,13 @@ static msg_t time_matched_obs_thread(void *arg)
     }
 
     chSysLock();
-    if (t_blink > chTimeNow()) {
-      chThdSleepS(t_blink - chTimeNow());
+    if (t_blink > chVTGetSystemTime()) {
+      chThdSleepS(t_blink - chVTGetSystemTime());
     }
     chSysUnlock();
 
     led_off(LED_RED);
   }
-  return 0;
 }
 
 void reset_filters_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -765,7 +768,7 @@ void init_base_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 void solution_setup()
 {
   /* Set time of last differential solution in the past. */
-  last_dgnss = chTimeNow() - DGNSS_TIMEOUT;
+  last_dgnss = chVTGetSystemTime() - DGNSS_TIMEOUT;
 
   SETTING("solution", "soln_freq", soln_freq, TYPE_FLOAT);
   SETTING("solution", "output_every_n_obs", obs_output_divisor, TYPE_INT);
@@ -812,29 +815,17 @@ void solution_setup()
   nmea_setup();
 
   static msg_t obs_mailbox_buff[OBS_N_BUFF];
-  chMBInit(&obs_mailbox, obs_mailbox_buff, OBS_N_BUFF);
-  chPoolInit(&obs_buff_pool, sizeof(obss_t), NULL);
+  chMBObjectInit(&obs_mailbox, obs_mailbox_buff, OBS_N_BUFF);
+  chPoolObjectInit(&obs_buff_pool, sizeof(obss_t), NULL);
   static obss_t obs_buff[OBS_N_BUFF] _CCM;
   chPoolLoadArray(&obs_buff_pool, obs_buff, OBS_N_BUFF);
 
-  chMtxInit(&amb_state_lock);
-
-  /* Initialise solution thread wakeup semaphore */
-  chBSemInit(&solution_wakeup_sem, TRUE);
   /* Start solution thread */
   chThdCreateStatic(wa_solution_thread, sizeof(wa_solution_thread),
                     HIGHPRIO-2, solution_thread, NULL);
   /* Enable TIM5 clock. */
-  rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM5EN);
-  nvicEnableVector(NVIC_TIM5_IRQ,
-      CORTEX_PRIORITY_MASK(CORTEX_MAX_KERNEL_PRIORITY+1));
-  timer_reset(TIM5);
-  timer_set_mode(TIM5, TIM_CR1_CKD_CK_INT, TIM_CR1_CMS_EDGE, TIM_CR1_DIR_UP);
-  timer_set_prescaler(TIM5, 0);
-  timer_disable_preload(TIM5);
-  timer_set_period(TIM5, 65472000); /* 1 second. */
-  timer_enable_counter(TIM5);
-  timer_enable_irq(TIM5, TIM_DIER_UIE);
+  gptStart(&SOL_GPT, &sol_gpt_config);
+  gptStartContinuous(&SOL_GPT, SOL_GPT.clock);
 
   chThdCreateStatic(wa_time_matched_obs_thread,
                     sizeof(wa_time_matched_obs_thread), LOWPRIO,
