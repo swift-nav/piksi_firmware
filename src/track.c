@@ -54,7 +54,7 @@
 #define LD_PARAMS_EXTRAOPT "0.02, 0.8, 150, 50"
 #define LD_PARAMS_DISABLE  "0.02, 1e-6, 1, 1"
 
-char loop_params_string[120] = LOOP_PARAMS_MED;
+char loop_params_string[120] = LOOP_PARAMS_FAST;
 char lock_detect_params_string[24] = LD_PARAMS_DISABLE;
 bool use_alias_detection = true;
 
