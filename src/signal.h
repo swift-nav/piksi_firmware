@@ -54,5 +54,6 @@ gnss_signal_t sid_from_constellation_index(enum constellation constellation,
 u16 sid_to_global_index(gnss_signal_t sid);
 u16 sid_to_constellation_index(gnss_signal_t sid);
 bool sid_supported(gnss_signal_t sid);
+bool code_supported(enum code code);
 
 #endif /* SWIFTNAV_SIGNAL_H */

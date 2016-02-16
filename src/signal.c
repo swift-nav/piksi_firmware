@@ -117,8 +117,7 @@ gnss_signal_t sid_from_constellation_index(enum constellation constellation,
  */
 u16 sid_to_global_index(gnss_signal_t sid)
 {
-  assert((sid.code >= 0) && (sid.code < CODE_COUNT));
-  assert(code_signal_counts[sid.code] != 0);
+  assert(code_supported(sid.code));
   return code_table[sid.code].global_start_index +
       sid_to_code_index(sid);
 }
@@ -135,8 +134,7 @@ u16 sid_to_global_index(gnss_signal_t sid)
  */
 u16 sid_to_constellation_index(gnss_signal_t sid)
 {
-  assert((sid.code >= 0) && (sid.code < CODE_COUNT));
-  assert(code_signal_counts[sid.code] != 0);
+  assert(code_supported(sid.code));
   return code_table[sid.code].constellation_start_index +
       sid_to_code_index(sid);
 }
@@ -155,7 +153,27 @@ bool sid_supported(gnss_signal_t sid)
     return false;
 
   /* Verify that the code is supported on this platform */
-  if (code_signal_counts[sid.code] == 0)
+  if (!code_supported(sid.code))
+    return false;
+
+  return true;
+}
+
+/** Determine if a code is valid and supported on the current
+ * hardware platform.
+ *
+ * \param code  Code to use.
+ *
+ * \return true if code is valid and supported, false otherwise.
+ */
+bool code_supported(enum code code)
+{
+  /* Verify general validity */
+  if (!code_valid(code))
+    return false;
+
+  /* Verify that the code is supported on this platform */
+  if (code_signal_counts[code] == 0)
     return false;
 
   return true;
