@@ -141,6 +141,28 @@ s32 tracker_tow_update(tracker_context_t *context, s32 current_TOW_ms,
   return current_TOW_ms;
 }
 
+/** Update the alert flag for a tracker channel.
+ *
+ * \param context           Tracker context.
+ * \param current_alert     Current alert flag.
+ *
+ * \return Updated alert flag.
+ */
+u8 tracker_alert_update(tracker_context_t *context, u8 current_alert)
+{
+  const tracker_channel_info_t *channel_info;
+  tracker_internal_data_t *internal_data;
+  tracker_internal_context_resolve(context, &channel_info, &internal_data);
+
+  /* Latch alert flag from nav message if pending */
+  u8 pending_alert;
+  if (nav_alert_sync_get(&internal_data->nav_alert_sync, &pending_alert)) {
+    current_alert = pending_alert;
+  }
+
+  return current_alert;
+}
+
 /** Update bit sync and output navigation message bits for a tracker channel.
  *
  * \param context           Tracker context.

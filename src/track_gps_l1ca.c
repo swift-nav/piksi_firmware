@@ -229,6 +229,9 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   data->code_phase_rate_fp_prev = data->code_phase_rate_fp;
   data->carrier_freq_fp_prev = data->carrier_freq_fp;
 
+  common_data->alert = tracker_alert_update(channel_info->context,
+                                            common_data->alert);
+
   common_data->TOW_ms = tracker_tow_update(channel_info->context,
                                    common_data->TOW_ms,
                                    data->short_cycle ? 1 : (data->int_ms-1));

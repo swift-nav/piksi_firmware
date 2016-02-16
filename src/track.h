@@ -69,6 +69,7 @@ bool tracking_channel_bit_sync_resolved(tracker_channel_id_t id);
 bool tracking_channel_bit_polarity_resolved(tracker_channel_id_t id);
 void tracking_channel_measurement_get(tracker_channel_id_t id,
                                       channel_measurement_t *meas);
+bool tracking_channel_is_alert_set(tracker_channel_id_t id);
 
 bool tracking_channel_evelation_degrees_set(gnss_signal_t sid, s8 elevation);
 s8 tracking_channel_evelation_degrees_get(tracker_channel_id_t id);
@@ -77,5 +78,6 @@ s8 tracking_channel_evelation_degrees_get(tracker_channel_id_t id);
 bool tracking_channel_nav_bit_get(tracker_channel_id_t id, s8 *soft_bit);
 bool tracking_channel_time_sync(tracker_channel_id_t id, s32 TOW_ms,
                                 s8 bit_polarity);
+bool tracking_channel_alert_sync(tracker_channel_id_t id, u8 alert);
 
 #endif

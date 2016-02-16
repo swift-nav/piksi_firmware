@@ -94,6 +94,14 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
         log_warn_sid(channel_info->sid, "TOW set failed");
       }
     }
+
+    /* Update alert flag */
+    u8 alert = data->nav_msg.alert;
+    if (!tracking_channel_alert_sync(channel_info->tracking_channel, alert)) {
+      char buf[SID_STR_LEN_MAX];
+      sid_to_string(buf, sizeof(buf), channel_info->sid);
+      log_warn("%s alert set failed", buf);
+    }
   }
 
   /* Check if there is a new nav msg subframe to process. */
