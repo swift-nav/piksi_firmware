@@ -71,12 +71,17 @@ docs:
 	doxygen docs/Doxyfile
 
 hitl: firmware
-	@printf "Running default HITL jobs\n"
+	# Usage:
+	# `make hitl` will run the default "quick" test plan (1 capture job)
+	# Optionally specify a desired test plan:
+	# `make hitl TEST_PLAN=merge` will run the "merge" test plan (10 capture jobs)
+	#
+	# First, this script will pull or clone the hitl_tools repo.
 	if cd build/hitl_tools; then \
 		git pull; \
 	else \
 		git clone git@github.com:swift-nav/hitl_tools.git build/hitl_tools --depth 1; \
 	fi
-	bash build/hitl_tools/make_hitl.sh
+	bash build/hitl_tools/make_hitl.sh $(TEST_PLAN)
 
 .FORCE:
