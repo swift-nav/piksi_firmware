@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2015 Swift Navigation Inc.
+ * Copyright (C) 2011-2016 Swift Navigation Inc.
  * Contact: Jacob McNamee <jacob@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -94,7 +94,7 @@ static void interface_function(decoder_channel_t *d,
 static void event(decoder_channel_t *d, event_t event);
 
 static const decoder_interface_t decoder_interface_default = {
-  .sid =          {0},
+  .code =         CODE_INVALID,
   .init =         0,
   .disable =      0,
   .process =      0,
@@ -252,8 +252,7 @@ static const decoder_interface_t * decoder_interface_get(gnss_signal_t sid)
   const decoder_interface_list_element_t *e = decoder_interface_list;
   while (e != 0) {
     const decoder_interface_t *interface = e->interface;
-    if ((interface->sid.constellation == sid.constellation) &&
-        (interface->sid.band == sid.band)) {
+    if (interface->code == sid.code) {
       return interface;
     }
     e = e->next;

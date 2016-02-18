@@ -41,6 +41,7 @@
 #include "pps.h"
 #include "decode.h"
 #include "decode_gps_l1.h"
+#include "signal.h"
 
 extern void ext_setup(void);
 
@@ -155,6 +156,7 @@ int main(void)
   init();
   settings_setup();
   usarts_setup();
+  signal_init();
 
   check_nap_auth();
 

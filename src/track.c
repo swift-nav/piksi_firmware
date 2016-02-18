@@ -23,6 +23,7 @@
 #include "simulator.h"
 #include "peripherals/random.h"
 #include "settings.h"
+#include "signal.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
@@ -97,7 +98,7 @@ tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
  * A map of signal to an initially random number that increments each time that
  * signal begins being tracked.
  */
-static u16 tracking_lock_counters[NUM_SATS];
+static u16 tracking_lock_counters[PLATFORM_SIGNAL_COUNT];
 
 static MUTEX_DECL(nav_time_sync_mutex);
 
@@ -237,7 +238,7 @@ static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
  */
 void initialize_lock_counters(void)
 {
-  for (u32 i=0; i < NUM_SATS; i++) {
+  for (u32 i=0; i < PLATFORM_SIGNAL_COUNT; i++) {
     tracking_lock_counters[i] = random_int();
   }
 }
@@ -702,7 +703,8 @@ void tracking_channel_ambiguity_unknown(u8 channel)
   gnss_signal_t sid = tracking_channel[channel].sid;
 
   tracking_channel[channel].bit_polarity = BIT_POLARITY_UNKNOWN;
-  tracking_channel[channel].lock_counter = ++tracking_lock_counters[sid_to_index(sid)];
+  tracking_channel[channel].lock_counter =
+      ++tracking_lock_counters[sid_to_global_index(sid)];
 }
 
 /** Update channel measurement for a tracking channel.
@@ -745,8 +747,7 @@ void tracking_send_state()
     if (num_sats < nap_track_n_channels) {
       for (u8 i = num_sats; i < nap_track_n_channels; i++) {
         states[i].state = TRACKING_DISABLED;
-        states[i].sid.constellation = 0;
-        states[i].sid.band = 0;
+        states[i].sid.code = 0;
         states[i].sid.sat = 0;
         states[i].cn0 = -1;
       }

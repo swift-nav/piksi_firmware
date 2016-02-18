@@ -22,13 +22,14 @@
 #include "track.h"
 #include "timing.h"
 #include "ephemeris.h"
+#include "signal.h"
 
 #define EPHEMERIS_TRANSMIT_EPOCH_SPACING_ms   (15 * 1000)
 #define EPHEMERIS_MESSAGE_SPACING_ms          (200)
 
 MUTEX_DECL(es_mutex);
-static ephemeris_t es[NUM_SATS] _CCM;
-static ephemeris_t es_candidate[NUM_SATS] _CCM;
+static ephemeris_t es[PLATFORM_SIGNAL_COUNT] _CCM;
+static ephemeris_t es_candidate[PLATFORM_SIGNAL_COUNT] _CCM;
 
 static WORKING_AREA_CCM(wa_ephemeris_thread, 1400);
 
@@ -42,7 +43,7 @@ static msg_t ephemeris_thread(void *arg)
   systime_t tx_epoch = chTimeNow();
   while (1) {
 
-    for (u32 i=0; i<NUM_SATS; i++) {
+    for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
       bool success = false;
       const ephemeris_t *e = &es[i];
       gps_time_t t = get_current_time();
@@ -75,13 +76,13 @@ static msg_t ephemeris_thread(void *arg)
 
 void ephemeris_new(ephemeris_t *e)
 {
-  assert(sid_valid(e->sid));
+  assert(sid_supported(e->sid));
 
   char buf[SID_STR_LEN_MAX];
   sid_to_string(buf, sizeof(buf), e->sid);
 
   gps_time_t t = get_current_time();
-  u32 index = sid_to_index(e->sid);
+  u32 index = sid_to_global_index(e->sid);
   if (!ephemeris_valid(&es[index], &t)) {
     /* Our currently used ephemeris is bad, so we assume this is better. */
     log_info("New untrusted ephemeris for %s", buf);
@@ -116,7 +117,7 @@ static void ephemeris_msg_callback(u16 sender_id, u8 len, u8 msg[], void* contex
 
   ephemeris_t e;
   unpack_ephemeris((msg_ephemeris_t *)msg, &e);
-  if (!sid_valid(e.sid)) {
+  if (!sid_supported(e.sid)) {
     log_warn("Ignoring ephemeris for invalid sat");
     return;
   }
@@ -128,8 +129,8 @@ void ephemeris_setup(void)
 {
   memset(es_candidate, 0, sizeof(es_candidate));
   memset(es, 0, sizeof(es));
-  for (u32 i=0; i<NUM_SATS; i++) {
-    es[i].sid = sid_from_index(i);
+  for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
+    es[i].sid = sid_from_global_index(i);
   }
 
   static sbp_msg_callbacks_node_t ephemeris_msg_node;
@@ -156,6 +157,6 @@ void ephemeris_unlock(void)
 
 ephemeris_t *ephemeris_get(gnss_signal_t sid)
 {
-  assert(sid_valid(sid));
-  return &es[sid_to_index(sid)];
+  assert(sid_supported(sid));
+  return &es[sid_to_global_index(sid)];
 }

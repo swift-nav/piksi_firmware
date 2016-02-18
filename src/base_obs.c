@@ -34,6 +34,7 @@
 #include "timing.h"
 #include "base_obs.h"
 #include "ephemeris.h"
+#include "signal.h"
 
 extern bool disable_raim;
 
@@ -291,7 +292,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   packed_obs_content_t *obs = (packed_obs_content_t *)(msg + sizeof(observation_header_t));
   for (u8 i=0; i<obs_in_msg; i++) {
     gnss_signal_t sid = sid_from_sbp(obs[i].sid);
-    if (!sid_valid(sid))
+    if (!sid_supported(sid))
       continue;
 
     /* Flag this as visible/viable to acquisition/search */

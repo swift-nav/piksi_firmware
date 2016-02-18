@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2014 Swift Navigation Inc.
+ * Copyright (C) 2014, 2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
+ *          Pasi Miettinen <pasi.miettinen@exafore.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -31,15 +32,14 @@
 sbp_gnss_signal_t sid_to_sbp(const gnss_signal_t from)
 {
   sbp_gnss_signal_t sbp_sid = {
-    .constellation = from.constellation,
-    .band = from.band,
+    .code = from.code,
     .sat = from.sat,
   };
 
   /* Maintain legacy compatibility with GPS PRN encoding. Sat values for other
    * constellations are "real" satellite identifiers.
    */
-  if (from.constellation == CONSTELLATION_GPS)
+  if (sid_to_constellation(from) == CONSTELLATION_GPS)
     sbp_sid.sat -= GPS_FIRST_PRN;
 
   return sbp_sid;
@@ -48,15 +48,14 @@ sbp_gnss_signal_t sid_to_sbp(const gnss_signal_t from)
 gnss_signal_t sid_from_sbp(const sbp_gnss_signal_t from)
 {
   gnss_signal_t sid = {
-    .constellation = from.constellation,
-    .band = from.band,
+    .code = from.code,
     .sat = from.sat,
   };
 
   /* Maintain legacy compatibility with GPS PRN encoding. Sat values for other
    * constellations are "real" satellite identifiers.
    */
-  if (sid.constellation == CONSTELLATION_GPS)
+  if (sid_to_constellation(sid) == CONSTELLATION_GPS)
     sid.sat += GPS_FIRST_PRN;
 
   return sid;

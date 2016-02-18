@@ -39,8 +39,7 @@ typedef void (*decoder_interface_function_t)(
 
 /** Interface to a decoder implementation. */
 typedef struct {
-  gnss_signal_t sid;    /**< Signal type for which the implementation may be
-                             used. Only CONSTELLATION and BAND fields apply. */
+  enum code code;   /**< Code type for which the implementation may be used. */
   /** Init function. Called to set up decoder instance when decoding begins. */
   decoder_interface_function_t init;
   /** Disable function. Called when decoding stops. */

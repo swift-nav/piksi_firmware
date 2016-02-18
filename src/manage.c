@@ -42,6 +42,7 @@
 #include "peripherals/random.h"
 #include "./system_monitor.h"
 #include "settings.h"
+#include "signal.h"
 
 /** \defgroup manage Manage
  * Manage acquisition and tracking.
@@ -75,7 +76,7 @@ typedef struct {
   float dopp_hint_high;    /**< High bound of doppler search hint. */
   gnss_signal_t sid;       /**< Signal identifier. */
 } acq_status_t;
-static acq_status_t acq_status[NUM_SATS];
+static acq_status_t acq_status[PLATFORM_SIGNAL_COUNT];
 
 #define SCORE_COLDSTART     100
 #define SCORE_WARMSTART     200
@@ -87,7 +88,7 @@ static acq_status_t acq_status[NUM_SATS];
 #define DOPP_UNCERT_ALMANAC 4000
 #define DOPP_UNCERT_EPHEM   500
 
-static almanac_t almanac[NUM_SATS];
+static almanac_t almanac[PLATFORM_SIGNAL_COUNT];
 
 static float track_cn0_use_thres = 31.0; /* dBHz */
 static float elevation_mask = 0.0; /* degrees */
@@ -118,8 +119,8 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   char sid_str[SID_STR_LEN_MAX];
   sid_to_string(sid_str, sizeof(sid_str), sid);
 
-  if (sid_valid(sid)) {
-    acq_status_t *acq = &acq_status[sid_to_index(sid)];
+  if (sid_supported(sid)) {
+    acq_status_t *acq = &acq_status[sid_to_global_index(sid)];
     acq->masked = (m->mask & MASK_ACQUISITION) ? true : false;
     if (m->mask & MASK_TRACKING) {
       tracking_drop_satellite(sid);
@@ -149,15 +150,15 @@ void manage_acq_setup()
 {
   SETTING("acquisition", "sbas enabled", sbas_enabled, TYPE_BOOL);
 
-  for (u32 i=0; i<NUM_SATS; i++) {
+  for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
     acq_status[i].state = ACQ_PRN_ACQUIRING;
     memset(&acq_status[i].score, 0, sizeof(acq_status[i].score));
     acq_status[i].dopp_hint_low = ACQ_FULL_CF_MIN;
     acq_status[i].dopp_hint_high = ACQ_FULL_CF_MAX;
-    acq_status[i].sid = sid_from_index(i);
+    acq_status[i].sid = sid_from_global_index(i);
 
     if (!sbas_enabled &&
-        (acq_status[i].sid.constellation == CONSTELLATION_SBAS)) {
+        (sid_to_constellation(acq_status[i].sid) == CONSTELLATION_SBAS)) {
       acq_status[i].masked = true;
     }
 
@@ -230,7 +231,7 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
       if (time_quality >= TIME_FINE)
         dopp_uncertainty = DOPP_UNCERT_EPHEM;
     } else {
-      const almanac_t *a = &almanac[sid_to_index(sid)];
+      const almanac_t *a = &almanac[sid_to_global_index(sid)];
       if (a->valid) {
         calc_sat_az_el_almanac(a, t->tow, t->wn-1024,
                                position_solution.pos_ecef, &_, &el_d);
@@ -254,7 +255,7 @@ static acq_status_t * choose_acq_sat(void)
   u32 total_score = 0;
   gps_time_t t = get_current_time();
 
-  for (u32 i=0; i<NUM_SATS; i++) {
+  for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
         acq_status[i].masked)
       continue;
@@ -276,7 +277,7 @@ static acq_status_t * choose_acq_sat(void)
 
   u32 pick = random_int() % total_score;
 
-  for (u32 i=0; i<NUM_SATS; i++) {
+  for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
         acq_status[i].masked)
       continue;
@@ -291,7 +292,7 @@ static acq_status_t * choose_acq_sat(void)
     }
   }
 
-  assert("Error picking a sat for acquisition");
+  assert(!"Error picking a sat for acquisition");
   return NULL;
 }
 
@@ -307,10 +308,10 @@ cturvey 10-Feb-2015
 */
 void manage_set_obs_hint(gnss_signal_t sid)
 {
-  bool valid = sid_valid(sid);
+  bool valid = sid_supported(sid);
   assert(valid);
   if (valid)
-    acq_status[sid_to_index(sid)].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
+    acq_status[sid_to_global_index(sid)].score[ACQ_HINT_REMOTE_OBS] = SCORE_OBS;
 }
 
 /** Manages acquisition searches and starts tracking channels after successful acquisitions. */
@@ -434,7 +435,7 @@ static void check_clear_unhealthy(void)
 
   ticks = chTimeNow();
 
-  for (u32 i=0; i<NUM_SATS; i++) {
+  for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
     if (acq_status[i].state == ACQ_PRN_UNHEALTHY)
       acq_status[i].state = ACQ_PRN_ACQUIRING;
   }
@@ -478,7 +479,7 @@ static void drop_channel(u8 channel_id) {
   decoder_channel_disable(channel_id);
   tracking_channel_disable(channel_id);
   const tracking_channel_t *ch = &tracking_channel[channel_id];
-  acq_status_t *acq = &acq_status[sid_to_index(ch->sid)];
+  acq_status_t *acq = &acq_status[sid_to_global_index(ch->sid)];
   if (ch->update_count > TRACK_REACQ_T) {
     /* FIXME other constellations/bands */
     acq->score[ACQ_HINT_PREV_TRACK] = SCORE_TRACK;
@@ -505,7 +506,7 @@ static void manage_track()
         ch->update_count < TRACK_INIT_T)
       continue;
 
-    acq_status_t *acq = &acq_status[sid_to_index(ch->sid)];
+    acq_status_t *acq = &acq_status[sid_to_global_index(ch->sid)];
 
     /* Is ephemeris or alert flag marked unhealthy?*/
     const ephemeris_t *e = ephemeris_get(ch->sid);
