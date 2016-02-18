@@ -122,13 +122,14 @@ void decode_setup(void)
  */
 void decoder_interface_register(decoder_interface_list_element_t *element)
 {
-  decoder_interface_list_element_t **e = &decoder_interface_list;
+  /* p_next = address of next pointer which must be updated */
+  decoder_interface_list_element_t **p_next = &decoder_interface_list;
 
-  while (*e != 0)
-    *e = (*e)->next;
+  while (*p_next != 0)
+    p_next = &(*p_next)->next;
 
   element->next = 0;
-  *e = element;
+  *p_next = element;
 }
 
 /** Determine if a decoder channel is available for the specified tracking
@@ -248,7 +249,7 @@ static msg_t decode_thread(void *arg)
  */
 static const decoder_interface_t * decoder_interface_get(gnss_signal_t sid)
 {
-  decoder_interface_list_element_t *e = decoder_interface_list;
+  const decoder_interface_list_element_t *e = decoder_interface_list;
   while (e != 0) {
     const decoder_interface_t *interface = e->interface;
     if ((interface->sid.constellation == sid.constellation) &&
