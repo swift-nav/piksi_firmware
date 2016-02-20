@@ -440,11 +440,6 @@ static void solution_thread(void *arg)
     }
     ephemeris_unlock();
 
-    for (u32 i=0; i<n_ready; i++) {
-      printf("%d: tot: %.7f rpr: %.7f", nav_meas[i].sid.sat, nav_meas[i].tot.tow,
-          nav_meas[i].raw_pseudorange);
-    }
-
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
     u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
                                    nav_meas_old, nav_meas_tdcp);
