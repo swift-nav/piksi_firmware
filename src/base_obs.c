@@ -307,7 +307,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       unpack_obs_content(
         &obs[i],
         &base_obss_rx.nm[base_obss_rx.n].raw_pseudorange,
-        &base_obss_rx.nm[base_obss_rx.n].carrier_phase,
+        &base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase,
         &base_obss_rx.nm[base_obss_rx.n].snr,
         &base_obss_rx.nm[base_obss_rx.n].lock_counter,
         &base_obss_rx.nm[base_obss_rx.n].sid

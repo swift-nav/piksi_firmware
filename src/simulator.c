@@ -344,9 +344,9 @@ void populate_nav_meas(navigation_measurement_t *nav_meas, double dist, double e
   nav_meas->raw_pseudorange += rand_gaussian(sim_settings.pseudorange_sigma *
                                              sim_settings.pseudorange_sigma);
 
-  nav_meas->carrier_phase =    dist / (GPS_C / GPS_L1_HZ);
-  nav_meas->carrier_phase +=   simulation_fake_carrier_bias[almanac_i];
-  nav_meas->carrier_phase +=   rand_gaussian(sim_settings.phase_sigma *
+  nav_meas->raw_carrier_phase =    dist / (GPS_C / GPS_L1_HZ);
+  nav_meas->raw_carrier_phase +=   simulation_fake_carrier_bias[almanac_i];
+  nav_meas->raw_carrier_phase +=   rand_gaussian(sim_settings.phase_sigma *
                                              sim_settings.phase_sigma);
 
   nav_meas->snr             =  lerp(elevation, 0, M_PI/2, 35, 45) +
@@ -473,5 +473,3 @@ void simulator_setup(void)
 }
 
 /** \} */
-
-
