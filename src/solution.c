@@ -270,7 +270,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 
     for (u8 i = 0; i < curr_n; i++, obs_i++) {
       if (pack_obs_content(m[obs_i].raw_pseudorange,
-            m[obs_i].carrier_phase,
+            m[obs_i].raw_carrier_phase,
             m[obs_i].snr,
             m[obs_i].lock_counter,
             m[obs_i].sid,
@@ -558,7 +558,7 @@ static void solution_thread(void *arg)
       for (u8 i=0; i<n_ready_tdcp; i++) {
         nav_meas_tdcp[i].raw_pseudorange -= t_err * nav_meas_tdcp[i].doppler
                                             * (GPS_C / GPS_L1_HZ);
-        nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
+        nav_meas_tdcp[i].raw_carrier_phase += t_err * nav_meas_tdcp[i].doppler;
       }
 
       /* Update observation time. */
