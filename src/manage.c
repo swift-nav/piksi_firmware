@@ -462,8 +462,6 @@ static msg_t manage_track_thread(void *arg)
 
 void manage_track_setup()
 {
-  initialize_lock_counters();
-
   SETTING("track", "cn0_use", track_cn0_use_thres, TYPE_FLOAT);
   SETTING("solution", "elevation_mask", elevation_mask, TYPE_FLOAT);
 

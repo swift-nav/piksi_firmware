@@ -236,15 +236,6 @@ static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
   return result;
 }
 
-/* Initialize the lock counters to random numbers
- */
-void initialize_lock_counters(void)
-{
-  for (u32 i=0; i < PLATFORM_SIGNAL_COUNT; i++) {
-    tracking_lock_counters[i] = random_int();
-  }
-}
-
 /** Calculate the future code phase after N samples.
  * Calculate the expected code phase in N samples time with carrier aiding.
  *
@@ -837,7 +828,7 @@ bool track_iq_output_notify(struct setting *s, const char *val)
 }
 
 
-/** Set up tracking subsystem - presently just hooks for settings
+/** Set up tracking subsystem
  */
 void tracking_setup()
 {
@@ -849,6 +840,10 @@ void tracking_setup()
                  TYPE_STRING, parse_lock_detect_params);
   SETTING("track", "cn0_drop", track_cn0_drop_thres, TYPE_FLOAT);
   SETTING("track", "alias_detect", use_alias_detection, TYPE_BOOL);
+
+  for (u32 i=0; i < PLATFORM_SIGNAL_COUNT; i++) {
+    tracking_lock_counters[i] = random_int();
+  }
 }
 
 /** Read the next pending nav bit for a tracking channel.

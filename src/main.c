@@ -178,6 +178,7 @@ int main(void)
   static s32 serial_number;
   serial_number = nap_conf_rd_serial_number();
 
+  rng_setup();
   max2769_setup();
   timing_setup();
   ext_event_setup();
@@ -186,7 +187,6 @@ int main(void)
   decode_setup();
   decode_gps_l1_register();
 
-  rng_setup();
   manage_acq_setup();
   manage_track_setup();
   system_monitor_setup();
