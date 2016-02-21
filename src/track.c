@@ -79,7 +79,7 @@ static struct lock_detect_params {
   u16 lp, lo;
 } lock_detect_params;
 
-static float track_cn0_drop_thres = 31.0;
+static float track_cn0_drop_thres = 26.0;
 static u16 iq_output_mask = 0;
 
 /** \defgroup tracking Tracking

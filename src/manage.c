@@ -583,7 +583,7 @@ s8 use_tracking_channel(u8 i)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
       && (ch->bit_polarity != BIT_POLARITY_UNKNOWN)
       /* Estimated C/N0 is above some threshold */
-      && (ch->cn0 > track_cn0_use_thres))
+      /*&& (ch->cn0 > track_cn0_use_thres)*/)
       /* TODO: Alert flag is not set */
       {
     /* Ephemeris must be valid, not stale. Satellite must be healthy.
