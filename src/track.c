@@ -733,8 +733,8 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = chan->lock_counter;
-
-  if ((time_quality == TIME_FINE) && (carrier_phase_offset[channel] == 0.0f)) {
+// TODO maybe just reset to 0 on first clock or something?
+  /*if ((time_quality == TIME_FINE) && (carrier_phase_offset[channel] == 0.0f)) {
     gps_time_t tor = rx2gpstime(meas->receiver_time);
     gps_time_t tot;
     tot.tow = 1e-3 * meas->time_of_week_ms;
@@ -742,7 +742,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
     gps_time_match_weeks(&tot, &tor);
     carrier_phase_offset[channel] = GPS_L1_HZ * gpsdifftime(&tor, &tot);
   }
-  meas->carrier_phase += carrier_phase_offset[channel];
+  meas->carrier_phase += carrier_phase_offset[channel];*/
 }
 
 /** Send tracking state SBP message.

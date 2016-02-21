@@ -319,7 +319,6 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
             base_obss_rx.nm[base_obss_rx.n].raw_pseudorange / GPS_C;
       normalize_gps_time(&base_obss_rx.nm[base_obss_rx.n].tot);
 
-      base_obss_rx.n++;
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
@@ -341,6 +340,8 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       /* We also apply the clock correction to the time of transmit. */
       base_obss_rx.nm[base_obss_rx.n].tot.tow -= clock_err;
       normalize_gps_time(&base_obss_rx.nm[base_obss_rx.n].tot);
+
+      base_obss_rx.n++;
     }
     ephemeris_unlock();
   }
