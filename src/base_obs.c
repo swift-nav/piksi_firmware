@@ -185,9 +185,9 @@ static void update_obss(obss_t *new_obss)
    * This calculation will be used later by the propagation functions. */
   if (base_obss.has_pos) {
     for (u8 i=0; i < base_obss.n; i++) {
-      double dx[3];
-      vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
-      base_obss.sat_dists[i] = vector_norm(3, dx);
+      double d[3];
+      vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, d);
+      base_obss.sat_dists[i] = vector_norm(3, d);
     }
   }
   /* Unlock base_obss mutex. */
@@ -216,7 +216,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * so we can verify we haven't dropped a message. */
   static s16 prev_count = 0;
 
-  static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
+  static gps_time_t prev_tor = {.tow = 0.0, .wn = 0};
 
   /* As we receive observation messages we assemble them into a working
    * `obss_t` (`base_obss_rx`) so as not to disturb the global `base_obss`
@@ -235,7 +235,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   sbp_send_msg_(SBP_MSG_OBS, len, msg, 0);
 
   /* GPS time of observation. */
-  gps_time_t t;
+  gps_time_t tor;
   /* Total number of messages in the observation set / sequence. */
   u8 total;
   /* The current message number in the sequence. */
@@ -243,32 +243,32 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   /* Decode the message header to get the time and how far through the sequence
    * we are. */
-  unpack_obs_header((observation_header_t*)msg, &t, &total, &count);
+  unpack_obs_header((observation_header_t*)msg, &tor, &total, &count);
 
   /* Check to see if the observation is aligned with our internal observations,
    * i.e. is it going to time match one of our local obs. */
   u32 obs_freq = soln_freq / obs_output_divisor;
-  double epoch_count = t.tow * obs_freq;
+  double epoch_count = tor.tow * obs_freq;
   double dt = fabs(epoch_count - round(epoch_count)) / obs_freq;
   if (dt > TIME_MATCH_THRESHOLD) {
     log_warn("Unaligned observation from base station ignored, "
-             "tow = %.3f, dt = %.3f", t.tow, dt);
+             "tow = %.3f, dt = %.3f", tor.tow, dt);
     return;
   }
 
   /* Calculate packet latency. */
   if (time_quality >= TIME_COARSE) {
     gps_time_t now = get_current_time();
-    float latency_ms = (float) ((now.tow - t.tow) * 1000.0);
+    float latency_ms = (float) ((now.tow - tor.tow) * 1000.0);
     log_obs_latency(latency_ms);
   }
 
   /* Verify sequence integrity */
   if (count == 0) {
-    prev_t = t;
+    prev_tor = tor;
     prev_count = 0;
-  } else if (prev_t.tow != t.tow ||
-             prev_t.wn != t.wn ||
+  } else if (prev_tor.tow != tor.tow ||
+             prev_tor.wn != tor.wn ||
              prev_count + 1 != count) {
     log_info("Dropped one of the observation packets! Skipping this sequence.");
     prev_count = -1;
@@ -285,7 +285,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * state. */
   if (count == 0) {
     base_obss_rx.n = 0;
-    base_obss_rx.t = t;
+    base_obss_rx.t = tor;
   }
 
   /* Pull out the contents of the message. */
@@ -302,7 +302,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
      * fill in satellite position etc. parameters. */
     ephemeris_lock();
     ephemeris_t *e = ephemeris_get(sid);
-    if (ephemeris_valid(e, &t)) {
+    if (ephemeris_valid(e, &tor)) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
@@ -312,13 +312,22 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_rx.nm[base_obss_rx.n].lock_counter,
         &base_obss_rx.nm[base_obss_rx.n].sid
       );
+
+      /* Set the time */
+      base_obss_rx.nm[base_obss_rx.n].tot = tor;
+      base_obss_rx.nm[base_obss_rx.n].tot.tow -=
+            base_obss_rx.nm[base_obss_rx.n].raw_pseudorange / GPS_C;
+      normalize_gps_time(&base_obss_rx.nm[base_obss_rx.n].tot);
+
+      base_obss_rx.n++;
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(e, &t,
+      calc_sat_state(e, &base_obss_rx.nm[base_obss_rx.n].tot,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);
+
       /* Apply corrections to the raw pseudorange and carrier phase. */
       /* TODO Make a function to apply some of these corrections.
        *      They are used in a couple places. */
@@ -328,10 +337,10 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       base_obss_rx.nm[base_obss_rx.n].carrier_phase =
             base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase
             + clock_err * GPS_L1_HZ;
-      /* Set the time */
-      /* TODO: (kleeman) this is definitely wrong. */
-      base_obss_rx.nm[base_obss_rx.n].tot = t;
-      base_obss_rx.n++;
+
+      /* We also apply the clock correction to the time of transmit. */
+      base_obss_rx.nm[base_obss_rx.n].tot.tow -= clock_err;
+      normalize_gps_time(&base_obss_rx.nm[base_obss_rx.n].tot);
     }
     ephemeris_unlock();
   }
