@@ -319,11 +319,15 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);
-      /* Apply corrections to the raw pseudorange. */
+      /* Apply corrections to the raw pseudorange and carrier phase. */
       /* TODO Make a function to apply some of these corrections.
        *      They are used in a couple places. */
       base_obss_rx.nm[base_obss_rx.n].pseudorange =
-            base_obss_rx.nm[base_obss_rx.n].raw_pseudorange + clock_err * GPS_C;
+            base_obss_rx.nm[base_obss_rx.n].raw_pseudorange
+            + clock_err * GPS_C;
+      base_obss_rx.nm[base_obss_rx.n].carrier_phase =
+            base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase
+            + clock_err * GPS_L1_HZ;
       /* Set the time */
       /* TODO: (kleeman) this is definitely wrong. */
       base_obss_rx.nm[base_obss_rx.n].tot = t;
