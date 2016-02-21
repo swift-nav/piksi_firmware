@@ -335,7 +335,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
             + clock_err * GPS_C;
       base_obss_rx.nm[base_obss_rx.n].carrier_phase =
             base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase
-            + clock_err * GPS_L1_HZ;
+            - clock_err * GPS_L1_HZ;
 
       /* We also apply the clock correction to the time of transmit. */
       base_obss_rx.nm[base_obss_rx.n].tot.tow -= clock_err;

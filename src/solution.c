@@ -574,7 +574,7 @@ static msg_t solution_thread(void *arg)
       /* Propagate observation to desired time. */
       for (u8 i=0; i<n_ready_tdcp; i++) {
         nav_meas_tdcp[i].raw_pseudorange += t_err * GPS_C;
-        nav_meas_tdcp[i].raw_carrier_phase += t_err * GPS_L1_HZ;
+        nav_meas_tdcp[i].raw_carrier_phase -= t_err * GPS_L1_HZ;
       }
 
       /* Update observation time. */
