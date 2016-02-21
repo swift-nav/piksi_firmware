@@ -102,6 +102,8 @@ static u16 tracking_lock_counters[PLATFORM_SIGNAL_COUNT];
 
 static MUTEX_DECL(nav_time_sync_mutex);
 
+static void tracking_channel_get_corrs(u8 channel);
+
 static void nav_bit_fifo_init(nav_bit_fifo_t *fifo);
 static bool nav_bit_fifo_write(nav_bit_fifo_t *fifo,
                                const nav_bit_fifo_element_t *element);
@@ -393,34 +395,24 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
  * tracking channel state struct.
  * \param channel Tracking channel to read correlations for.
  */
-void tracking_channel_get_corrs(u8 channel)
+static void tracking_channel_get_corrs(u8 channel)
 {
   tracking_channel_t* chan = &tracking_channel[channel];
 
-  switch(chan->state)
-  {
-    case TRACKING_RUNNING:
-      /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
-      if ((chan->int_ms > 1) && !chan->short_cycle) {
-        /* If we just requested the short cycle, this is the long cycle's
-         * correlations. */
-        corr_t cs[3];
-        nap_track_corr_rd_blocking(channel, &chan->corr_sample_count, cs);
-        /* accumulate short cycle correlations with long */
-        for(int i = 0; i < 3; i++) {
-          chan->cs[i].I += cs[i].I;
-          chan->cs[i].Q += cs[i].Q;
-        }
-      } else {
-        nap_track_corr_rd_blocking(channel, &chan->corr_sample_count, chan->cs);
-        alias_detect_first(&chan->alias_detect, chan->cs[1].I, chan->cs[1].Q);
-      }
-      break;
-
-    case TRACKING_DISABLED:
-    default:
-      /* TODO: WTF? */
-      break;
+  /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
+  if ((chan->int_ms > 1) && !chan->short_cycle) {
+    /* If we just requested the short cycle, this is the long cycle's
+     * correlations. */
+    corr_t cs[3];
+    nap_track_corr_rd_blocking(channel, &chan->corr_sample_count, cs);
+    /* accumulate short cycle correlations with long */
+    for(int i = 0; i < 3; i++) {
+      chan->cs[i].I += cs[i].I;
+      chan->cs[i].Q += cs[i].Q;
+    }
+  } else {
+    nap_track_corr_rd_blocking(channel, &chan->corr_sample_count, chan->cs);
+    alias_detect_first(&chan->alias_detect, chan->cs[1].I, chan->cs[1].Q);
   }
 }
 
@@ -455,6 +447,8 @@ void tracking_channel_update(u8 channel)
   {
     case TRACKING_RUNNING:
     {
+      tracking_channel_get_corrs(channel);
+
       chan->sample_count += chan->corr_sample_count;
       chan->code_phase_early = (u64)chan->code_phase_early +
                                (u64)chan->corr_sample_count

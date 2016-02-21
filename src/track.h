@@ -116,7 +116,6 @@ s8 nav_bit_quantize(s32 bit_integrate);
 void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
                            u32 start_sample_count, float cn0_init, s8 elevation);
 
-void tracking_channel_get_corrs(u8 channel);
 void tracking_channel_update(u8 channel);
 void tracking_channel_disable(u8 channel);
 void tracking_channel_ambiguity_unknown(u8 channel);

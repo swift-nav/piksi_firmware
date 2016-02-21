@@ -118,7 +118,6 @@ static void handle_nap_exti(void)
 
     /* Test if the nth tracking irq flag is set, if so service it. */
     if ((irq >> n) & 1) {
-      tracking_channel_get_corrs(n);
       tracking_channel_update(n);
     }
   }
