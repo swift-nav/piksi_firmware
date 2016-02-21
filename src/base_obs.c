@@ -142,14 +142,14 @@ static void update_obss(obss_t *new_obss)
    * that. No need to lock before reading here as base_pos_* is only written
    * from this thread (SBP).
    */
-  if (base_pos_known) {
+  if (false) {//base_pos_known) {
     /* Copy the known base station position into `base_obss`. */
     memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
     /* Indicate that the position is valid. */
     base_obss.has_pos = 1;
   /* The base station wasn't sent to us explicitly but if we have >= 4
    * satellites we can calculate it ourselves (approximately). */
-  } else if (base_obss.n >= 4) {
+ } else if (base_obss.n >= 4) { // TODO: if <4 sats or PVT error, skip the obs?
     gnss_solution soln;
     dops_t dops;
 
@@ -175,6 +175,20 @@ static void update_obss(obss_t *new_obss)
         memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
       }
       base_obss.has_pos = 1;
+
+      /* Calculate the time of the nearest solution epoch, where we expected
+       * to be, and calculate how far we were away from it. */
+      double t_err = gpsdifftime(&base_obss.t, &soln.time);
+      /* Only send observations that are closely aligned with the desired
+       * solution epochs to ensure they haven't been propagated too far. */
+      if (fabs(t_err) < OBS_PROPAGATION_LIMIT) {
+        /* Propagate observation to desired time. */
+        for (u8 i=0; i < base_obss.n; i++) {
+          base_obss.nm[i].raw_pseudorange -= t_err * base_obss.nm[i].doppler *
+                                              (GPS_C / GPS_L1_HZ);
+          base_obss.nm[i].raw_carrier_phase += t_err * base_obss.nm[i].doppler;
+        }
+      }
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
@@ -231,6 +245,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     return;
   }
 
+  ((observation_header_t*)msg)->n_obs = 0x10;
   /* Relay observations using sender_id = 0. */
   sbp_send_msg_(SBP_MSG_OBS, len, msg, 0);
 

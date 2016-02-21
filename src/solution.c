@@ -555,7 +555,7 @@ static msg_t solution_thread(void *arg)
 
     /* Calculate the time of the nearest solution epoch, where we expected
      * to be, and calculate how far we were away from it. */
-    double expected_tow = round(position_solution.time.tow*soln_freq)
+    double expected_tow = round(position_solution.time.tow * soln_freq)
                             / soln_freq;
     double t_err = expected_tow - position_solution.time.tow;
     /* Only send observations that are closely aligned with the desired
@@ -566,11 +566,9 @@ static msg_t solution_thread(void *arg)
     if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
         fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
       /* Propagate observation to desired time. */
-      for (u8 i=0; i<n_ready_tdcp; i++) {
-        //nav_meas_tdcp[i].raw_pseudorange += t_err * GPS_C;
-        //nav_meas_tdcp[i].raw_carrier_phase -= t_err * GPS_L1_HZ;
+      for (u8 i=0; i < n_ready_tdcp; i++) {
         nav_meas_tdcp[i].raw_pseudorange -= t_err * nav_meas_tdcp[i].doppler *
-          (GPS_C / GPS_L1_HZ);
+                                            (GPS_C / GPS_L1_HZ);
         nav_meas_tdcp[i].raw_carrier_phase += t_err * nav_meas_tdcp[i].doppler;
       }
 
