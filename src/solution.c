@@ -535,16 +535,10 @@ static void solution_thread(void *arg)
         if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
             base_obss.has_pos) {
 
-          ephemeris_lock();
-          const ephemeris_t *e_nav_meas_tdcp[n_ready_tdcp];
-          for (u32 i=0; i<n_ready_tdcp; i++)
-            e_nav_meas_tdcp[i] = ephemeris_get(nav_meas_tdcp[i].sid);
-
           sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
           u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                   base_obss.n, base_obss.nm,
                                   base_obss.sat_dists, base_obss.pos_ecef,
-                                  e_nav_meas_tdcp, &position_solution.time,
                                   sdiffs);
           ephemeris_unlock();
           if (num_sdiffs >= 4) {
