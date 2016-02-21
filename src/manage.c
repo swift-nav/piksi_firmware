@@ -90,7 +90,6 @@ static acq_status_t acq_status[PLATFORM_SIGNAL_COUNT];
 
 static almanac_t almanac[PLATFORM_SIGNAL_COUNT];
 
-static float track_cn0_use_thres = 31.0; /* dBHz */
 static float elevation_mask = 0.0; /* degrees */
 static bool sbas_enabled = false;
 
@@ -462,7 +461,6 @@ static msg_t manage_track_thread(void *arg)
 
 void manage_track_setup()
 {
-  SETTING("track", "cn0_use", track_cn0_use_thres, TYPE_FLOAT);
   SETTING("solution", "elevation_mask", elevation_mask, TYPE_FLOAT);
 
   chThdCreateStatic(
@@ -524,14 +522,6 @@ static void manage_track()
 
     u32 uc = ch->update_count;
 
-    if (ch->cn0 < track_cn0_use_thres) {
-      /* SNR has dropped below threshold, indicate that the carrier phase
-       * ambiguity is now unknown as cycle slips are likely. */
-      tracking_channel_ambiguity_unknown(i);
-      /* Update the latest time we were below the threshold. */
-      ch->cn0_below_threshold_count = uc;
-    }
-
     /* Optimistic phase lock detector "unlocked" for a while? */
     /* TODO: This isn't doing much.  Use the pessimistic detector instead? */
     if ((int)(uc - ch->ld_opti_locked_count) > TRACK_DROP_UNLOCKED_T) {
@@ -581,7 +571,7 @@ s8 use_tracking_channel(u8 i)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
       && (ch->bit_polarity != BIT_POLARITY_UNKNOWN)
       /* Estimated C/N0 is above some threshold */
-      && (ch->cn0 > track_cn0_use_thres))
+      && tracking_channel_cn0_useable(i))
       /* TODO: Alert flag is not set */
       {
     /* Ephemeris must be valid, not stale. Satellite must be healthy.

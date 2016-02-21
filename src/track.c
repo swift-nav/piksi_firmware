@@ -79,6 +79,7 @@ static struct lock_detect_params {
   u16 lp, lo;
 } lock_detect_params;
 
+static float track_cn0_use_thres = 31.0; /* dBHz */
 static float track_cn0_drop_thres = 31.0;
 static u16 iq_output_mask = 0;
 
@@ -422,6 +423,14 @@ void tracking_drop_satellite(gnss_signal_t sid)
   }
 }
 
+/** Determines if C/NO is above the use threshold for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+bool tracking_channel_cn0_useable(u8 channel)
+{
+  return (tracking_channel[channel].cn0 > track_cn0_use_thres);
+}
+
 /** Update tracking channels after the end of an integration period.
  * Update update_count, sample_count, TOW, run loop filters and update
  * SwiftNAP tracking channel frequencies.
@@ -538,6 +547,14 @@ void tracking_channel_update(u8 channel)
       chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I/chan->int_ms, cs[1].Q/chan->int_ms);
       if (chan->cn0 > track_cn0_drop_thres)
         chan->cn0_above_drop_thres_count = chan->update_count;
+
+      if (chan->cn0 < track_cn0_use_thres) {
+        /* SNR has dropped below threshold, indicate that the carrier phase
+         * ambiguity is now unknown as cycle slips are likely. */
+        tracking_channel_ambiguity_unknown(channel);
+        /* Update the latest time we were below the threshold. */
+        chan->cn0_below_threshold_count = chan->update_count;
+      }
 
       /* Update PLL lock detector */
       bool last_outp = chan->lock_detect.outp;
@@ -838,6 +855,7 @@ void tracking_setup()
                  TYPE_STRING, parse_loop_params);
   SETTING_NOTIFY("track", "lock_detect_params", lock_detect_params_string,
                  TYPE_STRING, parse_lock_detect_params);
+  SETTING("track", "cn0_use", track_cn0_use_thres, TYPE_FLOAT);
   SETTING("track", "cn0_drop", track_cn0_drop_thres, TYPE_FLOAT);
   SETTING("track", "alias_detect", use_alias_detection, TYPE_BOOL);
 

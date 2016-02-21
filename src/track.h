@@ -121,6 +121,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
 void tracking_send_state(void);
 void tracking_setup(void);
 void tracking_drop_satellite(gnss_signal_t sid);
+bool tracking_channel_cn0_useable(u8 channel);
 bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit);
 bool tracking_channel_time_sync(u8 channel, s32 TOW_ms, s8 bit_polarity);
 
