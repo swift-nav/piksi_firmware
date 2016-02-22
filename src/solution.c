@@ -371,12 +371,7 @@ static void update_sat_elevations(const navigation_measurement_t nav_meas[],
   double _, el;
   for (int i = 0; i < n_meas; i++) {
     wgsecef2azel(nav_meas[i].sat_pos, pos_ecef, &_, &el);
-    for (int j = 0; j < nap_track_n_channels; j++) {
-      if (sid_is_equal(tracking_channel[j].sid, nav_meas[i].sid)) {
-        tracking_channel[j].elevation = (float)el * R2D;
-        break;
-      }
-    }
+    tracking_channel_evelation_degrees_set(nav_meas[i].sid, (float)el * R2D);
   }
 }
 

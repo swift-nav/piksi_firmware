@@ -552,6 +552,31 @@ bool tracking_channel_bit_polarity_resolved(u8 channel)
   return (tracking_channel[channel].bit_polarity != BIT_POLARITY_UNKNOWN);
 }
 
+/** Sets the elevation angle (deg) for a tracking channel by sid.
+ * \param sid         Signal identifier for which the elevation should be set.
+ * \param elevation   Elevation angle in degrees.
+ */
+bool tracking_channel_evelation_degrees_set(gnss_signal_t sid, s8 elevation)
+{
+  for (u32 i=0; i < NAP_MAX_N_TRACK_CHANNELS; i++) {
+    tracking_channel_t *ch = &tracking_channel[i];
+    /* TODO: Atomically check sid and set elevation */
+    if (sid_is_equal(ch->sid, sid)) {
+      ch->elevation = elevation;
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Returns the elevation angle (deg) for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+s8 tracking_channel_evelation_degrees_get(u8 channel)
+{
+  return tracking_channel[channel].elevation;
+}
+
 /** Update tracking channels after the end of an integration period.
  * Update update_count, sample_count, TOW, run loop filters and update
  * SwiftNAP tracking channel frequencies.

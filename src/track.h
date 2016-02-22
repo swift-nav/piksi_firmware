@@ -142,6 +142,8 @@ double tracking_channel_carrier_freq_get(u8 channel);
 s32 tracking_channel_tow_ms_get(u8 channel);
 bool tracking_channel_bit_sync_resolved(u8 channel);
 bool tracking_channel_bit_polarity_resolved(u8 channel);
+bool tracking_channel_evelation_degrees_set(gnss_signal_t sid, s8 elevation);
+s8 tracking_channel_evelation_degrees_get(u8 channel);
 bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit);
 bool tracking_channel_time_sync(u8 channel, s32 TOW_ms, s8 bit_polarity);
 

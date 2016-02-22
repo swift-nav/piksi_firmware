@@ -543,7 +543,7 @@ static void manage_track()
     }
 
     /* Is satellite below our elevation mask? */
-    if (ch->elevation < elevation_mask) {
+    if (tracking_channel_evelation_degrees_get(i) < elevation_mask) {
       log_info("%s below elevation mask, dropping", buf);
       drop_channel(i);
       /* Erase the tracking hint score, and any others it might have */
@@ -562,7 +562,7 @@ s8 use_tracking_channel(u8 i)
       /* Check SNR has been above threshold for the minimum time. */
       && (tracking_channel_cn0_useable_ms_get(i) > TRACK_SNR_THRES_COUNT)
       /* Satellite elevation is above the mask. */
-      && (ch->elevation >= elevation_mask)
+      && (tracking_channel_evelation_degrees_get(i) >= elevation_mask)
       /* Pessimistic phase lock detector = "locked". */
       && (tracking_channel_ld_pess_locked_ms_get(i) > TRACK_USE_LOCKED_T)
       /* Some time has elapsed since the last tracking channel mode
