@@ -472,17 +472,23 @@ void manage_track_setup()
 }
 
 static void drop_channel(u8 channel_id) {
-  decoder_channel_disable(channel_id);
-  tracking_channel_disable(channel_id);
-  const tracking_channel_t *ch = &tracking_channel[channel_id];
-  acq_status_t *acq = &acq_status[sid_to_global_index(ch->sid)];
+  /* Read the required parameters from the tracking channel first to ensure
+   * that the tracking channel is not restarted in the mean time.
+   */
+  gnss_signal_t sid = tracking_channel_sid_get(channel_id);
+  double carrier_freq = tracking_channel_carrier_freq_get(channel_id);
+  acq_status_t *acq = &acq_status[sid_to_global_index(sid)];
   if (tracking_channel_running_time_ms_get(channel_id) > TRACK_REACQ_T) {
     /* FIXME other constellations/bands */
     acq->score[ACQ_HINT_PREV_TRACK] = SCORE_TRACK;
-    acq->dopp_hint_low = ch->carrier_freq - ACQ_FULL_CF_STEP;
-    acq->dopp_hint_high = ch->carrier_freq + ACQ_FULL_CF_STEP;
+    acq->dopp_hint_low = carrier_freq - ACQ_FULL_CF_STEP;
+    acq->dopp_hint_high = carrier_freq + ACQ_FULL_CF_STEP;
   }
   acq->state = ACQ_PRN_ACQUIRING;
+
+  /* Finally disable the decoder and tracking channels */
+  decoder_channel_disable(channel_id);
+  tracking_channel_disable(channel_id);
 }
 
 /** Disable any tracking channel that has lost phase lock or is
@@ -492,9 +498,10 @@ static void manage_track()
   for (u8 i=0; i<nap_track_n_channels; i++) {
 
     tracking_channel_t *ch = &tracking_channel[i];
+    gnss_signal_t sid = tracking_channel_sid_get(i);
 
     char buf[SID_STR_LEN_MAX];
-    sid_to_string(buf, sizeof(buf), ch->sid);
+    sid_to_string(buf, sizeof(buf), sid);
 
     /* Skip channels that aren't in use */
     if (ch->state != TRACKING_RUNNING ||
@@ -502,10 +509,10 @@ static void manage_track()
         tracking_channel_running_time_ms_get(i) < TRACK_INIT_T)
       continue;
 
-    acq_status_t *acq = &acq_status[sid_to_global_index(ch->sid)];
+    acq_status_t *acq = &acq_status[sid_to_global_index(sid)];
 
     /* Is ephemeris or alert flag marked unhealthy?*/
-    const ephemeris_t *e = ephemeris_get(ch->sid);
+    const ephemeris_t *e = ephemeris_get(sid);
     /* TODO: check alert flag */
     if (e->valid && !satellite_healthy(e)) {
       log_info("%s unhealthy, dropping", buf);
@@ -515,7 +522,7 @@ static void manage_track()
     }
 
     /* Do we not have nav bit sync yet? */
-    if (ch->bit_sync.bit_phase_ref == BITSYNC_UNSYNCED) {
+    if (!tracking_channel_bit_sync_resolved(i)) {
       drop_channel(i);
       continue;
     }
@@ -563,9 +570,9 @@ s8 use_tracking_channel(u8 i)
        * TODO: is this still necessary? */
       && (tracking_channel_last_mode_change_ms_get(i) > TRACK_STABILIZATION_T)
       /* Channel time of week has been decoded. */
-      && (ch->TOW_ms != TOW_INVALID)
+      && (tracking_channel_tow_ms_get(i) != TOW_INVALID)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
-      && (ch->bit_polarity != BIT_POLARITY_UNKNOWN)
+      && tracking_channel_bit_polarity_resolved(i)
       /* Estimated C/N0 is above some threshold */
       && tracking_channel_cn0_useable(i))
       /* TODO: Alert flag is not set */
@@ -576,9 +583,9 @@ s8 use_tracking_channel(u8 i)
       /* TODO: the following makes the week number part of the
          TOW check tautological - see issue #475 */
       .wn = WN_UNKNOWN,
-      .tow = 1e-3 * ch->TOW_ms
+      .tow = 1e-3 * tracking_channel_tow_ms_get(i)
     };
-    ephemeris_t *e = ephemeris_get(ch->sid);
+    ephemeris_t *e = ephemeris_get(tracking_channel_sid_get(i));
     return ephemeris_valid(e, &t) && satellite_healthy(e);
   } else return 0;
 }

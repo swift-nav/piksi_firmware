@@ -133,6 +133,11 @@ u32 tracking_channel_cn0_useable_ms_get(u8 channel);
 u32 tracking_channel_cn0_drop_ms_get(u8 channel);
 u32 tracking_channel_ld_opti_unlocked_ms_get(u8 channel);
 u32 tracking_channel_last_mode_change_ms_get(u8 channel);
+gnss_signal_t tracking_channel_sid_get(u8 channel);
+double tracking_channel_carrier_freq_get(u8 channel);
+s32 tracking_channel_tow_ms_get(u8 channel);
+bool tracking_channel_bit_sync_resolved(u8 channel);
+bool tracking_channel_bit_polarity_resolved(u8 channel);
 bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit);
 bool tracking_channel_time_sync(u8 channel, s32 TOW_ms, s8 bit_polarity);
 

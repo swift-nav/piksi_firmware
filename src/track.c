@@ -502,6 +502,46 @@ u32 tracking_channel_last_mode_change_ms_get(u8 channel)
       &tracking_channel[channel].mode_change_count);
 }
 
+/** Returns the sid currently associated with a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+gnss_signal_t tracking_channel_sid_get(u8 channel)
+{
+  return tracking_channel[channel].sid;
+}
+
+/** Returns the current carrier frequency for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+double tracking_channel_carrier_freq_get(u8 channel)
+{
+  return tracking_channel[channel].carrier_freq;
+}
+
+/** Returns the current time of week for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+s32 tracking_channel_tow_ms_get(u8 channel)
+{
+  return tracking_channel[channel].TOW_ms;
+}
+
+/** Returns the bit sync status for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+bool tracking_channel_bit_sync_resolved(u8 channel)
+{
+  return (tracking_channel[channel].bit_sync.bit_phase_ref != BITSYNC_UNSYNCED);
+}
+
+/** Returns the bit polarity resolution status for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+bool tracking_channel_bit_polarity_resolved(u8 channel)
+{
+  return (tracking_channel[channel].bit_polarity != BIT_POLARITY_UNKNOWN);
+}
+
 /** Update tracking channels after the end of an integration period.
  * Update update_count, sample_count, TOW, run loop filters and update
  * SwiftNAP tracking channel frequencies.
