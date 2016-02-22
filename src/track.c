@@ -493,6 +493,16 @@ u32 tracking_channel_ld_opti_unlocked_ms_get(u8 channel)
       &tracking_channel[channel].ld_opti_locked_count);
 }
 
+/** Returns the time in ms for which the pessimistic lock detector has reported
+ * being locked for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_ld_pess_locked_ms_get(u8 channel)
+{
+  return update_count_diff(channel,
+      &tracking_channel[channel].ld_pess_unlocked_count);
+}
+
 /** Returns the time in ms since the last mode change for a tracking channel.
  * \param channel Tracking channel to use.
  */
@@ -675,6 +685,8 @@ void tracking_channel_update(u8 channel)
       lock_detect_update(&chan->lock_detect, cs[1].I, cs[1].Q, chan->int_ms);
       if (chan->lock_detect.outo)
         chan->ld_opti_locked_count = chan->update_count;
+      if (!chan->lock_detect.outp)
+        chan->ld_pess_unlocked_count = chan->update_count;
 
       /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
       if (last_outp && !chan->lock_detect.outp) {

@@ -564,7 +564,7 @@ s8 use_tracking_channel(u8 i)
       /* Satellite elevation is above the mask. */
       && (ch->elevation >= elevation_mask)
       /* Pessimistic phase lock detector = "locked". */
-      && (ch->lock_detect.outp)
+      && (tracking_channel_ld_pess_locked_ms_get(i) > TRACK_USE_LOCKED_T)
       /* Some time has elapsed since the last tracking channel mode
        * change, to allow any transients to stabilize.
        * TODO: is this still necessary? */

@@ -70,6 +70,9 @@ typedef struct {
   update_count_t ld_opti_locked_count;
                                /**< update_count value when optimistic
                                   phase detector last "locked". */
+  update_count_t ld_pess_unlocked_count;
+                               /**< update_count value when pessimistic
+                                  phase detector last "unlocked". */
   s32 TOW_ms;                  /**< TOW in ms. */
   u32 nav_bit_TOW_offset_ms;   /**< Time since last nav bit was appended to the nav bit FIFO */
   gnss_signal_t sid;           /**< Satellite signal being tracked. */
@@ -132,6 +135,7 @@ u32 tracking_channel_running_time_ms_get(u8 channel);
 u32 tracking_channel_cn0_useable_ms_get(u8 channel);
 u32 tracking_channel_cn0_drop_ms_get(u8 channel);
 u32 tracking_channel_ld_opti_unlocked_ms_get(u8 channel);
+u32 tracking_channel_ld_pess_locked_ms_get(u8 channel);
 u32 tracking_channel_last_mode_change_ms_get(u8 channel);
 gnss_signal_t tracking_channel_sid_get(u8 channel);
 double tracking_channel_carrier_freq_get(u8 channel);

@@ -42,6 +42,10 @@
     TRACK_DROP_UNLOCKED_T ms, drop the channel. */
 #define TRACK_DROP_UNLOCKED_T 5000
 
+/** If pessimistic phase lock detector shows "locked" for >=
+    TRACK_USE_LOCKED_T ms, use the channel. */
+#define TRACK_USE_LOCKED_T 100
+
 /** How many milliseconds to wait for the tracking loops to
  * stabilize after any mode change before using obs. */
 #define TRACK_STABILIZATION_T 1000
