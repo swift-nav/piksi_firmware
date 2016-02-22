@@ -52,20 +52,26 @@ typedef struct {
   bool valid;
 } nav_time_sync_t;
 
+typedef u32 update_count_t;
+
 /** Tracking channel parameters as of end of last correlation period. */
 typedef struct {
   u8 state;                    /**< Tracking channel state. */
   /* TODO : u32's big enough? */
-  u32 update_count;            /**< Number of ms channel has been running */
-  u32 mode_change_count;       /**< update_count at last mode change. */
-  u32 cn0_above_drop_thres_count;
+  update_count_t update_count; /**< Number of ms channel has been running */
+  update_count_t mode_change_count;
+                               /**< update_count at last mode change. */
+  update_count_t cn0_below_use_thres_count;
                                /**< update_count value when SNR was
-                                  last above a certain margin. */
-  u32 ld_opti_locked_count;    /**< update_count value when optimistic
+                                  last below the use threshold. */
+  update_count_t cn0_above_drop_thres_count;
+                               /**< update_count value when SNR was
+                                  last above the drop threshold. */
+  update_count_t ld_opti_locked_count;
+                               /**< update_count value when optimistic
                                   phase detector last "locked". */
   s32 TOW_ms;                  /**< TOW in ms. */
   u32 nav_bit_TOW_offset_ms;   /**< Time since last nav bit was appended to the nav bit FIFO */
-  u32 cn0_below_threshold_count;     /**< update_count value when SNR was last below a certain margin. */
   gnss_signal_t sid;           /**< Satellite signal being tracked. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   u32 code_phase_early;        /**< Early code phase. */
@@ -122,6 +128,11 @@ void tracking_send_state(void);
 void tracking_setup(void);
 void tracking_drop_satellite(gnss_signal_t sid);
 bool tracking_channel_cn0_useable(u8 channel);
+u32 tracking_channel_running_time_ms_get(u8 channel);
+u32 tracking_channel_cn0_useable_ms_get(u8 channel);
+u32 tracking_channel_cn0_drop_ms_get(u8 channel);
+u32 tracking_channel_ld_opti_unlocked_ms_get(u8 channel);
+u32 tracking_channel_last_mode_change_ms_get(u8 channel);
 bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit);
 bool tracking_channel_time_sync(u8 channel, s32 TOW_ms, s8 bit_polarity);
 

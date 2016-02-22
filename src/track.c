@@ -29,6 +29,8 @@
 #include <libswiftnav/logging.h>
 #include <libswiftnav/signal.h>
 
+#define COMPILER_BARRIER() asm volatile ("" : : : "memory")
+
 /*  code: nbw zeta k carr_to_code
  carrier:                    nbw  zeta k fll_aid */
 #define LOOP_PARAMS_SLOW \
@@ -105,6 +107,8 @@ static MUTEX_DECL(nav_time_sync_mutex);
 
 static void tracking_channel_get_corrs(u8 channel);
 
+static update_count_t update_count_diff(u8 channel, update_count_t *val);
+
 static void nav_bit_fifo_init(nav_bit_fifo_t *fifo);
 static bool nav_bit_fifo_write(nav_bit_fifo_t *fifo,
                                const nav_bit_fifo_element_t *element);
@@ -136,10 +140,10 @@ static bool nav_bit_fifo_write(nav_bit_fifo_t *fifo,
                                const nav_bit_fifo_element_t *element)
 {
   if (NAV_BIT_FIFO_LENGTH(fifo) < NAV_BIT_FIFO_SIZE) {
-    asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
     memcpy(&fifo->elements[fifo->write_index & NAV_BIT_FIFO_INDEX_MASK],
            element, sizeof(nav_bit_fifo_element_t));
-    asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
     fifo->write_index++;
     return true;
   }
@@ -160,10 +164,10 @@ static bool nav_bit_fifo_read(nav_bit_fifo_t *fifo,
                               nav_bit_fifo_element_t *element)
 {
   if (NAV_BIT_FIFO_LENGTH(fifo) > 0) {
-    asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
     memcpy(element, &fifo->elements[fifo->read_index & NAV_BIT_FIFO_INDEX_MASK],
            sizeof(nav_bit_fifo_element_t));
-    asm volatile ("" : : : "memory"); /* Prevent compiler reordering */
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
     fifo->read_index++;
     return true;
   }
@@ -281,6 +285,26 @@ s8 nav_bit_quantize(s32 bit_integrate)
     return bit_integrate / (1 << 24);
   else
     return ((bit_integrate + 1) / (1 << 24)) - 1;
+}
+
+/** Returns the unsigned difference between update_count and *val for the
+ * specified tracking channel.
+ *
+ * \note This function ensures that update_count is read prior to *val
+ * such that erroneous jumps between zero and large positive numbers are
+ * avoided.
+ *
+ * \param channel   Tracking channel to use.
+ * \param val       Pointer to the value to be subtracted from update_count.
+ *
+ * \return The unsigned difference between update_count and *val.
+ */
+static update_count_t update_count_diff(u8 channel, update_count_t *val)
+{
+  /* Ensure that update_count is read prior to *val */
+  update_count_t update_count = tracking_channel[channel].update_count;
+  COMPILER_BARRIER(); /* Prevent compiler reordering */
+  return (update_count_t)(update_count - *val);
 }
 
 /** Initialises a tracking channel.
@@ -431,6 +455,53 @@ bool tracking_channel_cn0_useable(u8 channel)
   return (tracking_channel[channel].cn0 > track_cn0_use_thres);
 }
 
+/** Returns the time in ms for which tracking channel has been running.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_running_time_ms_get(u8 channel)
+{
+  return tracking_channel[channel].update_count;
+}
+
+/** Returns the time in ms for which C/N0 has been above the use threshold for
+ * a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_cn0_useable_ms_get(u8 channel)
+{
+  return update_count_diff(channel,
+      &tracking_channel[channel].cn0_below_use_thres_count);
+}
+
+/** Returns the time in ms for which C/N0 has been below the drop threshold for
+ * a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_cn0_drop_ms_get(u8 channel)
+{
+  return update_count_diff(channel,
+      &tracking_channel[channel].cn0_above_drop_thres_count);
+}
+
+/** Returns the time in ms for which the optimistic lock detector has reported
+ * being unlocked for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_ld_opti_unlocked_ms_get(u8 channel)
+{
+  return update_count_diff(channel,
+      &tracking_channel[channel].ld_opti_locked_count);
+}
+
+/** Returns the time in ms since the last mode change for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_last_mode_change_ms_get(u8 channel)
+{
+  return update_count_diff(channel,
+      &tracking_channel[channel].mode_change_count);
+}
+
 /** Update tracking channels after the end of an integration period.
  * Update update_count, sample_count, TOW, run loop filters and update
  * SwiftNAP tracking channel frequencies.
@@ -521,6 +592,9 @@ void tracking_channel_update(u8 channel)
       }
 
       chan->update_count += chan->int_ms;
+      /* Prevent compiler reordering of store to update_count and stores to
+       * dependent variables */
+      COMPILER_BARRIER();
 
       /* Update bit sync */
       s32 bit_integrate;
@@ -553,7 +627,7 @@ void tracking_channel_update(u8 channel)
          * ambiguity is now unknown as cycle slips are likely. */
         tracking_channel_ambiguity_unknown(channel);
         /* Update the latest time we were below the threshold. */
-        chan->cn0_below_threshold_count = chan->update_count;
+        chan->cn0_below_use_thres_count = chan->update_count;
       }
 
       /* Update PLL lock detector */

@@ -476,7 +476,7 @@ static void drop_channel(u8 channel_id) {
   tracking_channel_disable(channel_id);
   const tracking_channel_t *ch = &tracking_channel[channel_id];
   acq_status_t *acq = &acq_status[sid_to_global_index(ch->sid)];
-  if (ch->update_count > TRACK_REACQ_T) {
+  if (tracking_channel_running_time_ms_get(channel_id) > TRACK_REACQ_T) {
     /* FIXME other constellations/bands */
     acq->score[ACQ_HINT_PREV_TRACK] = SCORE_TRACK;
     acq->dopp_hint_low = ch->carrier_freq - ACQ_FULL_CF_STEP;
@@ -499,7 +499,7 @@ static void manage_track()
     /* Skip channels that aren't in use */
     if (ch->state != TRACKING_RUNNING ||
         /* Give newly-initialized channels a chance to converge */
-        ch->update_count < TRACK_INIT_T)
+        tracking_channel_running_time_ms_get(i) < TRACK_INIT_T)
       continue;
 
     acq_status_t *acq = &acq_status[sid_to_global_index(ch->sid)];
@@ -520,18 +520,16 @@ static void manage_track()
       continue;
     }
 
-    u32 uc = ch->update_count;
-
     /* Optimistic phase lock detector "unlocked" for a while? */
     /* TODO: This isn't doing much.  Use the pessimistic detector instead? */
-    if ((int)(uc - ch->ld_opti_locked_count) > TRACK_DROP_UNLOCKED_T) {
+    if (tracking_channel_ld_opti_unlocked_ms_get(i) > TRACK_DROP_UNLOCKED_T) {
       log_info("%s PLL unlocked too long, dropping", buf);
       drop_channel(i);
       continue;
     }
 
     /* CN0 below threshold for a while? */
-    if ((int)(uc - ch->cn0_above_drop_thres_count) > TRACK_DROP_CN0_T) {
+    if (tracking_channel_cn0_drop_ms_get(i) > TRACK_DROP_CN0_T) {
       log_info("%s low CN0 too long, dropping", buf);
       drop_channel(i);
       continue;
@@ -555,9 +553,7 @@ s8 use_tracking_channel(u8 i)
      require the following conditions: */
   if ((ch->state == TRACKING_RUNNING)
       /* Check SNR has been above threshold for the minimum time. */
-      && (tracking_channel[i].update_count
-            - tracking_channel[i].cn0_below_threshold_count
-            > TRACK_SNR_THRES_COUNT)
+      && (tracking_channel_cn0_useable_ms_get(i) > TRACK_SNR_THRES_COUNT)
       /* Satellite elevation is above the mask. */
       && (ch->elevation >= elevation_mask)
       /* Pessimistic phase lock detector = "locked". */
@@ -565,7 +561,7 @@ s8 use_tracking_channel(u8 i)
       /* Some time has elapsed since the last tracking channel mode
        * change, to allow any transients to stabilize.
        * TODO: is this still necessary? */
-      && ((int)(ch->update_count - ch->mode_change_count) > TRACK_STABILIZATION_T)
+      && (tracking_channel_last_mode_change_ms_get(i) > TRACK_STABILIZATION_T)
       /* Channel time of week has been decoded. */
       && (ch->TOW_ms != TOW_INVALID)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
