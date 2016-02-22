@@ -98,11 +98,8 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
     }
   }
 
-  /* Check if there is a new nav msg subframe to process.
-   * TODO: move this into a function */
-  tracking_channel_t *ch = &tracking_channel[channel_info->tracking_channel];
-  if ((ch->state != TRACKING_RUNNING) ||
-      !subframe_ready(&data->nav_msg))
+  /* Check if there is a new nav msg subframe to process. */
+  if (!subframe_ready(&data->nav_msg))
     return;
 
   /* Decode ephemeris to temporary struct */
