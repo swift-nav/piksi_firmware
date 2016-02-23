@@ -18,9 +18,7 @@
 #include <libswiftnav/nav_msg.h>
 #include <libswiftnav/track.h>
 #include <libswiftnav/signal.h>
-#include <libswiftnav/bit_sync.h>
 
-#include "board/nap/nap_common.h"
 #include "board/nap/track_channel.h"
 
 /** \addtogroup tracking
@@ -30,21 +28,22 @@
 
 /** \} */
 
+void tracking_setup(void);
+
+void tracking_send_state(void);
+void tracking_drop_satellite(gnss_signal_t sid);
+
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
-s8 nav_bit_quantize(s32 bit_integrate);
 
 bool tracking_channel_available(u8 channel, gnss_signal_t sid);
 void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
                            u32 start_sample_count, float cn0_init, s8 elevation);
-bool tracking_channel_running(u8 channel);
+void tracking_channel_disable(u8 channel);
 
 void tracking_channels_update(u32 channels_mask);
-void tracking_channel_disable(u8 channel);
-void tracking_channel_ambiguity_unknown(u8 channel);
-void tracking_update_measurement(u8 channel, channel_measurement_t *meas);
-void tracking_send_state(void);
-void tracking_setup(void);
-void tracking_drop_satellite(gnss_signal_t sid);
+
+
+bool tracking_channel_running(u8 channel);
 bool tracking_channel_cn0_useable(u8 channel);
 u32 tracking_channel_running_time_ms_get(u8 channel);
 u32 tracking_channel_cn0_useable_ms_get(u8 channel);
@@ -57,8 +56,12 @@ double tracking_channel_carrier_freq_get(u8 channel);
 s32 tracking_channel_tow_ms_get(u8 channel);
 bool tracking_channel_bit_sync_resolved(u8 channel);
 bool tracking_channel_bit_polarity_resolved(u8 channel);
+void tracking_channel_measurement_get(u8 channel, channel_measurement_t *meas);
+
 bool tracking_channel_evelation_degrees_set(gnss_signal_t sid, s8 elevation);
 s8 tracking_channel_evelation_degrees_get(u8 channel);
+
+/* Decoder interface */
 bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit);
 bool tracking_channel_time_sync(u8 channel, s32 TOW_ms, s8 bit_polarity);
 

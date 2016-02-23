@@ -399,8 +399,8 @@ static msg_t solution_thread(void *arg)
     for (u8 i=0; i<nap_track_n_channels; i++) {
       if (use_tracking_channel(i)) {
         __asm__("CPSID i;");
-        tracking_update_measurement(i, &meas[n_ready]);
         __asm__("CPSIE i;");
+        tracking_channel_measurement_get(i, &meas[n_ready]);
         n_ready++;
       }
     }

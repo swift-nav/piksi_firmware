@@ -28,6 +28,14 @@
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
 #include <libswiftnav/signal.h>
+#include <libswiftnav/bit_sync.h>
+
+/** \defgroup tracking Tracking
+ * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
+ * Initialize SwiftNAP tracking channels. Run loop filters and update
+ * channels' code / carrier frequencies each integration period. Update
+ * tracking measurements each integration period.
+ * \{ */
 
 #define COMPILER_BARRIER() asm volatile ("" : : : "memory")
 
@@ -57,9 +65,9 @@
 #define LD_PARAMS_EXTRAOPT "0.02, 0.8, 150, 50"
 #define LD_PARAMS_DISABLE  "0.02, 1e-6, 1, 1"
 
-char loop_params_string[120] = LOOP_PARAMS_MED;
-char lock_detect_params_string[24] = LD_PARAMS_DISABLE;
-bool use_alias_detection = true;
+static char loop_params_string[120] = LOOP_PARAMS_MED;
+static char lock_detect_params_string[24] = LD_PARAMS_DISABLE;
+static bool use_alias_detection = true;
 
 #define CN0_EST_LPF_CUTOFF 5
 #define GPS_WEEK_LENGTH_ms (1000 * WEEK_SECS)
@@ -84,13 +92,6 @@ static struct lock_detect_params {
 static float track_cn0_use_thres = 31.0; /* dBHz */
 static float track_cn0_drop_thres = 31.0;
 static u16 iq_output_mask = 0;
-
-/** \defgroup tracking Tracking
- * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
- * Initialize SwiftNAP tracking channels. Run loop filters and update
- * channels' code / carrier frequencies each integration period. Update
- * tracking measurements each integration period.
- * \{ */
 
 #define NAV_BIT_FIFO_SIZE 32 /**< Size of nav bit FIFO. Must be a power of 2 */
 
@@ -192,15 +193,6 @@ static u16 tracking_lock_counters[PLATFORM_SIGNAL_COUNT];
 
 static MUTEX_DECL(nav_time_sync_mutex);
 
-static void nap_channel_disable(u8 channel);
-static void tracking_channel_get_corrs(u8 channel);
-static void tracking_channel_process(u8 channel, bool update_required);
-static void tracking_channel_update(u8 channel);
-
-static update_count_t update_count_diff(u8 channel, update_count_t *val);
-static state_t state_get(const tracking_channel_t *t);
-static void event(tracking_channel_t *t, event_t event);
-
 static void nav_bit_fifo_init(nav_bit_fifo_t *fifo);
 static bool nav_bit_fifo_write(nav_bit_fifo_t *fifo,
                                const nav_bit_fifo_element_t *element);
@@ -211,6 +203,21 @@ static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
                               s8 bit_polarity, nav_bit_fifo_index_t read_index);
 static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
                               s8 *bit_polarity, nav_bit_fifo_index_t *read_index);
+
+static s8 nav_bit_quantize(s32 bit_integrate);
+static update_count_t update_count_diff(u8 channel, update_count_t *val);
+
+static state_t state_get(const tracking_channel_t *t);
+static void event(tracking_channel_t *t, event_t event);
+static void nap_channel_disable(u8 channel);
+static void tracking_channel_ambiguity_unknown(u8 channel);
+static void tracking_channel_get_corrs(u8 channel);
+static void tracking_channel_process(u8 channel, bool update_required);
+static void tracking_channel_update(u8 channel);
+
+static bool parse_loop_params(struct setting *s, const char *val);
+static bool parse_lock_detect_params(struct setting *s, const char *val);
+static bool track_iq_output_notify(struct setting *s, const char *val);
 
 /** Initialize a nav_bit_fifo_t struct. */
 static void nav_bit_fifo_init(nav_bit_fifo_t *fifo)
@@ -333,42 +340,8 @@ static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
   return result;
 }
 
-/** Calculate the future code phase after N samples.
- * Calculate the expected code phase in N samples time with carrier aiding.
- *
- * \param code_phase   Current code phase in chips.
- * \param carrier_freq Current carrier frequency (i.e. Doppler) in Hz used for
- *                     carrier aiding.
- * \param n_samples    N, the number of samples to propagate for.
- *
- * \return The propagated code phase in chips.
- */
-float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
-{
-  /* Calculate the code phase rate with carrier aiding. */
-  u32 code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) * NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
-
-  /* Internal Swift NAP code phase is in chips*2^32:
-   *
-   * |  Chip no.  | Sub-chip | Fractional sub-chip |
-   * | 0 ... 1022 | 0 ... 15 |  0 ... (2^28 - 1)   |
-   *
-   * Code phase rate is directly added in this representation,
-   * the nominal code phase rate corresponds to 1 sub-chip.
-   */
-
-  /* Calculate code phase in chips*2^32. */
-  u64 propagated_code_phase = (u64)(code_phase * (((u64)1)<<32)) + n_samples * (u64)code_phase_rate;
-
-  /* Convert code phase back to natural units with sub-chip precision.
-   * NOTE: the modulo is required to fix the fact rollover should
-   * occur at 1023 not 1024.
-   */
-  return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
-}
-
 /** Compress a 32 bit integration value down to 8 bits. */
-s8 nav_bit_quantize(s32 bit_integrate)
+static s8 nav_bit_quantize(s32 bit_integrate)
 {
   //  0 through  2^24 - 1 ->  0 = weakest positive bit
   // -1 through -2^24     -> -1 = weakest negative bit
@@ -448,135 +421,29 @@ static void event(tracking_channel_t *t, event_t event)
   }
 }
 
-/** Determines whether the specified tracking channel is available to track
- * the specified sid.
- * \param channel Tracking channel to use.
- * \param sid     Signal to track.
- */
-bool tracking_channel_available(u8 channel, gnss_signal_t sid)
-{
-  (void) sid;
-  const tracking_channel_t *t = &tracking_channel[channel];
-  return (state_get(t) == STATE_DISABLED);
-}
-
-/** Determines whether the specified tracking channel is currently running.
- * \param channel Tracking channel to use.
- */
-bool tracking_channel_running(u8 channel)
-{
-  const tracking_channel_t *t = &tracking_channel[channel];
-  return (state_get(t) != STATE_DISABLED);
-}
-
-/** Initialises a tracking channel.
- * Initialises a tracking channel on the Swift NAP. The start_sample_count
- * must be contrived to be at or close to a PRN edge (PROMPT code phase = 0).
- *
- * \param prn                PRN number - 1 (0-31).
- * \param channel            Tracking channel number on the Swift NAP.
- * \param carrier_freq       Carrier frequency (Doppler) at start of tracking in Hz.
- * \param start_sample_count Sample count on which to start tracking.
- * \param cn0_init           Estimated C/N0 from acquisition
- * \param elevation          Satellite elevation in degrees, or
- *                           TRACKING_ELEVATION_UNKNOWN
- */
-void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
-                           u32 start_sample_count, float cn0_init, s8 elevation)
-{
-  tracking_channel_t *chan = &tracking_channel[channel];
-
-  /* Initialize all fields in the channel to 0 */
-  memset(chan, 0, sizeof(tracking_channel_t));
-
-  bit_sync_init(&chan->bit_sync, sid);
-  nav_bit_fifo_init(&chan->nav_bit_fifo);
-  nav_time_sync_init(&chan->nav_time_sync);
-
-  /* Adjust the channel start time as the start_sample_count passed
-   * in corresponds to a PROMPT code phase rollover but we want to
-   * start the channel on an EARLY code phase rollover.
-   */
-  /* TODO : change hardcoded sample rate */
-  start_sample_count -= 0.5*16;
-
-  /* Setup tracking_channel struct. */
-  chan->sid = sid;
-  chan->elevation = elevation;
-
-  /* Initialize TOW_ms and lock_count. */
-  tracking_channel_ambiguity_unknown(channel);
-  chan->TOW_ms = TOW_INVALID;
-  chan->bit_polarity = BIT_POLARITY_UNKNOWN;
-
-  const struct loop_params *l = &loop_params_stage[0];
-
-  /* Note: The only coherent integration interval currently supported
-     for first-stage tracking (i.e. loop_params_stage[0].coherent_ms)
-     is 1. */
-  chan->int_ms = MIN(l->coherent_ms, chan->bit_sync.bit_length);
-
-  /* Calculate code phase rate with carrier aiding. */
-  float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
-
-  aided_tl_init(&(chan->tl_state), 1e3 / chan->int_ms,
-                code_phase_rate - GPS_CA_CHIPPING_RATE,
-                l->code_bw, l->code_zeta, l->code_k,
-                l->carr_to_code,
-                carrier_freq,
-                l->carr_bw, l->carr_zeta, l->carr_k,
-                l->carr_fll_aid_gain);
-
-  chan->code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
-  chan->code_phase_rate = code_phase_rate;
-  chan->carrier_freq = carrier_freq;
-  chan->carrier_freq_fp = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
-  chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
-  chan->sample_count = start_sample_count;
-  chan->short_cycle = true;
-
-  /* Initialise C/N0 estimator */
-  cn0_est_init(&chan->cn0_est, 1e3/chan->int_ms, cn0_init, CN0_EST_LPF_CUTOFF, 1e3/chan->int_ms);
-
-  lock_detect_init(&chan->lock_detect,
-                   lock_detect_params.k1, lock_detect_params.k2,
-                   lock_detect_params.lp, lock_detect_params.lo);
-
-  /* TODO: Reconfigure alias detection between stages */
-  u8 alias_detect_ms = MIN(loop_params_stage[1].coherent_ms,
-                           chan->bit_sync.bit_length);
-  alias_detect_init(&chan->alias_detect, 500/alias_detect_ms,
-                    (alias_detect_ms-1)*1e-3);
-
-  /* Starting carrier phase is set to zero as we don't
-   * know the carrier freq well enough to calculate it.
-   */
-  /* Start with code phase of zero as we have conspired for the
-   * channel to be initialised on an EARLY code phase rollover.
-   */
-  nap_track_code_wr_blocking(channel, sid);
-  nap_track_init_wr_blocking(channel, 0, 0, 0);
-  nap_track_update_wr_blocking(
-    channel,
-    carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ,
-    chan->code_phase_rate_fp,
-    0, 0
-  );
-
-  /* Change the channel state to ENABLED and then kick off the NAP */
-  event(chan, EVENT_ENABLE);
-
-  /* Schedule the timing strobe for start_sample_count. */
-  nap_timing_strobe(start_sample_count);
-}
-
 /** Disable a tracking channel in the NAP.
  * \param channel Tracking channel to disable.
  */
 static void nap_channel_disable(u8 channel)
 {
   nap_track_update_wr_blocking(channel, 0, 0, 0, 0);
+}
+
+/** Sets a channel's carrier phase ambiguity to unknown.
+ * Changes the lock counter to indicate to the consumer of the tracking channel
+ * observations that the carrier phase ambiguity may have changed. Also
+ * invalidates the half cycle ambiguity, which must be resolved again by the navigation
+ *  message processing. Should be called if a cycle slip is suspected.
+ *
+ * \param channel Tracking channel number to mark phase-ambiguous.
+ */
+static void tracking_channel_ambiguity_unknown(u8 channel)
+{
+  gnss_signal_t sid = tracking_channel[channel].sid;
+
+  tracking_channel[channel].bit_polarity = BIT_POLARITY_UNKNOWN;
+  tracking_channel[channel].lock_counter =
+      ++tracking_lock_counters[sid_to_global_index(sid)];
 }
 
 /** Get correlations from a NAP tracking channel and store them in the
@@ -601,168 +468,6 @@ static void tracking_channel_get_corrs(u8 channel)
   } else {
     nap_track_corr_rd_blocking(channel, &chan->corr_sample_count, chan->cs);
     alias_detect_first(&chan->alias_detect, chan->cs[1].I, chan->cs[1].Q);
-  }
-}
-
-/** Force a satellite to drop.
- * This function is used for testing.  It clobbers the code frequency in the
- * loop filter which destroys the correlations.  The satellite is dropped
- * by manage.c which checks the SNR.
- */
-void tracking_drop_satellite(gnss_signal_t sid)
-{
-  for (u8 i=0; i<nap_track_n_channels; i++) {
-    if (!sid_is_equal(tracking_channel[i].sid, sid))
-      continue;
-
-    tracking_channel[i].tl_state.code_filt.y += 500;
-  }
-}
-
-/** Determines if C/NO is above the use threshold for a tracking channel.
- * \param channel Tracking channel to use.
- */
-bool tracking_channel_cn0_useable(u8 channel)
-{
-  return (tracking_channel[channel].cn0 > track_cn0_use_thres);
-}
-
-/** Returns the time in ms for which tracking channel has been running.
- * \param channel Tracking channel to use.
- */
-u32 tracking_channel_running_time_ms_get(u8 channel)
-{
-  return tracking_channel[channel].update_count;
-}
-
-/** Returns the time in ms for which C/N0 has been above the use threshold for
- * a tracking channel.
- * \param channel Tracking channel to use.
- */
-u32 tracking_channel_cn0_useable_ms_get(u8 channel)
-{
-  return update_count_diff(channel,
-      &tracking_channel[channel].cn0_below_use_thres_count);
-}
-
-/** Returns the time in ms for which C/N0 has been below the drop threshold for
- * a tracking channel.
- * \param channel Tracking channel to use.
- */
-u32 tracking_channel_cn0_drop_ms_get(u8 channel)
-{
-  return update_count_diff(channel,
-      &tracking_channel[channel].cn0_above_drop_thres_count);
-}
-
-/** Returns the time in ms for which the optimistic lock detector has reported
- * being unlocked for a tracking channel.
- * \param channel Tracking channel to use.
- */
-u32 tracking_channel_ld_opti_unlocked_ms_get(u8 channel)
-{
-  return update_count_diff(channel,
-      &tracking_channel[channel].ld_opti_locked_count);
-}
-
-/** Returns the time in ms for which the pessimistic lock detector has reported
- * being locked for a tracking channel.
- * \param channel Tracking channel to use.
- */
-u32 tracking_channel_ld_pess_locked_ms_get(u8 channel)
-{
-  return update_count_diff(channel,
-      &tracking_channel[channel].ld_pess_unlocked_count);
-}
-
-/** Returns the time in ms since the last mode change for a tracking channel.
- * \param channel Tracking channel to use.
- */
-u32 tracking_channel_last_mode_change_ms_get(u8 channel)
-{
-  return update_count_diff(channel,
-      &tracking_channel[channel].mode_change_count);
-}
-
-/** Returns the sid currently associated with a tracking channel.
- * \param channel Tracking channel to use.
- */
-gnss_signal_t tracking_channel_sid_get(u8 channel)
-{
-  return tracking_channel[channel].sid;
-}
-
-/** Returns the current carrier frequency for a tracking channel.
- * \param channel Tracking channel to use.
- */
-double tracking_channel_carrier_freq_get(u8 channel)
-{
-  return tracking_channel[channel].carrier_freq;
-}
-
-/** Returns the current time of week for a tracking channel.
- * \param channel Tracking channel to use.
- */
-s32 tracking_channel_tow_ms_get(u8 channel)
-{
-  return tracking_channel[channel].TOW_ms;
-}
-
-/** Returns the bit sync status for a tracking channel.
- * \param channel Tracking channel to use.
- */
-bool tracking_channel_bit_sync_resolved(u8 channel)
-{
-  return (tracking_channel[channel].bit_sync.bit_phase_ref != BITSYNC_UNSYNCED);
-}
-
-/** Returns the bit polarity resolution status for a tracking channel.
- * \param channel Tracking channel to use.
- */
-bool tracking_channel_bit_polarity_resolved(u8 channel)
-{
-  return (tracking_channel[channel].bit_polarity != BIT_POLARITY_UNKNOWN);
-}
-
-/** Sets the elevation angle (deg) for a tracking channel by sid.
- * \param sid         Signal identifier for which the elevation should be set.
- * \param elevation   Elevation angle in degrees.
- */
-bool tracking_channel_evelation_degrees_set(gnss_signal_t sid, s8 elevation)
-{
-  for (u32 i=0; i < NAP_MAX_N_TRACK_CHANNELS; i++) {
-    tracking_channel_t *ch = &tracking_channel[i];
-    /* TODO: Atomically check sid and set elevation */
-    if (sid_is_equal(ch->sid, sid)) {
-      ch->elevation = elevation;
-      return true;
-    }
-  }
-  return false;
-}
-
-/** Returns the elevation angle (deg) for a tracking channel.
- * \param channel Tracking channel to use.
- */
-s8 tracking_channel_evelation_degrees_get(u8 channel)
-{
-  return tracking_channel[channel].elevation;
-}
-
-/** Handles pending IRQs for the specified tracking channels.
- * \param channels_mask Bitfield indicating the tracking channels for which
- *                      an IRQ is pending.
- */
-void tracking_channels_update(u32 channels_mask)
-{
-  /* For each tracking channel, call tracking_channel_process(). Indicate
-   * that an update is required if the corresponding bit is set in
-   * channels_mask.
-   */
-  for (u32 channel = 0; channel < nap_track_n_channels; channel++) {
-    bool update_required = (channels_mask & 1) ? true : false;
-    tracking_channel_process(channel, update_required);
-    channels_mask >>= 1;
   }
 }
 
@@ -1037,94 +742,6 @@ static void tracking_channel_update(u8 channel)
   );
 }
 
-/** Disable tracking channel.
- * Change tracking channel state to TRACKING_DISABLED and write 0 to SwiftNAP
- * tracking channel code / carrier frequencies to stop channel from raising
- * interrupts.
- *
- * \param channel Tracking channel to disable.
- */
-void tracking_channel_disable(u8 channel)
-{
-  tracking_channel_t *t = &tracking_channel[channel];
-  event(t, EVENT_DISABLE_REQUEST);
-}
-
-/** Sets a channel's carrier phase ambiguity to unknown.
- * Changes the lock counter to indicate to the consumer of the tracking channel
- * observations that the carrier phase ambiguity may have changed. Also
- * invalidates the half cycle ambiguity, which must be resolved again by the navigation
- *  message processing. Should be called if a cycle slip is suspected.
- *
- * \param channel Tracking channel number to mark phase-ambiguous.
- */
-void tracking_channel_ambiguity_unknown(u8 channel)
-{
-  gnss_signal_t sid = tracking_channel[channel].sid;
-
-  tracking_channel[channel].bit_polarity = BIT_POLARITY_UNKNOWN;
-  tracking_channel[channel].lock_counter =
-      ++tracking_lock_counters[sid_to_global_index(sid)];
-}
-
-/** Update channel measurement for a tracking channel.
- * \param channel Tracking channel to update measurement from.
- * \param meas Pointer to channel_measurement_t where measurement will be put.
- */
-void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
-{
-  tracking_channel_t* chan = &tracking_channel[channel];
-
-  /* Update our channel measurement. */
-  meas->sid = chan->sid;
-  meas->code_phase_chips = (double)chan->code_phase_early / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
-  meas->code_phase_rate = chan->code_phase_rate;
-  meas->carrier_phase = chan->carrier_phase / (double)(1<<24);
-  meas->carrier_freq = chan->carrier_freq;
-  meas->time_of_week_ms = chan->TOW_ms;
-  meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
-  meas->snr = chan->cn0;
-  if (chan->bit_polarity == BIT_POLARITY_INVERTED) {
-    meas->carrier_phase += 0.5;
-  }
-  meas->lock_counter = chan->lock_counter;
-}
-
-/** Send tracking state SBP message.
- * Send information on each tracking channel to host.
- */
-void tracking_send_state()
-{
-  tracking_channel_state_t states[nap_track_n_channels];
-
-  if (simulation_enabled_for(SIMULATION_MODE_TRACKING)) {
-
-    u8 num_sats = simulation_current_num_sats();
-    for (u8 i=0; i < num_sats; i++) {
-      states[i] = simulation_current_tracking_state(i);
-    }
-    if (num_sats < nap_track_n_channels) {
-      for (u8 i = num_sats; i < nap_track_n_channels; i++) {
-        states[i].state = 0;
-        states[i].sid.code = 0;
-        states[i].sid.sat = 0;
-        states[i].cn0 = -1;
-      }
-    }
-
-  } else {
-
-    for (u8 i=0; i<nap_track_n_channels; i++) {
-      states[i].state = tracking_channel_running(i) ? 1 : 0;
-      states[i].sid = sid_to_sbp(tracking_channel[i].sid);
-      states[i].cn0 = tracking_channel_running(i) ?
-                          tracking_channel[i].cn0 : -1;
-    }
-  }
-
-  sbp_send_msg(SBP_MSG_TRACKING_STATE, sizeof(states), (u8*)states);
-}
-
 /** Parse a string describing the tracking loop filter parameters into
     the loop_params_stage structs. */
 static bool parse_loop_params(struct setting *s, const char *val)
@@ -1186,7 +803,8 @@ static bool parse_lock_detect_params(struct setting *s, const char *val)
   return true;
 }
 
-bool track_iq_output_notify(struct setting *s, const char *val)
+/** Parse the IQ output enable bitfield. */
+static bool track_iq_output_notify(struct setting *s, const char *val)
 {
   if (s->type->from_string(s->type->priv, s->addr, s->len, val)) {
     for (int i = 0; i < NAP_MAX_N_TRACK_CHANNELS; i++) {
@@ -1196,7 +814,6 @@ bool track_iq_output_notify(struct setting *s, const char *val)
   }
   return false;
 }
-
 
 /** Set up tracking subsystem
  */
@@ -1219,6 +836,397 @@ void tracking_setup()
   for (u32 i=0; i< NAP_MAX_N_TRACK_CHANNELS; i++) {
     tracking_channel[i].state = STATE_DISABLED;
   }
+}
+
+/** Send tracking state SBP message.
+ * Send information on each tracking channel to host.
+ */
+void tracking_send_state()
+{
+  tracking_channel_state_t states[nap_track_n_channels];
+
+  if (simulation_enabled_for(SIMULATION_MODE_TRACKING)) {
+
+    u8 num_sats = simulation_current_num_sats();
+    for (u8 i=0; i < num_sats; i++) {
+      states[i] = simulation_current_tracking_state(i);
+    }
+    if (num_sats < nap_track_n_channels) {
+      for (u8 i = num_sats; i < nap_track_n_channels; i++) {
+        states[i].state = 0;
+        states[i].sid.code = 0;
+        states[i].sid.sat = 0;
+        states[i].cn0 = -1;
+      }
+    }
+
+  } else {
+
+    for (u8 i=0; i<nap_track_n_channels; i++) {
+      states[i].state = tracking_channel_running(i) ? 1 : 0;
+      states[i].sid = sid_to_sbp(tracking_channel[i].sid);
+      states[i].cn0 = tracking_channel_running(i) ?
+                          tracking_channel[i].cn0 : -1;
+    }
+  }
+
+  sbp_send_msg(SBP_MSG_TRACKING_STATE, sizeof(states), (u8*)states);
+}
+
+/** Force a satellite to drop.
+ * This function is used for testing.  It clobbers the code frequency in the
+ * loop filter which destroys the correlations.  The satellite is dropped
+ * by manage.c which checks the SNR.
+ */
+void tracking_drop_satellite(gnss_signal_t sid)
+{
+  for (u8 i=0; i<nap_track_n_channels; i++) {
+    if (!sid_is_equal(tracking_channel[i].sid, sid))
+      continue;
+
+    tracking_channel[i].tl_state.code_filt.y += 500;
+  }
+}
+
+/** Calculate the future code phase after N samples.
+ * Calculate the expected code phase in N samples time with carrier aiding.
+ *
+ * \param code_phase   Current code phase in chips.
+ * \param carrier_freq Current carrier frequency (i.e. Doppler) in Hz used for
+ *                     carrier aiding.
+ * \param n_samples    N, the number of samples to propagate for.
+ *
+ * \return The propagated code phase in chips.
+ */
+float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
+{
+  /* Calculate the code phase rate with carrier aiding. */
+  u32 code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) * NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
+
+  /* Internal Swift NAP code phase is in chips*2^32:
+   *
+   * |  Chip no.  | Sub-chip | Fractional sub-chip |
+   * | 0 ... 1022 | 0 ... 15 |  0 ... (2^28 - 1)   |
+   *
+   * Code phase rate is directly added in this representation,
+   * the nominal code phase rate corresponds to 1 sub-chip.
+   */
+
+  /* Calculate code phase in chips*2^32. */
+  u64 propagated_code_phase = (u64)(code_phase * (((u64)1)<<32)) + n_samples * (u64)code_phase_rate;
+
+  /* Convert code phase back to natural units with sub-chip precision.
+   * NOTE: the modulo is required to fix the fact rollover should
+   * occur at 1023 not 1024.
+   */
+  return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
+}
+
+/** Determines whether the specified tracking channel is available to track
+ * the specified sid.
+ * \param channel Tracking channel to use.
+ * \param sid     Signal to track.
+ */
+bool tracking_channel_available(u8 channel, gnss_signal_t sid)
+{
+  (void) sid;
+  const tracking_channel_t *t = &tracking_channel[channel];
+  return (state_get(t) == STATE_DISABLED);
+}
+
+/** Initialises a tracking channel.
+ * Initialises a tracking channel on the Swift NAP. The start_sample_count
+ * must be contrived to be at or close to a PRN edge (PROMPT code phase = 0).
+ *
+ * \param prn                PRN number - 1 (0-31).
+ * \param channel            Tracking channel number on the Swift NAP.
+ * \param carrier_freq       Carrier frequency (Doppler) at start of tracking in Hz.
+ * \param start_sample_count Sample count on which to start tracking.
+ * \param cn0_init           Estimated C/N0 from acquisition
+ * \param elevation          Satellite elevation in degrees, or
+ *                           TRACKING_ELEVATION_UNKNOWN
+ */
+void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
+                           u32 start_sample_count, float cn0_init, s8 elevation)
+{
+  tracking_channel_t *chan = &tracking_channel[channel];
+
+  /* Initialize all fields in the channel to 0 */
+  memset(chan, 0, sizeof(tracking_channel_t));
+
+  bit_sync_init(&chan->bit_sync, sid);
+  nav_bit_fifo_init(&chan->nav_bit_fifo);
+  nav_time_sync_init(&chan->nav_time_sync);
+
+  /* Adjust the channel start time as the start_sample_count passed
+   * in corresponds to a PROMPT code phase rollover but we want to
+   * start the channel on an EARLY code phase rollover.
+   */
+  /* TODO : change hardcoded sample rate */
+  start_sample_count -= 0.5*16;
+
+  /* Setup tracking_channel struct. */
+  chan->sid = sid;
+  chan->elevation = elevation;
+
+  /* Initialize TOW_ms and lock_count. */
+  tracking_channel_ambiguity_unknown(channel);
+  chan->TOW_ms = TOW_INVALID;
+  chan->bit_polarity = BIT_POLARITY_UNKNOWN;
+
+  const struct loop_params *l = &loop_params_stage[0];
+
+  /* Note: The only coherent integration interval currently supported
+     for first-stage tracking (i.e. loop_params_stage[0].coherent_ms)
+     is 1. */
+  chan->int_ms = MIN(l->coherent_ms, chan->bit_sync.bit_length);
+
+  /* Calculate code phase rate with carrier aiding. */
+  float code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
+
+  aided_tl_init(&(chan->tl_state), 1e3 / chan->int_ms,
+                code_phase_rate - GPS_CA_CHIPPING_RATE,
+                l->code_bw, l->code_zeta, l->code_k,
+                l->carr_to_code,
+                carrier_freq,
+                l->carr_bw, l->carr_zeta, l->carr_k,
+                l->carr_fll_aid_gain);
+
+  chan->code_phase_rate_fp = code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
+  chan->code_phase_rate = code_phase_rate;
+  chan->carrier_freq = carrier_freq;
+  chan->carrier_freq_fp = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
+  chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
+  chan->sample_count = start_sample_count;
+  chan->short_cycle = true;
+
+  /* Initialise C/N0 estimator */
+  cn0_est_init(&chan->cn0_est, 1e3/chan->int_ms, cn0_init, CN0_EST_LPF_CUTOFF, 1e3/chan->int_ms);
+
+  lock_detect_init(&chan->lock_detect,
+                   lock_detect_params.k1, lock_detect_params.k2,
+                   lock_detect_params.lp, lock_detect_params.lo);
+
+  /* TODO: Reconfigure alias detection between stages */
+  u8 alias_detect_ms = MIN(loop_params_stage[1].coherent_ms,
+                           chan->bit_sync.bit_length);
+  alias_detect_init(&chan->alias_detect, 500/alias_detect_ms,
+                    (alias_detect_ms-1)*1e-3);
+
+  /* Starting carrier phase is set to zero as we don't
+   * know the carrier freq well enough to calculate it.
+   */
+  /* Start with code phase of zero as we have conspired for the
+   * channel to be initialised on an EARLY code phase rollover.
+   */
+  nap_track_code_wr_blocking(channel, sid);
+  nap_track_init_wr_blocking(channel, 0, 0, 0);
+  nap_track_update_wr_blocking(
+    channel,
+    carrier_freq*NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ,
+    chan->code_phase_rate_fp,
+    0, 0
+  );
+
+  /* Change the channel state to ENABLED and then kick off the NAP */
+  event(chan, EVENT_ENABLE);
+
+  /* Schedule the timing strobe for start_sample_count. */
+  nap_timing_strobe(start_sample_count);
+}
+
+/** Disable tracking channel.
+ * Change tracking channel state to TRACKING_DISABLED and write 0 to SwiftNAP
+ * tracking channel code / carrier frequencies to stop channel from raising
+ * interrupts.
+ *
+ * \param channel Tracking channel to disable.
+ */
+void tracking_channel_disable(u8 channel)
+{
+  tracking_channel_t *t = &tracking_channel[channel];
+  event(t, EVENT_DISABLE_REQUEST);
+}
+
+/** Handles pending IRQs for the specified tracking channels.
+ * \param channels_mask Bitfield indicating the tracking channels for which
+ *                      an IRQ is pending.
+ */
+void tracking_channels_update(u32 channels_mask)
+{
+  /* For each tracking channel, call tracking_channel_process(). Indicate
+   * that an update is required if the corresponding bit is set in
+   * channels_mask.
+   */
+  for (u32 channel = 0; channel < nap_track_n_channels; channel++) {
+    bool update_required = (channels_mask & 1) ? true : false;
+    tracking_channel_process(channel, update_required);
+    channels_mask >>= 1;
+  }
+}
+
+/** Determines whether the specified tracking channel is currently running.
+ * \param channel Tracking channel to use.
+ */
+bool tracking_channel_running(u8 channel)
+{
+  const tracking_channel_t *t = &tracking_channel[channel];
+  return (state_get(t) == STATE_ENABLED);
+}
+
+/** Determines if C/NO is above the use threshold for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+bool tracking_channel_cn0_useable(u8 channel)
+{
+  return (tracking_channel[channel].cn0 > track_cn0_use_thres);
+}
+
+/** Returns the time in ms for which tracking channel has been running.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_running_time_ms_get(u8 channel)
+{
+  return tracking_channel[channel].update_count;
+}
+
+/** Returns the time in ms for which C/N0 has been above the use threshold for
+ * a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_cn0_useable_ms_get(u8 channel)
+{
+  return update_count_diff(channel,
+      &tracking_channel[channel].cn0_below_use_thres_count);
+}
+
+/** Returns the time in ms for which C/N0 has been below the drop threshold for
+ * a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_cn0_drop_ms_get(u8 channel)
+{
+  return update_count_diff(channel,
+      &tracking_channel[channel].cn0_above_drop_thres_count);
+}
+
+/** Returns the time in ms for which the optimistic lock detector has reported
+ * being unlocked for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_ld_opti_unlocked_ms_get(u8 channel)
+{
+  return update_count_diff(channel,
+      &tracking_channel[channel].ld_opti_locked_count);
+}
+
+/** Returns the time in ms for which the pessimistic lock detector has reported
+ * being locked for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_ld_pess_locked_ms_get(u8 channel)
+{
+  return update_count_diff(channel,
+      &tracking_channel[channel].ld_pess_unlocked_count);
+}
+
+/** Returns the time in ms since the last mode change for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+u32 tracking_channel_last_mode_change_ms_get(u8 channel)
+{
+  return update_count_diff(channel,
+      &tracking_channel[channel].mode_change_count);
+}
+
+/** Returns the sid currently associated with a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+gnss_signal_t tracking_channel_sid_get(u8 channel)
+{
+  return tracking_channel[channel].sid;
+}
+
+/** Returns the current carrier frequency for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+double tracking_channel_carrier_freq_get(u8 channel)
+{
+  return tracking_channel[channel].carrier_freq;
+}
+
+/** Returns the current time of week for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+s32 tracking_channel_tow_ms_get(u8 channel)
+{
+  return tracking_channel[channel].TOW_ms;
+}
+
+/** Returns the bit sync status for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+bool tracking_channel_bit_sync_resolved(u8 channel)
+{
+  return (tracking_channel[channel].bit_sync.bit_phase_ref != BITSYNC_UNSYNCED);
+}
+
+/** Returns the bit polarity resolution status for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+bool tracking_channel_bit_polarity_resolved(u8 channel)
+{
+  return (tracking_channel[channel].bit_polarity != BIT_POLARITY_UNKNOWN);
+}
+
+/** Update channel measurement for a tracking channel.
+ * \param channel Tracking channel to update measurement from.
+ * \param meas Pointer to channel_measurement_t where measurement will be put.
+ */
+void tracking_channel_measurement_get(u8 channel, channel_measurement_t *meas)
+{
+  tracking_channel_t* chan = &tracking_channel[channel];
+
+  /* Update our channel measurement. */
+  meas->sid = chan->sid;
+  meas->code_phase_chips = (double)chan->code_phase_early /
+                               NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
+  meas->code_phase_rate = chan->code_phase_rate;
+  meas->carrier_phase = chan->carrier_phase / (double)(1<<24);
+  meas->carrier_freq = chan->carrier_freq;
+  meas->time_of_week_ms = chan->TOW_ms;
+  meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
+  meas->snr = chan->cn0;
+  if (chan->bit_polarity == BIT_POLARITY_INVERTED) {
+    meas->carrier_phase += 0.5;
+  }
+  meas->lock_counter = chan->lock_counter;
+}
+
+/** Sets the elevation angle (deg) for a tracking channel by sid.
+ * \param sid         Signal identifier for which the elevation should be set.
+ * \param elevation   Elevation angle in degrees.
+ */
+bool tracking_channel_evelation_degrees_set(gnss_signal_t sid, s8 elevation)
+{
+  for (u32 i=0; i < NAP_MAX_N_TRACK_CHANNELS; i++) {
+    tracking_channel_t *ch = &tracking_channel[i];
+    /* TODO: Atomically check sid and set elevation */
+    if (sid_is_equal(ch->sid, sid)) {
+      ch->elevation = elevation;
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Returns the elevation angle (deg) for a tracking channel.
+ * \param channel Tracking channel to use.
+ */
+s8 tracking_channel_evelation_degrees_get(u8 channel)
+{
+  return tracking_channel[channel].elevation;
 }
 
 /** Read the next pending nav bit for a tracking channel.
