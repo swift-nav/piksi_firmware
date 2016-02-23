@@ -96,6 +96,7 @@ static bool sbas_enabled = false;
 static u8 manage_track_new_acq(gnss_signal_t sid);
 static void manage_acq(void);
 static void manage_track(void);
+static void nmea_send(void);
 
 static sbp_msg_callbacks_node_t almanac_callback_node;
 static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -414,7 +415,7 @@ static u8 manage_track_new_acq(gnss_signal_t sid)
    * a newly acquired satellite into.
    */
   for (u8 i=0; i<nap_track_n_channels; i++) {
-    if ((tracking_channel[i].state == TRACKING_DISABLED) &&
+    if (tracking_channel_available(i, sid) &&
         decoder_channel_available(i, sid)) {
       return i;
     }
@@ -450,7 +451,7 @@ static msg_t manage_track_thread(void *arg)
     DO_EVERY(2,
       check_clear_unhealthy();
       manage_track();
-      nmea_gpgsa(tracking_channel, 0);
+      nmea_send();
       watchdog_notify(WD_NOTIFY_TRACKING_MGMT);
     );
     tracking_send_state();
@@ -497,14 +498,12 @@ static void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
 
-    tracking_channel_t *ch = &tracking_channel[i];
     gnss_signal_t sid = tracking_channel_sid_get(i);
-
     char buf[SID_STR_LEN_MAX];
     sid_to_string(buf, sizeof(buf), sid);
 
     /* Skip channels that aren't in use */
-    if (ch->state != TRACKING_RUNNING ||
+    if (!tracking_channel_running(i) ||
         /* Give newly-initialized channels a chance to converge */
         tracking_channel_running_time_ms_get(i) < TRACK_INIT_T)
       continue;
@@ -553,12 +552,28 @@ static void manage_track()
   }
 }
 
+static void nmea_send(void)
+{
+  /* Assemble list of currently tracked GPS PRNs */
+  u8 prns[nap_track_n_channels];
+  u8 num_prns = 0;
+  for (u32 i=0; i<nap_track_n_channels; i++) {
+    if (tracking_channel_running(i)) {
+      gnss_signal_t sid = tracking_channel_sid_get(i);
+      if (sid_to_constellation(sid) == CONSTELLATION_GPS) {
+        prns[num_prns++] = sid.sat;
+      }
+    }
+  }
+  /* Send GPGSA message */
+  nmea_gpgsa(prns, num_prns, 0);
+}
+
 s8 use_tracking_channel(u8 i)
 {
-  tracking_channel_t *ch = &tracking_channel[i];
   /* To use a channel's measurements in an SPP or RTK solution, we
      require the following conditions: */
-  if ((ch->state == TRACKING_RUNNING)
+  if (tracking_channel_running(i)
       /* Check SNR has been above threshold for the minimum time. */
       && (tracking_channel_cn0_useable_ms_get(i) > TRACK_SNR_THRES_COUNT)
       /* Satellite elevation is above the mask. */

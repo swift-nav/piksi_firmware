@@ -40,7 +40,7 @@
 void nmea_setup(void);
 void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
                 u8 fix_type, double hdop);
-void nmea_gpgsa(const tracking_channel_t *chans, const dops_t *dops);
+void nmea_gpgsa(const u8 *prns, u8 num_prns, const dops_t *dops);
 void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
                 const gnss_solution *soln);
 void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t);
