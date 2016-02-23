@@ -194,6 +194,8 @@ static MUTEX_DECL(nav_time_sync_mutex);
 
 static void nap_channel_disable(u8 channel);
 static void tracking_channel_get_corrs(u8 channel);
+static void tracking_channel_process(u8 channel, bool update_required);
+static void tracking_channel_update(u8 channel);
 
 static update_count_t update_count_diff(u8 channel, update_count_t *val);
 static state_t state_get(const tracking_channel_t *t);
@@ -747,245 +749,37 @@ s8 tracking_channel_evelation_degrees_get(u8 channel)
   return tracking_channel[channel].elevation;
 }
 
-/** Update tracking channels after the end of an integration period.
- * Update update_count, sample_count, TOW, run loop filters and update
- * SwiftNAP tracking channel frequencies.
- * \param channel Tracking channel to update.
+/** Handles pending IRQs for the specified tracking channels.
+ * \param channels_mask Bitfield indicating the tracking channels for which
+ *                      an IRQ is pending.
  */
-void tracking_channel_update(u8 channel)
+void tracking_channels_update(u32 channels_mask)
+{
+  /* For each tracking channel, call tracking_channel_process(). Indicate
+   * that an update is required if the corresponding bit is set in
+   * channels_mask.
+   */
+  for (u32 channel = 0; channel < nap_track_n_channels; channel++) {
+    bool update_required = (channels_mask & 1) ? true : false;
+    tracking_channel_process(channel, update_required);
+    channels_mask >>= 1;
+  }
+}
+
+/** Checks the state of a tracking channel and generates events if required.
+ * \param channel           Tracking channel to use.
+ * \param update_required   True when correlations are pending for the
+ *                          tracking channel.
+ */
+static void tracking_channel_process(u8 channel, bool update_required)
 {
   tracking_channel_t* chan = &tracking_channel[channel];
-
-  char buf[SID_STR_LEN_MAX];
-  sid_to_string(buf, sizeof(buf), chan->sid);
-
-  switch(state_get(chan))
-  {
+  switch (state_get(chan)) {
     case STATE_ENABLED:
     {
-      tracking_channel_get_corrs(channel);
-
-      chan->sample_count += chan->corr_sample_count;
-      chan->code_phase_early = (u64)chan->code_phase_early +
-                               (u64)chan->corr_sample_count
-                                 * chan->code_phase_rate_fp_prev;
-      chan->carrier_phase += (s64)chan->carrier_freq_fp_prev
-                               * chan->corr_sample_count;
-      /* TODO: Fix this in the FPGA - first integration is one sample short. */
-      if (chan->update_count == 0)
-        chan->carrier_phase -= chan->carrier_freq_fp_prev;
-      chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
-      chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
-
-      /* Latch TOW from nav message if pending */
-      s32 pending_TOW_ms;
-      s8 pending_bit_polarity;
-      nav_bit_fifo_index_t pending_TOW_read_index;
-      if (nav_time_sync_get(&chan->nav_time_sync, &pending_TOW_ms,
-                            &pending_bit_polarity, &pending_TOW_read_index)) {
-
-        /* Compute time since the pending data was read from the FIFO */
-        nav_bit_fifo_index_t fifo_length =
-          NAV_BIT_FIFO_INDEX_DIFF(chan->nav_bit_fifo.write_index,
-                                  pending_TOW_read_index);
-        u32 fifo_time_diff_ms = fifo_length * chan->bit_sync.bit_length;
-
-        /* Add full bit times + fractional bit time to the specified TOW */
-        s32 TOW_ms = pending_TOW_ms + fifo_time_diff_ms +
-                       chan->nav_bit_TOW_offset_ms;
-
-        if (TOW_ms >= GPS_WEEK_LENGTH_ms)
-          TOW_ms -= GPS_WEEK_LENGTH_ms;
-
-        /* Warn if updated TOW does not match the current value */
-        if ((chan->TOW_ms != TOW_INVALID) && (chan->TOW_ms != TOW_ms)) {
-          log_warn("%s TOW mismatch: %ld, %lu", buf, chan->TOW_ms, TOW_ms);
-        }
-        chan->TOW_ms = TOW_ms;
-        chan->bit_polarity = pending_bit_polarity;
+      if (update_required) {
+        tracking_channel_update(channel);
       }
-
-      u8 int_ms = chan->short_cycle ? 1 : (chan->int_ms-1);
-      chan->nav_bit_TOW_offset_ms += int_ms;
-
-      if (chan->TOW_ms != TOW_INVALID) {
-        /* Have a valid time of week - increment it. */
-        chan->TOW_ms += int_ms;
-        if (chan->TOW_ms >= GPS_WEEK_LENGTH_ms)
-          chan->TOW_ms -= GPS_WEEK_LENGTH_ms;
-        /* TODO: maybe keep track of week number in channel state, or
-           derive it from system time */
-      }
-
-      if (chan->int_ms > 1) {
-        /* If we're doing long integrations, alternate between short and long
-         * cycles.  This is because of FPGA pipelining and latency.  The
-         * loop parameters can only be updated at the end of the second
-         * integration interval and waiting a whole 20ms is too long.
-         */
-        chan->short_cycle = !chan->short_cycle;
-
-        if (!chan->short_cycle) {
-          nap_track_update_wr_blocking(
-            channel,
-            chan->carrier_freq_fp,
-            chan->code_phase_rate_fp,
-            0, 0
-          );
-          return;
-        }
-      }
-
-      chan->update_count += chan->int_ms;
-      /* Prevent compiler reordering of store to update_count and stores to
-       * dependent variables */
-      COMPILER_BARRIER();
-
-      /* Update bit sync */
-      s32 bit_integrate;
-      if (bit_sync_update(&chan->bit_sync, chan->cs[1].I, chan->int_ms,
-                          &bit_integrate)) {
-
-        s8 soft_bit = nav_bit_quantize(bit_integrate);
-
-        // write to FIFO
-        nav_bit_fifo_element_t element = { .soft_bit = soft_bit };
-        if (!nav_bit_fifo_write(&chan->nav_bit_fifo, &element)) {
-          log_warn("%s nav bit FIFO overrun", buf);
-        }
-
-        // clear nav bit TOW offset
-        chan->nav_bit_TOW_offset_ms = 0;
-      }
-
-      /* Correlations should already be in chan->cs thanks to
-       * tracking_channel_get_corrs. */
-      corr_t* cs = chan->cs;
-
-      /* Update C/N0 estimate */
-      chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I/chan->int_ms, cs[1].Q/chan->int_ms);
-      if (chan->cn0 > track_cn0_drop_thres)
-        chan->cn0_above_drop_thres_count = chan->update_count;
-
-      if (chan->cn0 < track_cn0_use_thres) {
-        /* SNR has dropped below threshold, indicate that the carrier phase
-         * ambiguity is now unknown as cycle slips are likely. */
-        tracking_channel_ambiguity_unknown(channel);
-        /* Update the latest time we were below the threshold. */
-        chan->cn0_below_use_thres_count = chan->update_count;
-      }
-
-      /* Update PLL lock detector */
-      bool last_outp = chan->lock_detect.outp;
-      lock_detect_update(&chan->lock_detect, cs[1].I, cs[1].Q, chan->int_ms);
-      if (chan->lock_detect.outo)
-        chan->ld_opti_locked_count = chan->update_count;
-      if (!chan->lock_detect.outp)
-        chan->ld_pess_unlocked_count = chan->update_count;
-
-      /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
-      if (last_outp && !chan->lock_detect.outp) {
-        if (chan->stage > 0) {
-          log_info("%s PLL stress", buf);
-        }
-        tracking_channel_ambiguity_unknown(channel);
-      }
-
-      /* Run the loop filters. */
-
-      /* TODO: Make this more elegant. */
-      correlation_t cs2[3];
-      for (u32 i = 0; i < 3; i++) {
-        cs2[i].I = cs[2-i].I;
-        cs2[i].Q = cs[2-i].Q;
-      }
-
-      /* Output I/Q correlations using SBP if enabled for this channel */
-      if (chan->output_iq && (chan->int_ms > 1)) {
-        msg_tracking_iq_t msg = {
-          .channel = channel,
-        };
-        msg.sid = sid_to_sbp(chan->sid);
-        for (u32 i = 0; i < 3; i++) {
-          msg.corrs[i].I = cs[i].I;
-          msg.corrs[i].Q = cs[i].Q;
-        }
-        sbp_send_msg(SBP_MSG_TRACKING_IQ, sizeof(msg), (u8*)&msg);
-      }
-
-      aided_tl_update(&(chan->tl_state), cs2);
-      chan->carrier_freq = chan->tl_state.carr_freq;
-      chan->code_phase_rate = chan->tl_state.code_freq + GPS_CA_CHIPPING_RATE;
-
-      chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
-      chan->code_phase_rate_fp = chan->code_phase_rate
-        * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-
-      chan->carrier_freq_fp = chan->carrier_freq
-        * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
-
-      /* Attempt alias detection if we have pessimistic phase lock detect, OR
-         (optimistic phase lock detect AND are in second-stage tracking) */
-      if (use_alias_detection &&
-          (chan->lock_detect.outp ||
-           (chan->lock_detect.outo && chan->stage > 0))) {
-        s32 I = (cs[1].I - chan->alias_detect.first_I) / (chan->int_ms - 1);
-        s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
-        float err = alias_detect_second(&chan->alias_detect, I, Q);
-        if (fabs(err) > (250 / chan->int_ms)) {
-          if (chan->lock_detect.outp) {
-            log_warn("False phase lock detected on %s: err=%f", buf, err);
-          }
-
-          tracking_channel_ambiguity_unknown(channel);
-          /* Indicate that a mode change has occurred. */
-          chan->mode_change_count = chan->update_count;
-
-          chan->tl_state.carr_freq += err;
-          chan->tl_state.carr_filt.y = chan->tl_state.carr_freq;
-        }
-      }
-
-      /* Consider moving from stage 0 (1 ms integration) to stage 1 (longer). */
-      if ((chan->stage == 0) &&
-          /* Must have (at least optimistic) phase lock */
-          (chan->lock_detect.outo) &&
-          /* Must have nav bit sync, and be correctly aligned */
-          (chan->bit_sync.bit_phase == chan->bit_sync.bit_phase_ref)) {
-        log_info("%s synced @ %u ms, %.1f dBHz",
-                 buf, (unsigned int)chan->update_count, chan->cn0);
-        chan->stage = 1;
-        const struct loop_params *l = &loop_params_stage[1];
-        chan->int_ms = MIN(l->coherent_ms, chan->bit_sync.bit_length);
-        chan->short_cycle = true;
-
-        cn0_est_init(&chan->cn0_est, 1e3 / chan->int_ms, chan->cn0,
-                     CN0_EST_LPF_CUTOFF, 1e3 / chan->int_ms);
-
-        /* Recalculate filter coefficients */
-        aided_tl_retune(&chan->tl_state, 1e3 / chan->int_ms,
-                        l->code_bw, l->code_zeta, l->code_k,
-                        l->carr_to_code,
-                        l->carr_bw, l->carr_zeta, l->carr_k,
-                        l->carr_fll_aid_gain);
-
-        lock_detect_reinit(&chan->lock_detect,
-                           lock_detect_params.k1 * chan->int_ms,
-                           lock_detect_params.k2,
-                           /* TODO: Should also adjust lp and lo? */
-                           lock_detect_params.lp, lock_detect_params.lo);
-
-        /* Indicate that a mode change has occurred. */
-        chan->mode_change_count = chan->update_count;
-      }
-
-      nap_track_update_wr_blocking(
-        channel,
-        chan->carrier_freq_fp,
-        chan->code_phase_rate_fp,
-        chan->int_ms == 1 ? 0 : chan->int_ms - 2, 0
-      );
-
       break;
     }
     case STATE_DISABLE_REQUESTED:
@@ -996,18 +790,251 @@ void tracking_channel_update(u8 channel)
     }
     case STATE_DISABLED:
     {
-      /* TODO: Why do we sometimes have to disable the channel in the
-               NAP repeatedly? */
       nap_channel_disable(channel);
       break;
     }
     default:
     {
-      log_error("CH%d (%s) invalid state %d", channel, buf, state_get(chan));
-      nap_channel_disable(channel);
+      assert(!"Invalid tracking channel state");
       break;
     }
   }
+}
+
+/** Update tracking channels after the end of an integration period.
+ * Update update_count, sample_count, TOW, run loop filters and update
+ * SwiftNAP tracking channel frequencies.
+ * \param channel Tracking channel to update.
+ */
+static void tracking_channel_update(u8 channel)
+{
+  tracking_channel_t* chan = &tracking_channel[channel];
+
+  char buf[SID_STR_LEN_MAX];
+  sid_to_string(buf, sizeof(buf), chan->sid);
+
+  tracking_channel_get_corrs(channel);
+
+  chan->sample_count += chan->corr_sample_count;
+  chan->code_phase_early = (u64)chan->code_phase_early +
+                           (u64)chan->corr_sample_count
+                             * chan->code_phase_rate_fp_prev;
+  chan->carrier_phase += (s64)chan->carrier_freq_fp_prev
+                           * chan->corr_sample_count;
+  /* TODO: Fix this in the FPGA - first integration is one sample short. */
+  if (chan->update_count == 0)
+    chan->carrier_phase -= chan->carrier_freq_fp_prev;
+  chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
+  chan->carrier_freq_fp_prev = chan->carrier_freq_fp;
+
+  /* Latch TOW from nav message if pending */
+  s32 pending_TOW_ms;
+  s8 pending_bit_polarity;
+  nav_bit_fifo_index_t pending_TOW_read_index;
+  if (nav_time_sync_get(&chan->nav_time_sync, &pending_TOW_ms,
+                        &pending_bit_polarity, &pending_TOW_read_index)) {
+
+    /* Compute time since the pending data was read from the FIFO */
+    nav_bit_fifo_index_t fifo_length =
+      NAV_BIT_FIFO_INDEX_DIFF(chan->nav_bit_fifo.write_index,
+                              pending_TOW_read_index);
+    u32 fifo_time_diff_ms = fifo_length * chan->bit_sync.bit_length;
+
+    /* Add full bit times + fractional bit time to the specified TOW */
+    s32 TOW_ms = pending_TOW_ms + fifo_time_diff_ms +
+                   chan->nav_bit_TOW_offset_ms;
+
+    if (TOW_ms >= GPS_WEEK_LENGTH_ms)
+      TOW_ms -= GPS_WEEK_LENGTH_ms;
+
+    /* Warn if updated TOW does not match the current value */
+    if ((chan->TOW_ms != TOW_INVALID) && (chan->TOW_ms != TOW_ms)) {
+      log_warn("%s TOW mismatch: %ld, %lu", buf, chan->TOW_ms, TOW_ms);
+    }
+    chan->TOW_ms = TOW_ms;
+    chan->bit_polarity = pending_bit_polarity;
+  }
+
+  u8 int_ms = chan->short_cycle ? 1 : (chan->int_ms-1);
+  chan->nav_bit_TOW_offset_ms += int_ms;
+
+  if (chan->TOW_ms != TOW_INVALID) {
+    /* Have a valid time of week - increment it. */
+    chan->TOW_ms += int_ms;
+    if (chan->TOW_ms >= GPS_WEEK_LENGTH_ms)
+      chan->TOW_ms -= GPS_WEEK_LENGTH_ms;
+    /* TODO: maybe keep track of week number in channel state, or
+       derive it from system time */
+  }
+
+  if (chan->int_ms > 1) {
+    /* If we're doing long integrations, alternate between short and long
+     * cycles.  This is because of FPGA pipelining and latency.  The
+     * loop parameters can only be updated at the end of the second
+     * integration interval and waiting a whole 20ms is too long.
+     */
+    chan->short_cycle = !chan->short_cycle;
+
+    if (!chan->short_cycle) {
+      nap_track_update_wr_blocking(
+        channel,
+        chan->carrier_freq_fp,
+        chan->code_phase_rate_fp,
+        0, 0
+      );
+      return;
+    }
+  }
+
+  chan->update_count += chan->int_ms;
+  /* Prevent compiler reordering of store to update_count and stores to
+   * dependent variables */
+  COMPILER_BARRIER();
+
+  /* Update bit sync */
+  s32 bit_integrate;
+  if (bit_sync_update(&chan->bit_sync, chan->cs[1].I, chan->int_ms,
+                      &bit_integrate)) {
+
+    s8 soft_bit = nav_bit_quantize(bit_integrate);
+
+    // write to FIFO
+    nav_bit_fifo_element_t element = { .soft_bit = soft_bit };
+    if (!nav_bit_fifo_write(&chan->nav_bit_fifo, &element)) {
+      log_warn("%s nav bit FIFO overrun", buf);
+    }
+
+    // clear nav bit TOW offset
+    chan->nav_bit_TOW_offset_ms = 0;
+  }
+
+  /* Correlations should already be in chan->cs thanks to
+   * tracking_channel_get_corrs. */
+  corr_t* cs = chan->cs;
+
+  /* Update C/N0 estimate */
+  chan->cn0 = cn0_est(&chan->cn0_est, cs[1].I/chan->int_ms, cs[1].Q/chan->int_ms);
+  if (chan->cn0 > track_cn0_drop_thres)
+    chan->cn0_above_drop_thres_count = chan->update_count;
+
+  if (chan->cn0 < track_cn0_use_thres) {
+    /* SNR has dropped below threshold, indicate that the carrier phase
+     * ambiguity is now unknown as cycle slips are likely. */
+    tracking_channel_ambiguity_unknown(channel);
+    /* Update the latest time we were below the threshold. */
+    chan->cn0_below_use_thres_count = chan->update_count;
+  }
+
+  /* Update PLL lock detector */
+  bool last_outp = chan->lock_detect.outp;
+  lock_detect_update(&chan->lock_detect, cs[1].I, cs[1].Q, chan->int_ms);
+  if (chan->lock_detect.outo)
+    chan->ld_opti_locked_count = chan->update_count;
+  if (!chan->lock_detect.outp)
+    chan->ld_pess_unlocked_count = chan->update_count;
+
+  /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
+  if (last_outp && !chan->lock_detect.outp) {
+    if (chan->stage > 0) {
+      log_info("%s PLL stress", buf);
+    }
+    tracking_channel_ambiguity_unknown(channel);
+  }
+
+  /* Run the loop filters. */
+
+  /* TODO: Make this more elegant. */
+  correlation_t cs2[3];
+  for (u32 i = 0; i < 3; i++) {
+    cs2[i].I = cs[2-i].I;
+    cs2[i].Q = cs[2-i].Q;
+  }
+
+  /* Output I/Q correlations using SBP if enabled for this channel */
+  if (chan->output_iq && (chan->int_ms > 1)) {
+    msg_tracking_iq_t msg = {
+      .channel = channel,
+    };
+    msg.sid = sid_to_sbp(chan->sid);
+    for (u32 i = 0; i < 3; i++) {
+      msg.corrs[i].I = cs[i].I;
+      msg.corrs[i].Q = cs[i].Q;
+    }
+    sbp_send_msg(SBP_MSG_TRACKING_IQ, sizeof(msg), (u8*)&msg);
+  }
+
+  aided_tl_update(&(chan->tl_state), cs2);
+  chan->carrier_freq = chan->tl_state.carr_freq;
+  chan->code_phase_rate = chan->tl_state.code_freq + GPS_CA_CHIPPING_RATE;
+
+  chan->code_phase_rate_fp_prev = chan->code_phase_rate_fp;
+  chan->code_phase_rate_fp = chan->code_phase_rate
+    * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+
+  chan->carrier_freq_fp = chan->carrier_freq
+    * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
+
+  /* Attempt alias detection if we have pessimistic phase lock detect, OR
+     (optimistic phase lock detect AND are in second-stage tracking) */
+  if (use_alias_detection &&
+      (chan->lock_detect.outp ||
+       (chan->lock_detect.outo && chan->stage > 0))) {
+    s32 I = (cs[1].I - chan->alias_detect.first_I) / (chan->int_ms - 1);
+    s32 Q = (cs[1].Q - chan->alias_detect.first_Q) / (chan->int_ms - 1);
+    float err = alias_detect_second(&chan->alias_detect, I, Q);
+    if (fabs(err) > (250 / chan->int_ms)) {
+      if (chan->lock_detect.outp) {
+        log_warn("False phase lock detected on %s: err=%f", buf, err);
+      }
+
+      tracking_channel_ambiguity_unknown(channel);
+      /* Indicate that a mode change has occurred. */
+      chan->mode_change_count = chan->update_count;
+
+      chan->tl_state.carr_freq += err;
+      chan->tl_state.carr_filt.y = chan->tl_state.carr_freq;
+    }
+  }
+
+  /* Consider moving from stage 0 (1 ms integration) to stage 1 (longer). */
+  if ((chan->stage == 0) &&
+      /* Must have (at least optimistic) phase lock */
+      (chan->lock_detect.outo) &&
+      /* Must have nav bit sync, and be correctly aligned */
+      (chan->bit_sync.bit_phase == chan->bit_sync.bit_phase_ref)) {
+    log_info("%s synced @ %u ms, %.1f dBHz",
+             buf, (unsigned int)chan->update_count, chan->cn0);
+    chan->stage = 1;
+    const struct loop_params *l = &loop_params_stage[1];
+    chan->int_ms = MIN(l->coherent_ms, chan->bit_sync.bit_length);
+    chan->short_cycle = true;
+
+    cn0_est_init(&chan->cn0_est, 1e3 / chan->int_ms, chan->cn0,
+                 CN0_EST_LPF_CUTOFF, 1e3 / chan->int_ms);
+
+    /* Recalculate filter coefficients */
+    aided_tl_retune(&chan->tl_state, 1e3 / chan->int_ms,
+                    l->code_bw, l->code_zeta, l->code_k,
+                    l->carr_to_code,
+                    l->carr_bw, l->carr_zeta, l->carr_k,
+                    l->carr_fll_aid_gain);
+
+    lock_detect_reinit(&chan->lock_detect,
+                       lock_detect_params.k1 * chan->int_ms,
+                       lock_detect_params.k2,
+                       /* TODO: Should also adjust lp and lo? */
+                       lock_detect_params.lp, lock_detect_params.lo);
+
+    /* Indicate that a mode change has occurred. */
+    chan->mode_change_count = chan->update_count;
+  }
+
+  nap_track_update_wr_blocking(
+    channel,
+    chan->carrier_freq_fp,
+    chan->code_phase_rate_fp,
+    chan->int_ms == 1 ? 0 : chan->int_ms - 2, 0
+  );
 }
 
 /** Disable tracking channel.

@@ -38,7 +38,7 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
                            u32 start_sample_count, float cn0_init, s8 elevation);
 bool tracking_channel_running(u8 channel);
 
-void tracking_channel_update(u8 channel);
+void tracking_channels_update(u32 channels_mask);
 void tracking_channel_disable(u8 channel);
 void tracking_channel_ambiguity_unknown(u8 channel);
 void tracking_update_measurement(u8 channel, channel_measurement_t *meas);

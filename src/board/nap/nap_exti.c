@@ -106,21 +106,7 @@ static void handle_nap_exti(void)
 
   /* Mask off everything but tracking irqs. */
   irq &= NAP_IRQ_TRACK_MASK;
-
-  /* Loop over tracking irq bit flags. */
-  for (u8 n = 0; n < nap_track_n_channels; n++) {
-    /* Save a bit of time by seeing if the rest of the bits
-     * are zero in one go so we don't have to loop over all
-     * of them.
-     */
-    if (!(irq >> n))
-      break;
-
-    /* Test if the nth tracking irq flag is set, if so service it. */
-    if ((irq >> n) & 1) {
-      tracking_channel_update(n);
-    }
-  }
+  tracking_channels_update(irq);
 
   watchdog_notify(WD_NOTIFY_NAP_ISR);
   nap_exti_count++;
