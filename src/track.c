@@ -185,6 +185,13 @@ typedef struct {
 
 static tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
 
+/** Mutex used for
+ *  1. Atomic data access with channel enabled.
+ *  2. Preventing race conditions between state transitions
+ *     and NAP register writes.
+ */
+static Mutex tracking_channel_mutex[NAP_MAX_N_TRACK_CHANNELS];
+
 /* signal lock counter
  * A map of signal to an initially random number that increments each time that
  * signal begins being tracked.
@@ -495,7 +502,14 @@ static void tracking_channel_process(u8 channel, bool update_required)
     }
     case STATE_DISABLED:
     {
-      nap_channel_disable(channel);
+      /* Tracking channel is not owned by the update thread, but the update
+       * register must be written to clear the interrupt flag. Atomically
+       * verify state and write the update register. */
+      tracking_channel_lock(channel);
+      if (state_get(chan) == STATE_DISABLED) {
+        nap_channel_disable(channel);
+      }
+      tracking_channel_unlock(channel);
       break;
     }
     default:
@@ -519,6 +533,10 @@ static void tracking_channel_update(u8 channel)
   sid_to_string(buf, sizeof(buf), chan->sid);
 
   tracking_channel_get_corrs(channel);
+
+  /* Lock while updating data to allow atomic reads from other threads. */
+  /* TODO: Minimize the lock duration. */
+  tracking_channel_lock(channel);
 
   chan->sample_count += chan->corr_sample_count;
   chan->code_phase_early = (u64)chan->code_phase_early +
@@ -581,6 +599,8 @@ static void tracking_channel_update(u8 channel)
     chan->short_cycle = !chan->short_cycle;
 
     if (!chan->short_cycle) {
+      /* Unlock and write NAP update register. */
+      tracking_channel_unlock(channel);
       nap_track_update_wr_blocking(
         channel,
         chan->carrier_freq_fp,
@@ -734,6 +754,8 @@ static void tracking_channel_update(u8 channel)
     chan->mode_change_count = chan->update_count;
   }
 
+  /* Unlock and write NAP update register. */
+  tracking_channel_unlock(channel);
   nap_track_update_wr_blocking(
     channel,
     chan->carrier_freq_fp,
@@ -835,6 +857,7 @@ void tracking_setup()
 
   for (u32 i=0; i< NAP_MAX_N_TRACK_CHANNELS; i++) {
     tracking_channel[i].state = STATE_DISABLED;
+    chMtxInit(&tracking_channel_mutex[i]);
   }
 }
 
@@ -1014,6 +1037,11 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
   alias_detect_init(&chan->alias_detect, 500/alias_detect_ms,
                     (alias_detect_ms-1)*1e-3);
 
+  /* Lock the channel while setting up NAP registers and updating state. This
+   * allows the update thread to deal with trailing interrupts after the
+   * channel is disabled by writing the update register as required.  */
+  tracking_channel_lock(channel);
+
   /* Starting carrier phase is set to zero as we don't
    * know the carrier freq well enough to calculate it.
    */
@@ -1029,11 +1057,13 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
     0, 0
   );
 
-  /* Change the channel state to ENABLED and then kick off the NAP */
-  event(chan, EVENT_ENABLE);
-
   /* Schedule the timing strobe for start_sample_count. */
   nap_timing_strobe(start_sample_count);
+
+  /* Change the channel state to ENABLED. */
+  event(chan, EVENT_ENABLE);
+
+  tracking_channel_unlock(channel);
 }
 
 /** Disable tracking channel.
@@ -1064,6 +1094,25 @@ void tracking_channels_update(u32 channels_mask)
     tracking_channel_process(channel, update_required);
     channels_mask >>= 1;
   }
+}
+
+/** Locks a tracking channel for exclusive access.
+ * \note Blocking or long-running operations should not be performed while
+ *       holding the lock for a tracking channel.
+ * \param channel Tracking channel to lock.
+ */
+void tracking_channel_lock(u8 channel)
+{
+  chMtxLock(&tracking_channel_mutex[channel]);
+}
+
+/** Unlocks a locked tracking channel.
+ * \param channel Tracking channel to unlock.
+ */
+void tracking_channel_unlock(u8 channel)
+{
+  Mutex *m = chMtxUnlock();
+  assert(m == &tracking_channel_mutex[channel]);
 }
 
 /** Determines whether the specified tracking channel is currently running.
@@ -1210,15 +1259,25 @@ void tracking_channel_measurement_get(u8 channel, channel_measurement_t *meas)
  */
 bool tracking_channel_evelation_degrees_set(gnss_signal_t sid, s8 elevation)
 {
+  bool result = false;
   for (u32 i=0; i < NAP_MAX_N_TRACK_CHANNELS; i++) {
     tracking_channel_t *ch = &tracking_channel[i];
-    /* TODO: Atomically check sid and set elevation */
+
+    /* Check SID before locking. */
+    if (!sid_is_equal(ch->sid, sid)) {
+      continue;
+    }
+
+    /* Lock and update if SID matches. */
+    tracking_channel_lock(i);
     if (sid_is_equal(ch->sid, sid)) {
       ch->elevation = elevation;
-      return true;
+      result = true;
     }
+    tracking_channel_unlock(i);
+    break;
   }
-  return false;
+  return result;
 }
 
 /** Returns the elevation angle (deg) for a tracking channel.

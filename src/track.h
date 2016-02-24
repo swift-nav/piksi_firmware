@@ -35,13 +35,19 @@ void tracking_drop_satellite(gnss_signal_t sid);
 
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 
+/* State management interface */
 bool tracking_channel_available(u8 channel, gnss_signal_t sid);
 void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
                            u32 start_sample_count, float cn0_init, s8 elevation);
 void tracking_channel_disable(u8 channel);
 
+/* Update interface */
 void tracking_channels_update(u32 channels_mask);
 
+/* Tracking parameters interface.
+ * Lock should be acquired for atomicity. */
+void tracking_channel_lock(u8 channel);
+void tracking_channel_unlock(u8 channel);
 
 bool tracking_channel_running(u8 channel);
 bool tracking_channel_cn0_useable(u8 channel);

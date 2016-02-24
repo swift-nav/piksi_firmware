@@ -397,12 +397,12 @@ static msg_t solution_thread(void *arg)
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
+      tracking_channel_lock(i);
       if (use_tracking_channel(i)) {
-        __asm__("CPSID i;");
-        __asm__("CPSIE i;");
         tracking_channel_measurement_get(i, &meas[n_ready]);
         n_ready++;
       }
+      tracking_channel_unlock(i);
     }
 
     if (n_ready < 4) {
