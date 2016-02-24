@@ -71,6 +71,7 @@ static bool use_alias_detection = true;
 
 #define CN0_EST_LPF_CUTOFF 5
 #define GPS_WEEK_LENGTH_ms (1000 * WEEK_SECS)
+#define CHANNEL_SHUTDOWN_TIME_ms 100
 
 #define NAV_BIT_FIFO_INDEX_MASK ((NAV_BIT_FIFO_SIZE) - 1)
 #define NAV_BIT_FIFO_INDEX_DIFF(write_index, read_index) \
@@ -181,6 +182,7 @@ typedef struct {
   nav_bit_fifo_t nav_bit_fifo; /**< FIFO for navigation message bits. */
   nav_time_sync_t nav_time_sync;  /**< Used to sync time decoded from navigation
                                        message back to tracking channel. */
+  systime_t disable_time;      /**< Time at which the channel was disabled. */
 } tracking_channel_t;
 
 static tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
@@ -497,6 +499,7 @@ static void tracking_channel_process(u8 channel, bool update_required)
     case STATE_DISABLE_REQUESTED:
     {
       nap_channel_disable(channel);
+      chan->disable_time = chTimeNow();
       event(chan, EVENT_DISABLE);
       break;
     }
@@ -954,7 +957,13 @@ bool tracking_channel_available(u8 channel, gnss_signal_t sid)
 {
   (void) sid;
   const tracking_channel_t *t = &tracking_channel[channel];
-  return (state_get(t) == STATE_DISABLED);
+  if (state_get(t) == STATE_DISABLED) {
+    if (chTimeElapsedSince(t->disable_time) >=
+          MS2ST(CHANNEL_SHUTDOWN_TIME_ms)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /** Initialises a tracking channel.
