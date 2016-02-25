@@ -185,8 +185,7 @@ static void update_obss(obss_t *new_obss)
       if (fabs(t_err) < OBS_PROPAGATION_LIMIT) {
         /* Propagate observation to desired time. */
         for (u8 i=0; i < base_obss.n; i++) {
-          base_obss.nm[i].raw_pseudorange -= t_err * base_obss.nm[i].doppler *
-                                              (GPS_C / GPS_L1_HZ);
+          base_obss.nm[i].raw_pseudorange += t_err * GPS_C;
           base_obss.nm[i].raw_carrier_phase += t_err * base_obss.nm[i].doppler;
         }
       }
@@ -351,7 +350,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
             + clock_err * GPS_C;
       base_obss_rx.nm[base_obss_rx.n].carrier_phase =
             base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase
-            - clock_err * GPS_L1_HZ;
+            + clock_err * GPS_L1_HZ;
 
       /* We also apply the clock correction to the time of transmit. */
       base_obss_rx.nm[base_obss_rx.n].tot.tow -= clock_err;

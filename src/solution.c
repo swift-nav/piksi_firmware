@@ -566,10 +566,9 @@ static msg_t solution_thread(void *arg)
     if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
         fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
       /* Propagate observation to desired time. */
-      for (u8 i=0; i < n_ready_tdcp; i++) {
-        nav_meas_tdcp[i].raw_pseudorange -= t_err * nav_meas_tdcp[i].doppler *
-                                            (GPS_C / GPS_L1_HZ);
-        nav_meas_tdcp[i].raw_carrier_phase += t_err * nav_meas_tdcp[i].doppler;
+      for (u8 i=0; i < n_ready_tdcp; i++) { // TODO rename doppler to carrier_frequency
+        base_obss.nm[i].raw_pseudorange += t_err * GPS_C;
+        base_obss.nm[i].raw_carrier_phase += t_err * base_obss.nm[i].doppler;
       }
 
       /* Update observation time. */

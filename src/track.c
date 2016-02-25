@@ -730,7 +730,7 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
   meas->snr = chan->cn0;
   if (chan->bit_polarity == BIT_POLARITY_INVERTED) {
-    meas->carrier_phase += 0.5;
+    meas->carrier_phase -= 0.5;
   }
   meas->lock_counter = chan->lock_counter;
 // TODO maybe just reset to 0 on first clock or something?
