@@ -135,7 +135,7 @@ static void update_obss(obss_t *new_obss)
   n_old = new_obss->n;
 
   /* Reset the `has_pos` flag. */
-  u8 has_pos_old = base_obss.has_pos;
+  //u8 has_pos_old = base_obss.has_pos;
   base_obss.has_pos = 0;
   /* Check if the base station has sent us its position explicitly via a
    * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
@@ -147,6 +147,7 @@ static void update_obss(obss_t *new_obss)
     memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
     /* Indicate that the position is valid. */
     base_obss.has_pos = 1;
+    // TODO log warning is given pos >10m away from PVT pos
   /* The base station wasn't sent to us explicitly but if we have >= 4
    * satellites we can calculate it ourselves (approximately). */
  } else if (base_obss.n >= 4) { // TODO: if <4 sats or PVT error, skip the obs?
@@ -161,7 +162,7 @@ static void update_obss(obss_t *new_obss)
       /* The position solution calculation was sucessful. Unfortunately the
        * single point position solution is very noisy so lets smooth it if we
        * have the previous position available. */
-      if (has_pos_old) {
+      if (false) {//(has_pos_old) {
         /* TODO Implement a real filter for base position (potentially in
            observation space), so we can do away with this terrible excuse
            for smoothing. */
@@ -245,7 +246,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     return;
   }
 
-  ((observation_header_t*)msg)->n_obs = 0x10;
+  //((observation_header_t*)msg)->n_obs = 0x10;
   /* Relay observations using sender_id = 0. */
   sbp_send_msg_(SBP_MSG_OBS, len, msg, 0);
 
