@@ -27,7 +27,7 @@
 #include <ch.h>
 #undef memory_pool_t
 
-#include "board/leds.h"
+#include "peripherals/leds.h"
 #include "position.h"
 #include "nmea.h"
 #include "sbp.h"
@@ -41,14 +41,6 @@
 #include "ephemeris.h"
 #include "signal.h"
 #include "system_monitor.h"
-
-#define SOL_GPT GPTD5
-
-static void sol_gpt_cb(GPTDriver *);
-static GPTConfig sol_gpt_config = {
-  .frequency = STM32_TIMCLK1,
-  .callback = sol_gpt_cb,
-};
 
 MemoryPool obs_buff_pool;
 mailbox_t obs_mailbox;
@@ -375,8 +367,7 @@ static void solution_thread(void *arg)
 
   while (TRUE) {
     chThdSleepUntilCheck(deadline);
-
-    deadline += (CH_FREQUENCY/soln_freq);
+    deadline += (CH_CFG_ST_FREQUENCY/soln_freq);
 
     watchdog_notify(WD_NOTIFY_SOLUTION);
 
@@ -562,12 +553,12 @@ static void solution_thread(void *arg)
 
       /* Limit dt to 2 seconds maximum to prevent hang if dt calculated
        * incorrectly. */
-      if (dt > 2)
-        dt = 2;
+      if (dt > 1)
+        dt = 1;
 
       /* Reset timer period with the count that we will estimate will being
        * us up to the next solution time. */
-      deadline += dt * CH_FREQUENCY;
+      deadline += dt * CH_CFG_ST_FREQUENCY;
 
     } else {
       /* An error occurred with calc_PVT! */

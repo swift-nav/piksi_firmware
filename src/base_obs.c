@@ -22,7 +22,7 @@
 #include <libswiftnav/linear_algebra.h>
 #include <libswiftnav/signal.h>
 
-#include "board/leds.h"
+#include "peripherals/leds.h"
 #include "position.h"
 #include "nmea.h"
 #include "sbp.h"

@@ -19,7 +19,7 @@
 #include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
 
-#include "board/leds.h"
+#include "peripherals/leds.h"
 #include "peripherals/usart.h"
 
 #include "error.h"

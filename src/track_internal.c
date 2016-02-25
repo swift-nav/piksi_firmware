@@ -13,6 +13,7 @@
 #include "track_internal.h"
 #include "track.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
@@ -40,7 +41,7 @@ static u16 tracking_lock_counters[PLATFORM_SIGNAL_COUNT];
 void track_internal_setup(void)
 {
   for (u32 i=0; i < PLATFORM_SIGNAL_COUNT; i++) {
-    tracking_lock_counters[i] = random_int();
+    tracking_lock_counters[i] = rand();
   }
 }
 

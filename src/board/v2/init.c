@@ -18,8 +18,8 @@
 #include <libswiftnav/logging.h>
 
 #include "main.h"
-#include "board/leds.h"
-#include "board/m25_flash.h"
+#include "peripherals/leds.h"
+#include "board/v2/m25_flash.h"
 #include "board/nap/nap_common.h"
 #include "board/nap/nap_conf.h"
 #include "sbp.h"

@@ -3,6 +3,10 @@
 # NOTE: Can be overridden externally.
 #
 
+ifeq ($(PIKSI_HW),)
+  PIKSI_HW=v2
+endif
+
 ifeq ($(SWIFTNAV_ROOT),)
   SWIFTNAV_ROOT = ..
 endif
@@ -56,23 +60,6 @@ endif
 ##############################################################################
 
 ##############################################################################
-# Architecture or project specific options
-#
-
-# Enables the use of FPU on Cortex-M4.
-ifeq ($(USE_FPU),)
-  USE_FPU = hard
-endif
-
-ifeq ($(USE_PROCESS_STACKSIZE),)
-  USE_PROCESS_STACKSIZE = 0x738
-endif
-
-#
-# Architecture or project specific options
-##############################################################################
-
-##############################################################################
 # Project, sources and paths
 #
 
@@ -81,15 +68,12 @@ PROJECT = piksi_firmware
 
 # Imported source files and paths
 CHIBIOS = ../ChibiOS
-include $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC/mk/startup_stm32f4xx.mk
+
+include $(SWIFTNAV_ROOT)/src/board/$(PIKSI_HW)/Makefile.inc
+
 include $(CHIBIOS)/os/hal/hal.mk
 include $(CHIBIOS)/os/hal/osal/rt/osal.mk
-include $(CHIBIOS)/os/hal/ports/STM32/STM32F4xx/platform.mk
 include $(CHIBIOS)/os/rt/rt.mk
-include $(CHIBIOS)/os/rt/ports/ARMCMx/compilers/GCC/mk/port_v7m.mk
-
-# Define linker script file here
-LDSCRIPT= STM32F405xG.ld
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -99,31 +83,17 @@ CSRC := $(STARTUPSRC) \
         $(HALSRC) \
         $(OSALSRC) \
         $(PLATFORMSRC) \
-        $(SWIFTNAV_ROOT)/src/board/board.o \
-        $(SWIFTNAV_ROOT)/src/board/nap/nap_common.o \
-        $(SWIFTNAV_ROOT)/src/board/nap/nap_exti.o \
-        $(SWIFTNAV_ROOT)/src/board/nap/nap_conf.o \
-        $(SWIFTNAV_ROOT)/src/board/nap/acq_channel.o \
-        $(SWIFTNAV_ROOT)/src/board/nap/track_channel.o \
-        $(SWIFTNAV_ROOT)/src/board/m25_flash.o \
-        $(SWIFTNAV_ROOT)/src/board/max2769.o \
-        $(SWIFTNAV_ROOT)/src/board/leds.o \
+        $(BOARDSRC) \
         $(SWIFTNAV_ROOT)/src/peripherals/3drradio.o \
-        $(SWIFTNAV_ROOT)/src/peripherals/stm_flash.o \
-        $(SWIFTNAV_ROOT)/src/peripherals/spi_wrapper.o \
+        $(SWIFTNAV_ROOT)/src/peripherals/leds.o \
         $(SWIFTNAV_ROOT)/src/peripherals/usart.o \
         $(SWIFTNAV_ROOT)/src/peripherals/usart_chat.o \
-        $(SWIFTNAV_ROOT)/src/peripherals/random.o \
-        $(SWIFTNAV_ROOT)/src/peripherals/watchdog.o \
         $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee.o \
-        $(SWIFTNAV_ROOT)/src/cfs/cfs-coffee-arch.o \
         $(SWIFTNAV_ROOT)/src/minIni/minIni.o \
         $(SWIFTNAV_ROOT)/src/minIni/minGlue.o \
-        $(SWIFTNAV_ROOT)/src/init.o \
         $(SWIFTNAV_ROOT)/src/sbp.o \
         $(SWIFTNAV_ROOT)/src/sbp_fileio.o \
         $(SWIFTNAV_ROOT)/src/sbp_utils.o \
-        $(SWIFTNAV_ROOT)/src/error.o \
         $(SWIFTNAV_ROOT)/src/track.o \
         $(SWIFTNAV_ROOT)/src/track_internal.o \
         $(SWIFTNAV_ROOT)/src/track_api.o \
@@ -175,7 +145,7 @@ TCPPSRC =
 ASMSRC = $(STARTUPASM) $(PORTASM) $(OSALASM)
 
 INCDIR = $(STARTUPINC) $(PORTINC) $(KERNINC) \
-         $(HALINC) $(OSALINC) $(PLATFORMINC) \
+         $(HALINC) $(OSALINC) $(PLATFORMINC) $(BOARDINC) \
          $(CHIBIOS)/os/various \
          $(SWIFTNAV_ROOT)/libsbp/c/include \
          $(SWIFTNAV_ROOT)/libswiftnav/include \
@@ -189,8 +159,6 @@ INCDIR = $(STARTUPINC) $(PORTINC) $(KERNINC) \
 ##############################################################################
 # Compiler settings
 #
-
-MCU  = cortex-m4
 
 TRGT = arm-none-eabi-
 CC   = $(TRGT)gcc
@@ -209,9 +177,6 @@ BIN  = $(CP) -O binary
 # ARM-specific options here
 AOPT =
 
-# THUMB-specific options here
-TOPT = -mthumb -DTHUMB
-
 # Define C warning options here
 CWARN = -Wall -Wextra -Werror -std=gnu99
 
@@ -228,7 +193,7 @@ CPPWARN = -Wall -Wextra -Werror
 
 # List all default C defines here, like -D_DEBUG=1
 GIT_VERSION := $(shell git describe --dirty)
-DDEFS = -DSTM32F4 -DGIT_VERSION="\"$(GIT_VERSION)\""
+DDEFS = -DGIT_VERSION="\"$(GIT_VERSION)\""
 
 # List all default ASM defines here, like -D_DEBUG=1
 DADEFS =
@@ -276,9 +241,9 @@ ULIBS =
 #
 # End of user defines
 ##############################################################################
+
 .DEFAULT_GOAL = all
 include $(SWIFTNAV_ROOT)/ext/Makefile.include
 
-RULESPATH = $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC
 include $(RULESPATH)/rules.mk
 

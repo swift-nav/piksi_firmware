@@ -28,9 +28,6 @@
 #ifndef _CHCONF_H_
 #define _CHCONF_H_
 
-#ifndef _FROM_ASM_
-#include <libswiftnav/common.h>
-#endif
 /*===========================================================================*/
 /**
  * @name System timers settings
@@ -141,7 +138,7 @@
  *
  * @note    The default is @p TRUE.
  */
-#define CH_CFG_USE_TM                       TRUE
+#define CH_CFG_USE_TM                       FALSE
 
 /**
  * @brief   Threads registry APIs.
@@ -410,30 +407,6 @@
 /*===========================================================================*/
 
 /**
- * @brief   Threads descriptor structure extension.
- * @details User fields added to the end of the @p thread_t structure.
- */
-#define CH_CFG_THREAD_EXTRA_FIELDS                                          \
-  /* Add threads custom fields here.*/                                      \
-  u64 p_ctime;                                                              \
-  u32 p_cref;
-
-/**
- * @brief   Threads initialization hook.
- * @details User initialization code added to the @p chThdInit() API.
- *
- * @note    It is invoked from within @p chThdInit() and implicitly from all
- *          the threads creation APIs.
- */
-#define CH_CFG_THREAD_INIT_HOOK(tp) {                                       \
-  /* Add threads initialization code here.*/                                \
-  /* CPU cycle measurement fields, */                                       \
-  /* see http://sourceforge.net/p/chibios/feature-requests/23/ .*/          \
-  tp->p_ctime = 0;                                                          \
-  tp->p_cref = DWT->CYCCNT;                                                  \
-}
-
-/**
  * @brief   Threads finalization hook.
  * @details User finalization code added to the @p chThdExit() API.
  *
@@ -443,23 +416,6 @@
  */
 #define CH_CFG_THREAD_EXIT_HOOK(tp) {                                       \
   /* Add threads finalization code here.*/                                  \
-}
-
-/**
- * @brief   Context switch hook.
- * @details This hook is invoked just before switching between threads.
- */
-#ifndef _FROM_ASM_
-extern u64 g_ctime;
-#endif
-
-#define CH_CFG_CONTEXT_SWITCH_HOOK(ntp, otp) {                              \
-  ntp->p_cref = DWT->CYCCNT;                                                 \
-  if (otp) {                                                                \
-    u32 cnt = ntp->p_cref - otp->p_cref;                                    \
-    otp->p_ctime += cnt;                                                    \
-    g_ctime += cnt;                                                         \
-  }                                                                         \
 }
 
 /**
@@ -517,6 +473,8 @@ extern u64 g_ctime;
 
 #define _CCM __attribute__((section (".ccmram")))
 #define WORKING_AREA_CCM(s, n) THD_WORKING_AREA(s, n) _CCM
+
+#include "chconf_board.h"
 
 #endif  /* _CHCONF_H_ */
 

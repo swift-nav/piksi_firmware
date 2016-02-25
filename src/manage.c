@@ -12,6 +12,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <stdlib.h>
 #include <assert.h>
 
 #include <ch.h>
@@ -39,7 +40,6 @@
 #include "sbp_utils.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
-#include "peripherals/random.h"
 #include "./system_monitor.h"
 #include "settings.h"
 #include "signal.h"
@@ -311,7 +311,7 @@ static acq_status_t * choose_acq_sat(void)
     return NULL;
   }
 
-  u32 pick = random_int() % total_score;
+  u32 pick = rand() % total_score;
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
