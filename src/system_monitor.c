@@ -24,9 +24,8 @@
 #include <libswiftnav/coord_system.h>
 
 #include "board/nap/nap_common.h"
-#include "board/max2769.h"
-#include "board/leds.h"
-#include "peripherals/watchdog.h"
+#include "board/frontend.h"
+#include "peripherals/leds.h"
 #include "main.h"
 #include "sbp.h"
 #include "manage.h"
@@ -34,8 +33,8 @@
 #include "system_monitor.h"
 #include "position.h"
 
-#define WATCHDOG_HARDWARE_PERIOD_MS 30000  /* Actual period may vary +88% -32% */
 #define WATCHDOG_THREAD_PERIOD_MS 15000
+extern const WDGConfig board_wdg_config;
 
 /* Maximum distance between calculated and surveyed base station single point 
  * position for error checking.
@@ -157,12 +156,12 @@ static void system_monitor_thread(void *arg)
 
   while (TRUE) {
 
-    if (ant_status != max2769_ant_status()) {
-      ant_status = max2769_ant_status();
-      if (ant_status && max2769_ant_setting() == AUTO) {
+    if (ant_status != frontend_ant_status()) {
+      ant_status = frontend_ant_status();
+      if (ant_status && frontend_ant_setting() == AUTO) {
         log_info("Now using external antenna.");
       }
-      else if (max2769_ant_setting() == AUTO) {
+      else if (frontend_ant_setting() == AUTO) {
         log_info("Now using patch antenna.");
       }
     }
@@ -248,7 +247,7 @@ static void watchdog_thread(void *arg)
   chThdSleepMilliseconds(WATCHDOG_THREAD_PERIOD_MS);
 
   if (use_wdt)
-    watchdog_enable(WATCHDOG_HARDWARE_PERIOD_MS);
+    wdgStart(&WDGD1, &board_wdg_config);
 
   while (TRUE) {
     /* Wait for all threads to set a flag indicating they are still
@@ -265,7 +264,7 @@ static void watchdog_thread(void *arg)
       debug_threads();
     } else {
       if (use_wdt)
-        watchdog_clear();
+        wdgReset(&WDGD1);
     }
 
   }
@@ -273,10 +272,12 @@ static void watchdog_thread(void *arg)
 
 void system_monitor_setup()
 {
+#ifndef BOARD_DIGILENT_UZED
   /* Setup cycle counter for measuring thread CPU time. */
   CoreDebug->DEMCR |= 0x01000000;
   DWT->CYCCNT = 0; /* Reset the counter. */
   DWT->CTRL |= 1 ; /* Enable the counter. */
+#endif
 
   SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
   SETTING("system_monitor", "watchdog", use_wdt, TYPE_BOOL);

@@ -22,8 +22,7 @@
 #include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
 
-#include "board/leds.h"
-#include "board/m25_flash.h"
+#include "peripherals/leds.h"
 #include "error.h"
 #include "peripherals/usart.h"
 #include "sbp.h"

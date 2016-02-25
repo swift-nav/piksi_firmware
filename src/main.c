@@ -19,12 +19,10 @@
 #include <hal.h>
 #include <ch.h>
 
-#include "peripherals/random.h"
-#include "board/leds.h"
-#include "board/max2769.h"
+#include "peripherals/leds.h"
 #include "board/nap/nap_conf.h"
 #include "board/nap/acq_channel.h"
-#include "board/max2769.h"
+#include "board/frontend.h"
 #include "sbp.h"
 #include "init.h"
 #include "manage.h"
@@ -45,10 +43,6 @@
 #include "signal.h"
 
 extern void ext_setup(void);
-
-#if !defined(SYSTEM_CLOCK)
-#define SYSTEM_CLOCK 130944000
-#endif
 
 /** Compare version strings.
  * Compares a version of the form 'vX.Y-Z-'. If the first character of the
@@ -143,14 +137,6 @@ s8 compare_version(const char *a, const char *b)
 
 int main(void)
 {
-  /* Initialise SysTick timer that will be used as the ChibiOS kernel tick
-   * timer. */
-  SysTick->LOAD = SYSTEM_CLOCK / CH_CFG_ST_FREQUENCY - 1;
-  SysTick->VAL = 0;
-  SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk |
-                  SysTick_CTRL_TICKINT_Msk |
-                  SysTick_CTRL_ENABLE_Msk;
-
   halInit();
 
   /* Kernel initialization, the main() function becomes a thread with
@@ -183,7 +169,7 @@ int main(void)
   static s32 serial_number;
   serial_number = nap_conf_rd_serial_number();
 
-  max2769_setup();
+  frontend_setup();
   timing_setup();
   ext_event_setup();
   position_setup();
@@ -191,7 +177,6 @@ int main(void)
   decode_setup();
   decode_gps_l1_register();
 
-  rng_setup();
   manage_acq_setup();
   manage_track_setup();
   system_monitor_setup();

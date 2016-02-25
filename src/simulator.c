@@ -28,7 +28,7 @@
 
 #include "simulator.h"
 #include "solution.h"
-#include "board/leds.h"
+#include "peripherals/leds.h"
 #include "sbp.h"
 #include "sbp_utils.h"
 

@@ -11,9 +11,11 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
-#include "cfs/cfs-coffee-arch.h"
-#include "peripherals/stm_flash.h"
+#include "cfs-coffee-arch.h"
+
+u8 _coffee_fs_area[2048];
 
 /** \addtogroup cfs
  * \{
@@ -30,8 +32,7 @@
  */
 void coffee_read(u8* buf, u32 size, u32 offset)
 {
-  for (u32 i=0; i<size; i++)
-    buf[i] = ~((u8*)(COFFEE_START+offset))[i];
+  memcpy(buf, (void*)(COFFEE_START+offset), size);
 }
 
 /** Write to the Coffee filesystem area in STM flash.
@@ -39,14 +40,9 @@ void coffee_read(u8* buf, u32 size, u32 offset)
  * \param size Number of bytes to write.
  * \param offset Offset into the filesystem area to write to.
  */
-void coffee_write(u8* buf, u32 size, u32 offset)
+void coffee_write(const u8* buf, u32 size, u32 offset)
 {
-  flash_unlock();
-
-  for (u32 i=0; i<size; i++)
-    flash_program_byte(COFFEE_START+offset+i, ~buf[i]);
-
-  flash_lock();
+  memcpy((void*)(COFFEE_START+offset), buf, size);
 }
 
 /** Erase sector of the Coffee filesystem area in STM flash.
@@ -55,9 +51,7 @@ void coffee_write(u8* buf, u32 size, u32 offset)
  */
 void coffee_erase(u8 sector)
 {
-  flash_unlock();
-  stm_flash_erase_sector(sector+COFFEE_START_SECTOR);
-  flash_lock();
+  memset((void*)COFFEE_START+(sector*1024), 0, 1024);
 }
 
 /** \} */

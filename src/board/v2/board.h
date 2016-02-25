@@ -236,6 +236,10 @@
 #define LINE_LED1                   PAL_LINE(GPIOC, GPIOC_LED1)
 #define LINE_LED2                   PAL_LINE(GPIOC, GPIOC_LED2)
 
+#define SD_FTDI  (&SD6)
+#define SD_UARTA (&SD1)
+#define SD_UARTB (&SD3)
+
 /*
  * I/O ports initial setup, this configuration is established soon after reset
  * in the initialization code.
@@ -1145,6 +1149,7 @@
 extern "C" {
 #endif
   void boardInit(void);
+  void board_preinit_hook(void);
 #ifdef __cplusplus
 }
 #endif

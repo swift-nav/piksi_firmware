@@ -22,7 +22,6 @@
 /** \addtogroup io
  * \{ */
 
-
 static const char const * portmode_enum[] = {"SBP", "NMEA", NULL};
 static struct setting_type portmode;
 
@@ -58,9 +57,9 @@ bool all_uarts_enabled = false;
  * Functions to setup and use STM32F4 USART peripherals with DMA.
  * \{ */
 
-usart_state ftdi_state = {.sd = &SD6};
-usart_state uarta_state = {.sd = &SD1};
-usart_state uartb_state = {.sd = &SD3};
+usart_state ftdi_state = {.sd = SD_FTDI};
+usart_state uarta_state = {.sd = SD_UARTA};
+usart_state uartb_state = {.sd = SD_UARTB};
 
 static bool baudrate_change_notify(struct setting *s, const char *val);
 
@@ -70,6 +69,9 @@ static bool baudrate_change_notify(struct setting *s, const char *val);
  */
 void usart_set_parameters(SerialDriver *sd, u32 baud)
 {
+  if (sd == NULL)
+    return;
+
   SerialConfig config = {
     .speed = baud,
   };
@@ -137,27 +139,17 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
   if (!all_uarts_enabled && !do_preconfigure_hooks)
     return;
 
-  usart_set_parameters(&SD6, ftdi_baud);
-  usart_set_parameters(&SD1, uarta_baud);
-  usart_set_parameters(&SD3, uartb_baud);
+  usart_set_parameters(SD_FTDI, ftdi_baud);
+  usart_set_parameters(SD_UARTA, uarta_baud);
+  usart_set_parameters(SD_UARTB, uartb_baud);
 
   chBSemObjectInit(&ftdi_state.claimed, FALSE);
   ftdi_state.configured = true;
 
   if (do_preconfigure_hooks) {
+    board_preinit_hook();
 
-    /* TODO: Should this really be here? */
-    if ((RCC->CSR & 0xFF000000) != RCC_CSR_PADRSTF) {
-      if (RCC->CSR & RCC_CSR_WDGRSTF)
-        log_error("Piksi has reset due to a watchdog timeout.");
-      if (RCC->CSR & RCC_CSR_LPWRRSTF)
-        log_error("Low power reset detected.");
-      if (RCC->CSR & RCC_CSR_SFTRSTF)
-        log_info("Software reset detected.");
-      log_info("Reset reason: %02X", (unsigned int)(RCC->CSR >> 24));
-    }
     log_info("Piksi Starting...");
-    RCC->CSR |= RCC_CSR_RMVF;
     log_info("Firmware Version: " GIT_VERSION "");
     log_info("Built: " __DATE__ " " __TIME__ "");
 
@@ -188,9 +180,10 @@ void usarts_disable()
   if (!all_uarts_enabled)
     return;
 
-  sdStop(&SD6);
-  sdStop(&SD1);
-  sdStop(&SD3);
+  sdStop(SD_FTDI);
+  sdStop(SD_UARTA);
+  if ((uintptr_t)SD_UARTB != (uintptr_t)NULL)
+    sdStop(SD_UARTB);
 }
 
 /** Claim this USART for exclusive use by the calling module.
@@ -242,6 +235,9 @@ void usart_release(usart_state* s)
  */
 u32 usart_n_read(usart_state* s)
 {
+  if (s->sd == NULL)
+    return 0;
+
   chSysLock();
   u32 n = chQSpaceI(&s->sd->iqueue);
   chSysUnlock();
@@ -254,6 +250,9 @@ u32 usart_n_read(usart_state* s)
  */
 u32 usart_tx_n_free(usart_state* s)
 {
+  if (s->sd == NULL)
+    return 0;
+
   chSysLock();
   u32 n = chQSpaceI(&s->sd->oqueue);
   chSysUnlock();
@@ -270,7 +269,7 @@ u32 usart_tx_n_free(usart_state* s)
  */
 u32 usart_read_timeout(usart_state* s, u8 data[], u32 len, u32 timeout)
 {
-  if (len == 0)
+  if ((s->sd == NULL) || (len == 0))
     return 0;
 
   u32 n = chnReadTimeout(s->sd, data, len, timeout);
@@ -317,6 +316,8 @@ float usart_throughput(struct usart_stats* s)
  */
 u32 usart_write(usart_state* s, const u8 data[], u32 len)
 {
+  if (s->sd == NULL)
+    return len;
   u32 n = chnWriteTimeout(s->sd, data, len, TIME_IMMEDIATE);
   s->tx.byte_counter += n;
   return n;

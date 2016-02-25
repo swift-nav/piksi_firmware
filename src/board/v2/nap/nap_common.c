@@ -17,7 +17,7 @@
 #include "../../peripherals/spi_wrapper.h"
 #include "../../sbp.h"
 #include "../../init.h"
-#include "../max2769.h"
+#include "../frontend.h"
 #include "nap_conf.h"
 #include "nap_common.h"
 #include "nap_exti.h"
@@ -51,7 +51,7 @@ void nap_setup()
   spi_setup();
 
   /* Configure the front end. */
-  max2769_configure();
+  frontend_configure();
 
   /* Deactivate SPI buses so the FPGA can use the SPI2 bus to configure. */
   spi_deactivate();
