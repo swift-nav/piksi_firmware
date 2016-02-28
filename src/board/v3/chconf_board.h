@@ -48,5 +48,17 @@ extern uint64_t g_ctime;
 #define CH_CFG_CONTEXT_SWITCH_HOOK(ntp, otp) {                              \
 }
 
+/**
+ * @brief   WFI configuration
+ */
+#define ARM_ENABLE_WFI_IDLE     TRUE
+#define ARM_WFI_IMPL            asm volatile ("wfi")
+
+/**
+ * @brief   FPU configuration
+ */
+#define ARM_FPU                 neon
+
+
 #endif
 

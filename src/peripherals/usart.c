@@ -61,6 +61,7 @@ usart_state ftdi_state = {.sd = SD_FTDI};
 usart_state uarta_state = {.sd = SD_UARTA};
 usart_state uartb_state = {.sd = SD_UARTB};
 
+static void usart_disable(SerialDriver *sd);
 static bool baudrate_change_notify(struct setting *s, const char *val);
 
 /** Set up USART parameters for particular USART.
@@ -112,6 +113,15 @@ void usarts_setup()
 
   usarts_enable(ftdi_usart.baud_rate, uarta_usart.baud_rate, uartb_usart.baud_rate, true);
 
+}
+
+/** Disable a UART. */
+static void usart_disable(SerialDriver *sd)
+{
+  if (sd == NULL)
+    return;
+
+  sdStop(sd);
 }
 
 /** Callback for settings subsystem changing the baudrate of a UART.
@@ -180,10 +190,9 @@ void usarts_disable()
   if (!all_uarts_enabled)
     return;
 
-  sdStop(SD_FTDI);
-  sdStop(SD_UARTA);
-  if ((uintptr_t)SD_UARTB != (uintptr_t)NULL)
-    sdStop(SD_UARTB);
+  usart_disable(SD_FTDI);
+  usart_disable(SD_UARTA);
+  usart_disable(SD_UARTB);
 }
 
 /** Claim this USART for exclusive use by the calling module.

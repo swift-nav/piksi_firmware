@@ -27,6 +27,23 @@ const WDGConfig board_wdg_config = {
  */
 void boardInit(void)
 {
+  /* Unlock SLCR */
+  *(volatile uint32_t *)0xF8000008 = 0xDF0D;
+
+  /* Enable UART0 and UART1 clocks */
+  *(volatile uint32_t *)0xF800012C |= (1<<20) | (1 << 21);
+
+  /* UART REFCLK = 1GHz / 20 = 50MHz */
+  *(volatile uint32_t *)0xF8000154 &= ~(0x3F << 8);
+  *(volatile uint32_t *)0xF8000154 |= (20 << 8);
+
+  /* Enable SPI0 and SPI1 clocks */
+  *(volatile uint32_t *)0xF800012C |= (1<<14) | (1 << 15);
+
+  /* SPI REFCLK = 1GHz / 20 = 50MHz */
+  *(volatile uint32_t *)0xF8000158 &= ~(0x3F << 8);
+  *(volatile uint32_t *)0xF8000158 |= (20 << 8);
+
   srand(0);
 }
 

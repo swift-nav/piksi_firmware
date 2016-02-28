@@ -706,8 +706,8 @@ static void time_matched_obs_thread(void *arg)
     }
 
     chSysLock();
-    if (t_blink > chVTGetSystemTime()) {
-      chThdSleepS(t_blink - chVTGetSystemTime());
+    if (t_blink > chVTGetSystemTimeX()) {
+      chThdSleepS(t_blink - chVTGetSystemTimeX());
     }
     chSysUnlock();
 

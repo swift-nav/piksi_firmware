@@ -28,6 +28,8 @@
 #ifndef _HALCONF_H_
 #define _HALCONF_H_
 
+#include "mcuconf.h"
+
 /**
  * @brief   Enables the PAL subsystem.
  */
@@ -197,17 +199,6 @@
  */
 #if !defined(CAN_USE_SLEEP_MODE) || defined(__DOXYGEN__)
 #define CAN_USE_SLEEP_MODE          TRUE
-#endif
-
-/*===========================================================================*/
-/* EXT driver related settings.                                              */
-/*===========================================================================*/
-
-/**
- * @brief   Sleep mode related APIs inclusion switch.
- */
-#if !defined(ZYNQ7000_EXT_NUM_CHANNELS) || defined(__DOXYGEN__)
-#define ZYNQ7000_EXT_NUM_CHANNELS   8
 #endif
 
 /*===========================================================================*/
