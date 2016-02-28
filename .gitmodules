@@ -3,7 +3,7 @@
 	url = https://github.com/swift-nav/libswiftnav.git
 [submodule "ChibiOS-RT"]
 	path = ChibiOS
-	url = https://github.com/ChibiOS/ChibiOS
+	url = https://github.com/jacobmcnamee/ChibiOS
 [submodule "libsbp"]
 	path = libsbp
 	url = https://github.com/swift-nav/libsbp.git

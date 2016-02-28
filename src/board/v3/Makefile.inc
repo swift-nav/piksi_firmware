@@ -55,7 +55,7 @@ endif
 #
 
 include $(CHIBIOS)/os/common/ports/ARM/compilers/GCC/mk/startup_zynq7000.mk
-include $(CHIBIOS)/os/hal/ports/Zynq7000/platform.mk
+include $(CHIBIOS)/os/hal/ports/ZYNQ7000/platform.mk
 include $(CHIBIOS)/os/rt/ports/ARM/compilers/GCC/mk/port_generic.mk
 
 BOARDDIR := $(SWIFTNAV_ROOT)/src/board/v3
@@ -67,10 +67,15 @@ BOARDSRC := \
         $(BOARDDIR)/error.o \
         $(BOARDDIR)/frontend.o \
         $(BOARDDIR)/init.o \
-        $(BOARDDIR)/nap/nap_dummy.o \
+        $(BOARDDIR)/nap/nap_dummy.o
+
+BOARDASM := \
+        $(BOARDDIR)/cpu_init.s \
+        $(BOARDDIR)/mmu_table.s \
+        $(BOARDDIR)/debug_vectors.s
 
 # Define linker script file here
-LDSCRIPT= $(BOARDDIR)/Zynq7000.ld
+LDSCRIPT= $(BOARDDIR)/ZYNQ7000.ld
 
 RULESPATH = $(CHIBIOS)/os/common/ports/ARM/compilers/GCC
 
