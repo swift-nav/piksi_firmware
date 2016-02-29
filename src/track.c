@@ -623,6 +623,17 @@ void tracking_channel_update(u8 channel)
         }
       }
 
+      /* Handover from L1C */
+      if (chan->lock_detect.outo &&
+          chan->bit_sync.bit_phase == chan->bit_sync.bit_phase_ref) {
+        //TODO: 1. get code-phase and doppler
+        //      2. recalculate doppler
+        //      3. call trcking_channel_init
+        //      4. protect the calling with mutex, because same function
+        //         is called from manage acquisition theread
+        //      5. use L2C fucking isolation mechanism
+      }
+
       /* Consider moving from stage 0 (1 ms integration) to stage 1 (longer). */
       if ((chan->stage == 0) &&
           /* Must have (at least optimistic) phase lock */

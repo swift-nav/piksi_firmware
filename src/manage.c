@@ -392,6 +392,11 @@ static void manage_acq()
   track_count += 16*(1023.0-cp)*(1.0 + cf / GPS_L1_HZ);
 
   /* Start the tracking channel */
+  //TODO: Here we need to call this with following rules:
+  //      1. use Mutex, because same can be called from track thread
+  //      2. what is the strategy for L2C? if L2C is availale for a SV
+  //         should we initialize tracking L2C rather than L1CA? If so
+  //         L2C capability functionality should be merged first.
   tracking_channel_init(chan, acq->sid, cf, track_count, cn0,
                         TRACKING_ELEVATION_UNKNOWN);
   /* TODO: Initialize elevation from ephemeris if we know it precisely */
