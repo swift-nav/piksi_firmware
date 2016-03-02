@@ -28,6 +28,7 @@
 #include "init.h"
 #include "manage.h"
 #include "track.h"
+#include "track_gps_l1ca.h"
 #include "timing.h"
 #include "ext_events.h"
 #include "solution.h"
@@ -183,7 +184,8 @@ int main(void)
   timing_setup();
   ext_event_setup();
   position_setup();
-  tracking_setup();
+  track_setup();
+  track_gps_l1ca_register();
   decode_setup();
   decode_gps_l1_register();
 

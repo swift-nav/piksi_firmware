@@ -78,6 +78,8 @@ typedef struct {
 } acq_status_t;
 static acq_status_t acq_status[PLATFORM_SIGNAL_COUNT];
 
+static bool track_mask[PLATFORM_SIGNAL_COUNT];
+
 #define SCORE_COLDSTART     100
 #define SCORE_WARMSTART     200
 #define SCORE_BELOWMASK     0
@@ -120,11 +122,10 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   sid_to_string(sid_str, sizeof(sid_str), sid);
 
   if (sid_supported(sid)) {
-    acq_status_t *acq = &acq_status[sid_to_global_index(sid)];
+    u16 global_index = sid_to_global_index(sid);
+    acq_status_t *acq = &acq_status[global_index];
     acq->masked = (m->mask & MASK_ACQUISITION) ? true : false;
-    if (m->mask & MASK_TRACKING) {
-      tracking_drop_satellite(sid);
-    }
+    track_mask[global_index] = (m->mask & MASK_TRACKING) ? true : false;
     log_info("Mask for %s = 0x%02x", sid_str, m->mask);
   } else {
     log_warn("Mask not set for invalid SID");
@@ -152,17 +153,20 @@ void manage_acq_setup()
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
     acq_status[i].state = ACQ_PRN_ACQUIRING;
+    acq_status[i].masked = false;
     memset(&acq_status[i].score, 0, sizeof(acq_status[i].score));
     acq_status[i].dopp_hint_low = ACQ_FULL_CF_MIN;
     acq_status[i].dopp_hint_high = ACQ_FULL_CF_MAX;
     acq_status[i].sid = sid_from_global_index(i);
 
+    track_mask[i] = false;
+    almanac[i].valid = 0;
+
     if (!sbas_enabled &&
         (sid_to_constellation(acq_status[i].sid) == CONSTELLATION_SBAS)) {
       acq_status[i].masked = true;
+      track_mask[i] = true;
     }
-
-    almanac[i].valid = 0;
   }
 
   sbp_register_cbk(
@@ -392,8 +396,8 @@ static void manage_acq()
   track_count += 16*(1023.0-cp)*(1.0 + cf / GPS_L1_HZ);
 
   /* Start the tracking channel */
-  tracking_channel_init(chan, acq->sid, cf, track_count, cn0,
-                        TRACKING_ELEVATION_UNKNOWN);
+  tracker_channel_init(chan, acq->sid, cf, track_count, cn0,
+                       TRACKING_ELEVATION_UNKNOWN);
   /* TODO: Initialize elevation from ephemeris if we know it precisely */
 
   /* Start the decoder channel */
@@ -415,7 +419,7 @@ static u8 manage_track_new_acq(gnss_signal_t sid)
    * a newly acquired satellite into.
    */
   for (u8 i=0; i<nap_track_n_channels; i++) {
-    if (tracking_channel_available(i, sid) &&
+    if (tracker_channel_available(i, sid) &&
         decoder_channel_available(i, sid)) {
       return i;
     }
@@ -489,7 +493,7 @@ static void drop_channel(u8 channel_id) {
 
   /* Finally disable the decoder and tracking channels */
   decoder_channel_disable(channel_id);
-  tracking_channel_disable(channel_id);
+  tracker_channel_disable(channel_id);
 }
 
 /** Disable any tracking channel that has lost phase lock or is
@@ -498,17 +502,24 @@ static void manage_track()
 {
   for (u8 i=0; i<nap_track_n_channels; i++) {
 
-    gnss_signal_t sid = tracking_channel_sid_get(i);
-    char buf[SID_STR_LEN_MAX];
-    sid_to_string(buf, sizeof(buf), sid);
-
     /* Skip channels that aren't in use */
     if (!tracking_channel_running(i) ||
         /* Give newly-initialized channels a chance to converge */
         tracking_channel_running_time_ms_get(i) < TRACK_INIT_T)
       continue;
 
-    acq_status_t *acq = &acq_status[sid_to_global_index(sid)];
+    gnss_signal_t sid = tracking_channel_sid_get(i);
+    char buf[SID_STR_LEN_MAX];
+    sid_to_string(buf, sizeof(buf), sid);
+
+    u16 global_index = sid_to_global_index(sid);
+    acq_status_t *acq = &acq_status[global_index];
+
+    /* Is tracking masked? */
+    if (track_mask[global_index]) {
+      drop_channel(i);
+      continue;
+    }
 
     /* Is ephemeris or alert flag marked unhealthy?*/
     const ephemeris_t *e = ephemeris_get(sid);
@@ -587,9 +598,7 @@ s8 use_tracking_channel(u8 i)
       /* Channel time of week has been decoded. */
       && (tracking_channel_tow_ms_get(i) != TOW_INVALID)
       /* Nav bit polarity is known, i.e. half-cycles have been resolved. */
-      && tracking_channel_bit_polarity_resolved(i)
-      /* Estimated C/N0 is above some threshold */
-      && tracking_channel_cn0_useable(i))
+      && tracking_channel_bit_polarity_resolved(i))
       /* TODO: Alert flag is not set */
       {
     /* Ephemeris must be valid, not stale. Satellite must be healthy.

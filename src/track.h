@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Copyright (C) 2011-2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
+ * Contact: Jacob McNamee <jacob@swiftnav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -19,6 +20,8 @@
 #include <libswiftnav/track.h>
 #include <libswiftnav/signal.h>
 
+#include <ch.h>
+
 #include "board/nap/track_channel.h"
 
 /** \addtogroup tracking
@@ -26,49 +29,53 @@
 
 #define TRACKING_ELEVATION_UNKNOWN 100 /* Ensure it will be above elev. mask */
 
+typedef u8 tracker_channel_id_t;
+
 /** \} */
 
-void tracking_setup(void);
+void track_setup(void);
 
 void tracking_send_state(void);
-void tracking_drop_satellite(gnss_signal_t sid);
 
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
-
-/* State management interface */
-bool tracking_channel_available(u8 channel, gnss_signal_t sid);
-void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
-                           u32 start_sample_count, float cn0_init, s8 elevation);
-void tracking_channel_disable(u8 channel);
 
 /* Update interface */
 void tracking_channels_update(u32 channels_mask);
 
+/* State management interface */
+bool tracker_channel_available(tracker_channel_id_t id, gnss_signal_t sid);
+bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
+                          float carrier_freq,  u32 start_sample_count,
+                          float cn0_init, s8 elevation);
+bool tracker_channel_disable(tracker_channel_id_t id);
+
 /* Tracking parameters interface.
  * Lock should be acquired for atomicity. */
-void tracking_channel_lock(u8 channel);
-void tracking_channel_unlock(u8 channel);
+void tracking_channel_lock(tracker_channel_id_t id);
+void tracking_channel_unlock(tracker_channel_id_t id);
 
-bool tracking_channel_running(u8 channel);
-bool tracking_channel_cn0_useable(u8 channel);
-u32 tracking_channel_running_time_ms_get(u8 channel);
-u32 tracking_channel_cn0_useable_ms_get(u8 channel);
-u32 tracking_channel_cn0_drop_ms_get(u8 channel);
-u32 tracking_channel_ld_opti_unlocked_ms_get(u8 channel);
-u32 tracking_channel_ld_pess_locked_ms_get(u8 channel);
-u32 tracking_channel_last_mode_change_ms_get(u8 channel);
-gnss_signal_t tracking_channel_sid_get(u8 channel);
-double tracking_channel_carrier_freq_get(u8 channel);
-s32 tracking_channel_tow_ms_get(u8 channel);
-bool tracking_channel_bit_sync_resolved(u8 channel);
-bool tracking_channel_bit_polarity_resolved(u8 channel);
-void tracking_channel_measurement_get(u8 channel, channel_measurement_t *meas);
+bool tracking_channel_running(tracker_channel_id_t id);
+float tracking_channel_cn0_get(tracker_channel_id_t id);
+u32 tracking_channel_running_time_ms_get(tracker_channel_id_t id);
+u32 tracking_channel_cn0_useable_ms_get(tracker_channel_id_t id);
+u32 tracking_channel_cn0_drop_ms_get(tracker_channel_id_t id);
+u32 tracking_channel_ld_opti_unlocked_ms_get(tracker_channel_id_t id);
+u32 tracking_channel_ld_pess_locked_ms_get(tracker_channel_id_t id);
+u32 tracking_channel_last_mode_change_ms_get(tracker_channel_id_t id);
+gnss_signal_t tracking_channel_sid_get(tracker_channel_id_t id);
+double tracking_channel_carrier_freq_get(tracker_channel_id_t id);
+s32 tracking_channel_tow_ms_get(tracker_channel_id_t id);
+bool tracking_channel_bit_sync_resolved(tracker_channel_id_t id);
+bool tracking_channel_bit_polarity_resolved(tracker_channel_id_t id);
+void tracking_channel_measurement_get(tracker_channel_id_t id,
+                                      channel_measurement_t *meas);
 
 bool tracking_channel_evelation_degrees_set(gnss_signal_t sid, s8 elevation);
-s8 tracking_channel_evelation_degrees_get(u8 channel);
+s8 tracking_channel_evelation_degrees_get(tracker_channel_id_t id);
 
 /* Decoder interface */
-bool tracking_channel_nav_bit_get(u8 channel, s8 *soft_bit);
-bool tracking_channel_time_sync(u8 channel, s32 TOW_ms, s8 bit_polarity);
+bool tracking_channel_nav_bit_get(tracker_channel_id_t id, s8 *soft_bit);
+bool tracking_channel_time_sync(tracker_channel_id_t id, s32 TOW_ms,
+                                s8 bit_polarity);
 
 #endif
