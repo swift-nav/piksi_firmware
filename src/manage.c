@@ -90,6 +90,29 @@ static bool track_mask[PLATFORM_SIGNAL_COUNT];
 #define DOPP_UNCERT_ALMANAC 4000
 #define DOPP_UNCERT_EPHEM   500
 
+#define COMPILER_BARRIER() asm volatile ("" : : : "memory")
+
+#define TRACKING_STARTUP_FIFO_SIZE 8
+
+#define TRACKING_STARTUP_FIFO_INDEX_MASK ((TRACKING_STARTUP_FIFO_SIZE) - 1)
+#define TRACKING_STARTUP_FIFO_INDEX_DIFF(write_index, read_index) \
+          ((tracking_startup_fifo_index_t)((write_index) - (read_index)))
+#define TRACKING_STARTUP_FIFO_LENGTH(p_fifo) \
+          (TRACKING_STARTUP_FIFO_INDEX_DIFF((p_fifo)->write_index, \
+                                            (p_fifo)->read_index))
+
+typedef u8 tracking_startup_fifo_index_t;
+
+typedef struct {
+  tracking_startup_fifo_index_t read_index;
+  tracking_startup_fifo_index_t write_index;
+  tracking_startup_params_t elements[TRACKING_STARTUP_FIFO_SIZE];
+} tracking_startup_fifo_t;
+
+static tracking_startup_fifo_t tracking_startup_fifo;
+
+static MUTEX_DECL(tracking_startup_mutex);
+
 static almanac_t almanac[PLATFORM_SIGNAL_COUNT];
 
 static float elevation_mask = 0.0; /* degrees */
@@ -99,6 +122,14 @@ static u8 manage_track_new_acq(gnss_signal_t sid);
 static void manage_acq(void);
 static void manage_track(void);
 static void nmea_send(void);
+
+static void manage_tracking_startup(void);
+static void tracking_startup_fifo_init(tracking_startup_fifo_t *fifo);
+static bool tracking_startup_fifo_write(tracking_startup_fifo_t *fifo,
+                                        const tracking_startup_params_t *
+                                        element);
+static bool tracking_startup_fifo_read(tracking_startup_fifo_t *fifo,
+                                       tracking_startup_params_t *element);
 
 static sbp_msg_callbacks_node_t almanac_callback_node;
 static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -141,6 +172,7 @@ static msg_t manage_acq_thread(void *arg)
   chRegSetThreadName("manage acq");
   while (TRUE) {
     manage_acq();
+    manage_tracking_startup();
     watchdog_notify(WD_NOTIFY_ACQ_MGMT);
   }
 
@@ -150,6 +182,8 @@ static msg_t manage_acq_thread(void *arg)
 void manage_acq_setup()
 {
   SETTING("acquisition", "sbas enabled", sbas_enabled, TYPE_BOOL);
+
+  tracking_startup_fifo_init(&tracking_startup_fifo);
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
     acq_status[i].state = ACQ_PRN_ACQUIRING;
@@ -373,40 +407,16 @@ static void manage_acq()
     return;
   }
 
-  /* Make sure a tracking channel and a decoder channel are available */
-  u8 chan = manage_track_new_acq(acq->sid);
-  if (chan == MANAGE_NO_CHANNELS_FREE) {
-    /* No channels are free to accept our new satellite :( */
-    /* TODO: Perhaps we can try to warm start this one
-     * later using another fine acq.
-     */
-    if (cn0 > ACQ_RETRY_THRESHOLD) {
-      acq->score[ACQ_HINT_PREV_ACQ] = SCORE_ACQ + (cn0 - ACQ_THRESHOLD);
-      acq->dopp_hint_low = cf - ACQ_FULL_CF_STEP;
-      acq->dopp_hint_high = cf + ACQ_FULL_CF_STEP;
-    }
-    return;
-  }
+  tracking_startup_params_t tracking_startup_params = {
+    .sid = acq->sid,
+    .sample_count = timer_count,
+    .carrier_freq = cf,
+    .code_phase = cp,
+    .cn0_init = cn0,
+    .elevation = TRACKING_ELEVATION_UNKNOWN
+  };
 
-  /* Transition to tracking. */
-  u32 track_count = nap_timing_count() + 20000;
-  cp = propagate_code_phase(cp, cf, track_count - timer_count);
-
-  // Contrive for the timing strobe to occur at or close to a PRN edge (code phase = 0)
-  track_count += 16*(1023.0-cp)*(1.0 + cf / GPS_L1_HZ);
-
-  /* Start the tracking channel */
-  tracker_channel_init(chan, acq->sid, cf, track_count, cn0,
-                       TRACKING_ELEVATION_UNKNOWN);
-  /* TODO: Initialize elevation from ephemeris if we know it precisely */
-
-  /* Start the decoder channel */
-  if (!decoder_channel_init(chan, acq->sid)) {
-    log_error("decoder channel init failed");
-  }
-
-  acq->state = ACQ_PRN_TRACKING;
-  nap_timing_strobe_wait(100);
+  tracking_startup_request(&tracking_startup_params);
 }
 
 /** Find an available tracking channel to start tracking an acquired PRN with.
@@ -623,6 +633,147 @@ u8 tracking_channels_ready()
     }
   }
   return n_ready;
+}
+
+/** Queue a request to start up tracking and decoding for the specified sid.
+ *
+ * \note This function is thread-safe and non-blocking.
+ *
+ * \param startup_params    Struct containing startup parameters.
+ *
+ * \return true if the request was successfully submitted, false otherwise.
+ */
+bool tracking_startup_request(const tracking_startup_params_t *startup_params)
+{
+  bool result = false;
+  if(chMtxTryLock(&tracking_startup_mutex))
+  {
+    result = tracking_startup_fifo_write(&tracking_startup_fifo,
+                                         startup_params);
+
+    Mutex *m = chMtxUnlock();
+    assert(m == &tracking_startup_mutex);
+  }
+
+  return result;
+}
+
+/** Read tracking startup requests from the FIFO and attempt to start
+ * tracking and decoding.
+ */
+static void manage_tracking_startup(void)
+{
+  tracking_startup_params_t startup_params;
+  while(tracking_startup_fifo_read(&tracking_startup_fifo, &startup_params)) {
+
+    acq_status_t *acq = &acq_status[sid_to_global_index(startup_params.sid)];
+
+    /* Make sure a tracking channel and a decoder channel are available */
+    u8 chan = manage_track_new_acq(startup_params.sid);
+    if (chan == MANAGE_NO_CHANNELS_FREE) {
+
+      /* No channels are free to accept our new satellite :( */
+      /* TODO: Perhaps we can try to warm start this one
+       * later using another fine acq.
+       */
+      if (startup_params.cn0_init > ACQ_RETRY_THRESHOLD) {
+        acq->score[ACQ_HINT_PREV_ACQ] =
+            SCORE_ACQ + (startup_params.cn0_init - ACQ_THRESHOLD);
+        acq->dopp_hint_low = startup_params.carrier_freq - ACQ_FULL_CF_STEP;
+        acq->dopp_hint_high = startup_params.carrier_freq + ACQ_FULL_CF_STEP;
+      }
+
+      continue;
+    }
+
+    /* Transition to tracking. */
+    u32 track_count = nap_timing_count() + 20000;
+    float cp = propagate_code_phase(startup_params.code_phase,
+                                    startup_params.carrier_freq,
+                                    track_count -
+                                        startup_params.sample_count);
+
+    /* Contrive for the timing strobe to occur at or close to a
+     * PRN edge (code phase = 0) */
+    track_count += 16 * (1023.0-cp) *
+                      (1.0 + startup_params.carrier_freq / GPS_L1_HZ);
+
+    /* Start the tracking channel */
+    if(!tracker_channel_init(chan, startup_params.sid,
+                             startup_params.carrier_freq,
+                             track_count,
+                             startup_params.cn0_init,
+                             TRACKING_ELEVATION_UNKNOWN)) {
+      log_error("tracker channel init failed");
+    }
+    /* TODO: Initialize elevation from ephemeris if we know it precisely */
+
+    /* Start the decoder channel */
+    if (!decoder_channel_init(chan, startup_params.sid)) {
+      log_error("decoder channel init failed");
+    }
+
+    /* Change state to TRACKING */
+    acq->state = ACQ_PRN_TRACKING;
+  }
+}
+
+/** Initialize a tracking_startup_fifo_t struct.
+ *
+ * \param fifo        tracking_startup_fifo_t struct to use.
+ */
+static void tracking_startup_fifo_init(tracking_startup_fifo_t *fifo)
+{
+  fifo->read_index = 0;
+  fifo->write_index = 0;
+}
+
+/** Write data to a tracking startup FIFO.
+ *
+ * \param fifo        tracking_startup_fifo_t struct to use.
+ * \param element     Element to write to the FIFO.
+ *
+ * \return true if element was read, false otherwise.
+ */
+static bool tracking_startup_fifo_write(tracking_startup_fifo_t *fifo,
+                                        const tracking_startup_params_t *
+                                        element)
+{
+  if (TRACKING_STARTUP_FIFO_LENGTH(fifo) < TRACKING_STARTUP_FIFO_SIZE) {
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    memcpy(&fifo->elements[fifo->write_index &
+                           TRACKING_STARTUP_FIFO_INDEX_MASK],
+           element, sizeof(tracking_startup_params_t));
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    fifo->write_index++;
+    return true;
+  }
+
+  return false;
+}
+
+/** Read pending data from a tracking startup FIFO.
+ *
+ * \param fifo        tracking_startup_fifo_t struct to use.
+ * \param element     Output element read from the FIFO.
+ *
+ * \return true if element was read, false otherwise.
+ */
+static bool tracking_startup_fifo_read(tracking_startup_fifo_t *fifo,
+                                       tracking_startup_params_t *element)
+{
+  if (TRACKING_STARTUP_FIFO_LENGTH(fifo) > 0) {
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    memcpy(element,
+           &fifo->elements[fifo->read_index &
+                           TRACKING_STARTUP_FIFO_INDEX_MASK],
+           sizeof(tracking_startup_params_t));
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    fifo->read_index++;
+    return true;
+  }
+
+  return false;
 }
 
 /** \} */

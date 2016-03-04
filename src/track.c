@@ -347,6 +347,8 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
   }
   tracker_channel_unlock(tracker_channel);
 
+  nap_timing_strobe_wait(100);
+
   return true;
 }
 

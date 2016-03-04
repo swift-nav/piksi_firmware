@@ -62,6 +62,15 @@
 #define MANAGE_TRACK_THREAD_PRIORITY (NORMALPRIO-2)
 #define MANAGE_TRACK_THREAD_STACK   1400
 
+typedef struct {
+  gnss_signal_t sid;      /**< Signal identifier. */
+  u32 sample_count;       /**< Reference NAP sample count. */
+  float carrier_freq;     /**< Carrier frequency Doppler (Hz). */
+  float code_phase;       /**< Code phase (chips). */
+  float cn0_init;         /**< C/N0 estimate (dBHz). */
+  s8 elevation;           /**< Elevation (deg). */
+} tracking_startup_params_t;
+
 /** \} */
 
 void manage_acq_setup(void);
@@ -71,5 +80,7 @@ void manage_set_obs_hint(gnss_signal_t sid);
 void manage_track_setup(void);
 s8 use_tracking_channel(u8 i);
 u8 tracking_channels_ready(void);
+
+bool tracking_startup_request(const tracking_startup_params_t *startup_params);
 
 #endif
