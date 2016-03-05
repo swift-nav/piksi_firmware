@@ -77,6 +77,8 @@ typedef struct {
   Mutex nap_mutex;
   /** Elevation angle, degrees. TODO: find a better place for this. */
   s8 elevation;
+  /** Associated tracker interface. */
+  const tracker_interface_t *interface;
   /** Associated tracker instance. */
   tracker_t *tracker;
 } tracker_channel_t;
@@ -104,7 +106,7 @@ static bool track_iq_output_notify(struct setting *s, const char *val);
 static void nap_channel_disable(const tracker_channel_t *tracker_channel);
 
 static tracker_channel_t * tracker_channel_get(tracker_channel_id_t id);
-static const tracker_interface_t * tracker_interface_get(gnss_signal_t sid);
+static const tracker_interface_t * tracker_interface_lookup(gnss_signal_t sid);
 static bool tracker_channel_runnable(const tracker_channel_t *tracker_channel,
                                      gnss_signal_t sid, tracker_t **tracker,
                                      const tracker_interface_t **
@@ -298,6 +300,7 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
     tracker_channel->info.sid = sid;
     tracker_channel->info.context = tracker_channel;
     tracker_channel->info.nap_channel = id;
+    tracker_channel->interface = tracker_interface;
     tracker_channel->tracker = tracker;
 
     tracker_channel->elevation = elevation;
@@ -695,11 +698,10 @@ static void tracker_channel_process(tracker_channel_t *tracker_channel,
     case STATE_ENABLED:
     {
       if (update_required) {
-        const tracker_interface_t *tracker_interface =
-            tracker_interface_get(tracker_channel->info.sid);
         tracker_channel_lock(tracker_channel);
         {
-          interface_function(tracker_channel, tracker_interface->update);
+          interface_function(tracker_channel,
+                             tracker_channel->interface->update);
         }
         tracker_channel_unlock(tracker_channel);
       }
@@ -707,12 +709,11 @@ static void tracker_channel_process(tracker_channel_t *tracker_channel,
     }
     case STATE_DISABLE_REQUESTED:
     {
-      const tracker_interface_t *tracker_interface =
-          tracker_interface_get(tracker_channel->info.sid);
       nap_channel_disable(tracker_channel);
       tracker_channel_lock(tracker_channel);
       {
-        interface_function(tracker_channel, tracker_interface->disable);
+        interface_function(tracker_channel,
+                           tracker_channel->interface->disable);
         tracker_channel->disable_time = chTimeNow();
         event(tracker_channel, EVENT_DISABLE);
       }
@@ -804,13 +805,13 @@ static tracker_channel_t * tracker_channel_get(tracker_channel_id_t id)
   return &tracker_channels[id];
 }
 
-/** Retrieve the tracker interface for the specified sid.
+/** Look up the tracker interface for the specified sid.
  *
  * \param sid       Signal to be tracked.
  *
  * \return Associated tracker interface. May be the default interface.
  */
-static const tracker_interface_t * tracker_interface_get(gnss_signal_t sid)
+static const tracker_interface_t * tracker_interface_lookup(gnss_signal_t sid)
 {
   const tracker_interface_list_element_t *e = *tracker_interface_list_ptr_get();
   while (e != 0) {
@@ -844,7 +845,7 @@ static bool tracker_channel_runnable(const tracker_channel_t *tracker_channel,
         MS2ST(CHANNEL_SHUTDOWN_TIME_ms))
     return false;
 
-  *tracker_interface = tracker_interface_get(sid);
+  *tracker_interface = tracker_interface_lookup(sid);
   if (!available_tracker_get(*tracker_interface, tracker))
     return false;
 
