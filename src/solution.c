@@ -428,7 +428,7 @@ static void solution_thread(void *arg)
        * calculation with the local GPS time of reception. */
       calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
                                   (double)((u32)nav_tc)/SAMPLE_FREQ,
-								  &nav_time, p_e_meas);
+								                  &nav_time, p_e_meas);
     } else {
       /* If a FINE quality time solution is not available then don't pass in a
        * `nav_time`. This will result in valid pseudoranges but with a large
@@ -436,7 +436,7 @@ static void solution_thread(void *arg)
        * observations after doing a PVT solution. */
       calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
                                   (double)((u32)nav_tc)/SAMPLE_FREQ,
-								  NULL, p_e_meas);
+								                  NULL, p_e_meas);
     }
     ephemeris_unlock();
 
@@ -490,9 +490,20 @@ static void solution_thread(void *arg)
       continue;
     }
 
+    /* Calculate the receiver clock error and if >1ms perform a clock jump */
+    double rx_err = gpsdifftime(&nav_time, &position_solution.time);
+    log_info("RX clock error = %f", rx_err);
+    if (fabs(rx_err) >= 1e-3) {
+    log_info("RX clock error >1ms, resetting!");
+      set_time_fine(nav_tc, position_solution.time);
+      // TODO reset pseudo range or just skip this epoch
+      // TODO reset carrier phase in track.c
+
+      continue;
+    }
+
     /* Update global position solution state. */
     position_updated();
-    set_time_fine(nav_tc, position_solution.time);
 
     /* Save elevation angles every so often */
     DO_EVERY((u32)soln_freq,
