@@ -491,7 +491,7 @@ static void solution_thread(void *arg)
 
     /* Calculate the receiver clock error and if >1ms perform a clock jump */
     double rx_err = gpsdifftime(&nav_time, &position_solution.time);
-    log_info("RX clock error = %f", rx_err);
+    log_debug("RX clock error = %f", rx_err);
     if (fabs(rx_err) >= 1e-3) {
     log_info("RX clock error >1ms, resetting!");
       set_time_fine(nav_tc, position_solution.time);
@@ -554,9 +554,10 @@ static void solution_thread(void *arg)
 
     /* Calculate the time of the nearest solution epoch, where we expected
      * to be, and calculate how far we were away from it. */
-    double expected_tow = round(position_solution.time.tow*soln_freq)
-                            / soln_freq;
-    double t_err = expected_tow - position_solution.time.tow;
+    double expected_tow = round(nav_time.tow * soln_freq)
+                          / soln_freq;
+    double t_err = expected_tow - nav_time.tow;
+
     /* Only send observations that are closely aligned with the desired
      * solution epochs to ensure they haven't been propagated too far. */
     /* Output obervations only every obs_output_divisor times, taking
