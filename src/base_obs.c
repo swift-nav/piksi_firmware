@@ -135,21 +135,22 @@ static void update_obss(obss_t *new_obss)
   n_old = new_obss->n;
 
   /* Reset the `has_pos` flag. */
-  u8 has_pos_old = base_obss.has_pos;
+  //u8 has_pos_old = base_obss.has_pos;
   base_obss.has_pos = 0;
   /* Check if the base station has sent us its position explicitly via a
    * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
    * that. No need to lock before reading here as base_pos_* is only written
    * from this thread (SBP).
    */
-  if (base_pos_known) {
+  if (false) {//base_pos_known) {
     /* Copy the known base station position into `base_obss`. */
     memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
     /* Indicate that the position is valid. */
     base_obss.has_pos = 1;
+    // TODO log warning is given pos >10m away from PVT pos
   /* The base station wasn't sent to us explicitly but if we have >= 4
    * satellites we can calculate it ourselves (approximately). */
-  } else if (base_obss.n >= 4) {
+ } else if (base_obss.n >= 4) { // TODO: if <4 sats or PVT error, skip the obs?
     gnss_solution soln;
     dops_t dops;
 
@@ -161,7 +162,7 @@ static void update_obss(obss_t *new_obss)
       /* The position solution calculation was sucessful. Unfortunately the
        * single point position solution is very noisy so lets smooth it if we
        * have the previous position available. */
-      if (has_pos_old) {
+      if (false) {//(has_pos_old) {
         /* TODO Implement a real filter for base position (potentially in
            observation space), so we can do away with this terrible excuse
            for smoothing. */
@@ -175,6 +176,19 @@ static void update_obss(obss_t *new_obss)
         memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
       }
       base_obss.has_pos = 1;
+
+      /* Calculate the time of the nearest solution epoch, where we expected
+       * to be, and calculate how far we were away from it. */
+      double t_err = gpsdifftime(&base_obss.t, &soln.time);
+      /* Only send observations that are closely aligned with the desired
+       * solution epochs to ensure they haven't been propagated too far. */
+      if (fabs(t_err) < OBS_PROPAGATION_LIMIT) {
+        /* Propagate observation to desired time. */
+        for (u8 i=0; i < base_obss.n; i++) {
+          base_obss.nm[i].raw_pseudorange += t_err * GPS_C;
+          base_obss.nm[i].raw_carrier_phase += t_err * base_obss.nm[i].doppler;
+        }
+      }
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
@@ -185,9 +199,9 @@ static void update_obss(obss_t *new_obss)
    * This calculation will be used later by the propagation functions. */
   if (base_obss.has_pos) {
     for (u8 i=0; i < base_obss.n; i++) {
-      double dx[3];
-      vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
-      base_obss.sat_dists[i] = vector_norm(3, dx);
+      double d[3];
+      vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, d);
+      base_obss.sat_dists[i] = vector_norm(3, d);
     }
   }
   /* Unlock base_obss mutex. */
@@ -216,7 +230,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * so we can verify we haven't dropped a message. */
   static s16 prev_count = 0;
 
-  static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
+  static gps_time_t prev_tor = {.tow = 0.0, .wn = 0};
 
   /* As we receive observation messages we assemble them into a working
    * `obss_t` (`base_obss_rx`) so as not to disturb the global `base_obss`
@@ -231,11 +245,12 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     return;
   }
 
+  //((observation_header_t*)msg)->n_obs = 0x10;
   /* Relay observations using sender_id = 0. */
   sbp_send_msg_(SBP_MSG_OBS, len, msg, 0);
 
   /* GPS time of observation. */
-  gps_time_t t;
+  gps_time_t tor;
   /* Total number of messages in the observation set / sequence. */
   u8 total;
   /* The current message number in the sequence. */
@@ -243,32 +258,32 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   /* Decode the message header to get the time and how far through the sequence
    * we are. */
-  unpack_obs_header((observation_header_t*)msg, &t, &total, &count);
+  unpack_obs_header((observation_header_t*)msg, &tor, &total, &count);
 
   /* Check to see if the observation is aligned with our internal observations,
    * i.e. is it going to time match one of our local obs. */
   u32 obs_freq = soln_freq / obs_output_divisor;
-  double epoch_count = t.tow * obs_freq;
+  double epoch_count = tor.tow * obs_freq;
   double dt = fabs(epoch_count - round(epoch_count)) / obs_freq;
   if (dt > TIME_MATCH_THRESHOLD) {
     log_warn("Unaligned observation from base station ignored, "
-             "tow = %.3f, dt = %.3f", t.tow, dt);
+             "tow = %.3f, dt = %.3f", tor.tow, dt);
     return;
   }
 
   /* Calculate packet latency. */
   if (time_quality >= TIME_COARSE) {
     gps_time_t now = get_current_time();
-    float latency_ms = (float) ((now.tow - t.tow) * 1000.0);
+    float latency_ms = (float) ((now.tow - tor.tow) * 1000.0);
     log_obs_latency(latency_ms);
   }
 
   /* Verify sequence integrity */
   if (count == 0) {
-    prev_t = t;
+    prev_tor = tor;
     prev_count = 0;
-  } else if (prev_t.tow != t.tow ||
-             prev_t.wn != t.wn ||
+  } else if (prev_tor.tow != tor.tow ||
+             prev_tor.wn != tor.wn ||
              prev_count + 1 != count) {
     log_info("Dropped one of the observation packets! Skipping this sequence.");
     prev_count = -1;
@@ -285,7 +300,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * state. */
   if (count == 0) {
     base_obss_rx.n = 0;
-    base_obss_rx.t = t;
+    base_obss_rx.t = tor;
   }
 
   /* Pull out the contents of the message. */
@@ -302,30 +317,45 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
      * fill in satellite position etc. parameters. */
     ephemeris_lock();
     ephemeris_t *e = ephemeris_get(sid);
-    if (ephemeris_valid(e, &t)) {
+    if (ephemeris_valid(e, &tor)) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
         &base_obss_rx.nm[base_obss_rx.n].raw_pseudorange,
-        &base_obss_rx.nm[base_obss_rx.n].carrier_phase,
+        &base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase,
         &base_obss_rx.nm[base_obss_rx.n].snr,
         &base_obss_rx.nm[base_obss_rx.n].lock_counter,
         &base_obss_rx.nm[base_obss_rx.n].sid
       );
+
+      /* Set the time */
+      base_obss_rx.nm[base_obss_rx.n].tot = tor;
+      base_obss_rx.nm[base_obss_rx.n].tot.tow -=
+            base_obss_rx.nm[base_obss_rx.n].raw_pseudorange / GPS_C;
+      normalize_gps_time(&base_obss_rx.nm[base_obss_rx.n].tot);
+
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(e, &t,
+      calc_sat_state(e, &base_obss_rx.nm[base_obss_rx.n].tot,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);
-      /* Apply corrections to the raw pseudorange. */
+
+      /* Apply corrections to the raw pseudorange and carrier phase. */
       /* TODO Make a function to apply some of these corrections.
        *      They are used in a couple places. */
       base_obss_rx.nm[base_obss_rx.n].pseudorange =
-            base_obss_rx.nm[base_obss_rx.n].raw_pseudorange + clock_err * GPS_C;
-      /* Set the time */
-      base_obss_rx.nm[base_obss_rx.n].tot = t;
+            base_obss_rx.nm[base_obss_rx.n].raw_pseudorange
+            + clock_err * GPS_C;
+      base_obss_rx.nm[base_obss_rx.n].carrier_phase =
+            base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase
+            + clock_err * GPS_L1_HZ;
+
+      /* We also apply the clock correction to the time of transmit. */
+      base_obss_rx.nm[base_obss_rx.n].tot.tow -= clock_err;
+      normalize_gps_time(&base_obss_rx.nm[base_obss_rx.n].tot);
+
       base_obss_rx.n++;
     }
     ephemeris_unlock();

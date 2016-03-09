@@ -24,6 +24,7 @@
 #include "peripherals/random.h"
 #include "settings.h"
 #include "signal.h"
+#include "timing.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
@@ -79,7 +80,7 @@ static struct lock_detect_params {
   u16 lp, lo;
 } lock_detect_params;
 
-static float track_cn0_drop_thres = 31.0;
+static float track_cn0_drop_thres = 26.0;
 static u16 iq_output_mask = 0;
 
 /** \defgroup tracking Tracking
@@ -93,6 +94,8 @@ static u16 iq_output_mask = 0;
  * and TRACKING_DISABLED = 0.
  */
 tracking_channel_t tracking_channel[NAP_MAX_N_TRACK_CHANNELS];
+
+static double carrier_phase_offset[NAP_MAX_N_TRACK_CHANNELS];
 
 /* signal lock counter
  * A map of signal to an initially random number that increments each time that
@@ -308,6 +311,8 @@ void tracking_channel_init(u8 channel, gnss_signal_t sid, float carrier_freq,
 
   /* Initialize all fields in the channel to 0 */
   memset(chan, 0, sizeof(tracking_channel_t));
+
+  carrier_phase_offset[channel] = 0.0;
 
   bit_sync_init(&chan->bit_sync, sid);
   nav_bit_fifo_init(&chan->nav_bit_fifo);
@@ -725,9 +730,19 @@ void tracking_update_measurement(u8 channel, channel_measurement_t *meas)
   meas->receiver_time = (double)chan->sample_count / SAMPLE_FREQ;
   meas->snr = chan->cn0;
   if (chan->bit_polarity == BIT_POLARITY_INVERTED) {
-    meas->carrier_phase += 0.5;
+    meas->carrier_phase -= 0.5;
   }
   meas->lock_counter = chan->lock_counter;
+// TODO maybe just reset to 0 on first clock or something?
+  /*if ((time_quality == TIME_FINE) && (carrier_phase_offset[channel] == 0.0f)) {
+    gps_time_t tor = rx2gpstime(meas->receiver_time);
+    gps_time_t tot;
+    tot.tow = 1e-3 * meas->time_of_week_ms;
+    tot.tow += meas->code_phase_chips / 1.023e6;
+    gps_time_match_weeks(&tot, &tor);
+    carrier_phase_offset[channel] = GPS_L1_HZ * gpsdifftime(&tor, &tot);
+  }
+  meas->carrier_phase += carrier_phase_offset[channel];*/
 }
 
 /** Send tracking state SBP message.
