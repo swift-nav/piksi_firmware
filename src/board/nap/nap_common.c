@@ -224,8 +224,11 @@ void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[],
  */
 u64 nap_timing_count(void)
 {
+  static MUTEX_DECL(timing_count_mutex);
   static u32 rollover_count = 0;
   static u32 prev_count = 0;
+
+  chMtxLock(&timing_count_mutex);
 
   u8 temp[4] = { 0, 0, 0, 0 };
 
@@ -238,7 +241,10 @@ u64 nap_timing_count(void)
 
   prev_count = count;
 
-  return (u64)count | ((u64)rollover_count << 32);
+  u64 total_count = (u64)count | ((u64)rollover_count << 32);
+
+  chMtxUnlock();
+  return total_count;
 }
 
 /** Read and write the NAP's external events register
@@ -391,4 +397,3 @@ void nap_pps_width(u32 falling_edge_count)
 /** \} */
 
 /** \} */
-
