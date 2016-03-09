@@ -403,10 +403,7 @@ static void solution_thread(void *arg)
     /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
      * more intelligent with the solution time.
      */
-    static u8 n_ready_old = 0;
-    u64 nav_tc = nap_timing_count();
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
-
     const channel_measurement_t *p_meas[n_ready];
     navigation_measurement_t *p_nav_meas[n_ready];
     const ephemeris_t *p_e_meas[n_ready];
@@ -419,14 +416,15 @@ static void solution_thread(void *arg)
     }
 
     /* Create navigation measurements from the channel measurements */
-    ephemeris_lock();
+    u64 nav_tc = nap_timing_count();
     gps_time_t nav_time = rx2gpstime(nav_tc);
+    ephemeris_lock();
     if (time_quality == TIME_FINE) {
       /* If we have timing then we can calculate the relationship between
        * receiver time and GPS time and hence provide the pseudorange
        * calculation with the local GPS time of reception. */
       calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                  (double)((u32)nav_tc)/SAMPLE_FREQ,
+                                  (double)((u32)nav_tc) / SAMPLE_FREQ,
 								                  &nav_time, p_e_meas);
     } else {
       /* If a FINE quality time solution is not available then don't pass in a
@@ -434,19 +432,24 @@ static void solution_thread(void *arg)
        * and arbitrary receiver clock error. We may want to discard these
        * observations after doing a PVT solution. */
       calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                  (double)((u32)nav_tc)/SAMPLE_FREQ,
+                                  (double)((u32)nav_tc) / SAMPLE_FREQ,
 								                  NULL, p_e_meas);
     }
     ephemeris_unlock();
 
+    static u64 nav_tc_old = 0;
+    static u8 n_ready_old = 0;
+    static navigation_measurement_t nav_meas_old[MAX_CHANNELS];
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
     u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
-                                   nav_meas_old, nav_meas_tdcp);
+                                   nav_meas_old, nav_meas_tdcp,
+                                   (double)(nav_tc - nav_tc_old) / SAMPLE_FREQ);
 
     /* Store current observations for next time for
      * TDCP Doppler calculation. */
     memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
     n_ready_old = n_ready;
+    nav_tc_old = nav_tc;
 
     if (n_ready_tdcp < 4) {
       /* Not enough sats to compute PVT */
@@ -493,7 +496,7 @@ static void solution_thread(void *arg)
     double rx_err = gpsdifftime(&nav_time, &position_solution.time);
     log_debug("RX clock error = %f", rx_err);
     if (fabs(rx_err) >= 1e-3) {
-    log_info("RX clock error >1ms, resetting!");
+    log_info("RX clock error %f > 1ms, resetting!", rx_err);
       set_time_fine(nav_tc, position_solution.time);
       // TODO reset pseudo range or just skip this epoch
       // TODO reset carrier phase in track.c

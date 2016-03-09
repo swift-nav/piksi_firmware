@@ -124,7 +124,9 @@ static void update_obss(obss_t *new_obss)
   /* Fill in the navigation measurements in base_obss, using TDCP method to
    * calculate the Doppler shift. */
   base_obss.n = tdcp_doppler(new_obss->n, new_obss->nm,
-                             n_old, nm_old, base_obss.nm);
+                             n_old, nm_old, base_obss.nm,
+                             /* TODO Is this right? */
+                             gpsdifftime(&new_obss->nm[0].tot, &nm_old[0].tot));
   /* Copy over the time. */
   base_obss.t = new_obss->t;
 
