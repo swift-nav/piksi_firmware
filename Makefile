@@ -22,7 +22,7 @@ endif
 
 all: firmware # tests
 
-firmware: libopencm3/lib/libopencm3_stm32f4.a libsbp/c/build/src/libsbp-static.a libswiftnav/build/src/libswiftnav-static.a
+firmware: libsbp/c/build/src/libsbp-static.a libswiftnav/build/src/libswiftnav-static.a
 	@printf "BUILD   src\n"; \
 	$(MAKE) -r -C src $(MAKEFLAGS)
 
@@ -33,10 +33,6 @@ tests:
 			$(MAKE) -r -C $$i $(MAKEFLAGS) || exit $?; \
 		fi; \
 	done
-
-libopencm3/lib/libopencm3_stm32f4.a:
-	@printf "BUILD   libopencm3\n"; \
-	$(MAKE) -C libopencm3 $(MAKEFLAGS) lib/stm32/f4
 
 libsbp/c/build/src/libsbp-static.a:
 	@printf "BUILD   libsbp\n"; \
@@ -53,8 +49,6 @@ libswiftnav/build/src/libswiftnav-static.a: .FORCE
 clean:
 	@printf "CLEAN   src\n"; \
 	$(MAKE) -C src $(MAKEFLAGS) clean
-	@printf "CLEAN   libopencm3\n"; \
-	$(MAKE) -C libopencm3 $(MAKEFLAGS) clean
 	@printf "CLEAN   libsbp\n"; \
 	$(RM) -rf libsbp/c/build
 	@printf "CLEAN   libswiftnav\n"; \

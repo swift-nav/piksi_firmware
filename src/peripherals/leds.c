@@ -10,8 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/stm32/f4/gpio.h>
-#include <libopencm3/stm32/f4/rcc.h>
+#include <hal.h>
 
 #include "leds.h"
 
@@ -26,9 +25,6 @@
 /** Setup the LED GPIOs. */
 void led_setup(void)
 {
-  RCC_AHB1ENR |= RCC_AHB1ENR_IOPCEN;
-  gpio_mode_setup(GPIOC, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO3 | GPIO4);
-
   led_off(LED_GREEN);
   led_off(LED_RED);
 }
@@ -40,11 +36,11 @@ void led_off(u8 led)
 {
   switch (led) {
   case LED_1:
-    gpio_set(GPIOC, GPIO3);
+    palSetLine(LINE_LED1);
     break;
 
   case LED_2:
-    gpio_set(GPIOC, GPIO4);
+    palSetLine(LINE_LED2);
     break;
 
   default:
@@ -59,11 +55,11 @@ void led_on(u8 led)
 {
   switch (led) {
   case LED_1:
-    gpio_clear(GPIOC, GPIO3);
+    palClearLine(LINE_LED1);
     break;
 
   case LED_2:
-    gpio_clear(GPIOC, GPIO4);
+    palClearLine(LINE_LED2);
     break;
 
   default:
@@ -79,11 +75,11 @@ void led_toggle(u8 led)
 {
   switch (led) {
   case LED_1:
-    gpio_toggle(GPIOC, GPIO3);
+    palToggleLine(LINE_LED1);
     break;
 
   case LED_2:
-    gpio_toggle(GPIOC, GPIO4);
+    palToggleLine(LINE_LED2);
     break;
 
   default:

@@ -21,7 +21,6 @@
 #include "sbp_utils.h"
 #include "track.h"
 #include "simulator.h"
-#include "peripherals/random.h"
 #include "settings.h"
 #include "signal.h"
 
@@ -198,8 +197,7 @@ static bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
   sync->valid = true;
   result = true;
 
-  Mutex *m = chMtxUnlock();
-  assert(m == &nav_time_sync_mutex);
+  chMtxUnlock(&nav_time_sync_mutex);
   return result;
 }
 
@@ -229,8 +227,7 @@ static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
     result = true;
   }
 
-  Mutex *m = chMtxUnlock();
-  assert(m == &nav_time_sync_mutex);
+  chMtxUnlock(&nav_time_sync_mutex);
   return result;
 }
 
@@ -239,7 +236,7 @@ static bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
 void initialize_lock_counters(void)
 {
   for (u32 i=0; i < PLATFORM_SIGNAL_COUNT; i++) {
-    tracking_lock_counters[i] = random_int();
+    tracking_lock_counters[i] = rand();
   }
 }
 

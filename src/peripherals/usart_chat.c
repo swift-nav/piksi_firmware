@@ -37,11 +37,11 @@ void usart_escape(enum uart u)
   if (u == UART_NONE)
     return;
   chThdSleepMilliseconds(1100);
-  usart_write_dma(&uart_state(u)->tx, (const u8*)"+", 1);
+  usart_write(uart_state(u), (const u8*)"+", 1);
   chThdSleepMilliseconds(100);
-  usart_write_dma(&uart_state(u)->tx, (const u8*)"+", 1);
+  usart_write(uart_state(u), (const u8*)"+", 1);
   chThdSleepMilliseconds(100);
-  usart_write_dma(&uart_state(u)->tx, (const u8*)"+", 1);
+  usart_write(uart_state(u), (const u8*)"+", 1);
   chThdSleepMilliseconds(1100);
 }
 
@@ -55,15 +55,15 @@ bool usart_sendwait(enum uart u, const char *send, const char *wait, u32 timeout
 
   /* Flush out anything in the receive buffer */
   if (send && send[0]) {
-    while (usart_n_read_dma(&uart_state(u)->rx)) {
-      usart_read_dma(&uart_state(u)->rx, &c, 1);
+    while (usart_n_read(uart_state(u))) {
+      usart_read(uart_state(u), &c, 1);
     }
 
-    usart_write_dma(&uart_state(u)->tx, (const u8*)send, strlen(send));
+    usart_write(uart_state(u), (const u8*)send, strlen(send));
 
     /* Wait for command echo */
     for (i = 0; send[i]; i++) {
-      usart_read_dma_timeout(&uart_state(u)->rx, &c, 1, TIMEOUT_CHAR);
+      usart_read_timeout(uart_state(u), &c, 1, TIMEOUT_CHAR);
       if (c != send[i]) {
         log_debug("No echo: '%s'", send);
         return false;
@@ -76,7 +76,7 @@ bool usart_sendwait(enum uart u, const char *send, const char *wait, u32 timeout
   timeout -= timeout % TIMEOUT_CHAR;
   i = 0;
   do {
-    if (usart_read_dma_timeout(&uart_state(u)->rx, &c, 1, TIMEOUT_CHAR) == 0)
+    if (usart_read_timeout(uart_state(u), &c, 1, TIMEOUT_CHAR) == 0)
       timeout -= TIMEOUT_CHAR;
     if (c == wait[i]) {
       i++;

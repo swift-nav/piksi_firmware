@@ -10,8 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/stm32/f4/flash.h>
-#include <libopencm3/stm32/f4/rcc.h>
+#include <hal.h>
 
 #include <libsbp/flash.h>
 #include <libsbp/sbp.h>
@@ -19,29 +18,16 @@
 #include <libswiftnav/logging.h>
 
 #include "main.h"
-#include "board/leds.h"
-#include "board/m25_flash.h"
+#include "peripherals/leds.h"
+#include "board/v2/m25_flash.h"
 #include "board/nap/nap_common.h"
 #include "board/nap/nap_conf.h"
 #include "sbp.h"
 #include "error.h"
 
-/** Clock settings for 130.944 MHz from 16.368 MHz HSE. */
-const clock_scale_t hse_16_368MHz_in_130_944MHz_out_3v3 =
-{
-  .pllm           = 16,
-  .plln           = 256,
-  .pllp           = 2,
-  .pllq           = 6,
-  .hpre           = RCC_CFGR_HPRE_DIV_NONE,
-  .ppre1          = RCC_CFGR_PPRE_DIV_4,
-  .ppre2          = RCC_CFGR_PPRE_DIV_4,
-  .flash_config   = FLASH_ACR_ICE | FLASH_ACR_DCE | FLASH_ACR_LATENCY_3WS,
-  .apb1_frequency = 32736000,
-  .apb2_frequency = 32736000,
-};
+#define SCB_AIRCR_VECTKEY                       (0x5FA << SCB_AIRCR_VECTKEY_Pos)
+#define SCB_AIRCR_SYSRESETREQ                   (1 << 2)
 
-#define AIRCR_SYSRESETREQ			(1 << 2)
 /** Resets the device back into the bootloader. */
 static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
@@ -52,9 +38,9 @@ static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    */
   __asm__("DSB;");
   /* Keep priority group unchanged. */
-  SCB_AIRCR = AIRCR_VECTKEY |
-              AIRCR_PRIGROUP_MASK |
-              AIRCR_SYSRESETREQ;
+  SCB->AIRCR = SCB_AIRCR_VECTKEY |
+               SCB_AIRCR_PRIGROUP_Msk |
+               SCB_AIRCR_SYSRESETREQ;
   __asm__("DSB;");
   /* Wait until reset. */
   while(1);
