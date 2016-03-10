@@ -34,6 +34,8 @@
 #define LINE_LED1 PAL_LINE(GPIO1, 15)
 #define LINE_LED2 PAL_LINE(GPIO1, 19)
 
+#define SPI_SS_GPIO_LINE PAL_LINE(GPIO0, 13)
+
 #if !defined(_FROM_ASM_)
 #ifdef __cplusplus
 extern "C" {
