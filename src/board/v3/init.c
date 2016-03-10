@@ -12,7 +12,8 @@
 
 #include <hal.h>
 
-#include <libsbp/flash.h>
+#include <stdlib.h>
+
 #include <libsbp/sbp.h>
 
 #include <libswiftnav/logging.h>
@@ -29,6 +30,8 @@ void init(void)
   led_setup();
 
   nap_setup();
+
+  srand(0);
 
   s32 serial_number = -1;//nap_conf_rd_serial_number();
   if (serial_number < 0) {

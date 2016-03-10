@@ -56,8 +56,6 @@ void boardInit(void)
   *(volatile uint32_t *)0xF8000158 &= ~(0x3F << 8);
   *(volatile uint32_t *)0xF8000158 |= (20 << 8);
 
-  srand(0);
-
   cycle_counter_init();
 }
 

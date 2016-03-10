@@ -17,9 +17,7 @@
 #include "ch.h"
 #include "hal.h"
 
-#include <stdlib.h>
 #include <libswiftnav/logging.h>
-#include "peripherals/random.h"
 
 #if HAL_USE_PAL || defined(__DOXYGEN__)
 /**
@@ -71,8 +69,6 @@ void __early_init(void)
  */
 void boardInit(void)
 {
-  rng_setup();
-  srand(random_int());
 }
 
 void board_preinit_hook(void)

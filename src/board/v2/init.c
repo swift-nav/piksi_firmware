@@ -12,6 +12,8 @@
 
 #include <hal.h>
 
+#include <stdlib.h>
+
 #include <libsbp/flash.h>
 #include <libsbp/sbp.h>
 
@@ -19,6 +21,7 @@
 
 #include "main.h"
 #include "peripherals/leds.h"
+#include "peripherals/random.h"
 #include "board/v2/m25_flash.h"
 #include "board/nap/nap_common.h"
 #include "board/nap/nap_conf.h"
@@ -88,6 +91,9 @@ void init(void)
   led_setup();
 
   nap_setup();
+
+  rng_setup();
+  srand(random_int());
 
   s32 serial_number = nap_conf_rd_serial_number();
   if (serial_number < 0) {
