@@ -92,7 +92,7 @@ static bool track_mask[PLATFORM_SIGNAL_COUNT];
 
 #define COMPILER_BARRIER() asm volatile ("" : : : "memory")
 
-#define TRACKING_STARTUP_FIFO_SIZE 8
+#define TRACKING_STARTUP_FIFO_SIZE 8    /* Must be a power of 2 */
 
 #define TRACKING_STARTUP_FIFO_INDEX_MASK ((TRACKING_STARTUP_FIFO_SIZE) - 1)
 #define TRACKING_STARTUP_FIFO_INDEX_DIFF(write_index, read_index) \
