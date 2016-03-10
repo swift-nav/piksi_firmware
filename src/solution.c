@@ -525,7 +525,7 @@ static void solution_thread(void *arg)
     double pdt;
     chMtxLock(&base_obs_lock);
     if (base_obss.n > 0 && !simulation_enabled()) {
-      if ((pdt = gpsdifftime(&position_solution.time, &base_obss.t)) // TODO use rec time?
+      if ((pdt = gpsdifftime(&rec_time, &base_obss.t))
             < MAX_AGE_OF_DIFFERENTIAL) {
 
         /* Propagate base station observations to the current time and
@@ -540,9 +540,8 @@ static void solution_thread(void *arg)
                                   base_obss.n, base_obss.nm,
                                   base_obss.sat_dists, base_obss.pos_ecef,
                                   sdiffs);
-          ephemeris_unlock();
           if (num_sdiffs >= 4) {
-            output_baseline(num_sdiffs, sdiffs, &position_solution.time); // TODO use rec time?
+            output_baseline(num_sdiffs, sdiffs, &rec_time);
           }
         }
       }
