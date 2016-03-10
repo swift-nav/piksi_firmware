@@ -409,7 +409,7 @@ static void solution_thread(void *arg)
     const ephemeris_t *p_e_meas[n_ready];
 
     /* Create arrays of pointers for use in calc_navigation_measurement */
-    for (u8 i=0; i<n_ready; i++) {
+    for (u8 i = 0; i < n_ready; i++) {
       p_meas[i] = &meas[i];
       p_nav_meas[i] = &nav_meas[i];
       p_e_meas[i] = ephemeris_get(meas[i].sid);
@@ -525,7 +525,7 @@ static void solution_thread(void *arg)
     double pdt;
     chMtxLock(&base_obs_lock);
     if (base_obss.n > 0 && !simulation_enabled()) {
-      if ((pdt = gpsdifftime(&rec_time, &base_obss.t))
+      if ((pdt = gpsdifftime(&rec_time, &base_obss.rec_time))
             < MAX_AGE_OF_DIFFERENTIAL) {
 
         /* Propagate base station observations to the current time and
@@ -541,7 +541,7 @@ static void solution_thread(void *arg)
                                   base_obss.sat_dists, base_obss.pos_ecef,
                                   sdiffs);
           if (num_sdiffs >= 4) {
-            output_baseline(num_sdiffs, sdiffs, &rec_time);
+            output_baseline(num_sdiffs, sdiffs, &gps_time);
           }
         }
       }
@@ -565,7 +565,7 @@ static void solution_thread(void *arg)
         fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
       /* Propagate observation to desired time. */
       /* We have to use the tdcp_doppler result to account for TCXO drift. */
-      for (u8 i=0; i<n_ready_tdcp; i++) {
+      for (u8 i = 0; i < n_ready_tdcp; i++) {
         nav_meas_tdcp[i].raw_pseudorange -= t_err * nav_meas_tdcp[i].raw_doppler
                                             * GPS_L1_LAMBDA;
         nav_meas_tdcp[i].raw_carrier_phase += t_err * nav_meas_tdcp[i].raw_doppler;
@@ -595,7 +595,10 @@ static void solution_thread(void *arg)
           log_error("Pool full and mailbox empty!");
         }
       }
-      obs->t = new_obs_time;
+      obs->rec_time = new_obs_time;
+      obs->gps_time = position_solution.time;
+      obs->gps_time.tow += t_err;
+      normalize_gps_time(&obs->gps_time);
       obs->n = n_ready_tdcp;
       memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
       ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
@@ -607,6 +610,8 @@ static void solution_thread(void *arg)
          * */
         log_error("Mailbox should have space!");
       }
+    } else if (fabs(t_err) >= OBS_PROPAGATION_LIMIT) {
+      log_error("Couldn't round observation epoch. t_err = %f", t_err);
     }
 
     /* Calculate time till the next desired solution epoch. */
@@ -695,36 +700,59 @@ static void time_matched_obs_thread(void *arg)
             == MSG_OK) {
 
       chMtxLock(&base_obs_lock);
-      double dt = gpsdifftime(&obss->t, &base_obss.t);
+      double dt = gpsdifftime(&obss->rec_time, &base_obss.rec_time); // TODO use gps time?
 
       if (fabs(dt) < TIME_MATCH_THRESHOLD) {
-        /* Times match! Process obs and base_obss */
-        static sdiff_t sds[MAX_CHANNELS];
-        u8 n_sds = single_diff(
-            obss->n, obss->nm,
-            base_obss.n, base_obss.nm,
-            sds
-        );
-        chMtxUnlock(&base_obs_lock);
+        /* Observation times include some reiceiver clock error from GPS system
+         * time, thus two measurements with matching receiver times may not be
+         * from the same time instant. So we need to adjust the observations. */
 
-        u16 *sds_lock_counters[n_sds];
-        for (u32 i=0; i<n_sds; i++)
-          sds_lock_counters[i] = &lock_counters[sid_to_global_index(sds[i].sid)];
+        double t_err = gpsdifftime(&obss->gps_time, &base_obss.gps_time);
+        if (fabs(t_err) < OBS_PROPAGATION_LIMIT) {
+          /* Propagate observation to desired time. */
+          /* We have to use the tdcp_doppler result to account for TCXO drift. */
+          // TODO is this needed?, or just keep the time match check
+          for (u8 i = 0; i < base_obss.n; i++) {
+            base_obss.nm[i].raw_pseudorange -= t_err * base_obss.nm[i].raw_doppler
+                                               * GPS_L1_LAMBDA;
+            base_obss.nm[i].raw_carrier_phase += t_err * base_obss.nm[i].raw_doppler;
+          }
 
-        gnss_signal_t sats_to_drop[n_sds];
-        u8 num_sats_to_drop = check_lock_counters(n_sds, sds, sds_lock_counters,
-                                                  sats_to_drop);
-        if (num_sats_to_drop > 0) {
-          /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
-           * Dropping an sdiff will cause dgnss_update to drop that sat from
-           * our filters. */
-          n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
+          /* Times match! Process obs and base_obss */
+          static sdiff_t sds[MAX_CHANNELS];
+          u8 n_sds = single_diff(
+              obss->n, obss->nm,
+              base_obss.n, base_obss.nm,
+              sds
+          );
+          chMtxUnlock(&base_obs_lock);
+
+          u16 *sds_lock_counters[n_sds];
+          for (u32 i=0; i<n_sds; i++)
+            sds_lock_counters[i] = &lock_counters[sid_to_global_index(sds[i].sid)];
+
+          gnss_signal_t sats_to_drop[n_sds];
+          u8 num_sats_to_drop = check_lock_counters(n_sds, sds, sds_lock_counters,
+                                                    sats_to_drop);
+          if (num_sats_to_drop > 0) {
+            /* Copies all valid sdiffs back into sds, omitting each of sats_to_drop.
+             * Dropping an sdiff will cause dgnss_update to drop that sat from
+             * our filters. */
+            n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
+          }
+          process_matched_obs(n_sds, &obss->gps_time, sds);
+          chPoolFree(&obs_buff_pool, obss);
+          break;
+        } else {
+          log_error("Couldn't align observations. t_err = %f dt = %f", t_err, dt);
+          log_error("local rec time = %f base rec time = %f", obss->rec_time.tow, base_obss.rec_time.tow);
+          log_error("local gps time = %f base gps time = %f", obss->gps_time.tow, base_obss.gps_time.tow);
+
+          chMtxUnlock(&base_obs_lock);
+          chPoolFree(&obs_buff_pool, obss);
+          break;
         }
-        process_matched_obs(n_sds, &obss->t, sds);
-        chPoolFree(&obs_buff_pool, obss);
-        break;
       } else {
-        chMtxUnlock(&base_obs_lock);
         if (dt > 0) {
           /* Time of base obs before time of local obs, we must not have a local
            * observation matching this base observation, break and wait for a
@@ -734,8 +762,8 @@ static void time_matched_obs_thread(void *arg)
            * if it does. */
           log_warn("Obs Matching: t_base < t_rover "
                    "(dt=%f obss.t={%d,%f} base_obss.t={%d,%f})", dt,
-                   obss->t.wn, obss->t.tow,
-                   base_obss.t.wn, base_obss.t.tow
+                   obss->rec_time.wn, obss->rec_time.tow,
+                   base_obss.rec_time.wn, base_obss.rec_time.tow // TODO use gps time?
           );
           /* Return the buffer to the mailbox so we can try it again later. */
           msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);
@@ -751,6 +779,7 @@ static void time_matched_obs_thread(void *arg)
            * keep moving through the mailbox. */
           chPoolFree(&obs_buff_pool, obss);
         }
+        chMtxUnlock(&base_obs_lock);
       }
     }
 
