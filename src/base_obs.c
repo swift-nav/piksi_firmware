@@ -124,6 +124,7 @@ static void update_obss(obss_t *new_obss)
 
   /* Fill in the navigation measurements in base_obss, using TDCP method to
    * calculate the Doppler shift. */
+   // TODO print debug info for dops?
   base_obss.n = tdcp_doppler(new_obss->n, new_obss->nm,
                              n_old, nm_old, base_obss.nm,
                              gpsdifftime(&new_obss->t, &t_old));
@@ -160,15 +161,15 @@ static void update_obss(obss_t *new_obss)
     /* Apply corrections to the raw pseudorange, carrier phase and Doppler. */
     /* TODO Make a function to apply some of these corrections.
      *      They are used in a couple places. */
-    base_obss.nm[i].doppler =
-          base_obss.nm[i].raw_doppler
-          + clock_rate_err * GPS_L1_HZ;
     base_obss.nm[i].pseudorange =
           base_obss.nm[i].raw_pseudorange
           + clock_err * GPS_C;
     base_obss.nm[i].carrier_phase =
           base_obss.nm[i].raw_carrier_phase
-          + clock_err * base_obss.nm[i].doppler;
+          - clock_err * GPS_L1_HZ;
+    base_obss.nm[i].doppler =
+          base_obss.nm[i].raw_doppler
+          + clock_rate_err * GPS_L1_HZ;
 
     /* We also apply the clock correction to the time of transmit. */
     base_obss.nm[i].tot.tow -= clock_err;
