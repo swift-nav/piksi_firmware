@@ -42,6 +42,10 @@
     TRACK_DROP_UNLOCKED_T ms, drop the channel. */
 #define TRACK_DROP_UNLOCKED_T 5000
 
+/** If pessimistic phase lock detector shows "locked" for >=
+    TRACK_USE_LOCKED_T ms, use the channel. */
+#define TRACK_USE_LOCKED_T 100
+
 /** How many milliseconds to wait for the tracking loops to
  * stabilize after any mode change before using obs. */
 #define TRACK_STABILIZATION_T 1000
@@ -58,6 +62,15 @@
 #define MANAGE_TRACK_THREAD_PRIORITY (NORMALPRIO-2)
 #define MANAGE_TRACK_THREAD_STACK   1400
 
+typedef struct {
+  gnss_signal_t sid;      /**< Signal identifier. */
+  u32 sample_count;       /**< Reference NAP sample count. */
+  float carrier_freq;     /**< Carrier frequency Doppler (Hz). */
+  float code_phase;       /**< Code phase (chips). */
+  float cn0_init;         /**< C/N0 estimate (dBHz). */
+  s8 elevation;           /**< Elevation (deg). */
+} tracking_startup_params_t;
+
 /** \} */
 
 void manage_acq_setup(void);
@@ -67,5 +80,7 @@ void manage_set_obs_hint(gnss_signal_t sid);
 void manage_track_setup(void);
 s8 use_tracking_channel(u8 i);
 u8 tracking_channels_ready(void);
+
+bool tracking_startup_request(const tracking_startup_params_t *startup_params);
 
 #endif

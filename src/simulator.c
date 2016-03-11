@@ -317,7 +317,7 @@ void simulation_step_tracking_and_observations(double elapsed)
         .code = simulation_almanacs[i].sid.code,
         .sat = simulation_almanacs[i].sid.sat + SIM_PRN_OFFSET
       };
-      sim_state.tracking_channel[num_sats_selected].state = TRACKING_RUNNING;
+      sim_state.tracking_channel[num_sats_selected].state = 1;
       sim_state.tracking_channel[num_sats_selected].sid = sid_to_sbp(sid);
       sim_state.tracking_channel[num_sats_selected].cn0 = sim_state.nav_meas[num_sats_selected].snr;
 

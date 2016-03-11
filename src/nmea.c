@@ -180,17 +180,18 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
 /** Assemble a NMEA GPGSA message and send it out NMEA USARTs.
  * NMEA GPGSA message contains DOP and active satellites.
  *
- * \param chans Pointer to tracking_channel_t struct.
- * \param dops  Pointer to dops_t struct.
+ * \param prns      Array of prns to output
+ * \param num_prns  Length of prns array
+ * \param dops      Pointer to dops_t struct.
  */
-void nmea_gpgsa(const tracking_channel_t *chans, const dops_t *dops)
+void nmea_gpgsa(const u8 *prns, u8 num_prns, const dops_t *dops)
 {
   NMEA_SENTENCE_START(120);
   NMEA_SENTENCE_PRINTF("$GPGSA,A,3,");
 
   for (u8 i = 0; i < 12; i++) {
-    if (i < nap_track_n_channels && chans[i].state == TRACKING_RUNNING)
-      NMEA_SENTENCE_PRINTF("%02d,", chans[i].sid.sat + 1);
+    if (i < num_prns)
+      NMEA_SENTENCE_PRINTF("%02d,", prns[i]);
     else
       NMEA_SENTENCE_PRINTF(",");
   }
@@ -229,8 +230,9 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
     for (u8 j = 0; j < 4; j++) {
       if (n < n_used) {
         wgsecef2azel(nav_meas[n].sat_pos, soln->pos_ecef, &az, &el);
+        /* TODO: only include GPS signals */
         NMEA_SENTENCE_PRINTF(",%02d,%02d,%03d,%02d",
-          nav_meas[n].sid.sat + 1,
+          nav_meas[n].sid.sat,
           (u8)round(el * R2D),
           (u16)round(az * R2D),
           (u8)round(nav_meas[n].snr)
