@@ -55,6 +55,8 @@ Mutex amb_state_lock;
 systime_t last_dgnss;
 
 double soln_freq = 10.0;
+bool output_best = true;
+
 u32 obs_output_divisor = 2;
 
 double known_baseline[3] = {0, 0, 0};
@@ -65,7 +67,7 @@ static u16 lock_counters[PLATFORM_SIGNAL_COUNT];
 bool disable_raim = false;
 bool send_heading = false;
 
-void solution_send_sbp(gnss_solution *soln, dops_t *dops)
+void solution_send_sbp(gnss_solution *soln, dops_t *dops, bool sent_psuedo_abs)
 {
   if (soln) {
     /* Send GPS_TIME message first. */
@@ -74,14 +76,18 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
     sbp_send_msg(SBP_MSG_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
 
     /* Position in LLH. */
-    msg_pos_llh_t pos_llh;
-    sbp_make_pos_llh(&pos_llh, soln, 0);
-    sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
+    /* if the device is configured to only output the best solution and
+       we indicate that a psuedo absolute was sent, we do not output SPP*/
+    if (!(sent_psuedo_abs  && output_best)) {
+      msg_pos_llh_t pos_llh;
+      sbp_make_pos_llh(&pos_llh, soln, 0);
+      sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
 
-    /* Position in ECEF. */
-    msg_pos_ecef_t pos_ecef;
-    sbp_make_pos_ecef(&pos_ecef, soln, 0);
-    sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
+      /* Position in ECEF. */
+      msg_pos_ecef_t pos_ecef;
+      sbp_make_pos_ecef(&pos_ecef, soln, 0);
+      sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
+    }
 
     /* Velocity in NED. */
     msg_vel_ned_t vel_ned;
@@ -104,13 +110,16 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 }
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm,
-                        u8 fix_mode)
+                        u8 fix_mode, bool sent_psuedo_abs)
 {
-  if (chTimeElapsedSince(last_dgnss) > DGNSS_TIMEOUT) {
-    nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
-               fix_mode, dops->hdop);
+  if (!(sent_psuedo_abs && output_best))
+    {
+    if (chTimeElapsedSince(last_dgnss) > DGNSS_TIMEOUT) {
+      nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
+                 fix_mode, dops->hdop);
+    }
+    nmea_send_msgs(soln, n, nm);
   }
-  nmea_send_msgs(soln, n, nm);
 
 }
 
@@ -197,7 +206,7 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
   chMtxUnlock();
 }
 
-static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
+static bool output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
                             const gps_time_t *t)
 {
   double b[3];
@@ -217,7 +226,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
       flags = (ret == 1) ? 1 : 0;
     } else {
       log_warn("dgnss_baseline returned error: %d", ret);
-      return;
+      return 0;
     }
     break;
 
@@ -232,12 +241,13 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
       log_warn("output_baseline: Float baseline RAIM repair");
     if (ret < 0) {
       log_warn("dgnss_float_baseline returned error: %d", ret);
-      return;
+      return 0;
     }
     break;
   }
 
   solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
+  return 1;
 }
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
@@ -332,16 +342,6 @@ static void solution_simulation()
   soln->time.tow = expected_tow;
   normalize_gps_time(&soln->time);
 
-  if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
-    /* Then we send fake messages. */
-    solution_send_sbp(soln, simulation_current_dops_solution());
-    solution_send_nmea(soln, simulation_current_dops_solution(),
-                       simulation_current_num_sats(),
-                       simulation_current_navigation_measurements(),
-                       NMEA_GGA_FIX_GPS);
-
-  }
-
   if (simulation_enabled_for(SIMULATION_MODE_FLOAT) ||
       simulation_enabled_for(SIMULATION_MODE_RTK)) {
 
@@ -357,6 +357,16 @@ static void solution_simulation()
       send_observations(simulation_current_num_sats(),
         &(soln->time), simulation_current_navigation_measurements());
     }
+  }
+  if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
+    /* Then we send fake messages. If either float or fixed simulator is enabled, we get psuedo absolute*/
+    bool sent_psuedo_abs = simulation_enabled_for(SIMULATION_MODE_FLOAT) || simulation_enabled_for(SIMULATION_MODE_RTK);
+    solution_send_sbp(soln, simulation_current_dops_solution(), sent_psuedo_abs);
+    solution_send_nmea(soln, simulation_current_dops_solution(),
+                       simulation_current_num_sats(),
+                       simulation_current_navigation_measurements(),
+                       NMEA_GGA_FIX_GPS, sent_psuedo_abs);
+
   }
 }
 
@@ -385,6 +395,7 @@ static msg_t solution_thread(void *arg)
 
   while (TRUE) {
     /* Waiting for the timer IRQ fire.*/
+    bool sent_psuedo_abs = 0;
     chBSemWait(&solution_wakeup_sem);
 
     watchdog_notify(WD_NOTIFY_SOLUTION);
@@ -464,14 +475,6 @@ static msg_t solution_thread(void *arg)
                update_sat_elevations(nav_meas_tdcp, n_ready_tdcp,
                                      position_solution.pos_ecef));
 
-      if (!simulation_enabled()) {
-        /* Output solution. */
-        solution_send_sbp(&position_solution, &dops);
-        solution_send_nmea(&position_solution, &dops,
-                           n_ready_tdcp, nav_meas_tdcp,
-                           NMEA_GGA_FIX_GPS);
-      }
-
       /* If we have a recent set of observations from the base station, do a
        * differential solution. */
       double pdt;
@@ -500,13 +503,22 @@ static msg_t solution_thread(void *arg)
                                     sdiffs);
             ephemeris_unlock();
             if (num_sdiffs >= 4) {
-              output_baseline(num_sdiffs, sdiffs, &position_solution.time);
+              sent_psuedo_abs = output_baseline(num_sdiffs, sdiffs, &position_solution.time);
+              sent_psuedo_abs &= base_pos_known;
             }
           }
 
         }
       }
       chMtxUnlock();
+
+      if (!simulation_enabled()) {
+        /* Output solution. */
+        solution_send_sbp(&position_solution, &dops, sent_psuedo_abs);
+        solution_send_nmea(&position_solution, &dops,
+                           n_ready_tdcp, nav_meas_tdcp,
+                           NMEA_GGA_FIX_GPS, sent_psuedo_abs);
+      }
 
       /* Calculate the time of the nearest solution epoch, were we expected
        * to be and calculate how far we were away from it. */
@@ -588,7 +600,7 @@ static msg_t solution_thread(void *arg)
       );
 
       /* Send just the DOPs */
-      solution_send_sbp(0, &dops);
+      solution_send_sbp(0, &dops, sent_psuedo_abs);
     }
   }
   return 0;
@@ -764,6 +776,7 @@ void solution_setup()
   last_dgnss = chTimeNow() - DGNSS_TIMEOUT;
 
   SETTING("solution", "soln_freq", soln_freq, TYPE_FLOAT);
+  SETTING("solution", "best_available_output", output_best, TYPE_BOOL);
   SETTING("solution", "output_every_n_obs", obs_output_divisor, TYPE_INT);
 
   static const char const *dgnss_soln_mode_enum[] = {
