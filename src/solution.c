@@ -541,7 +541,7 @@ static void solution_thread(void *arg)
                                   base_obss.sat_dists, base_obss.pos_ecef,
                                   sdiffs);
           if (num_sdiffs >= 4) {
-            output_baseline(num_sdiffs, sdiffs, &gps_time);
+            output_baseline(num_sdiffs, sdiffs, &position_solution.time);
           }
         }
       }
