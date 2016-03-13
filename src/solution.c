@@ -498,10 +498,6 @@ static void solution_thread(void *arg)
     if (fabs(rx_err) >= 1e-3) {
     log_info("RX clock error %f > 1ms, resetting!", rx_err);
       set_time_fine(rec_tc, position_solution.time);
-      // TODO reset pseudo range or just skip this epoch
-      // TODO reset carrier phase in track.c
-
-      continue;
     }
 
     /* Update global position solution state. */
