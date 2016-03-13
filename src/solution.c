@@ -346,13 +346,16 @@ static void update_sat_elevations(const navigation_measurement_t nav_meas[],
 void chThdSleepUntilCheck(systime_t time)
 {
   chSysLock();
-  if ((int)(time -= chVTGetSystemTimeX()) > 0) {
-    chThdSleepS(time);
+  systime_t systime = chVTGetSystemTimeX();
+  if (time > systime) {
+    chThdSleepS(time - systime);
     chSysUnlock();
   } else {
     chSysUnlock();
-    log_warn("Solution thread missed deadline, "
-             "time = %lu, deadline = %lu", chVTGetSystemTimeX(), time);
+    if (time != systime) {
+      log_warn("Solution thread missed deadline, "
+               "time = %lu, deadline = %lu", systime, time);
+    }
   }
 }
 
@@ -551,10 +554,11 @@ static void solution_thread(void *arg)
       /* Calculate time till the next desired solution epoch. */
       double dt = expected_tow - position_solution.time.tow;
 
-      /* Limit dt to 2 seconds maximum to prevent hang if dt calculated
+      /* Limit dt to 1 second maximum to prevent hang if dt calculated
        * incorrectly. */
-      if (dt > 1)
-        dt = 1;
+      if (fabs(dt) > 1.0) {
+        dt = (dt > 0.0) ? 1.0 : -1.0;
+      }
 
       /* Reset timer period with the count that we will estimate will being
        * us up to the next solution time. */
