@@ -160,7 +160,6 @@ static void update_obss(obss_t *new_obss)
 
   /* Fill in the navigation measurements in base_obss, using TDCP method to
    * calculate the Doppler shift. */
-   // TODO print debug info for dops?
   base_obss.n = tdcp_doppler(new_obss->n, new_obss->nm,
                              n_old, nm_old, base_obss.nm,
                              gpsdifftime(&new_obss->rec_time, &rec_time_old));
@@ -178,19 +177,8 @@ static void update_obss(obss_t *new_obss)
   /* Reset the `has_pos` flag. */
   u8 has_pos_old = base_obss.has_pos;
   base_obss.has_pos = 0;
-  /* Check if the base station has sent us its position explicitly via a
-   * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
-   * that. No need to lock before reading here as base_pos_* is only written
-   * from this thread (SBP).
-   */
-  ///if (base_pos_known) { // TODO always do PVT
-    /* Copy the known base station position into `base_obss`. */
-    ///memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
-    /* Indicate that the position is valid. */
-    ///base_obss.has_pos = 1;
-  /* The base station wasn't sent to us explicitly but if we have >= 4
-   * satellites we can calculate it ourselves (approximately). */
-  /*} else*/ if (base_obss.n >= 4) {
+
+  if (base_obss.n >= 4) {
     gnss_solution soln;
     dops_t dops;
 
@@ -223,17 +211,36 @@ static void update_obss(obss_t *new_obss)
       log_warn("Error calculating base station position: (%s).", pvt_err_msg[-ret-1]);
     }
   }
+
   /* If the base station position is known then calculate the satellite ranges.
    * This calculation will be used later by the propagation functions. */
   if (base_obss.has_pos) {
+    /* Check if the base station has sent us its position explicitly via a
+     * BASE_POS SBP message (as indicated by #base_pos_known).
+     * No need to lock before reading here as base_pos_* is only written
+     * from this thread (SBP).
+     */
+    if (base_pos_known) {
+      double d[3];
+      vector_subtract(3, base_obss.pos_ecef, base_pos_ecef, d);
+      double dist = vector_norm(3, d);
+
+      if (fabs(dist) > 5.0) {
+        log_warn("Received base station position %f m from PVT position.",
+                 dist);
+      }
+    }
+
     for (u8 i=0; i < base_obss.n; i++) {
       double d[3];
       vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, d);
       base_obss.sat_dists[i] = vector_norm(3, d);
     }
   }
+
   /* Unlock base_obss mutex. */
   chMtxUnlock(&base_obs_lock);
+
   /* Signal that a complete base observation has been received. */
   chBSemSignal(&base_obs_received);
 }
