@@ -21,8 +21,6 @@
 #include <libswiftnav/logging.h>
 #include "peripherals/random.h"
 
-#define SYSTEM_CLOCK 130944000
-
 #if HAL_USE_PAL || defined(__DOXYGEN__)
 /**
  * @brief   PAL setup.
@@ -73,14 +71,6 @@ void __early_init(void)
  */
 void boardInit(void)
 {
-  /* Initialise SysTick timer that will be used as the ChibiOS kernel tick
-   * timer. */
-  SysTick->LOAD = SYSTEM_CLOCK / CH_CFG_ST_FREQUENCY - 1;
-  SysTick->VAL = 0;
-  SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk |
-                  SysTick_CTRL_TICKINT_Msk |
-                  SysTick_CTRL_ENABLE_Msk;
-
   rng_setup();
   srand(random_int());
 }

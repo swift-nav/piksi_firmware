@@ -92,7 +92,7 @@
  * EXT driver system settings.
  */
 #define STM32_EXT_EXTI0_IRQ_PRIORITY        6
-#define STM32_EXT_EXTI1_IRQ_PRIORITY        6
+#define STM32_EXT_EXTI1_IRQ_PRIORITY        CORTEX_MAX_KERNEL_PRIORITY
 #define STM32_EXT_EXTI2_IRQ_PRIORITY        6
 #define STM32_EXT_EXTI3_IRQ_PRIORITY        6
 #define STM32_EXT_EXTI4_IRQ_PRIORITY        6
@@ -241,6 +241,11 @@
 #define STM32_SPI_SPI2_IRQ_PRIORITY         10
 #define STM32_SPI_SPI3_IRQ_PRIORITY         10
 #define STM32_SPI_DMA_ERROR_HOOK(spip)      chSysHalt("SPI DMA error")
+
+/*
+ * ST driver system settings.
+ */
+#define STM32_ST_IRQ_PRIORITY               CORTEX_MINIMUM_PRIORITY
 
 /*
  * UART driver system settings.
