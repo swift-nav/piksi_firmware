@@ -32,14 +32,10 @@
 #include "simulator.h"
 #include "system_monitor.h"
 #include "position.h"
+#include "base_obs.h"
 
 #define WATCHDOG_THREAD_PERIOD_MS 15000
 extern const WDGConfig board_wdg_config;
-
-/* Maximum distance between calculated and surveyed base station single point 
- * position for error checking.
- */
-#define BASE_STATION_DISTANCE_THRESHOLD 15000
 
 /* Time between sending system monitor and heartbeat messages in milliseconds */
 static uint32_t heartbeat_period_milliseconds = 1000;
@@ -181,7 +177,7 @@ static void system_monitor_thread(void *arg)
       base_distance = vector_norm(3, tmp);
 
       if (base_distance > BASE_STATION_DISTANCE_THRESHOLD) {
-        log_warn("Invalid surveyed position coordinates\n");
+        log_warn("Sending invalid surveyed position coordinates.");
       } else {
         sbp_send_msg(SBP_MSG_BASE_POS_ECEF, sizeof(msg_base_pos_ecef_t), (u8 *)&base_ecef);
       }
@@ -194,9 +190,9 @@ static void system_monitor_thread(void *arg)
       iar_state.num_hyps = dgnss_iar_num_hyps();
     }
     sbp_send_msg(SBP_MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
-    
-    DO_EVERY(2, 
-     send_thread_states(); 
+
+    DO_EVERY(2,
+     send_thread_states();
     );
 
     u32 err = nap_error_rd_blocking();
@@ -312,4 +308,3 @@ void watchdog_notify(watchdog_notify_t thread_id)
 }
 
 /** \} */
-

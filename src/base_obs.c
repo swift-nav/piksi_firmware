@@ -118,7 +118,7 @@ static void update_obss(obss_t *new_obss)
 
   for (u8 i = 0; i < new_obss->n; i++) {
     /* Set the time */
-    new_obss->nm[i].tot = new_obss->rec_time;
+    new_obss->nm[i].tot = new_obss->tor;
     new_obss->nm[i].tot.tow -=
           new_obss->nm[i].raw_pseudorange / GPS_C;
     normalize_gps_time(&new_obss->nm[i].tot);
@@ -155,24 +155,24 @@ static void update_obss(obss_t *new_obss)
   /* Create a set of navigation measurements to store the previous
    * observations. */
   static u8 n_old = 0;
-  static gps_time_t rec_time_old = {.wn = 0, .tow = 0};
+  static gps_time_t tor_old = {.wn = 0, .tow = 0};
   static navigation_measurement_t nm_old[MAX_CHANNELS];
 
   /* Fill in the navigation measurements in base_obss, using TDCP method to
    * calculate the Doppler shift. */
   base_obss.n = tdcp_doppler(new_obss->n, new_obss->nm,
                              n_old, nm_old, base_obss.nm,
-                             gpsdifftime(&new_obss->rec_time, &rec_time_old));
+                             gpsdifftime(&new_obss->tor, &tor_old));
 
   /* Copy the current observations over to nm_old so we can difference
    * against them next time around. */
   memcpy(nm_old, new_obss->nm,
          new_obss->n * sizeof(navigation_measurement_t));
   n_old = new_obss->n;
-  rec_time_old = new_obss->rec_time;
+  tor_old = new_obss->tor;
 
   /* Copy over the time. */
-  base_obss.rec_time = new_obss->rec_time;
+  base_obss.tor = new_obss->tor;
 
   /* Reset the `has_pos` flag. */
   u8 has_pos_old = base_obss.has_pos;
@@ -204,19 +204,19 @@ static void update_obss(obss_t *new_obss)
         memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
       }
       base_obss.has_pos = 1;
-      base_obss.gps_time = soln.time;
 
-       if (base_pos_known) {
-         double d[3];
-         vector_subtract(3, soln.pos_ecef, base_pos_ecef, d);
-         double dist = vector_norm(3, d);
+      if (base_pos_known) {
+       double d[3];
+       vector_subtract(3, soln.pos_ecef, base_pos_ecef, d);
+       double base_distance = vector_norm(3, d);
 
-         if (fabs(dist) > 5.0) {
-           // TODO is this too frequent?
-           log_warn("Received base station position %f m from PVT position.",
-                    dist);
-         }
+       if (base_distance > BASE_STATION_DISTANCE_THRESHOLD) {
+         /* TODO this seems to be triggered all the time. Likely due to our
+          * poor SPP performance and the filter above. */
+         log_warn("Received base station position %f m from PVT position.",
+                  base_distance);
        }
+      }
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
@@ -336,7 +336,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * state. */
   if (count == 0) {
     base_obss_rx.n = 0;
-    base_obss_rx.rec_time = tor;
+    base_obss_rx.tor = tor;
   }
 
   /* Pull out the contents of the message. */

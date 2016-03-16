@@ -24,10 +24,8 @@
  * \{ */
 
 typedef struct {
-  /** Receiver time of the observation. May include an offset from GPS time. */
-  gps_time_t rec_time;
-  /** GPS system time of the observation. Taken from a PVT solution. */
-  gps_time_t gps_time;
+  /** GPS system time of the observation. */
+  gps_time_t tor;
   /** Approximate base station position.
    * This may be the position as reported by the base station itself or the
    * position obtained from doing a single point solution using the base
@@ -46,6 +44,11 @@ typedef struct {
 
 /** Maximum difference between observation times to consider them matched. */
 #define TIME_MATCH_THRESHOLD 2e-3
+
+/** Maximum distance between calculated and surveyed base station single point
+ * position for error checking.
+ */
+#define BASE_STATION_DISTANCE_THRESHOLD 5
 
 /* \} */
 
