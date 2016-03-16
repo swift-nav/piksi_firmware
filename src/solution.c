@@ -521,7 +521,7 @@ static void solution_thread(void *arg)
     double pdt;
     chMtxLock(&base_obs_lock);
     if (base_obss.n > 0 && !simulation_enabled()) {
-      if ((pdt = gpsdifftime(&rec_time, &base_obss.rec_time))
+      if ((pdt = gpsdifftime(&position_solution.time, &base_obss.gps_time))
             < MAX_AGE_OF_DIFFERENTIAL) {
 
         /* Propagate base station observations to the current time and
@@ -539,18 +539,18 @@ static void solution_thread(void *arg)
           if (num_sdiffs >= 4) {
             output_baseline(num_sdiffs, sdiffs, &position_solution.time);
           }
+        } else {
         }
       }
     }
     chMtxUnlock(&base_obs_lock);
 
-
     // TODO do epoch alignment before pvt? to match base obs?
     /* Calculate the time of the nearest solution epoch, where we expected
      * to be, and calculate how far we were away from it. */
-    double expected_tow = round(rec_time.tow * soln_freq)
+    double expected_tow = round(position_solution.time.tow * soln_freq)
                           / soln_freq;
-    double t_err = expected_tow - rec_time.tow;
+    double t_err = expected_tow - position_solution.time.tow;
 
     /* Only send observations that are closely aligned with the desired
      * solution epochs to ensure they haven't been propagated too far. */
@@ -569,7 +569,7 @@ static void solution_thread(void *arg)
 
       /* Update observation time. */
       gps_time_t new_obs_time;
-      new_obs_time.wn = rec_time.wn;
+      new_obs_time.wn = position_solution.time.wn;
       new_obs_time.tow = expected_tow;
       normalize_gps_time(&new_obs_time);
       if (!simulation_enabled() && time_quality == TIME_FINE) {
@@ -591,10 +591,10 @@ static void solution_thread(void *arg)
           log_error("Pool full and mailbox empty!");
         }
       }
-      obs->rec_time = new_obs_time;
-      obs->gps_time = position_solution.time;
-      obs->gps_time.tow += t_err;
-      normalize_gps_time(&obs->gps_time);
+      obs->rec_time = rec_time;
+      obs->rec_time.tow += t_err;
+      normalize_gps_time(&obs->rec_time);
+      obs->gps_time = new_obs_time;
       obs->n = n_ready_tdcp;
       memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
       ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
@@ -696,7 +696,7 @@ static void time_matched_obs_thread(void *arg)
             == MSG_OK) {
 
       chMtxLock(&base_obs_lock);
-      double dt = gpsdifftime(&obss->rec_time, &base_obss.rec_time); // TODO use gps time?
+      double dt = gpsdifftime(&obss->rec_time, &base_obss.rec_time);
 
       if (fabs(dt) < TIME_MATCH_THRESHOLD) {
         /* Observation times include some reiceiver clock error from GPS system
@@ -724,8 +724,9 @@ static void time_matched_obs_thread(void *arg)
           chMtxUnlock(&base_obs_lock);
 
           u16 *sds_lock_counters[n_sds];
-          for (u32 i=0; i<n_sds; i++)
+          for (u32 i=0; i<n_sds; i++) {
             sds_lock_counters[i] = &lock_counters[sid_to_global_index(sds[i].sid)];
+          }
 
           gnss_signal_t sats_to_drop[n_sds];
           u8 num_sats_to_drop = check_lock_counters(n_sds, sds, sds_lock_counters,
@@ -740,9 +741,7 @@ static void time_matched_obs_thread(void *arg)
           chPoolFree(&obs_buff_pool, obss);
           break;
         } else {
-          log_error("Couldn't align observations. t_err = %f dt = %f", t_err, dt);
-          log_error("local rec time = %f base rec time = %f", obss->rec_time.tow, base_obss.rec_time.tow);
-          log_error("local gps time = %f base gps time = %f", obss->gps_time.tow, base_obss.gps_time.tow);
+          log_error("GPS time of observations to not match. t_err = %f", t_err);
 
           chMtxUnlock(&base_obs_lock);
           chPoolFree(&obs_buff_pool, obss);
