@@ -205,6 +205,18 @@ static void update_obss(obss_t *new_obss)
       }
       base_obss.has_pos = 1;
       base_obss.gps_time = soln.time;
+
+       if (base_pos_known) {
+         double d[3];
+         vector_subtract(3, soln.pos_ecef, base_pos_ecef, d);
+         double dist = vector_norm(3, d);
+
+         if (fabs(dist) > 5.0) {
+           // TODO is this too frequent?
+           log_warn("Received base station position %f m from PVT position.",
+                    dist);
+         }
+       }
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
@@ -220,16 +232,6 @@ static void update_obss(obss_t *new_obss)
      * No need to lock before reading here as base_pos_* is only written
      * from this thread (SBP).
      */
-    if (base_pos_known) {
-      double d[3];
-      vector_subtract(3, base_obss.pos_ecef, base_pos_ecef, d);
-      double dist = vector_norm(3, d);
-
-      if (fabs(dist) > 5.0) {
-        log_warn("Received base station position %f m from PVT position.",
-                 dist);
-      }
-    }
 
     for (u8 i=0; i < base_obss.n; i++) {
       double d[3];
