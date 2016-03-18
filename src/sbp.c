@@ -334,7 +334,7 @@ int _write(int file, char *ptr, int len)
 }
 
 /** Directs log_ output to the SBP log message */
-void log_(u8 level, const char *msg, ...)
+void log_(u8 level, const char *file, const int line, const char *msg, ...)
 {
   msg_log_t *log;
   va_list ap;
@@ -344,7 +344,11 @@ void log_(u8 level, const char *msg, ...)
   log->level = level;
 
   va_start(ap, msg);
-  int n = vsnprintf(log->text, SBP_FRAMING_MAX_PAYLOAD_SIZE-sizeof(msg_log_t), msg, ap);
+  int n = snprintf(log->text, SBP_FRAMING_MAX_PAYLOAD_SIZE-sizeof(msg_log_t),
+                   "(%s:%d) ", file, line);
+  va_start(ap, msg);
+  n += vsnprintf(&log->text[n], SBP_FRAMING_MAX_PAYLOAD_SIZE-sizeof(msg_log_t)-n,
+                 msg, ap);
   va_end(ap);
 
   if (n < 0)
