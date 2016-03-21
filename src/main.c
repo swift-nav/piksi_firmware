@@ -47,6 +47,8 @@
 
 extern void ext_setup(void);
 
+void track_gps_l2cm_register(void) TRK_WEAK;
+
 #if !defined(SYSTEM_CLOCK)
 #define SYSTEM_CLOCK 130944000
 #endif

@@ -11,7 +11,7 @@
  */
 
 #include "track_gps_l2cm.h"
-#include "track.h"
+#include "track_api.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
@@ -28,7 +28,7 @@
  carrier:                    nbw  zeta k fll_aid */
 
 #define GPS_L2CM_LOOP_PARAMS_MED \
-  "(20 ms, (1, 0.7, 1, 1200), (13, 0.7, 1, 5))" 
+  "(20 ms, (1, 0.7, 1, 1200), (13, 0.7, 1, 5))"
 
 /*                          k1,   k2,  lp,  lo */
 #define LD_PARAMS_PESS     "0.10, 1.4, 200, 50"
@@ -75,13 +75,13 @@ static tracker_t gps_l2cm_trackers[NUM_GPS_L2CM_TRACKERS];
 static gps_l2cm_tracker_data_t gps_l2cm_tracker_data[NUM_GPS_L2CM_TRACKERS];
 
 static void tracker_gps_l2cm_init(const tracker_channel_info_t *channel_info,
-                                  const tracker_common_data_t *common_data,
+                                  tracker_common_data_t *common_data,
                                   tracker_data_t *tracker_data);
 static void tracker_gps_l2cm_disable(const tracker_channel_info_t *channel_info,
-                                     const tracker_common_data_t *common_data,
+                                     tracker_common_data_t *common_data,
                                      tracker_data_t *tracker_data);
 static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
-                                    const tracker_common_data_t *common_data,
+                                    tracker_common_data_t *common_data,
                                     tracker_data_t *tracker_data);
 
 static bool parse_loop_params_l2cm(struct setting *s, const char *val);
@@ -112,7 +112,6 @@ void track_gps_l2cm_register(void)
   SETTING("track", "cn0_drop", track_cn0_drop_thres, TYPE_FLOAT);
   SETTING("track", "alias_detect", use_alias_detection, TYPE_BOOL);
 
-
   for (u32 i=0; i<NUM_GPS_L2CM_TRACKERS; i++) {
     gps_l2cm_trackers[i].active = false;
     gps_l2cm_trackers[i].data = &gps_l2cm_tracker_data[i];
@@ -122,16 +121,14 @@ void track_gps_l2cm_register(void)
 }
 
 static void tracker_gps_l2cm_init(const tracker_channel_info_t *channel_info,
-                                  const tracker_common_data_t *common_data,
+                                  tracker_common_data_t *common_data,
                                   tracker_data_t *tracker_data)
 {
-
   (void)channel_info;
   gps_l2cm_tracker_data_t *data = tracker_data;
 
   memset(data, 0, sizeof(gps_l2cm_tracker_data_t));
-
-  tracker_channel_ambiguity_unknown(channel_info->context);
+  tracker_ambiguity_unknown(channel_info->context);
 
   const struct loop_params *l = &loop_params_stage;
 
@@ -145,9 +142,8 @@ static void tracker_gps_l2cm_init(const tracker_channel_info_t *channel_info,
                 l->carr_bw, l->carr_zeta, l->carr_k,
                 l->carr_fll_aid_gain);
 
-  /*DT: I think NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ for L2C should be 
-   * NAP_TRACK_NOMINAL_CODE_PHASE_RATE / 10.23e6, does HW team provide 
-   * file (nap/track_channel.h) with these constants */
+  /*DT: I think NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ for L2C should be
+   * differ than for L2C */
   data->code_phase_rate_fp = common_data->code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
   data->code_phase_rate_fp_prev = data->code_phase_rate_fp;
   data->carrier_freq_fp = (s32)(common_data->carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
@@ -162,7 +158,7 @@ static void tracker_gps_l2cm_init(const tracker_channel_info_t *channel_info,
 }
 
 static void tracker_gps_l2cm_disable(const tracker_channel_info_t *channel_info,
-                                     const tracker_common_data_t *common_data,
+                                     tracker_common_data_t *common_data,
                                      tracker_data_t *tracker_data)
 {
   (void)channel_info;
@@ -171,70 +167,65 @@ static void tracker_gps_l2cm_disable(const tracker_channel_info_t *channel_info,
 }
 
 static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
-                                    const tracker_common_data_t *common_data,
+                                    tracker_common_data_t *common_data,
                                     tracker_data_t *tracker_data)
 {
-
   gps_l2cm_tracker_data_t *data = tracker_data;
 
 
   char buf[SID_STR_LEN_MAX];
   sid_to_string(buf, sizeof(buf), channel_info->sid);
 
-  tracker_channel_correlations_read(channel_info->context, data->cs,
-                                      &data->corr_sample_count);
+  tracker_correlations_read(channel_info->context, data->cs,
+                            &data->corr_sample_count);
   alias_detect_first(&data->alias_detect, data->cs[1].I, data->cs[1].Q);
 
-
-  tracker_common_data_t updated_common_data = *common_data;
-
-
-  updated_common_data.sample_count += data->corr_sample_count;
-  updated_common_data.code_phase_early = (u64)updated_common_data.code_phase_early +
-                           (u64)data->corr_sample_count
-                             * data->code_phase_rate_fp_prev;
-  updated_common_data.carrier_phase += (s64)data->carrier_freq_fp_prev
-                           * data->corr_sample_count;
+  common_data->sample_count += data->corr_sample_count;
+  common_data->code_phase_early = (u64)common_data->code_phase_early +
+                                  (u64)data->corr_sample_count
+                                    * data->code_phase_rate_fp_prev;
+  common_data->carrier_phase += (s64)data->carrier_freq_fp_prev
+                                    * data->corr_sample_count;
   data->code_phase_rate_fp_prev = data->code_phase_rate_fp;
   data->carrier_freq_fp_prev = data->carrier_freq_fp;
 
   u8 int_ms = data->int_ms;
-  updated_common_data.TOW_ms = tracker_tow_update(channel_info->context,
-                                                  updated_common_data.TOW_ms,
-                                                  int_ms);
- 
-  updated_common_data.update_count += data->int_ms;
+  common_data->TOW_ms = tracker_tow_update(channel_info->context,
+                                           common_data->TOW_ms,
+                                           int_ms);
 
-  tracker_bit_sync_update(channel_info->context, int_ms, data->cs[1].I);
+  common_data->update_count += data->int_ms;
+
+  tracker_bit_sync_update(channel_info->context, data->int_ms, data->cs[1].I);
 
   /* Correlations should already be in chan->cs thanks to
    * tracking_channel_get_corrs. */
   corr_t* cs = data->cs;
 
   /* Update C/N0 estimate */
-  updated_common_data.cn0 = cn0_est(&data->cn0_est, cs[1].I/data->int_ms, cs[1].Q/data->int_ms);
-  if (updated_common_data.cn0 > track_cn0_drop_thres)
-    updated_common_data.cn0_above_drop_thres_count = updated_common_data.update_count;
+  common_data->cn0 = cn0_est(&data->cn0_est, cs[1].I/data->int_ms, cs[1].Q/data->int_ms);
+  if (common_data->cn0 > track_cn0_drop_thres)
+    common_data->cn0_above_drop_thres_count = common_data->update_count;
 
-  if (updated_common_data.cn0 < track_cn0_use_thres) {
+  if (common_data->cn0 < track_cn0_use_thres) {
     /* SNR has dropped below threshold, indicate that the carrier phase
      * ambiguity is now unknown as cycle slips are likely. */
-    tracker_channel_ambiguity_unknown(channel_info->context);
+    tracker_ambiguity_unknown(channel_info->context);
     /* Update the latest time we were below the threshold. */
-    updated_common_data.cn0_below_use_thres_count = updated_common_data.update_count;
+    common_data->cn0_below_use_thres_count = common_data->update_count;
   }
 
   /* Update PLL lock detector */
   bool last_outp = data->lock_detect.outp;
   lock_detect_update(&data->lock_detect, cs[1].I, cs[1].Q, data->int_ms);
   if (data->lock_detect.outo)
-    updated_common_data.ld_opti_locked_count = updated_common_data.update_count;
+    common_data->ld_opti_locked_count = common_data->update_count;
   if (!data->lock_detect.outp)
-    updated_common_data.ld_pess_unlocked_count = updated_common_data.update_count;
+    common_data->ld_pess_unlocked_count = common_data->update_count;
 
   /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
   if (last_outp && !data->lock_detect.outp)
-    tracker_channel_ambiguity_unknown(channel_info->context);
+    tracker_ambiguity_unknown(channel_info->context);
 
   /* Run the loop filters. */
 
@@ -246,21 +237,21 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
   }
 
   /* Output I/Q correlations using SBP if enabled for this channel */
-  tracker_channel_correlations_send(channel_info->context, cs);
+  tracker_correlations_send(channel_info->context, cs);
 
   aided_tl_update(&data->tl_state, cs2);
-  updated_common_data.carrier_freq = data->tl_state.carr_freq;
-  updated_common_data.code_phase_rate = data->tl_state.code_freq + GPS_CA_CHIPPING_RATE;
+  common_data->carrier_freq = data->tl_state.carr_freq;
+  common_data->code_phase_rate = data->tl_state.code_freq + GPS_CA_CHIPPING_RATE;
 
   data->code_phase_rate_fp_prev = data->code_phase_rate_fp;
-  data->code_phase_rate_fp = updated_common_data.code_phase_rate
+  data->code_phase_rate_fp = common_data->code_phase_rate
     * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ; /* DT: shouldn't it be changed? */
 
-  data->carrier_freq_fp = updated_common_data.carrier_freq
+  data->carrier_freq_fp = common_data->carrier_freq
     * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
 
-  /* Attempt alias detection if we have pessimistic phase lock detect, OR
-     (optimistic phase lock detect AND are in second-stage tracking) */
+  /* Attempt alias detection if we have pessimistic phase lock detect OR
+     optimistic phase lock detect */
   if (use_alias_detection &&
      (data->lock_detect.outp || data->lock_detect.outo)) {
     s32 I = (cs[1].I - data->alias_detect.first_I) / (data->int_ms - 1);
@@ -271,21 +262,29 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
         log_warn("False phase lock detected on %s: err=%f", buf, err);
       }
 
-      tracker_channel_ambiguity_unknown(channel_info->context);
+      tracker_ambiguity_unknown(channel_info->context);
       /* Indicate that a mode change has occurred. */
-      updated_common_data.mode_change_count = updated_common_data.update_count;
+      common_data->mode_change_count = common_data->update_count;
 
       data->tl_state.carr_freq += err;
       data->tl_state.carr_filt.y = data->tl_state.carr_freq;
     }
   }
 
-  tracker_channel_retune(channel_info->context, data->carrier_freq_fp,
-                         data->code_phase_rate_fp,
-                         data->int_ms); //DT: to check this
+  /* Must have (at least optimistic) phase lock */
+  /* Must have nav bit sync, and be correctly aligned */
+  if ((data->lock_detect.outo) &&
+      tracker_bit_aligned(channel_info->context)) {
+    log_info("%s synced @ %u ms, %.1f dBHz",
+             buf, (unsigned int)common_data->update_count,
+             common_data->cn0);
+    /* Indicate that a mode change has occurred. */
+    common_data->mode_change_count = common_data->update_count;
+  }
 
-  /* Update common data */
-  tracker_common_data_update(channel_info->context, &updated_common_data);
+  tracker_retune(channel_info->context, data->carrier_freq_fp,
+                 data->code_phase_rate_fp,
+                 data->int_ms);
 }
 
 /** Parse a string describing the tracking loop filter parameters into
@@ -327,8 +326,8 @@ static bool parse_loop_params_l2cm(struct setting *s, const char *val)
 }
 
 /** Parse a string describing the tracking loop phase lock detector
-    parameters into the lock_detect_params structs. 
-DT: at the moment this parser is same like for L1CA, 
+    parameters into the lock_detect_params structs.
+DT: at the moment this parser is same like for L1CA,
 perhaps it's worth to reuse that one */
 static bool parse_lock_detect_params_l2cm(struct setting *s, const char *val)
 {

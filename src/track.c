@@ -212,7 +212,7 @@ void tracking_send_state()
 float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
 {
   /* Calculate the code phase rate with carrier aiding. */
-  u32 code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) *
+  u32 code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) * //DT: to get rid of it
                             NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
 
   /* Internal Swift NAP code phase is in chips*2^32:
@@ -976,7 +976,7 @@ static void common_data_init(tracker_common_data_t *common_data,
   common_data->TOW_ms = TOW_INVALID;
 
   /* Calculate code phase rate with carrier aiding. */
-  common_data->code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) *
+  common_data->code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) * //DT: to get rid of it
                                     GPS_CA_CHIPPING_RATE;
   common_data->carrier_freq = carrier_freq;
 

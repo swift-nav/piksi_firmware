@@ -33,6 +33,13 @@ typedef u8 tracker_channel_id_t;
 
 /** \} */
 
+#define TRK_WEAK __attribute__ ((weak, alias ("trk_not_implemented")))
+void trk_not_implemented() __attribute__ ((weak));
+inline void trk_not_implemented()
+{
+  return;
+}
+
 void track_setup(void);
 
 void tracking_send_state(void);
