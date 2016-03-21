@@ -555,6 +555,11 @@ static void solution_thread(void *arg)
                           / soln_freq;
     double t_err = expected_tow - position_solution.time.tow;
 
+    /* Update observation time. */
+    gps_time_t new_obs_time;
+    new_obs_time.wn = position_solution.time.wn;
+    new_obs_time.tow = expected_tow;
+
     /* Only send observations that are closely aligned with the desired
      * solution epochs to ensure they haven't been propagated too far. */
     /* Output obervations only every obs_output_divisor times, taking
@@ -568,12 +573,23 @@ static void solution_thread(void *arg)
         nav_meas_tdcp[i].raw_pseudorange -= t_err * nav_meas_tdcp[i].raw_doppler
                                             * GPS_L1_LAMBDA;
         nav_meas_tdcp[i].raw_carrier_phase += t_err * nav_meas_tdcp[i].raw_doppler;
+
+        nav_meas_tdcp[i].tot = new_obs_time;
+        nav_meas_tdcp[i].tot.tow -= nav_meas_tdcp[i].raw_pseudorange / GPS_C;
+        normalize_gps_time(&nav_meas_tdcp[i].tot);
+
+        double clock_err;
+        double clock_rate_err;
+        ephemeris_lock();
+        ephemeris_t *e = ephemeris_get(nav_meas_tdcp[i].sid);
+        calc_sat_state(e, &nav_meas_tdcp[i].tot,
+                       nav_meas_tdcp[i].sat_pos,
+                       nav_meas_tdcp[i].sat_vel,
+                       &clock_err, &clock_rate_err);
+        ephemeris_unlock();
       }
 
-      /* Update observation time. */
-      gps_time_t new_obs_time;
-      new_obs_time.wn = position_solution.time.wn;
-      new_obs_time.tow = expected_tow;
+      /* Send the observations. */
       if (!simulation_enabled() && time_quality == TIME_FINE) {
         send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
       }
