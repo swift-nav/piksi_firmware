@@ -16,11 +16,23 @@
 
 #include <stdlib.h>
 #include "hal.h"
+#include "zynq7000.h"
 
 const PALConfig pal_default_config;
 const WDGConfig board_wdg_config = {
   .period_ms = 30000,
 };
+
+static void cycle_counter_init(void)
+{
+  /* Set up TTC0_2 with period of ZYNQ7000_CPU_1x_FREQUENCY_Hz / 2^10 */
+  TTC0->CLKCTRL[2] =  (TTC_CLKCTRL_SRC_PCLK << TTC_CLKCTRL_SRC_Pos) |
+                      (9 << TTC_CLKCTRL_PSVAL_Pos) |
+                      (1 << TTC_CLKCTRL_PSEN_Pos);
+  TTC0->INTERVAL[2] = 0xffff;
+  TTC0->CNTCTRL[2] =  (1 << TTC_CNTCTRL_RESET_Pos) |
+                      (1 << TTC_CNTCTRL_INTERVAL_Pos);
+}
 
 /*
  * Board-specific initialization code.
@@ -45,6 +57,8 @@ void boardInit(void)
   *(volatile uint32_t *)0xF8000158 |= (20 << 8);
 
   srand(0);
+
+  cycle_counter_init();
 }
 
 void board_preinit_hook(void)

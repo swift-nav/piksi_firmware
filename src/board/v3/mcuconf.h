@@ -42,7 +42,7 @@
  */
 #define ZYNQ7000_GPT_USE_TTC0_0                     TRUE
 #define ZYNQ7000_GPT_USE_TTC0_1                     TRUE
-#define ZYNQ7000_GPT_USE_TTC0_2                     TRUE
+#define ZYNQ7000_GPT_USE_TTC0_2                     FALSE
 #define ZYNQ7000_GPT_USE_TTC1_0                     TRUE
 #define ZYNQ7000_GPT_USE_TTC1_1                     TRUE
 #define ZYNQ7000_GPT_USE_TTC1_2                     TRUE

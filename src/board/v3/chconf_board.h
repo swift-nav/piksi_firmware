@@ -17,14 +17,20 @@
 #ifndef _CHCONF_V3_H_
 #define _CHCONF_V3_H_
 
+#define CYC_CNT (*(volatile uint32_t *)0xF8001020) /* TTC0_2 Counter */
+
+#ifndef _FROM_ASM_
+typedef uint16_t cyc_cnt_t;
+#endif
+
 /**
  * @brief   Threads descriptor structure extension.
  * @details User fields added to the end of the @p thread_t structure.
  */
 #define CH_CFG_THREAD_EXTRA_FIELDS                                          \
   /* Add threads custom fields here.*/                                      \
-  uint64_t p_ctime;                                                              \
-  uint32_t p_cref;
+  uint64_t p_ctime;                                                         \
+  cyc_cnt_t p_cref;
 
 /**
  * @brief   Threads initialization hook.
@@ -33,8 +39,12 @@
  * @note    It is invoked from within @p chThdInit() and implicitly from all
  *          the threads creation APIs.
  */
-#define CH_CFG_THREAD_INIT_HOOK(tp) { \
-  /* Add threads initialization code here.*/                                 \
+#define CH_CFG_THREAD_INIT_HOOK(tp) {                                       \
+  /* Add threads initialization code here.*/                                \
+  /* CPU cycle measurement fields, */                                       \
+  /* see http://sourceforge.net/p/chibios/feature-requests/23/ .*/          \
+  tp->p_ctime = 0;                                                          \
+  tp->p_cref = CYC_CNT;                                                     \
 }
 
 /**
@@ -46,6 +56,12 @@ extern uint64_t g_ctime;
 #endif
 
 #define CH_CFG_CONTEXT_SWITCH_HOOK(ntp, otp) {                              \
+  ntp->p_cref = CYC_CNT;                                                    \
+  if (otp) {                                                                \
+    cyc_cnt_t cnt = ntp->p_cref - otp->p_cref;                               \
+    otp->p_ctime += cnt;                                                    \
+    g_ctime += cnt;                                                         \
+  }                                                                         \
 }
 
 /**
