@@ -206,9 +206,7 @@ static void update_obss(obss_t *new_obss)
       base_obss.has_pos = 1;
 
       if (base_pos_known) {
-       double d[3];
-       vector_subtract(3, soln.pos_ecef, base_pos_ecef, d);
-       double base_distance = vector_norm(3, d);
+       double base_distance = vector_distance(3, soln.pos_ecef, base_pos_ecef);
 
        if (base_distance > BASE_STATION_DISTANCE_THRESHOLD) {
          /* TODO this seems to be triggered all the time. Likely due to our
@@ -234,9 +232,8 @@ static void update_obss(obss_t *new_obss)
      */
 
     for (u8 i=0; i < base_obss.n; i++) {
-      double d[3];
-      vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, d);
-      base_obss.sat_dists[i] = vector_norm(3, d);
+      base_obss.sat_dists[i] = vector_distance(3, base_obss.nm[i].sat_pos,
+                                               base_obss.pos_ecef);
     }
   }
 

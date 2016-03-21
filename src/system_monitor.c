@@ -173,8 +173,7 @@ static void system_monitor_thread(void *arg)
       llhdeg2rad(base_llh, tmp);
       wgsllh2ecef(tmp, base_ecef);
 
-      vector_subtract(3, base_ecef, position_solution.pos_ecef, tmp);
-      base_distance = vector_norm(3, tmp);
+      base_distance = vector_distance(3, base_ecef, position_solution.pos_ecef);
 
       if (base_distance > BASE_STATION_DISTANCE_THRESHOLD) {
         log_warn("Sending invalid surveyed position coordinates.");
