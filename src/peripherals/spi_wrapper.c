@@ -11,6 +11,7 @@
  */
 
 #include <string.h>
+#include <assert.h>
 
 #include <ch.h>
 #include <hal.h>
@@ -91,10 +92,19 @@ u8 spi_slave_xfer(u8 slave, u8 data)
 
 void spi_slave_xfer_async(u8 slave, u16 n_bytes, u8 data_in[], const u8 data_out[])
 {
-  if (data_in != NULL)
-    spiExchange(spi_slave[slave].driver, n_bytes, data_out, data_in);
-  else
-    spiSend(spi_slave[slave].driver, n_bytes, data_out);
+  /* We use a static buffer here for DMA transfers as data_in/data_out
+   * often are on the stack in CCM which is not accessible by DMA.
+   */
+  static u8 spi_dma_buf[128];
+  assert (n_bytes <= sizeof(spi_dma_buf));
+  memcpy(spi_dma_buf, data_out, n_bytes);
+
+  if (data_in != NULL) {
+    spiExchange(spi_slave[slave].driver, n_bytes, spi_dma_buf, spi_dma_buf);
+    memcpy(data_in, spi_dma_buf, n_bytes);
+  } else {
+    spiSend(spi_slave[slave].driver, n_bytes, spi_dma_buf);
+  }
 }
 
 /** \} */

@@ -32,7 +32,7 @@ enum {
 
 /** \} */
 
-#define SPI_USE_ASYNC    FALSE
+#define SPI_USE_ASYNC    TRUE
 
 void spi_setup(void);
 void spi_deactivate(void);
