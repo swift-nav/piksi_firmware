@@ -237,7 +237,7 @@ static void debug_threads()
   }
 }
 
-static WORKING_AREA_CCM(wa_watchdog_thread, 1024);
+static WORKING_AREA(wa_watchdog_thread, 1024);
 static msg_t watchdog_thread(void *arg)
 {
   (void)arg;

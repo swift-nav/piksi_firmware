@@ -83,7 +83,7 @@ typedef struct {
   tracker_t *tracker;
 } tracker_channel_t;
 
-static tracker_channel_t tracker_channels[NUM_TRACKER_CHANNELS];
+static tracker_channel_t tracker_channels[NUM_TRACKER_CHANNELS] _CCM;
 
 static const tracker_interface_t tracker_interface_default = {
   .code =         CODE_INVALID,

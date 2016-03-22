@@ -18,6 +18,7 @@
 #include "sbp.h"
 #include "sbp_utils.h"
 #include "decode.h"
+#include "ndb.h"
 
 #define NUM_GPS_L1_DECODERS   12
 
@@ -112,10 +113,11 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
   /* Decoded a new ephemeris. */
   ephemeris_new(&e);
 
-  ephemeris_t *eph = ephemeris_get(channel_info->sid);
-  if (!eph->valid) {
+  u8 v, h;
+  ndb_ephemeris_info(channel_info->sid, &v, &h, NULL, NULL);
+  if (!v) {
     char buf[SID_STR_LEN_MAX];
     sid_to_string(buf, sizeof(buf), channel_info->sid);
-    log_info("%s ephemeris is invalid", buf);
+    log_info("%s ephemeris wasn't stored", buf);
   }
 }
