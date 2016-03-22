@@ -9,9 +9,12 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
+ #define DEBUG 1
 
 #include "track_gps_l1ca.h"
 #include "track_api.h"
+#include "track.h"
+#include "decode.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
@@ -368,6 +371,87 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
     /* Indicate that a mode change has occurred. */
     common_data->mode_change_count = common_data->update_count;
+
+    /* Transition to L2C tracking. */
+    /* Since we have bitsync do handover to L2C if availble for the SV */
+    /* First, get L2C capability for the SV from NDB
+     * TODO: since NDB not merged yet assume the the SV broadcasts L2C stream
+     *       replace 0xffffffff by get_L2C_capability API */
+     if (0xffffffff & (1 << channel_info->sid.sat)) {
+       /*find available tracking channel first*/
+       s16 tk_ch = -1;//HACK for testing purposes -1;
+
+       /* compose SID: same SV, but code is L2CA */
+       gnss_signal_t sid = {.sat = channel_info->sid.sat,
+                            .code = CODE_GPS_L2CM};
+       for (u8 i=0; i<nap_track_n_channels; i++)
+         if (tracker_channel_available(i, sid) &&
+             decoder_channel_available(i, sid)) {
+           tk_ch = i;
+           break;
+         }
+
+       if (tk_ch > -1) {
+         /* free tracking channel found */
+         u32 track_count = nap_timing_count() + 20000;
+
+         /* recalculate doppler freq for L2 from L1*/
+         double carr_freq = tracking_channel_carrier_freq_get(
+                                            channel_info->nap_channel) *
+                            GPS_L2_HZ / GPS_L1_HZ;
+
+         log_debug("L2C Dopp %f, parent Dopp %f",
+                  carr_freq, common_data->carrier_freq);
+
+         /* recalculate code phase */
+         float cp = propagate_code_phase(common_data->code_phase_early,
+                                         carr_freq,
+                                         track_count -
+                                             common_data->sample_count,
+                                         CODE_GPS_L2CM);
+
+         log_debug("L2C CP %f, parent CP %f",
+                  cp, common_data->code_phase_early);
+
+         /* Contrive for the timing strobe to occur at or close to a
+          * PRN edge (code phase = 0) */
+         track_count += 16 * (10230.0-cp) *
+                           (1.0 + carr_freq /
+                               code_to_carr_freq(CODE_GPS_L2CM));
+
+         /* get initial cn0 from parent L1 channel*/
+         #if 1
+         float cn0 = tracking_channel_cn0_get(channel_info->nap_channel);
+
+         /* Start the tracking channel */
+         if(!tracker_channel_init((tracker_channel_id_t)tk_ch,
+                                  sid,
+                                  carr_freq,
+                                  track_count,
+                                  cn0,
+                                  tracking_channel_evelation_degrees_get(
+                                          channel_info->nap_channel))) {
+           log_error("tracker channel init for L2C failed");
+         } else
+         #endif
+           log_info("L2C handover done. Tracking channel %u, parent chnnel %u",
+             (u8)tk_ch,
+             channel_info->nap_channel);
+
+
+         /* TODO: Initialize elevation from ephemeris if we know it precisely */
+         #if 1
+         /* Start the decoder channel */
+         if (!decoder_channel_init((u8)tk_ch, sid)) {
+           log_error("decoder channel init for L2C failed");
+         }
+         #endif
+       }
+       else
+         log_warn("No free channel for L2C tracking");
+       /* init tracking channel for L2C */
+     } else
+       log_info("SV %u does not support L2C stream", channel_info->sid.sat);
   }
 
   tracker_retune(channel_info->context, data->carrier_freq_fp,

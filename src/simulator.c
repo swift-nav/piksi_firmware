@@ -345,7 +345,7 @@ void populate_nav_meas(navigation_measurement_t *nav_meas, double dist, double e
                                              sim_settings.pseudorange_sigma);
 
   nav_meas->carrier_phase =     dist / (GPS_C /
-            sid_to_carr_freq(simulation_almanacs[almanac_i].sid));
+            code_to_carr_freq(simulation_almanacs[almanac_i].sid.code));
   nav_meas->carrier_phase +=   simulation_fake_carrier_bias[almanac_i];
   nav_meas->carrier_phase +=   rand_gaussian(sim_settings.phase_sigma *
                                              sim_settings.phase_sigma);

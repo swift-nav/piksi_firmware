@@ -44,7 +44,8 @@ void track_setup(void);
 
 void tracking_send_state(void);
 
-float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
+float propagate_code_phase(float code_phase, float carrier_freq,
+                           u32 n_samples, code_t code);
 
 /* Update interface */
 void tracking_channels_update(u32 channels_mask);
