@@ -43,6 +43,7 @@
 #include "decode.h"
 #include "decode_gps_l1.h"
 #include "signal.h"
+#include "ndb.h"
 
 extern void ext_setup(void);
 
@@ -223,6 +224,7 @@ int main(void)
   READ_ONLY_PARAMETER("system_info", "nap_fft_index_bits", nap_acq_fft_index_bits, TYPE_INT);
 
   ephemeris_setup();
+  ndb_init();
 
   /* Send message to inform host we are up and running. */
   u32 startup_flags = 0;

@@ -134,6 +134,8 @@ CSRC := $(PORTSRC) \
         $(SWIFTNAV_ROOT)/src/decode.o \
         $(SWIFTNAV_ROOT)/src/decode_gps_l1.o \
         $(SWIFTNAV_ROOT)/src/signal.o \
+        $(SWIFTNAV_ROOT)/src/ndb.o \
+        $(SWIFTNAV_ROOT)/src/ndb_p1.o \
         main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
