@@ -379,7 +379,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
      *       replace 0xffffffff by get_L2C_capability API */
      if (0xffffffff & (1 << channel_info->sid.sat)) {
        /*find available tracking channel first*/
-       s16 tk_ch = -1;//HACK for testing purposes -1;
+       s16 tk_ch = -1;
 
        /* compose SID: same SV, but code is L2CA */
        gnss_signal_t sid = {.sat = channel_info->sid.sat,
@@ -420,11 +420,10 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
                                code_to_carr_freq(CODE_GPS_L2CM));
 
          /* get initial cn0 from parent L1 channel*/
-         #if 1
          float cn0 = tracking_channel_cn0_get(channel_info->nap_channel);
 
          /* Start the tracking channel */
-         if(!tracker_channel_init((tracker_channel_id_t)tk_ch,
+         if (!tracker_channel_init((tracker_channel_id_t)tk_ch,
                                   sid,
                                   carr_freq,
                                   track_count,
@@ -433,19 +432,16 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
                                           channel_info->nap_channel))) {
            log_error("tracker channel init for L2C failed");
          } else
-         #endif
            log_info("L2C handover done. Tracking channel %u, parent chnnel %u",
              (u8)tk_ch,
              channel_info->nap_channel);
 
 
          /* TODO: Initialize elevation from ephemeris if we know it precisely */
-         #if 1
          /* Start the decoder channel */
          if (!decoder_channel_init((u8)tk_ch, sid)) {
            log_error("decoder channel init for L2C failed");
          }
-         #endif
        }
        else
          log_warn("No free channel for L2C tracking");
