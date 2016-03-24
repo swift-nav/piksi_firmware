@@ -374,10 +374,10 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
     /* Transition to L2C tracking. */
     /* Since we have bitsync do handover to L2C if availble for the SV */
-    /* First, get L2C capability for the SV from NDB
-     * TODO: since NDB not merged yet assume the the SV broadcasts L2C stream
-     *       replace 0xffffffff by get_L2C_capability API */
-     if (0xffffffff & (1 << channel_info->sid.sat)) {
+    /* First, get L2C capability for the SV from NDB */
+     u32 l2c_cpbl;
+     ndb_gps_l2cm_l2c_cap_read(&l2c_cpbl);
+     if (l2c_cpbl & (1 << channel_info->sid.sat)) {
        /*find available tracking channel first*/
        s16 tk_ch = -1;
 
