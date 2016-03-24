@@ -11,6 +11,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include "zynq7000.h"
 #include <hal.h>
 
 #include <stdlib.h>
@@ -38,9 +39,8 @@ static u32 fallback_write_ftdi(u8 *buff, u32 n, void *context)
 {
   (void)context;
   for (u8 i=0; i<n; i++) {
-    //while (!(USART6->SR & USART_SR_TXE));
-    //USART6->DR = buff[i];
-    (void)buff[i];
+    while (UART0->SR & UART_SR_TXFULL_Msk);
+    UART0->FIFO = buff[i];
   }
   return n;
 }
@@ -116,6 +116,36 @@ void _exit(int status)
 /** Enable and/or register handlers for system faults (hard fault, bus
  * fault, memory protection, usage (i.e. divide-by-zero) */
 void fault_handling_setup(void) {
+}
+
+__attribute__((interrupt("UNDEF")))
+void Und_Handler(void)
+{
+  screaming_death("Undefined instruction!");
+}
+
+__attribute__((interrupt("ABORT")))
+void Prefetch_Handler(void)
+{
+  screaming_death("Prefetch Abort!");
+}
+
+__attribute__((interrupt("ABORT")))
+void Abort_Handler(void)
+{
+  screaming_death("Data Abort!");
+}
+
+__attribute__((interrupt("SWI")))
+void Swi_Handler(void)
+{
+  screaming_death("Software Interrupt!");
+}
+
+__attribute__((interrupt("FIQ")))
+void Fiq_Handler(void)
+{
+  screaming_death("Unused FIQ!");
 }
 
 /** \} */
