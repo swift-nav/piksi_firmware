@@ -292,7 +292,7 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
   y = soln->vel_ned[1];
   z = soln->vel_ned[2];
   float course = atan2(y,x);
-
+  if ( course < 0 ) course += 2 * M_PI;
   /* Conversion to magnitue knots */
   velocity = MS2KNOTTS(x,y,z);
 
@@ -332,7 +332,7 @@ void nmea_gpvtg(const gnss_solution *soln)
   y = soln->vel_ned[1];
   z = soln->vel_ned[2];
   float course = atan2(y,x);
-
+  if ( course < 0 ) course += 2 * M_PI;
   /* Conversion to magnitue knots */
   vknots = MS2KNOTTS(x,y,z);
   /* Conversion to magnitue km/hr */
