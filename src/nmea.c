@@ -29,8 +29,9 @@ const char NMEA_MODULE[] = "nmea";
 
 u32 gpgsv_msg_rate = 10;
 u32 gprmc_msg_rate = 10;
-u32 gpvtg_msg_rate = 10;
+u32 gpvtg_msg_rate =  1;
 u32 gpgll_msg_rate = 10;
+u32 gpzda_msg_rate = 10;  //!!
 static struct nmea_dispatcher *nmea_dispatchers_head;
 /** \addtogroup io
  * \{ */
@@ -106,6 +107,7 @@ void nmea_setup(void)
   SETTING("nmea", "gprmc_msg_rate", gprmc_msg_rate, TYPE_INT);
   SETTING("nmea", "gpvtg_msg_rate", gpvtg_msg_rate, TYPE_INT);
   SETTING("nmea", "gpgll_msg_rate", gpgll_msg_rate, TYPE_INT);
+  SETTING("nmea", "gpzda_msg_rate", gpzda_msg_rate, TYPE_INT); //!!
 }
 
 /** Calculate and append the checksum of an NMEA sentence.
@@ -387,6 +389,37 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
   NMEA_SENTENCE_DONE();
 }
 
+/** Assemble an NMEA GPZDA message and send it out NMEA USARTs.
+ * NMEA ZDA contains UTC date and time
+ *
+ * \param soln Pointer to gnss_solution struct
+ * \param gps_t Pointer to the current GPS Time
+ */
+void nmea_gpzda(const gps_time_t *gps_t )
+{
+
+  /* NMEA Parameters
+   * Ex.
+   * $GPZDA,210232.00,24,03,2016,00,00*66
+   *
+   */
+  time_t unix_t;
+  struct tm t;
+
+  unix_t = gps2time( gps_t );
+  gmtime_r( &unix_t, &t );
+  double frac_s = fmod( gps_t->tow, 1.0 );
+  NMEA_SENTENCE_START(40); //!!
+  NMEA_SENTENCE_PRINTF(
+                "$GPZDA,%02d%02d%06.3f," /* Command, Time (UTC) */
+                "%02d,%02d,%d," /* Date Stamp */
+                "00,00", /* Time zone */
+                t.tm_hour, t.tm_min, t.tm_sec + frac_s,
+                t.tm_mday, t.tm_mon + 1, 2016 );
+  NMEA_SENTENCE_DONE();
+
+} // nmea_gpzda()
+
 
 /** Generate and send periodic NMEA GPGSV, GPRMC, GPVTG, GPGLL
  * (but not GPGGA) messages.
@@ -412,7 +445,11 @@ void nmea_send_msgs(gnss_solution *soln, u8 n,
   DO_EVERY(gpgll_msg_rate,
     nmea_gpgll(soln, &soln->time);
   );
+  DO_EVERY( gpzda_msg_rate,
+    nmea_gpzda(&soln->time);
+  );
 }
+
 /** \cond */
 void _nmea_dispatcher_register(struct nmea_dispatcher *d)
 {
