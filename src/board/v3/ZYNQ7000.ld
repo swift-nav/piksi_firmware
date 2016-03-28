@@ -45,5 +45,14 @@ REGION_ALIAS("BSS_RAM", ram0);
 
 INCLUDE rules.ld
 
+SECTIONS {
+    .mmu_tbl : ALIGN(16k)
+    {
+        PROVIDE(__mmu_tbl_start = .);
+        *(.mmu_tbl)
+        PROVIDE(__mmu_tbl_end = .);
+    } > flash
+}
+
 __main_thread_stack_base__ = __stacks_base__;
 _ecoffee_fs_area = _coffee_fs_area + 8096;
