@@ -39,8 +39,8 @@ static u32 fallback_write_ftdi(u8 *buff, u32 n, void *context)
 {
   (void)context;
   for (u8 i=0; i<n; i++) {
-    while (UART0->SR & UART_SR_TXFULL_Msk);
-    UART0->FIFO = buff[i];
+    while (UART1->SR & UART_SR_TXFULL_Msk);
+    UART1->FIFO = buff[i];
   }
   return n;
 }

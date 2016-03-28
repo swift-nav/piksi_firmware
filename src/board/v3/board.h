@@ -17,8 +17,8 @@
 #ifndef _BOARD_H_
 #define _BOARD_H_
 
-#define SD_FTDI  (&SD1)
-#define SD_UARTA (&SD2)
+#define SD_FTDI  (&SD2)
+#define SD_UARTA (&SD1)
 #define SD_UARTB NULL
 
 /*
