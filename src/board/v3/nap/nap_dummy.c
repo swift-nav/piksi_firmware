@@ -111,3 +111,10 @@ void nap_pps_width(u32 falling_edge_count)
   (void)falling_edge_count;
 }
 
+void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[])
+{
+  (void)channel;
+  (void)sample_count;
+  (void)corrs;
+}
+
