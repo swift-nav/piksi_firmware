@@ -17,7 +17,7 @@
 
 #include "nap_exti.h"
 
-#include "../../acq.h"
+#include "nap_acq.h"
 #include "../../cw.h"
 #include "../../track.h"
 #include "nap_common.h"

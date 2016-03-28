@@ -28,7 +28,7 @@
 
 #include "main.h"
 #include "board/nap/track_channel.h"
-#include "acq.h"
+#include "board/acq.h"
 #include "ephemeris.h"
 #include "track.h"
 #include "decode.h"
@@ -117,6 +117,8 @@ static almanac_t almanac[PLATFORM_SIGNAL_COUNT];
 
 static float elevation_mask = 0.0; /* degrees */
 static bool sbas_enabled = false;
+
+static void acq_result_send(gnss_signal_t sid, float snr, float cp, float cf);
 
 static u8 manage_track_new_acq(gnss_signal_t sid);
 static void manage_acq(void);
@@ -359,20 +361,6 @@ static void manage_acq()
     return;
   }
 
-  u32 timer_count;
-  float cn0, cp, cf;
-
-  acq_set_sid(acq->sid);
-
-  /* We have our SID chosen, now load some fresh data
-   * into the acquisition ram on the Swift NAP for
-   * an initial coarse acquisition.
-   */
-  do {
-    timer_count = nap_timing_count() + 20000;
-    /* acq_load could timeout if we're preempted and miss the timing strobe */
-  } while (!acq_load(timer_count));
-
   /* Check for NaNs in dopp hints, or low > high */
   if (!(acq->dopp_hint_low <= acq->dopp_hint_high)) {
     log_error("Acq: caught bogus dopp_hints (%f, %f)",
@@ -381,40 +369,60 @@ static void manage_acq()
     acq->dopp_hint_high = ACQ_FULL_CF_MAX;
     acq->dopp_hint_low = ACQ_FULL_CF_MIN;
   }
-  acq_search(acq->dopp_hint_low, acq->dopp_hint_high, ACQ_FULL_CF_STEP);
 
-  /* Done with the coarse acquisition, check if we have found a
-   * satellite, if so save the results and start the loading
-   * for the fine acquisition. If not, start again choosing a
-   * different PRN.
-   */
-  acq_get_results(&cp, &cf, &cn0);
-  /* Send result of an acquisition to the host. */
-  acq_send_result(acq->sid, cn0, cp, cf);
-  if (cn0 < ACQ_THRESHOLD) {
-    /* Didn't find the satellite :( */
-    /* Double the size of the doppler search space for next time. */
-    float dilute = (acq->dopp_hint_high - acq->dopp_hint_low) / 2;
-    acq->dopp_hint_high = MIN(acq->dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
-    acq->dopp_hint_low = MAX(acq->dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
-    /* Decay hint scores */
-    for (u8 i = 0; i < ACQ_HINT_NUM; i++)
-      acq->score[i] = (acq->score[i] * 3) / 4;
-    /* Reset hint score for acquisition. */
-    acq->score[ACQ_HINT_PREV_ACQ] = 0;
-    return;
+  acq_result_t acq_result;
+  if (acq_search(acq->sid, acq->dopp_hint_low, acq->dopp_hint_high,
+                 ACQ_FULL_CF_STEP, &acq_result)) {
+
+    /* Send result of an acquisition to the host. */
+    acq_result_send(acq->sid, acq_result.cn0, acq_result.cp, acq_result.cf);
+
+    if (acq_result.cn0 < ACQ_THRESHOLD) {
+      /* Didn't find the satellite :( */
+      /* Double the size of the doppler search space for next time. */
+      float dilute = (acq->dopp_hint_high - acq->dopp_hint_low) / 2;
+      acq->dopp_hint_high = MIN(acq->dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
+      acq->dopp_hint_low = MAX(acq->dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
+      /* Decay hint scores */
+      for (u8 i = 0; i < ACQ_HINT_NUM; i++)
+        acq->score[i] = (acq->score[i] * 3) / 4;
+      /* Reset hint score for acquisition. */
+      acq->score[ACQ_HINT_PREV_ACQ] = 0;
+      return;
+    }
+
+    tracking_startup_params_t tracking_startup_params = {
+      .sid = acq->sid,
+      .sample_count = acq_result.sample_count,
+      .carrier_freq = acq_result.cf,
+      .code_phase = acq_result.cp,
+      .cn0_init = acq_result.cn0,
+      .elevation = TRACKING_ELEVATION_UNKNOWN
+    };
+
+    tracking_startup_request(&tracking_startup_params);
   }
+}
 
-  tracking_startup_params_t tracking_startup_params = {
-    .sid = acq->sid,
-    .sample_count = timer_count,
-    .carrier_freq = cf,
-    .code_phase = cp,
-    .cn0_init = cn0,
-    .elevation = TRACKING_ELEVATION_UNKNOWN
-  };
+/** Send results of an acquisition to the host.
+ *
+ * \param sid SID of the acquisition
+ * \param snr Signal to noise ratio of best point from acquisition.
+ * \param cp  Code phase of best point.
+ * \param cf  Carrier frequency of best point.
+ */
+static void acq_result_send(gnss_signal_t sid, float snr, float cp, float cf)
+{
+  msg_acq_result_t acq_result_msg;
 
-  tracking_startup_request(&tracking_startup_params);
+  acq_result_msg.sid = sid_to_sbp(sid);
+  acq_result_msg.snr = snr;
+  acq_result_msg.cp = cp;
+  acq_result_msg.cf = cf;
+
+  sbp_send_msg(SBP_MSG_ACQ_RESULT,
+               sizeof(msg_acq_result_t),
+               (u8 *)&acq_result_msg);
 }
 
 /** Find an available tracking channel to start tracking an acquired PRN with.

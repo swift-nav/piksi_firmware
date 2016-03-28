@@ -37,27 +37,6 @@ void acq_set_sid(gnss_signal_t sid)
   }
 }
 
-/** Send results of an acquisition to the host.
- *
- * \param sid SID of the acquisition
- * \param snr Signal to noise ratio of best point from acquisition.
- * \param cp  Code phase of best point.
- * \param cf  Carrier frequency of best point.
- */
-void acq_send_result(gnss_signal_t sid, float snr, float cp, float cf)
-{
-  msg_acq_result_t acq_result_msg;
-
-  acq_result_msg.sid = sid_to_sbp(sid);
-  acq_result_msg.snr = snr;
-  acq_result_msg.cp = cp;
-  acq_result_msg.cf = cf;
-
-  sbp_send_msg(SBP_MSG_ACQ_RESULT,
-               sizeof(msg_acq_result_t),
-               (u8 *)&acq_result_msg);
-}
-
 /** Schedule a load of samples into the acquisition channel's sample ram.
  * The load starts at the end of the next timing strobe and continues until the
  * ram is full, at which time an interrupt is raised to the STM. This interrupt
@@ -121,7 +100,7 @@ static struct {
  * \param cf_max   Carrier frequency of the last acquisition. (Hz)
  * \param cf_bin_width Step size between each carrier frequency to search. (Hz)
  */
-void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
+void acq_search_begin(float cf_min_, float cf_max_, float cf_bin_width)
 {
   chSemObjectInit(&acq_pipeline_sem, NAP_ACQ_PIPELINE_STAGES);
   memset(&acq_state, 0, sizeof(acq_state));

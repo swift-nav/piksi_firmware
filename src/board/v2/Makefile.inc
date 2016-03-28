@@ -31,9 +31,11 @@ BOARDSRC := \
         $(BOARDDIR)/cfs-coffee-arch.o \
         $(BOARDDIR)/error.o \
         $(BOARDDIR)/init.o \
+        $(BOARDDIR)/acq.o \
         $(BOARDDIR)/nap/nap_common.o \
         $(BOARDDIR)/nap/nap_exti.o \
         $(BOARDDIR)/nap/nap_conf.o \
+        $(BOARDDIR)/nap/nap_acq.o \
         $(BOARDDIR)/nap/acq_channel.o \
         $(BOARDDIR)/nap/track_channel.o \
         $(BOARDDIR)/m25_flash.o \
