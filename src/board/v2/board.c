@@ -63,12 +63,21 @@ void __early_init(void)
 
 }
 
+static void cycle_counter_init(void)
+{
+  /* Setup cycle counter for measuring thread CPU time. */
+  CoreDebug->DEMCR |= 0x01000000;
+  DWT->CYCCNT = 0; /* Reset the counter. */
+  DWT->CTRL |= 1 ; /* Enable the counter. */
+}
+
 /**
  * @brief   Board-specific initialization code.
  * @todo    Add your board-specific code, if any.
  */
 void boardInit(void)
 {
+  cycle_counter_init();
 }
 
 void board_preinit_hook(void)

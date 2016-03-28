@@ -272,13 +272,6 @@ static void watchdog_thread(void *arg)
 
 void system_monitor_setup()
 {
-#ifndef BOARD_DIGILENT_UZED
-  /* Setup cycle counter for measuring thread CPU time. */
-  CoreDebug->DEMCR |= 0x01000000;
-  DWT->CYCCNT = 0; /* Reset the counter. */
-  DWT->CTRL |= 1 ; /* Enable the counter. */
-#endif
-
   SETTING("system_monitor", "heartbeat_period_milliseconds", heartbeat_period_milliseconds, TYPE_INT);
   SETTING("system_monitor", "watchdog", use_wdt, TYPE_BOOL);
 
