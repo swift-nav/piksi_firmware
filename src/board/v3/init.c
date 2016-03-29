@@ -25,6 +25,36 @@
 #include "sbp.h"
 #include "error.h"
 
+#define SLCR_PSS_RST_CTRL (*(volatile u32 *)0xf8000200)
+#define SLCR_PSS_RST_CTRL_SOFT_RST 1
+
+/** Resets the device back into the bootloader. */
+static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void)msg; (void) context;
+
+  /* Ensure all outstanding memory accesses including buffered writes are
+   * completed before reset.
+   */
+  __asm__("DSB;");
+  SLCR_PSS_RST_CTRL = SLCR_PSS_RST_CTRL_SOFT_RST;
+  __asm__("DSB;");
+  /* Wait until reset. */
+  while(1);
+}
+
+/** Register the reset_callback. */
+static void reset_callback_register(void)
+{
+  static sbp_msg_callbacks_node_t reset_node;
+
+  sbp_register_cbk(
+    SBP_MSG_RESET,
+    &reset_callback,
+    &reset_node
+  );
+}
+
 void init(void)
 {
   led_setup();
@@ -43,6 +73,8 @@ void init(void)
   fault_handling_setup();
 
   nap_callbacks_setup();
+
+  reset_callback_register();
 }
 
 /* Check NAP authentication status. Block and print error message
