@@ -69,7 +69,8 @@ void usart_support_init_sd(struct usart_support_s *sd)
 
   /* Setup RX DMA */
   dmaStreamSetMode(sd->rx.dma, sd->dmamode | STM32_DMA_CR_DIR_P2M |
-                               STM32_DMA_CR_MINC | STM32_DMA_CR_TCIE);
+                               STM32_DMA_CR_MINC | STM32_DMA_CR_TCIE |
+                               STM32_DMA_CR_CIRC);
   dmaStreamSetTransactionSize(sd->rx.dma, USART_RX_BUFFER_LEN);
   dmaStreamSetPeripheral(sd->rx.dma, &sd->usart->DR);
   dmaStreamSetMemory0(sd->rx.dma, sd->rx.buff);
