@@ -61,26 +61,7 @@ usart_state ftdi_state = {.sd = SD_FTDI};
 usart_state uarta_state = {.sd = SD_UARTA};
 usart_state uartb_state = {.sd = SD_UARTB};
 
-static void usart_disable(SerialDriver *sd);
 static bool baudrate_change_notify(struct setting *s, const char *val);
-
-/** Set up USART parameters for particular USART.
- * \param usart USART to set up parameters for.
- * \param baud  Baud rate to set.
- */
-void usart_set_parameters(SerialDriver *sd, u32 baud)
-{
-  if (sd == NULL)
-    return;
-
-  SerialConfig config = {
-    .speed = baud,
-  };
-  sdStop(sd);
-
-  /* NOTE This depends on the SerialDriver not keeping the config struct. */
-  sdStart(sd, &config);
-}
 
 /** Set up the USART peripherals, hook them into the settings subsystem
 *
@@ -115,15 +96,6 @@ void usarts_setup()
 
 }
 
-/** Disable a UART. */
-static void usart_disable(SerialDriver *sd)
-{
-  if (sd == NULL)
-    return;
-
-  sdStop(sd);
-}
-
 /** Callback for settings subsystem changing the baudrate of a UART.
 *
 */
@@ -149,9 +121,11 @@ void usarts_enable(u32 ftdi_baud, u32 uarta_baud, u32 uartb_baud, bool do_precon
   if (!all_uarts_enabled && !do_preconfigure_hooks)
     return;
 
-  usart_set_parameters(SD_FTDI, ftdi_baud);
-  usart_set_parameters(SD_UARTA, uarta_baud);
-  usart_set_parameters(SD_UARTB, uartb_baud);
+  usart_support_init();
+
+  usart_support_set_parameters(SD_FTDI, ftdi_baud);
+  usart_support_set_parameters(SD_UARTA, uarta_baud);
+  usart_support_set_parameters(SD_UARTB, uartb_baud);
 
   chBSemObjectInit(&ftdi_state.claimed, FALSE);
   ftdi_state.configured = true;
@@ -190,9 +164,9 @@ void usarts_disable()
   if (!all_uarts_enabled)
     return;
 
-  usart_disable(SD_FTDI);
-  usart_disable(SD_UARTA);
-  usart_disable(SD_UARTB);
+  usart_support_disable(SD_FTDI);
+  usart_support_disable(SD_UARTA);
+  usart_support_disable(SD_UARTB);
 }
 
 /** Claim this USART for exclusive use by the calling module.
@@ -247,10 +221,7 @@ u32 usart_n_read(usart_state* s)
   if (s->sd == NULL)
     return 0;
 
-  chSysLock();
-  u32 n = chQSpaceI(&s->sd->iqueue);
-  chSysUnlock();
-  return n;
+  return usart_support_n_read(s->sd);
 }
 
 /** Calculate the space left in the USART DMA transmit buffer.
@@ -262,10 +233,7 @@ u32 usart_tx_n_free(usart_state* s)
   if (s->sd == NULL)
     return 0;
 
-  chSysLock();
-  u32 n = chQSpaceI(&s->sd->oqueue);
-  chSysUnlock();
-  return n;
+  return usart_support_tx_n_free(s->sd);
 }
 
 /** Read bytes from the USART RX buffer.
@@ -281,7 +249,7 @@ u32 usart_read_timeout(usart_state* s, u8 data[], u32 len, u32 timeout)
   if ((s->sd == NULL) || (len == 0))
     return 0;
 
-  u32 n = chnReadTimeout(s->sd, data, len, timeout);
+  u32 n = usart_support_read_timeout(s->sd, data, len, timeout);
   s->rx.byte_counter += n;
   return n;
 }
@@ -327,7 +295,7 @@ u32 usart_write(usart_state* s, const u8 data[], u32 len)
 {
   if (s->sd == NULL)
     return len;
-  u32 n = chnWriteTimeout(s->sd, data, len, TIME_IMMEDIATE);
+  u32 n = usart_support_write(s->sd, data, len);
   s->tx.byte_counter += n;
   return n;
 }

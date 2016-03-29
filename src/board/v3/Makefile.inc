@@ -68,6 +68,7 @@ BOARDSRC := \
         $(BOARDDIR)/frontend.o \
         $(BOARDDIR)/init.o \
         $(BOARDDIR)/acq.o \
+        $(BOARDDIR)/usart_support.o \
         $(BOARDDIR)/nap/nap_dummy.o
 
 BOARDASM := \

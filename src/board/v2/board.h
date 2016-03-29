@@ -236,6 +236,7 @@
 #define LINE_LED1                   PAL_LINE(GPIOC, GPIOC_LED1)
 #define LINE_LED2                   PAL_LINE(GPIOC, GPIOC_LED2)
 
+extern struct usart_support_s SD1, SD3, SD6;
 #define SD_FTDI  (&SD6)
 #define SD_UARTA (&SD1)
 #define SD_UARTB (&SD3)

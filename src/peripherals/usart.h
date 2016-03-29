@@ -52,7 +52,7 @@ extern usart_settings_t uartb_usart;
 
 /** USART DMA state structure. */
 typedef struct {
-  SerialDriver *sd;
+  void *sd;              /**< Pointer to board specific driver structure */
   bool configured;
   /** USART RX stats structure. */
   struct usart_stats {
@@ -86,8 +86,6 @@ void usarts_disable(void);
 bool usart_claim(usart_state* s, const void *module);
 void usart_release(usart_state* s);
 
-void usart_set_parameters(SerialDriver *sd, u32 baud);
-
 u32 usart_tx_n_free(usart_state* s);
 u32 usart_write(usart_state* s, const u8 data[], u32 len);
 
@@ -96,6 +94,15 @@ u32 usart_read(usart_state* s, u8 data[], u32 len);
 u32 usart_read_timeout(usart_state* s, u8 data[], u32 len, u32 timeout);
 
 float usart_throughput(struct usart_stats* s);
+
+/* Support functions to be provided by the board specific implementation */
+void usart_support_init(void);
+void usart_support_set_parameters(void *sd, u32 baud);
+void usart_support_disable(void *sd);
+u32 usart_support_n_read(void *sd);
+u32 usart_support_tx_n_free(void *sd);
+u32 usart_support_read_timeout(void *sd, u8 data[], u32 len, u32 timeout);
+u32 usart_support_write(void *sd, const u8 data[], u32 len);
 
 #endif  /* SWIFTNAV_USART_H */
 

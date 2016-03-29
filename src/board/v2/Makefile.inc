@@ -40,6 +40,7 @@ BOARDSRC := \
         $(BOARDDIR)/nap/track_channel.o \
         $(BOARDDIR)/m25_flash.o \
         $(BOARDDIR)/max2769.o \
+        $(BOARDDIR)/usart_support.o \
         $(SWIFTNAV_ROOT)/src/peripherals/stm_flash.o \
         $(SWIFTNAV_ROOT)/src/peripherals/spi_wrapper.o \
         $(SWIFTNAV_ROOT)/src/peripherals/random.o \

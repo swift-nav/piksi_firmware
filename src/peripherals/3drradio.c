@@ -60,7 +60,7 @@ void radio_preconfigure_hook(enum uart u, u32 default_baud, char* uart_name)
     baud_index++;
 
     /* Configure the UART for the current baudrate */
-    usart_set_parameters(uart_state(u)->sd, baud_rate);
+    usart_support_set_parameters(uart_state(u)->sd, baud_rate);
 
     /* Try to get a radio into AT command mode */
     while (!found_radio && (tries < RADIO_RETRY_COUNT)) {
@@ -95,7 +95,7 @@ void radio_preconfigure_hook(enum uart u, u32 default_baud, char* uart_name)
   }
 
   /* Reset the UART to the original baudrate. */
-  usart_set_parameters(uart_state(u)->sd, default_baud);
+  usart_support_set_parameters(uart_state(u)->sd, default_baud);
 
 }
 
