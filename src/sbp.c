@@ -186,8 +186,8 @@ u32 sbp_send_msg(u16 msg_type, u8 len, u8 buff[])
 
 u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
 {
-  /* Global interrupt disable to avoid concurrency/reentrancy problems. */
-  __asm__("CPSID i;");
+  static MUTEX_DECL(send_mutex);
+  chMtxLock(&send_mutex);
 
   u16 ret = 0;
 
@@ -226,14 +226,8 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
     MAX(uart_state_msg.uart_ftdi.tx_buffer_level,
       255 - (255 * usart_tx_n_free(&ftdi_state)) / (SERIAL_BUFFERS_SIZE-1));
 
-  if (ret != 3*len) {
-    /* Return error if any sbp_send_message failed. */
-    __asm__("CPSIE i;");  /* Re-enable interrupts */
-    return ret;
-  }
-
-  __asm__("CPSIE i;");  // Re-enable interrupts
-  return 0;
+  chMtxUnlock(&send_mutex);
+  return ret;
 }
 
 u32 uarta_read(u8 *buff, u32 n, void *context)

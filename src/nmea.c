@@ -75,8 +75,8 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
  */
 static void nmea_output(char *s, size_t size)
 {
-  /* Global interrupt disable to avoid concurrency/reentrancy problems. */
-  __asm__("CPSID i;");
+  static MUTEX_DECL(send_mutex);
+  chMtxLock(&send_mutex);
 
   if ((ftdi_usart.mode == NMEA) && usart_claim(&ftdi_state, NMEA_MODULE)) {
     usart_write(&ftdi_state, (u8 *)s, size);
@@ -93,7 +93,7 @@ static void nmea_output(char *s, size_t size)
     usart_release(&uartb_state);
   }
 
-  __asm__("CPSIE i;");  /* Re-enable interrupts. */
+  chMtxUnlock(&send_mutex);
 
   for (struct nmea_dispatcher *d = nmea_dispatchers_head; d; d = d->next)
     d->send(s, size);
