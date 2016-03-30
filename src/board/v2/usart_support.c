@@ -60,13 +60,16 @@ struct usart_support_s {
 static void usart_rx_dma_isr(struct usart_rx_dma_state* s, u32 flags);
 static void usart_tx_dma_isr(struct usart_tx_dma_state* s, u32 flags);
 
-void usart_support_init_sd(struct usart_support_s *sd)
+static void usart_support_init_tx(struct usart_support_s *sd)
 {
   /* Setup TX DMA */
   dmaStreamSetMode(sd->tx.dma, sd->dmamode | STM32_DMA_CR_DIR_M2P |
                                STM32_DMA_CR_MINC | STM32_DMA_CR_TCIE);
   dmaStreamSetPeripheral(sd->tx.dma, &sd->usart->DR);
+}
 
+static void usart_support_init_rx(struct usart_support_s *sd)
+{
   /* Setup RX DMA */
   dmaStreamSetMode(sd->rx.dma, sd->dmamode | STM32_DMA_CR_DIR_P2M |
                                STM32_DMA_CR_MINC | STM32_DMA_CR_TCIE |
@@ -90,7 +93,8 @@ void usart_support_init(void)
                     (stm32_dmaisr_t)usart_rx_dma_isr, &SD1.rx);
   SD1.dmamode = STM32_DMA_CR_CHSEL(USART1_TX_DMA_CHANNEL) |
                 STM32_DMA_CR_PL(STM32_SERIAL_USART1_DMA_PRIORITY);
-  usart_support_init_sd(&SD1);
+  usart_support_init_tx(&SD1);
+  usart_support_init_rx(&SD1);
   rccEnableUSART1(FALSE);
 
   SD3.usart = USART3;
@@ -102,7 +106,8 @@ void usart_support_init(void)
                     (stm32_dmaisr_t)usart_rx_dma_isr, &SD3.rx);
   SD3.dmamode = STM32_DMA_CR_CHSEL(USART3_TX_DMA_CHANNEL) |
                 STM32_DMA_CR_PL(STM32_SERIAL_USART3_DMA_PRIORITY);
-  usart_support_init_sd(&SD3);
+  usart_support_init_tx(&SD3);
+  usart_support_init_rx(&SD3);
   rccEnableUSART3(FALSE);
 
   SD6.usart = USART6;
@@ -114,7 +119,8 @@ void usart_support_init(void)
                     (stm32_dmaisr_t)usart_rx_dma_isr, &SD6.rx);
   SD6.dmamode = STM32_DMA_CR_CHSEL(USART6_TX_DMA_CHANNEL) |
                 STM32_DMA_CR_PL(STM32_SERIAL_USART6_DMA_PRIORITY);
-  usart_support_init_sd(&SD6);
+  usart_support_init_tx(&SD6);
+  usart_support_init_rx(&SD6);
   rccEnableUSART6(FALSE);
 }
 
@@ -163,7 +169,8 @@ static void usart_rx_dma_isr(struct usart_rx_dma_state* s, u32 flags)
 
 u32 usart_support_n_read(void *sd)
 {
-  struct usart_rx_dma_state *s = &((struct usart_support_s *)sd)->rx;
+  struct usart_support_s *u = (struct usart_support_s *)sd;
+  struct usart_rx_dma_state *s = &u->rx;
 
   s32 n_read = s->rd_wraps * USART_RX_BUFFER_LEN + s->rd;
   s32 n_written = (s->wr_wraps + 1) * USART_RX_BUFFER_LEN -
@@ -184,10 +191,7 @@ u32 usart_support_n_read(void *sd)
     /* Disable and re-enable the DMA channel to get back to a known good
      * state */
     dmaStreamDisable(s->dma);
-    dmaStreamSetTransactionSize(s->dma, USART_RX_BUFFER_LEN);
-    dmaStreamSetMemory0(s->dma, s->buff);
-    s->rd = s->rd_wraps = s->wr_wraps = 0;
-    dmaStreamEnable(s->dma);
+    usart_support_init_rx(u);
   }
 
   return n_available;
