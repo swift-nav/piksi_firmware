@@ -57,6 +57,9 @@ sbp_state_t ftdi_sbp_state;
 
 static const char SBP_MODULE[] = "sbp";
 
+static u8 sbp_buffer[264];
+static u32 sbp_buffer_length;
+
 static WORKING_AREA_CCM(wa_sbp_thread, 6084);
 static void sbp_thread(void *arg)
 {
@@ -155,20 +158,18 @@ static inline u32 use_usart(usart_settings_t *us, u16 msg_type)
   return 1;
 }
 
-u32 uarta_write(u8 *buff, u32 n, void *context)
+static void sbp_buffer_reset(void)
 {
-  (void)context;
-  return usart_write(&uarta_state, buff, n);
+  sbp_buffer_length = 0;
 }
-u32 uartb_write(u8 *buff, u32 n, void *context)
+
+static u32 sbp_buffer_write(u8 *buff, u32 n, void *context)
 {
   (void)context;
-  return usart_write(&uartb_state, buff, n);
-}
-u32 ftdi_write(u8 *buff, u32 n, void *context)
-{
-  (void)context;
-  return usart_write(&ftdi_state, buff, n);
+  u32 len = MIN(sizeof(sbp_buffer) - sbp_buffer_length, n);
+  memcpy(&sbp_buffer[sbp_buffer_length], buff, len);
+  sbp_buffer_length += len;
+  return len;
 }
 
 /** Send a SBP message out over all applicable USARTs
@@ -191,12 +192,16 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
 
   u16 ret = 0;
 
+  /* Write message into buffer */
+  sbp_buffer_reset();
+  ret |= sbp_send_message(&uarta_sbp_state, msg_type, sender_id,
+                          len, buff, &sbp_buffer_write);
+
   /* Don't relayed messages (sender_id 0) on the A and B UARTs. (Only FTDI USB) */
   if (sender_id != 0) {
 
     if (use_usart(&uarta_usart, msg_type) && usart_claim(&uarta_state, SBP_MODULE)) {
-      ret |= sbp_send_message(&uarta_sbp_state, msg_type, sender_id,
-                              len, buff, &uarta_write);
+      usart_write(&uarta_state, sbp_buffer, sbp_buffer_length);
       usart_release(&uarta_state);
     }
 
@@ -205,8 +210,7 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
         255 - (255 * usart_tx_n_free(&uarta_state)) / (SERIAL_BUFFERS_SIZE-1));
 
     if (use_usart(&uartb_usart, msg_type) && usart_claim(&uartb_state, SBP_MODULE)) {
-      ret |= sbp_send_message(&uartb_sbp_state, msg_type, sender_id,
-                              len, buff, &uartb_write);
+      usart_write(&uartb_state, sbp_buffer, sbp_buffer_length);
       usart_release(&uartb_state);
     }
 
@@ -217,8 +221,7 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
   }
 
   if (use_usart(&ftdi_usart, msg_type) && usart_claim(&ftdi_state, SBP_MODULE)) {
-    ret |= sbp_send_message(&ftdi_sbp_state, msg_type, sender_id,
-                            len, buff, &ftdi_write);
+    usart_write(&ftdi_state, sbp_buffer, sbp_buffer_length);
     usart_release(&ftdi_state);
   }
 
