@@ -369,7 +369,6 @@ static void solution_thread(void *arg)
   chRegSetThreadName("solution");
 
   systime_t deadline = chVTGetSystemTimeX();
-  static navigation_measurement_t nav_meas_old[MAX_CHANNELS];
 
   while (TRUE) {
     do {
@@ -516,39 +515,6 @@ static void solution_thread(void *arg)
                          NMEA_GGA_FIX_GPS);
     }
 
-<<<<<<< 7f0b5a5983b01818c6f8c8464406c1fe81c8e76d
-    /* If we have a recent set of observations from the base station, do a
-     * differential solution. */
-    double pdt;
-    chMtxLock(&base_obs_lock);
-    if (base_obss.n > 0 && !simulation_enabled()) {
-      if ((pdt = gpsdifftime(&position_solution.time, &base_obss.gps_time))
-            < MAX_AGE_OF_DIFFERENTIAL) {
-
-        /* Propagate base station observations to the current time and
-         * process a low-latency differential solution. */
-
-        /* Hook in low-latency filter here. */
-        if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
-            base_obss.has_pos) {
-
-          sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
-          u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
-                                  base_obss.n, base_obss.nm,
-                                  base_obss.sat_dists, base_obss.pos_ecef,
-                                  sdiffs);
-          if (num_sdiffs >= 4) {
-            output_baseline(num_sdiffs, sdiffs, &position_solution.time);
-          }
-        } else {
-        }
-      }
-    }
-    chMtxUnlock(&base_obs_lock);
-
-    // TODO do epoch alignment before pvt? to match base obs?
-=======
->>>>>>> Tidy up
     /* Calculate the time of the nearest solution epoch, where we expected
      * to be, and calculate how far we were away from it. */
     double expected_tow = round(position_solution.time.tow * soln_freq)
@@ -623,7 +589,7 @@ static void solution_thread(void *arg)
           }
         }
       }
-      chMtxUnlock();
+      chMtxUnlock(&base_obs_lock);
 
       /* TODO: use a buffer from the pool from the start instead of
        * allocating nav_meas_tdcp as well. Downside, if we don't end up
