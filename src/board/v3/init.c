@@ -63,6 +63,7 @@ void init(void)
 
   srand(0);
 
+  usarts_setup();
   s32 serial_number = -1;//nap_conf_rd_serial_number();
   if (serial_number < 0) {
     /* TODO: Handle this properly! */

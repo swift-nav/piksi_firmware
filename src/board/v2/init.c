@@ -92,15 +92,16 @@ void init(void)
 
   nap_setup();
 
-  rng_setup();
-  srand(random_int());
-
+  usarts_setup();
   s32 serial_number = nap_conf_rd_serial_number();
   if (serial_number < 0) {
     /* TODO: Handle this properly! */
     serial_number = 0x2222;
   }
   sbp_setup(serial_number);
+
+  rng_setup();
+  srand(random_int());
 
   fault_handling_setup();
 

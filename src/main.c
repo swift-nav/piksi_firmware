@@ -147,7 +147,6 @@ int main(void)
   /* Piksi hardware initialization. */
   init();
   settings_setup();
-  usarts_setup();
   signal_init();
 
   check_nap_auth();
