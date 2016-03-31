@@ -343,7 +343,7 @@ static void update_sat_elevations(const navigation_measurement_t nav_meas[],
   }
 }
 
-void chThdSleepUntilCheck(systime_t time)
+bool chThdSleepUntilCheck(systime_t time)
 {
   chSysLock();
   systime_t systime = chVTGetSystemTimeX();
@@ -355,8 +355,10 @@ void chThdSleepUntilCheck(systime_t time)
     if (time != systime) {
       log_warn("Solution thread missed deadline, "
                "time = %lu, deadline = %lu", systime, time);
+      return false;
     }
   }
+  return true;
 }
 
 static WORKING_AREA_CCM(wa_solution_thread, 8000);
@@ -365,12 +367,13 @@ static void solution_thread(void *arg)
   (void)arg;
   chRegSetThreadName("solution");
 
-  systime_t deadline = chVTGetSystemTimeX() + MS2ST(100);
+  systime_t deadline = chVTGetSystemTimeX();
   static navigation_measurement_t nav_meas_old[MAX_CHANNELS];
 
   while (TRUE) {
-    chThdSleepUntilCheck(deadline);
-    deadline += (CH_CFG_ST_FREQUENCY/soln_freq);
+    do {
+      deadline += (CH_CFG_ST_FREQUENCY/soln_freq);
+    } while (!chThdSleepUntilCheck(deadline));
 
     watchdog_notify(WD_NOTIFY_SOLUTION);
 
