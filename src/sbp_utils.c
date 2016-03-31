@@ -55,9 +55,9 @@ gnss_signal_t sid_from_sbp(const sbp_gnss_signal_t from)
   /* Maintain legacy compatibility with GPS PRN encoding. Sat values for other
    * constellations are "real" satellite identifiers.
    */
-  if (sid_valid(sid)) {
-    if (sid_to_constellation(sid) == CONSTELLATION_GPS)
-      sid.sat += GPS_FIRST_PRN;
+  if (code_valid(sid.code) &&
+     (code_to_constellation(sid.code) == CONSTELLATION_GPS)) {
+    sid.sat += GPS_FIRST_PRN;
   }
 
   return sid;
