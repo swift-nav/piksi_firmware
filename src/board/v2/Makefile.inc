@@ -49,7 +49,7 @@ BOARDSRC := \
 # Define linker script file here
 LDSCRIPT= $(BOARDDIR)/STM32F405xG.ld
 
-RULESPATH = $(CHIBIOS)/os/common/ports/ARMCMx/compilers/GCC
+RULESPATH = $(BOARDDIR)
 
 #
 # Project, sources and paths
