@@ -80,19 +80,6 @@ void nap_acq_init_wr_params_blocking(s16 carrier_freq)
   nap_xfer_blocking(NAP_REG_ACQ_INIT, sizeof(temp), 0, temp);
 }
 
-/** Disable NAP acquisition channel.
- * Write to the acquisition channel's INIT register to disable the correlations
- * (clears enable bit). This must be written once to pipeline disable the
- * correlations, and then a second time to clear the ACQ_DONE IRQ after the
- * last correlation has finished.
- */
-void nap_acq_init_wr_disable_blocking()
-{
-  u8 temp[4] = { 0, 0, 0, 0 };
-
-  nap_xfer_blocking(NAP_REG_ACQ_INIT, 4, 0, temp);
-}
-
 /** Unpack correlations read from acquisition channel.
  *
  * \param packed Array of u8 data read from NAP acq channel CORR register.

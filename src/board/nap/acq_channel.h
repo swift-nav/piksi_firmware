@@ -50,7 +50,6 @@ extern u8 nap_acq_downsample_stages;
 void nap_acq_load_wr_enable_blocking(void);
 void nap_acq_load_wr_disable_blocking(void);
 void nap_acq_init_wr_params_blocking(s16 carrier_freq);
-void nap_acq_init_wr_disable_blocking(void);
 void nap_acq_corr_rd_blocking(u16 *index, u16 *max, float *ave);
 void nap_acq_code_wr_blocking(gnss_signal_t sid);
 
