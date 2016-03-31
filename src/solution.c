@@ -43,8 +43,8 @@
 MemoryPool obs_buff_pool;
 Mailbox obs_mailbox;
 
-dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_LOW_LATENCY;
-dgnss_filter_t dgnss_filter = FILTER_FIXED;
+dgnss_solution_mode_t dgnss_soln_mode = SOLN_MODE_TIME_MATCHED;
+dgnss_filter_t dgnss_filter = FILTER_FLOAT;
 
 /** RTK integer ambiguity states. */
 ambiguity_state_t amb_state;
@@ -223,9 +223,10 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
   case FILTER_FLOAT:
     flags = 0;
     chMtxLock(&amb_state_lock);
-    ret = baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
-                   &amb_state.float_ambs, &num_used, b,
-                   disable_raim, DEFAULT_RAIM_THRESHOLD);
+    // ret = baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
+    //                &amb_state.float_ambs, &num_used, b,
+    //                disable_raim, DEFAULT_RAIM_THRESHOLD);
+    ret = get_baseline(b);
     chMtxUnlock();
     if (ret == 1)
       log_warn("output_baseline: Float baseline RAIM repair");
