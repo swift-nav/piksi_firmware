@@ -148,7 +148,7 @@ static void nmea_append_checksum(char *s, size_t size)
  * \param dops Pointer to dops_t struct.
  */
 void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
-                u8 fix_type, double hdop)
+                u8 fix_type, double hdop, double diff_age, u16 station_id)
 {
   time_t unix_t;
   struct tm t;
@@ -164,18 +164,27 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
   double lon_min = MINUTES(pos_llh[1]);
   lat_deg = abs(lat_deg);
   lon_deg = abs(lon_deg);
-
+  /* our sender_id is a u16, and most docs say it should be less than 2^10-1
+     here we shorten sender id into a number less than 1024 and then stringify*/ 
   char lat_dir = pos_llh[0] < 0 ? 'S' : 'N';
   char lon_dir = pos_llh[1] < 0 ? 'W' : 'E';
 
   NMEA_SENTENCE_START(120);
+  /* Note, geoid separation is set to 0 because no geoid model exists*/
+  /* TODO don't send out diff_age or station ID unless differential (gated on fix mode)*/
   NMEA_SENTENCE_PRINTF("$GPGGA,%02d%02d%06.3f,"
                        "%02d%010.7f,%c,%03d%010.7f,%c,"
-                       "%01d,%02d,%.1f,%.2f,M,,M,,",
+                       "%01d,%02d,%.1f,%.2f,M,0,M,",
                        t.tm_hour, t.tm_min, t.tm_sec + frac_s,
                        lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
                        fix_type, n_used, hdop, pos_llh[2]
                        );
+  if (fix_type>1) {
+    NMEA_SENTENCE_PRINTF("%.1f,%04d",diff_age, station_id&0x3FF);
+  }
+  else {
+    NMEA_SENTENCE_PRINTF(",");
+  }
   NMEA_SENTENCE_DONE();
 }
 

@@ -65,7 +65,7 @@ double base_pos_ecef[3];
 static void base_pos_llh_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context; (void) len; (void) sender_id;
-
+  /*TODO: keep track of sender_id to store multiple base positions?*/
   double llh_degrees[3];
   double llh[3];
   memcpy(llh_degrees, msg, 3*sizeof(double));
@@ -128,12 +128,15 @@ static void update_obss(obss_t *new_obss)
   /* Copy over the time. */
   base_obss.t = new_obss->t;
 
+  /* Copy over sender ID. */
+  base_obss.sender_id = new_obss->sender_id;
+
   /* Copy the current observations over to nm_old so we can difference
    * against them next time around. */
   memcpy(nm_old, new_obss->nm,
          new_obss->n * sizeof(navigation_measurement_t));
   n_old = new_obss->n;
-
+  
   /* Reset the `has_pos` flag. */
   u8 has_pos_old = base_obss.has_pos;
   base_obss.has_pos = 0;
@@ -230,6 +233,9 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   if (sender_id == 0) {
     return;
   }
+
+  /* We set the sender_id */
+  base_obss_rx.sender_id = sender_id;
 
   /* Relay observations using sender_id = 0. */
   sbp_send_msg_(SBP_MSG_OBS, len, msg, 0);
