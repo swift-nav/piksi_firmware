@@ -248,7 +248,9 @@ void tracking_channels_update(u32 channels_mask)
   for (u32 channel = 0; channel < nap_track_n_channels; channel++) {
     tracker_channel_t *tracker_channel = tracker_channel_get(channel);
     bool update_required = (channels_mask & 1) ? true : false;
-    tracker_channel_process(tracker_channel, update_required);
+    if (update_required) {
+      tracker_channel_process(tracker_channel, true);
+    }
     channels_mask >>= 1;
   }
 }
