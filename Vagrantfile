@@ -8,26 +8,10 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Box definitions for different targets
-  # Ubuntu 14.10 LTS
-  config.vm.define "utopic" do |utopic|
-    utopic.vm.box = "utopic"
-    utopic.vm.box_url = "http://cloud-images.ubuntu.com/vagrant/utopic/current/utopic-server-cloudimg-i386-vagrant-disk1.box"
-    utopic.vm.box_download_checksum_type = "sha256"
-    utopic.vm.box_download_checksum = "0c37d6eaeeade5f4057a08de6c858513d61adc462058285bccc22ea1bac87ff9"
-  end
   # Ubuntu 14.04 LTS
   config.vm.define "trusty" do |trusty64|
     trusty64.vm.box = "trusty64"
-    trusty64.vm.box_url = "http://cloud-images.ubuntu.com/vagrant/trusty/current/trusty-server-cloudimg-i386-vagrant-disk1.box"
-    trusty64.vm.box_download_checksum_type = "sha256"
-    trusty64.vm.box_download_checksum = "1362fff999ba5dd8332e88a906de8eec7baaca6b288223dbc9a0f762a67f685b"
-  end
-  # Ubuntu 13.04 LTS
-  config.vm.define "raring" do |raring|
-    raring.vm.box = "raring"
-    raring.vm.box_url = "http://cloud-images.ubuntu.com/vagrant/raring/20140125/raring-server-cloudimg-i386-vagrant-disk1.box"
-    raring.vm.box_download_checksum_type = "sha256"
-    raring.vm.box_download_checksum = "16559835c0487e7f90d9fedd8c678325769017c10bccb4c9b7e712e03b91ca26"
+    trusty64.vm.box_url = "https://cloud-images.ubuntu.com/vagrant/trusty/current/trusty-server-cloudimg-i386-vagrant-disk1.box"
   end
   # Debian 7.6
   config.vm.define "wheezy" do |wheezy|
