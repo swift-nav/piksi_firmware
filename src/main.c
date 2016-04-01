@@ -42,6 +42,7 @@
 #include "pps.h"
 #include "decode.h"
 #include "decode_gps_l1.h"
+#include "l2c_capability.h"
 #include "signal.h"
 
 extern void ext_setup(void);
@@ -183,6 +184,7 @@ int main(void)
   max2769_setup();
   timing_setup();
   ext_event_setup();
+  l2c_capability_init();
   position_setup();
   track_setup();
   track_gps_l1ca_register();

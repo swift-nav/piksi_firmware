@@ -18,6 +18,11 @@
 #include "sbp.h"
 #include "sbp_utils.h"
 #include "decode.h"
+#include "decode_gps_l1.h"
+#include "l2c_capability.h"
+
+#include "cfs/cfs-coffee.h"
+#include "cfs/cfs.h"
 
 #define NUM_GPS_L1_DECODERS   12
 
@@ -102,20 +107,34 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
   if (!subframe_ready(&data->nav_msg))
     return;
 
-  /* Decode ephemeris to temporary struct */
+  /* Decode ephemeris to temporary struct and get info regarding
+   * L2C capability status if it's been changed or not */
   ephemeris_t e = {.sid = channel_info->sid};
-  s8 ret = process_subframe(&data->nav_msg, &e);;
+  gps_l1ca_decoded_data_t dd = {
+    .ephemeris = &e,
+    .ephemeris_upd_flag = false,
+    .gps_l2c_sv_capability = 0,
+    .gps_l2c_sv_capability_upd_flag = false
+  };
+  s8 ret = process_subframe(&data->nav_msg, &dd);
 
   if (ret <= 0)
     return;
 
-  /* Decoded a new ephemeris. */
-  ephemeris_new(&e);
+  /* update l2c capability with value we got after process_subframe */
+  if (dd.gps_l2c_sv_capability_upd_flag)
+    l2c_capability_update(dd.gps_l2c_sv_capability);
 
-  ephemeris_t *eph = ephemeris_get(channel_info->sid);
-  if (!eph->valid) {
-    char buf[SID_STR_LEN_MAX];
-    sid_to_string(buf, sizeof(buf), channel_info->sid);
-    log_info("%s ephemeris is invalid", buf);
+
+  if(dd.ephemeris_upd_flag) {
+    /* Decoded a new ephemeris. */
+    ephemeris_new(dd.ephemeris);
+
+    ephemeris_t *eph = ephemeris_get(channel_info->sid);
+    if (!eph->healthy) {
+      char buf[SID_STR_LEN_MAX];
+      sid_to_string(buf, sizeof(buf), channel_info->sid);
+      log_info("%s unhealthy", buf);
+    }
   }
 }
