@@ -91,9 +91,7 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
     if ((TOW_ms >= 0) && (bit_polarity != BIT_POLARITY_UNKNOWN)) {
       if (!tracking_channel_time_sync(channel_info->tracking_channel, TOW_ms,
                                       bit_polarity)) {
-        char buf[SID_STR_LEN_MAX];
-        sid_to_string(buf, sizeof(buf), channel_info->sid);
-        log_warn("%s TOW set failed", buf);
+        log_warn_sid(channel_info->sid, "TOW set failed");
       }
     }
   }
@@ -114,8 +112,6 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
 
   ephemeris_t *eph = ephemeris_get(channel_info->sid);
   if (!eph->valid) {
-    char buf[SID_STR_LEN_MAX];
-    sid_to_string(buf, sizeof(buf), channel_info->sid);
-    log_info("%s ephemeris is invalid", buf);
+    log_info_sid(channel_info->sid, "ephemeris is invalid");
   }
 }
