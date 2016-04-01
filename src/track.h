@@ -33,11 +33,19 @@ typedef u8 tracker_channel_id_t;
 
 /** \} */
 
+#define TRK_WEAK __attribute__ ((weak, alias ("trk_not_implemented")))
+void trk_not_implemented() __attribute__ ((weak));
+inline void trk_not_implemented()
+{
+  return;
+}
+
 void track_setup(void);
 
 void tracking_send_state(void);
 
-float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
+float propagate_code_phase(float code_phase, float carrier_freq,
+                           u32 n_samples, code_t code);
 
 /* Update interface */
 void tracking_channels_update(u32 channels_mask);

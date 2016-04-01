@@ -120,7 +120,8 @@ static void interface_function(tracker_channel_t *tracker_channel,
                                tracker_interface_function_t func);
 static void event(tracker_channel_t *d, event_t event);
 static void common_data_init(tracker_common_data_t *common_data,
-                             u32 sample_count, float carrier_freq, float cn0);
+                             u32 sample_count, float carrier_freq,
+                             float cn0, code_t code);
 static void tracker_channel_lock(tracker_channel_t *tracker_channel);
 static void tracker_channel_unlock(tracker_channel_t *tracker_channel);
 
@@ -209,10 +210,11 @@ void tracking_send_state()
  *
  * \return The propagated code phase in chips.
  */
-float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
+float propagate_code_phase(float code_phase, float carrier_freq,
+                           u32 n_samples, code_t code)
 {
   /* Calculate the code phase rate with carrier aiding. */
-  u32 code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) *
+  u32 code_phase_rate = (1.0 + carrier_freq/code_to_carr_freq(code)) *
                             NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
 
   /* Internal Swift NAP code phase is in chips*2^32:
@@ -232,7 +234,8 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
    * NOTE: the modulo is required to fix the fact rollover should
    * occur at 1023 not 1024.
    */
-  return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
+  return (float)((u32)(propagated_code_phase >> 28) %
+                      (code_to_chip_num(code)*16)) / 16.0;
 }
 
 /** Handles pending IRQs for the specified tracking channels.
@@ -313,7 +316,7 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
     start_sample_count -= 0.5*16;
 
     common_data_init(&tracker_channel->common_data, start_sample_count,
-                     carrier_freq, cn0_init);
+                     carrier_freq, cn0_init, sid.code);
     internal_data_init(&tracker_channel->internal_data, sid);
     interface_function(tracker_channel, tracker_interface->init);
 
@@ -968,7 +971,8 @@ static void event(tracker_channel_t *tracker_channel, event_t event)
  * \param cn0               C/N0 estimate.
  */
 static void common_data_init(tracker_common_data_t *common_data,
-                             u32 sample_count, float carrier_freq, float cn0)
+                             u32 sample_count, float carrier_freq,
+                             float cn0, code_t code)
 {
   /* Initialize all fields to 0 */
   memset(common_data, 0, sizeof(tracker_common_data_t));
@@ -976,7 +980,7 @@ static void common_data_init(tracker_common_data_t *common_data,
   common_data->TOW_ms = TOW_INVALID;
 
   /* Calculate code phase rate with carrier aiding. */
-  common_data->code_phase_rate = (1 + carrier_freq/GPS_L1_HZ) *
+  common_data->code_phase_rate = (1 + carrier_freq/code_to_carr_freq(code)) *
                                     GPS_CA_CHIPPING_RATE;
   common_data->carrier_freq = carrier_freq;
 

@@ -263,8 +263,9 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
       /* sat_pos now holds unit vector from us to satellite */
       vector_subtract(3, sat_vel, position_solution.vel_ecef, sat_vel);
       /* sat_vel now holds velocity of sat relative to us */
-      dopp_hint = -GPS_L1_HZ * (vector_dot(3, sat_pos, sat_vel) / GPS_C
-                                + position_solution.clock_bias);
+      dopp_hint = -code_to_carr_freq(sid.code) *
+                  (vector_dot(3, sat_pos, sat_vel) / GPS_C
+                   + position_solution.clock_bias);
       /* TODO: Check sign of receiver frequency offset correction */
       if (time_quality >= TIME_FINE)
         dopp_uncertainty = DOPP_UNCERT_EPHEM;
@@ -691,12 +692,14 @@ static void manage_tracking_startup(void)
     float cp = propagate_code_phase(startup_params.code_phase,
                                     startup_params.carrier_freq,
                                     track_count -
-                                        startup_params.sample_count);
+                                        startup_params.sample_count,
+                                    startup_params.sid.code);
 
     /* Contrive for the timing strobe to occur at or close to a
      * PRN edge (code phase = 0) */
     track_count += 16 * (1023.0-cp) *
-                      (1.0 + startup_params.carrier_freq / GPS_L1_HZ);
+                      (1.0 + startup_params.carrier_freq /
+                       code_to_carr_freq(startup_params.sid.code));
 
     /* Start the tracking channel */
     if(!tracker_channel_init(chan, startup_params.sid,
