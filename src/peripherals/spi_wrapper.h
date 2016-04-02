@@ -36,10 +36,12 @@ enum {
 
 void spi_setup(void);
 void spi_deactivate(void);
+void spi_lock(u8 slave);
+void spi_unlock(u8 slave);
 void spi_slave_select(u8 slave);
 void spi_slave_deselect(u8 slave);
 u8 spi_slave_xfer(u8 slave, u8 data);
-void spi_slave_xfer_async(u8 slave, u16 n_bytes, u8 data_in[], const u8 data_out[]);
+void spi_slave_xfer_dma(u8 slave, u16 n_bytes, u8 data_in[], const u8 data_out[]);
 
 #endif
 

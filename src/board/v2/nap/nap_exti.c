@@ -24,6 +24,7 @@
 #include "track_channel.h"
 #include "../../ext_events.h"
 #include "../../system_monitor.h"
+#include "peripherals/spi_wrapper.h"
 
 /** \addtogroup nap
  * \{ */
@@ -117,9 +118,12 @@ static void nap_exti_thread(void *arg)
      * NAP then the IRQ line will stay high. Therefore if
      * the line is still high, don't suspend the thread.
      */
+
+    spi_lock(SPI_SLAVE_FPGA);
     while (palReadLine(LINE_NAP_IRQ)) {
       handle_nap_exti();
     }
+    spi_unlock(SPI_SLAVE_FPGA);
 
   }
 }

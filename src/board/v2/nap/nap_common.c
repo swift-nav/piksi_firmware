@@ -12,6 +12,8 @@
  */
 
 #include <libsbp/sbp.h>
+#include <string.h>
+#include <assert.h>
 
 #include "../../error.h"
 #include "../../peripherals/spi_wrapper.h"
@@ -170,22 +172,18 @@ void nap_callbacks_setup(void)
 void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[],
                        const u8 data_out[])
 {
+  /* Static buffer NOT in CCM */
+  static u8 dma_buffer[129];
+  assert(n_bytes + 1U <= sizeof(dma_buffer));
+
+  /* Note: only access buffer while slave is selected (and mutex is owned). */
   spi_slave_select(SPI_SLAVE_FPGA);
 
-  spi_slave_xfer(SPI_SLAVE_FPGA, reg_id);
+  dma_buffer[0] = reg_id;
+  memcpy(&dma_buffer[1], data_out, n_bytes);
+  spi_slave_xfer_dma(SPI_SLAVE_FPGA, n_bytes + 1, dma_buffer, dma_buffer);
+  memcpy(data_in, &dma_buffer[1], n_bytes);
 
-  /* Spin for shorter transfers to avoid the overhead of context switching. */
-  if (SPI_USE_ASYNC && (n_bytes >= 8)) {
-    spi_slave_xfer_async(SPI_SLAVE_FPGA, n_bytes, data_in, data_out);
-  } else {
-    /* If data_in is NULL then discard read data. */
-    if (data_in)
-      for (u16 i = 0; i < n_bytes; i++)
-        data_in[i] = spi_slave_xfer(SPI_SLAVE_FPGA, data_out[i]);
-    else
-      for (u16 i = 0; i < n_bytes; i++)
-        spi_slave_xfer(SPI_SLAVE_FPGA, data_out[i]);
-  }
   spi_slave_deselect(SPI_SLAVE_FPGA);
 }
 

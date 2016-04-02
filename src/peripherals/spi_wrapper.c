@@ -18,15 +18,31 @@
 
 #include "spi_wrapper.h"
 
-static MUTEX_DECL(spi_mutex);
-
-static const struct {
+typedef struct {
   SPIDriver *driver;
+  mutex_t mutex;
+  thread_t *owner;
+  u8 lock_nest;
+  u8 active_slave;
+} spi_bus_t;
+
+typedef struct {
+  spi_bus_t *bus;
   SPIConfig config;
-} spi_slave[] = {
-  [SPI_SLAVE_FPGA] = {&SPID1, {NULL, PAL_PORT(LINE_SPI1NSS), PAL_PAD(LINE_SPI1NSS), 0, false}},
-  [SPI_SLAVE_FLASH] = {&SPID2, {NULL, PAL_PORT(LINE_SPI2NSS_FLASH), PAL_PAD(LINE_SPI2NSS_FLASH), 0, true}},
-  [SPI_SLAVE_FRONTEND] = {&SPID2, {NULL, PAL_PORT(LINE_SPI2NSS_MAX), PAL_PAD(LINE_SPI2NSS_MAX), 0, true}},
+} spi_slave_t;
+
+static spi_bus_t spi_bus_1 = {
+  &SPID1, _MUTEX_DATA(spi_bus_1.mutex), NULL, 0, SPI_SLAVE_MAX
+};
+
+static spi_bus_t spi_bus_2 = {
+  &SPID2, _MUTEX_DATA(spi_bus_2.mutex), NULL, 0, SPI_SLAVE_MAX
+};
+
+static const spi_slave_t spi_slave[] = {
+  [SPI_SLAVE_FPGA] = {&spi_bus_1, {NULL, PAL_PORT(LINE_SPI1NSS), PAL_PAD(LINE_SPI1NSS), 0, false}},
+  [SPI_SLAVE_FLASH] = {&spi_bus_2, {NULL, PAL_PORT(LINE_SPI2NSS_FLASH), PAL_PAD(LINE_SPI2NSS_FLASH), 0, true}},
+  [SPI_SLAVE_FRONTEND] = {&spi_bus_2, {NULL, PAL_PORT(LINE_SPI2NSS_MAX), PAL_PAD(LINE_SPI2NSS_MAX), 0, true}},
 };
 
 /** Set up the SPI buses.
@@ -64,14 +80,60 @@ void spi_deactivate(void)
   palSetLineMode(LINE_SPI2MOSI, PAL_MODE_INPUT);
 }
 
+/** Lock the SPI bus used by the selected peripheral.
+ * \note This function may be called before spi_slave_select() to enforce
+ * exclusive access to the SPI bus across multiple transactions.
+ * \param slave Peripheral to lock the SPI bus for.
+ */
+void spi_lock(u8 slave)
+{
+  spi_bus_t *bus = spi_slave[slave].bus;
+  thread_t *thread = chThdGetSelfX();
+
+  chSysLock();
+  if (bus->owner != thread) {
+    chMtxLockS(&bus->mutex);
+    bus->owner = thread;
+  } else {
+    bus->lock_nest++;
+  }
+  chSysUnlock();
+}
+
+/** Unlock the SPI bus used by the selected peripheral.
+ * \note This function should be called after spi_slave_deselect() if
+ * the bus was locked with spi_lock().
+ * \param slave Peripheral to unlock the SPI bus for.
+ */
+void spi_unlock(u8 slave)
+{
+  spi_bus_t *bus = spi_slave[slave].bus;
+
+  if (bus->lock_nest > 0) {
+    bus->lock_nest--;
+  } else {
+    bus->owner = NULL;
+    chMtxUnlock(&bus->mutex);
+  }
+}
+
 /** Drive SPI nCS line low for selected peripheral.
  * \param slave Peripheral to drive chip select for.
  */
 void spi_slave_select(u8 slave)
 {
-  chMtxLock(&spi_mutex);
-  spiStart(spi_slave[slave].driver, &spi_slave[slave].config);
-  spiSelect(spi_slave[slave].driver);
+  spi_lock(slave);
+
+  const spi_slave_t *s = &spi_slave[slave];
+  spi_bus_t *bus = s->bus;
+  SPIDriver *driver = bus->driver;
+
+  if (bus->active_slave != slave) {
+    spiStop(driver);
+    spiStart(driver, &s->config);
+    bus->active_slave = slave;
+  }
+  spiSelect(driver);
 }
 
 /** Drive all SPI nCS lines high.
@@ -79,31 +141,25 @@ void spi_slave_select(u8 slave)
  */
 void spi_slave_deselect(u8 slave)
 {
-  spiUnselect(spi_slave[slave].driver);
-  spiStop(spi_slave[slave].driver);
-
-  chMtxUnlock(&spi_mutex);
+  SPIDriver *driver = spi_slave[slave].bus->driver;
+  spiUnselect(driver);
+  spi_unlock(slave);
 }
 
 u8 spi_slave_xfer(u8 slave, u8 data)
 {
-  return spiPolledExchange(spi_slave[slave].driver, data);
+  SPIDriver *driver = spi_slave[slave].bus->driver;
+  return spiPolledExchange(driver, data);
 }
 
-void spi_slave_xfer_async(u8 slave, u16 n_bytes, u8 data_in[], const u8 data_out[])
+/* Note: buffers must NOT be in CCM */
+void spi_slave_xfer_dma(u8 slave, u16 n_bytes, u8 data_in[], const u8 data_out[])
 {
-  /* We use a static buffer here for DMA transfers as data_in/data_out
-   * often are on the stack in CCM which is not accessible by DMA.
-   */
-  static u8 spi_dma_buf[128];
-  assert (n_bytes <= sizeof(spi_dma_buf));
-  memcpy(spi_dma_buf, data_out, n_bytes);
-
+  SPIDriver *driver = spi_slave[slave].bus->driver;
   if (data_in != NULL) {
-    spiExchange(spi_slave[slave].driver, n_bytes, spi_dma_buf, spi_dma_buf);
-    memcpy(data_in, spi_dma_buf, n_bytes);
+    spiExchange(driver, n_bytes, data_out, data_in);
   } else {
-    spiSend(spi_slave[slave].driver, n_bytes, spi_dma_buf);
+    spiSend(driver, n_bytes, data_out);
   }
 }
 
