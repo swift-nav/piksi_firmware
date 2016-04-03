@@ -80,6 +80,7 @@ void internal_data_init(tracker_internal_data_t *internal_data,
                         gnss_signal_t sid);
 
 void nav_bit_fifo_init(nav_bit_fifo_t *fifo);
+bool nav_bit_fifo_full(nav_bit_fifo_t *fifo);
 bool nav_bit_fifo_write(nav_bit_fifo_t *fifo,
                         const nav_bit_fifo_element_t *element);
 bool nav_bit_fifo_read(nav_bit_fifo_t *fifo, nav_bit_fifo_element_t *element);

@@ -320,8 +320,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     float err = alias_detect_second(&data->alias_detect, I, Q);
     if (fabs(err) > (250 / data->int_ms)) {
       if (data->lock_detect.outp) {
-        log_warn_sid(channel_info->sid,
-                     "False phase lock detected: err=%f", err);
+        log_warn_sid(channel_info->sid, "False phase lock detected");
       }
 
       tracker_ambiguity_unknown(channel_info->context);
@@ -339,8 +338,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
       (data->lock_detect.outo) &&
       /* Must have nav bit sync, and be correctly aligned */
       tracker_bit_aligned(channel_info->context)) {
-    log_info_sid(channel_info->sid, "synced @ %u ms, %.1f dBHz",
-                 (unsigned int)common_data->update_count, common_data->cn0);
+    log_info_sid(channel_info->sid, "synced");
     data->stage = 1;
     const struct loop_params *l = &loop_params_stage[1];
     data->int_ms = MIN(l->coherent_ms,

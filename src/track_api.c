@@ -161,13 +161,17 @@ void tracker_bit_sync_update(tracker_context_t *context, u32 int_ms,
 
     s8 soft_bit = nav_bit_quantize(bit_integrate);
 
-    // write to FIFO
+    /* write to FIFO */
     nav_bit_fifo_element_t element = { .soft_bit = soft_bit };
-    if (!nav_bit_fifo_write(&internal_data->nav_bit_fifo, &element)) {
-      log_warn_sid(channel_info->sid, "nav bit FIFO overrun");
+    if (nav_bit_fifo_write(&internal_data->nav_bit_fifo, &element)) {
+
+      /* warn if the FIFO has become full */
+      if (nav_bit_fifo_full(&internal_data->nav_bit_fifo)) {
+        log_warn_sid(channel_info->sid, "nav bit FIFO full");
+      }
     }
 
-    // clear nav bit TOW offset
+    /* clear nav bit TOW offset */
     internal_data->nav_bit_TOW_offset_ms = 0;
   }
 }

@@ -77,6 +77,17 @@ void nav_bit_fifo_init(nav_bit_fifo_t *fifo)
   fifo->write_index = 0;
 }
 
+/** Determine if a nav bit FIFO is full.
+ *
+ * \param fifo        nav_bit_fifo_t struct to use.
+ *
+ * \return true if the nav bit FIFO is full, false otherwise.
+ */
+bool nav_bit_fifo_full(nav_bit_fifo_t *fifo)
+{
+  return (NAV_BIT_FIFO_LENGTH(fifo) == NAV_BIT_FIFO_SIZE);
+}
+
 /** Write data to the nav bit FIFO.
  *
  * \note This function should only be called internally by the tracking thread.
