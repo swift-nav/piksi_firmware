@@ -125,7 +125,8 @@ static void update_obss(obss_t *new_obss)
    * calculate the Doppler shift. */
   base_obss.n = tdcp_doppler(new_obss->n, new_obss->nm,
                              n_old, nm_old, base_obss.nm);
-  /* Copy over the time. */
+
+  /* Copy over the obervation time. May include a receiver clock error. */
   base_obss.t = new_obss->t;
 
   /* Copy the current observations over to nm_old so we can difference
@@ -137,19 +138,12 @@ static void update_obss(obss_t *new_obss)
   /* Reset the `has_pos` flag. */
   u8 has_pos_old = base_obss.has_pos;
   base_obss.has_pos = 0;
-  /* Check if the base station has sent us its position explicitly via a
-   * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
-   * that. No need to lock before reading here as base_pos_* is only written
-   * from this thread (SBP).
-   */
-  if (base_pos_known) {
-    /* Copy the known base station position into `base_obss`. */
-    memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
-    /* Indicate that the position is valid. */
-    base_obss.has_pos = 1;
-  /* The base station wasn't sent to us explicitly but if we have >= 4
-   * satellites we can calculate it ourselves (approximately). */
-  } else if (base_obss.n >= 4) {
+
+  /* If we have >= 4 satellites we can calculate the approximate base station
+     position. We also calculate the GPS system time of the measurements which
+     may be different than the observation time offset by the receiver clock
+     error. */
+  if (base_obss.n >= 4) {
     gnss_solution soln;
     dops_t dops;
 
@@ -174,13 +168,79 @@ static void update_obss(obss_t *new_obss)
       } else {
         memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
       }
+
       base_obss.has_pos = 1;
+
+      /* Calculate the time of the nearest solution epoch, were we expected
+       * to be and calculate how far we were away from it. */
+      double soln_freq = 0.1;
+      double expected_tow = round(soln.time.tow*soln_freq)
+                              / soln_freq;
+      double t_err = expected_tow - soln.time.tow; // TODO print this
+
+      /* Only send observations that are closely aligned with the desired
+       * solution epochs to ensure they haven't been propagated too far. */
+      /* Output obervations only every obs_output_divisor times, taking
+       * care to ensure that the observations are aligned. */
+      double t_check = expected_tow * (soln_freq / obs_output_divisor);
+      if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
+          fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+        /* Propagate observation to desired time. */
+        for (u8 i = 0; i < base_obss.n; i++) {
+          base_obss.nm[i].raw_pseudorange -= t_err * base_obss.nm[i].doppler *
+            (GPS_C / GPS_L1_HZ);
+          base_obss.nm[i].carrier_phase += t_err * base_obss.nm[i].doppler;
+        }
+
+        /* Update observation time. */
+        base_obss.t.wn = soln.time.wn;
+        base_obss.t.tow = expected_tow;
+      }
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
       log_warn("Error calculating base station position: (%s).", pvt_err_msg[-ret-1]);
     }
   }
+
+  for(u8 i = 0; i < base_obss.n; i++) {
+    /* Check if we have an ephemeris for this satellite, we will need this to
+     * fill in satellite position etc. parameters. */
+    ephemeris_lock();
+    ephemeris_t *e = ephemeris_get(base_obss.nm[i].sid);
+    if (ephemeris_good(e, base_obss.t)) { // TODO redundant?
+
+      /* TODO need to refactor everything so calc_PVT done early */
+      double clock_err;
+      double clock_rate_err;
+      /* Calculate satellite parameters using the ephemeris. */
+      calc_sat_state(e, base_obss.t,
+                     base_obss.nm[i].sat_pos,
+                     base_obss.nm[i].sat_vel,
+                     &clock_err, &clock_rate_err);
+      /* Apply corrections to the raw pseudorange. */
+      /* TODO Make a function to apply some of these corrections.
+       *      They are used in a couple places. */
+      base_obss.nm[i].pseudorange =
+            base_obss.nm[i].raw_pseudorange + clock_err * GPS_C;
+      /* Set the time */
+      base_obss.nm[i].tot = base_obss.t;
+    }
+    ephemeris_unlock();
+  }
+
+  /* Check if the base station has sent us its position explicitly via a
+   * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
+   * that. No need to lock before reading here as base_pos_* is only written
+   * from this thread (SBP).
+   */
+  if (base_pos_known) {
+    /* Copy the known base station position into `base_obss`. */
+    memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
+    /* Indicate that the position is valid. */
+    base_obss.has_pos = 1;
+  }
+
   /* If the base station position is known then calculate the satellite ranges.
    * This calculation will be used later by the propagation functions. */
   if (base_obss.has_pos) {
@@ -190,8 +250,10 @@ static void update_obss(obss_t *new_obss)
       base_obss.sat_dists[i] = vector_norm(3, dx);
     }
   }
+
   /* Unlock base_obss mutex. */
   chMtxUnlock();
+
   /* Signal that a complete base observation has been received. */
   chBSemSignal(&base_obs_received);
 }
@@ -312,6 +374,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_rx.nm[base_obss_rx.n].lock_counter,
         &base_obss_rx.nm[base_obss_rx.n].sid
       );
+      /* TODO need to refactor everything so calc_PVT done early */
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
