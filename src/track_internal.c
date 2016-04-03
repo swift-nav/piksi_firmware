@@ -27,8 +27,6 @@
 
 #define COMPILER_BARRIER() asm volatile ("" : : : "memory")
 
-static MUTEX_DECL(nav_time_sync_mutex);
-
 static tracker_interface_list_element_t *tracker_interface_list = 0;
 
 /* signal lock counter
@@ -151,15 +149,17 @@ bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
                        s8 bit_polarity, nav_bit_fifo_index_t read_index)
 {
   bool result = false;
-  chMtxLock(&nav_time_sync_mutex);
 
-  sync->TOW_ms = TOW_ms;
-  sync->bit_polarity = bit_polarity;
-  sync->read_index = read_index;
-  sync->valid = true;
-  result = true;
+  if (!sync->valid) {
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    sync->TOW_ms = TOW_ms;
+    sync->bit_polarity = bit_polarity;
+    sync->read_index = read_index;
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    sync->valid = true;
+    result = true;
+  }
 
-  chMtxUnlock(&nav_time_sync_mutex);
   return result;
 }
 
@@ -179,17 +179,17 @@ bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
                        s8 *bit_polarity, nav_bit_fifo_index_t *read_index)
 {
   bool result = false;
-  chMtxLock(&nav_time_sync_mutex);
 
   if (sync->valid) {
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
     *TOW_ms = sync->TOW_ms;
     *bit_polarity = sync->bit_polarity;
     *read_index = sync->read_index;
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
     sync->valid = false;
     result = true;
   }
 
-  chMtxUnlock(&nav_time_sync_mutex);
   return result;
 }
 
