@@ -11,25 +11,20 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include <libopencm3/stm32/f4/dma.h>
-#include <libopencm3/stm32/f4/usart.h>
+#include "zynq7000.h"
+#include <hal.h>
+
 #include <stdlib.h>
 #include <string.h>
 
 #include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
 
-#include "board/leds.h"
+#include "peripherals/leds.h"
 #include "peripherals/usart.h"
 
 #include "error.h"
 #include "sbp.h"
-
-#define TRAP_INT_DIV_ZERO
-/* A lot of the SBP packet packing/unpacking fails involves unligned
-   access at the moment, so the following is disabled for now*/
-#undef TRAP_UNALIGNED_ACCESS
-
 
 /** \addtogroup error
  * System low-level error handling and reporting
@@ -44,8 +39,8 @@ static u32 fallback_write_ftdi(u8 *buff, u32 n, void *context)
 {
   (void)context;
   for (u8 i=0; i<n; i++) {
-    while (!(USART6_SR & USART_SR_TXE));
-    USART6_DR = buff[i];
+    while (UART1->SR & UART_SR_TXFULL_Msk);
+    UART1->FIFO = buff[i];
   }
   return n;
 }
@@ -61,8 +56,6 @@ static u32 fallback_write_ftdi(u8 *buff, u32 n, void *context)
 void _screaming_death(const char *pos, const char *msg)
 {
   __asm__("CPSID if;");           /* Disable all interrupts and faults */
-  DMA2_S7CR = 0;                  /* Disable USART TX DMA */
-  USART6_CR3 &= ~USART_CR3_DMAT;  /* Disable USART DMA */
 
   #define SPEAKING_MSG_N 222       /* Maximum length of error message */
 
@@ -123,79 +116,36 @@ void _exit(int status)
 /** Enable and/or register handlers for system faults (hard fault, bus
  * fault, memory protection, usage (i.e. divide-by-zero) */
 void fault_handling_setup(void) {
-  /* Useful references:
-     http://www.st.com/web/en/resource/technical/document/programming_manual/DM00046982.pdf
-     http://chibios.sourceforge.net/docs/port_cmx_gcc_rm/nvic_8c.html */
-
-  /* The following can be uncommented to separately handle hard
-     faults, MPU faults, bus faults and usage faults.  Otherwise
-     they'll all get promoted to hard faults.  If you uncomment this,
-     implement MemManageVector, BusFaultVector and UsageFaultVector.
-
-  nvicSetSystemHandlerPriority(HANDLER_MEM_MANAGE, 1);
-  SCB_SHCSR |= (1 << 16);
-  nvicSetSystemHandlerPriority(HANDLER_BUS_FAULT, 2);
-  SCB_SHCSR |= (1 << 17);
-  nvicSetSystemHandlerPriority(HANDLER_USAGE_FAULT, 3);
-  SCB_SHCSR |= (1 << 18);
-  */
-
-
-#ifdef TRAP_UNALIGNED_ACCESS
-  /* Enable trapping of unaligned accesses - the processor can perform
-     most of them, but they're slow and may indicate a program
-     error. */
-  SCB_CCR |= (1 << 3);
-#endif
-
-#ifdef TRAP_INT_DIV_ZERO
-  /* Enable trapping of integer division by zero - otherwise the
-     operation will silently give a zero quotient. */
-  SCB_CCR |= (1 << 4);  /* SCB_CCR_DIV_0_TRP */
 }
-#endif
 
-/* The following CamelCase functions each override a 'weak' definition
-   in ChibiOS-RT/os/ports/GCC/ARMCMx/STM32F4xx/vectors.c */
-void NMIVector(void)
+__attribute__((interrupt("UNDEF")))
+void Und_Handler(void)
 {
-  /* We don't expect to ever end up here - On the STM32F4 the NMI can
-     only be triggered by the RCC Clock Security System, which we
-     don't enable. */
-  screaming_death("NMI - RCC CSS?");
-};
+  screaming_death("Undefined instruction!");
+}
 
-
-void HardFaultVector(void) __attribute__((noreturn));
-void HardFaultVector(void)
+__attribute__((interrupt("ABORT")))
+void Prefetch_Handler(void)
 {
-  /* TODO: ChibiOS thread status dump
-     TODO: Use MSG_PANIC to avoid sprintf
-     TODO: Check that the master stack is in a sensible place, i.e. unlikely
-           to conflict with the process stack
-  */
+  screaming_death("Prefetch Abort!");
+}
 
-  /* Retrieve the Process Stack Pointer, upon which is stacked important info
-     (this handler is executing using the Master Stack Pointer instead).
-     Get the Link Register as well, which is probably 0xFFFFFFED (see
-     PM0214 section 2.3)
-  */
-  static uint32_t *psp, *lr;
-  asm("mrs %0, psp" : "=r"(psp) : : );
-  asm("mov %0, lr" : "=r"(lr) : : );
-  
-  static char msg[256];
-  sprintf(msg, "HFSR=%08X CFSR=%08X MMFAR=%08X BFAR=%08X PSP=%08X LR=%08X "
-          "r0=%08X r1=%08X r2=%08X r3=%08X r12=%08X lr=%08X pc=%08X psr=%08X",
-          (unsigned int)SCB_HFSR, (unsigned int)SCB_CFSR,
-          (unsigned int)SCB_MMFAR, (unsigned int)SCB_BFAR,
-          (unsigned int)psp, (unsigned int)lr,
-          (unsigned int)psp[0], (unsigned int)psp[1],
-          (unsigned int)psp[2], (unsigned int)psp[3],
-          (unsigned int)psp[4], (unsigned int)psp[5],
-          (unsigned int)psp[6], (unsigned int)psp[7]);
-  _screaming_death(__func__, msg);
-};
+__attribute__((interrupt("ABORT")))
+void Abort_Handler(void)
+{
+  screaming_death("Data Abort!");
+}
 
+__attribute__((interrupt("SWI")))
+void Swi_Handler(void)
+{
+  screaming_death("Software Interrupt!");
+}
+
+__attribute__((interrupt("FIQ")))
+void Fiq_Handler(void)
+{
+  screaming_death("Unused FIQ!");
+}
 
 /** \} */

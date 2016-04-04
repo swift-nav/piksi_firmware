@@ -16,14 +16,13 @@
 #include <libsbp/system.h>
 #include <libswiftnav/logging.h>
 
+#include <hal.h>
 #include <ch.h>
 
-#include "peripherals/random.h"
-#include "board/leds.h"
-#include "board/max2769.h"
+#include "peripherals/leds.h"
 #include "board/nap/nap_conf.h"
 #include "board/nap/acq_channel.h"
-#include "board/max2769.h"
+#include "board/frontend.h"
 #include "sbp.h"
 #include "init.h"
 #include "manage.h"
@@ -45,10 +44,6 @@
 #include "signal.h"
 
 extern void ext_setup(void);
-
-#if !defined(SYSTEM_CLOCK)
-#define SYSTEM_CLOCK 130944000
-#endif
 
 /** Compare version strings.
  * Compares a version of the form 'vX.Y-Z-'. If the first character of the
@@ -143,11 +138,7 @@ s8 compare_version(const char *a, const char *b)
 
 int main(void)
 {
-  /* Initialise SysTick timer that will be used as the ChibiOS kernel tick
-   * timer. */
-  STBase->RVR = SYSTEM_CLOCK / CH_FREQUENCY - 1;
-  STBase->CVR = 0;
-  STBase->CSR = CLKSOURCE_CORE_BITS | ENABLE_ON_BITS | TICKINT_ENABLED_BITS;
+  halInit();
 
   /* Kernel initialization, the main() function becomes a thread with
    * priority NORMALPRIO and the RTOS is active. */
@@ -156,7 +147,6 @@ int main(void)
   /* Piksi hardware initialization. */
   init();
   settings_setup();
-  usarts_setup();
   signal_init();
 
   check_nap_auth();
@@ -179,8 +169,7 @@ int main(void)
   static s32 serial_number;
   serial_number = nap_conf_rd_serial_number();
 
-  rng_setup();
-  max2769_setup();
+  frontend_setup();
   timing_setup();
   ext_event_setup();
   position_setup();

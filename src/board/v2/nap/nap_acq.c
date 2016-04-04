@@ -27,36 +27,14 @@
  * acquisition channel correlations and peak detection.
  * \{ */
 
-static BinarySemaphore load_wait_sem;
+static BSEMAPHORE_DECL(load_wait_sem, TRUE);
 
 void acq_set_sid(gnss_signal_t sid)
 {
-  chBSemInit(&load_wait_sem, TRUE);
   nap_acq_code_wr_blocking(sid);
-  if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
+  if (chBSemWaitTimeout(&load_wait_sem, 1000) == MSG_TIMEOUT) {
     log_error("acq: Timeout waiting for code load!");
   }
-}
-
-/** Send results of an acquisition to the host.
- *
- * \param sid SID of the acquisition
- * \param snr Signal to noise ratio of best point from acquisition.
- * \param cp  Code phase of best point.
- * \param cf  Carrier frequency of best point.
- */
-void acq_send_result(gnss_signal_t sid, float snr, float cp, float cf)
-{
-  msg_acq_result_t acq_result_msg;
-
-  acq_result_msg.sid = sid_to_sbp(sid);
-  acq_result_msg.snr = snr;
-  acq_result_msg.cp = cp;
-  acq_result_msg.cf = cf;
-
-  sbp_send_msg(SBP_MSG_ACQ_RESULT,
-               sizeof(msg_acq_result_t),
-               (u8 *)&acq_result_msg);
 }
 
 /** Schedule a load of samples into the acquisition channel's sample ram.
@@ -72,11 +50,10 @@ bool acq_load(u32 count)
 {
   /* Initialise semaphore in the taken state, the calling thread can then wait
    * for the load to complete by waiting on this semaphore. */
-  chBSemInit(&load_wait_sem, TRUE);
 
   nap_acq_load_wr_enable_blocking();
   nap_timing_strobe(count);
-  if (chBSemWaitTimeout(&load_wait_sem, 1000) == RDY_TIMEOUT) {
+  if (chBSemWaitTimeout(&load_wait_sem, 1000) == MSG_TIMEOUT) {
     log_info("acq: Sample load timeout. Probably set timing strobe in the past.");
     return false;
   }
@@ -95,7 +72,7 @@ void acq_service_load_done()
 }
 
 
-static Semaphore acq_pipeline_sem;
+static SEMAPHORE_DECL(acq_pipeline_sem, NAP_ACQ_PIPELINE_STAGES);
 static struct {
   struct {
     s16 cf;
@@ -123,9 +100,9 @@ static struct {
  * \param cf_max   Carrier frequency of the last acquisition. (Hz)
  * \param cf_bin_width Step size between each carrier frequency to search. (Hz)
  */
-void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
+void acq_search_begin(float cf_min_, float cf_max_, float cf_bin_width)
 {
-  chSemInit(&acq_pipeline_sem, NAP_ACQ_PIPELINE_STAGES);
+  chSemObjectInit(&acq_pipeline_sem, NAP_ACQ_PIPELINE_STAGES);
   memset(&acq_state, 0, sizeof(acq_state));
 
   /* Calculate the range parameters in acq units. Explicitly expand
@@ -141,7 +118,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
     (float)cf_step);
 
   for (s16 cf = cf_min; cf <= cf_max; cf += cf_step) {
-    if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
+    if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == MSG_TIMEOUT) {
       log_error("acq: Search timeout (cf = %d)!", cf);
     }
     acq_state.pipeline[acq_state.p_head].cf = cf;
@@ -150,7 +127,7 @@ void acq_search(float cf_min_, float cf_max_, float cf_bin_width)
   }
 
   for (int i = 0; i < NAP_ACQ_PIPELINE_STAGES; i++) {
-    if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == RDY_TIMEOUT) {
+    if (chSemWaitTimeout(&acq_pipeline_sem, 1000) == MSG_TIMEOUT) {
       log_error("acq: Search timeout!");
     }
   }

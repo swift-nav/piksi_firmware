@@ -199,9 +199,6 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 {
   gps_l1ca_tracker_data_t *data = tracker_data;
 
-  char buf[SID_STR_LEN_MAX];
-  sid_to_string(buf, sizeof(buf), channel_info->sid);
-
   /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
   if ((data->int_ms > 1) && !data->short_cycle) {
     /* If we just requested the short cycle, this is the long cycle's
@@ -283,7 +280,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
   if (last_outp && !data->lock_detect.outp) {
     if (data->stage > 0) {
-      log_info("%s PLL stress", buf);
+      log_info_sid(channel_info->sid, "PLL stress");
     }
     tracker_ambiguity_unknown(channel_info->context);
   }
@@ -323,7 +320,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     float err = alias_detect_second(&data->alias_detect, I, Q);
     if (fabs(err) > (250 / data->int_ms)) {
       if (data->lock_detect.outp) {
-        log_warn("False phase lock detected on %s: err=%f", buf, err);
+        log_warn_sid(channel_info->sid, "False phase lock detected");
       }
 
       tracker_ambiguity_unknown(channel_info->context);
@@ -341,9 +338,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
       (data->lock_detect.outo) &&
       /* Must have nav bit sync, and be correctly aligned */
       tracker_bit_aligned(channel_info->context)) {
-    log_info("%s synced @ %u ms, %.1f dBHz",
-             buf, (unsigned int)common_data->update_count,
-             common_data->cn0);
+    log_info_sid(channel_info->sid, "synced");
     data->stage = 1;
     const struct loop_params *l = &loop_params_stage[1];
     data->int_ms = MIN(l->coherent_ms,

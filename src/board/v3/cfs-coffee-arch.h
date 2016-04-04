@@ -14,7 +14,6 @@
 #define CFS_COFFEE_ARCH_H
 
 #include <libswiftnav/common.h>
-#include <libopencm3/stm32/f4/flash.h>
 
 /** \addtogroup cfs_arch
  * \{
@@ -24,13 +23,13 @@
 #define COFFEE_PAGE_SIZE        256
 
 /* Minimum erasable size, 128K for STM32F4. */
-#define COFFEE_SECTOR_SIZE      (128*1024)
+#define COFFEE_SECTOR_SIZE      (1024)
 
-extern u32 _coffee_fs_area;
-extern u32 _ecoffee_fs_area;
+extern u8 _coffee_fs_area[];
+extern u8 _ecoffee_fs_area;
 
 #define COFFEE_START           ((u32)&_coffee_fs_area)
-#define COFFEE_START_SECTOR    8
+#define COFFEE_START_SECTOR    0
 #define COFFEE_SIZE            ((u32)&_ecoffee_fs_area - (u32)&_coffee_fs_area)
 #define COFFEE_NAME_LENGTH     8 /* The maximum filename length. */
 #define COFFEE_MAX_OPEN_FILES  8
@@ -40,7 +39,7 @@ extern u32 _ecoffee_fs_area;
 #define COFFEE_LOG_SIZE        (8*COFFEE_PAGE_SIZE)
 #define COFFEE_LOG_TABLE_LIMIT 256
 
-void coffee_write(u8* buf, u32 size, u32 offset);
+void coffee_write(const u8* buf, u32 size, u32 offset);
 void coffee_read(u8* buf, u32 size, u32 offset);
 void coffee_erase(u8 sector);
 

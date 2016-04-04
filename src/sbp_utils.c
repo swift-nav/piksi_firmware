@@ -19,7 +19,6 @@
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
 
-#include "chdebug.h"
 #include "sbp_utils.h"
 
 /** \addtogroup sbp

@@ -21,9 +21,8 @@ void acq_set_sid(gnss_signal_t sid);
 bool acq_load(u32 count);
 void acq_service_load_done(void);
 
-void acq_search(float cf_min, float cf_max, float cf_bin_width);
+void acq_search_begin(float cf_min, float cf_max, float cf_bin_width);
 void acq_service_irq(void);
 void acq_get_results(float* cp, float* cf, float* cn0);
-void acq_send_result(gnss_signal_t sid, float snr, float cp, float cf);
 
 #endif

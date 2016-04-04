@@ -13,6 +13,7 @@
 #include "track_internal.h"
 #include "track.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
@@ -26,8 +27,6 @@
 
 #define COMPILER_BARRIER() asm volatile ("" : : : "memory")
 
-static MUTEX_DECL(nav_time_sync_mutex);
-
 static tracker_interface_list_element_t *tracker_interface_list = 0;
 
 /* signal lock counter
@@ -40,7 +39,7 @@ static u16 tracking_lock_counters[PLATFORM_SIGNAL_COUNT];
 void track_internal_setup(void)
 {
   for (u32 i=0; i < PLATFORM_SIGNAL_COUNT; i++) {
-    tracking_lock_counters[i] = random_int();
+    tracking_lock_counters[i] = rand();
   }
 }
 
@@ -76,6 +75,17 @@ void nav_bit_fifo_init(nav_bit_fifo_t *fifo)
 {
   fifo->read_index = 0;
   fifo->write_index = 0;
+}
+
+/** Determine if a nav bit FIFO is full.
+ *
+ * \param fifo        nav_bit_fifo_t struct to use.
+ *
+ * \return true if the nav bit FIFO is full, false otherwise.
+ */
+bool nav_bit_fifo_full(nav_bit_fifo_t *fifo)
+{
+  return (NAV_BIT_FIFO_LENGTH(fifo) == NAV_BIT_FIFO_SIZE);
 }
 
 /** Write data to the nav bit FIFO.
@@ -150,16 +160,17 @@ bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
                        s8 bit_polarity, nav_bit_fifo_index_t read_index)
 {
   bool result = false;
-  chMtxLock(&nav_time_sync_mutex);
 
-  sync->TOW_ms = TOW_ms;
-  sync->bit_polarity = bit_polarity;
-  sync->read_index = read_index;
-  sync->valid = true;
-  result = true;
+  if (!sync->valid) {
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    sync->TOW_ms = TOW_ms;
+    sync->bit_polarity = bit_polarity;
+    sync->read_index = read_index;
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    sync->valid = true;
+    result = true;
+  }
 
-  Mutex *m = chMtxUnlock();
-  assert(m == &nav_time_sync_mutex);
   return result;
 }
 
@@ -179,18 +190,17 @@ bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
                        s8 *bit_polarity, nav_bit_fifo_index_t *read_index)
 {
   bool result = false;
-  chMtxLock(&nav_time_sync_mutex);
 
   if (sync->valid) {
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
     *TOW_ms = sync->TOW_ms;
     *bit_polarity = sync->bit_polarity;
     *read_index = sync->read_index;
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
     sync->valid = false;
     result = true;
   }
 
-  Mutex *m = chMtxUnlock();
-  assert(m == &nav_time_sync_mutex);
   return result;
 }
 

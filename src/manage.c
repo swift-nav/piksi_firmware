@@ -12,6 +12,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <stdlib.h>
 #include <assert.h>
 
 #include <ch.h>
@@ -27,7 +28,7 @@
 
 #include "main.h"
 #include "board/nap/track_channel.h"
-#include "acq.h"
+#include "board/acq.h"
 #include "ephemeris.h"
 #include "track.h"
 #include "decode.h"
@@ -39,7 +40,6 @@
 #include "sbp_utils.h"
 #include "cfs/cfs.h"
 #include "cfs/cfs-coffee.h"
-#include "peripherals/random.h"
 #include "./system_monitor.h"
 #include "settings.h"
 #include "signal.h"
@@ -118,6 +118,8 @@ static almanac_t almanac[PLATFORM_SIGNAL_COUNT];
 static float elevation_mask = 0.0; /* degrees */
 static bool sbas_enabled = false;
 
+static void acq_result_send(gnss_signal_t sid, float snr, float cp, float cf);
+
 static u8 manage_track_new_acq(gnss_signal_t sid);
 static void manage_acq(void);
 static void manage_track(void);
@@ -149,22 +151,19 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   msg_mask_satellite_t *m = (msg_mask_satellite_t *)msg;
   gnss_signal_t sid = sid_from_sbp(m->sid);
 
-  char sid_str[SID_STR_LEN_MAX];
-  sid_to_string(sid_str, sizeof(sid_str), sid);
-
   if (sid_supported(sid)) {
     u16 global_index = sid_to_global_index(sid);
     acq_status_t *acq = &acq_status[global_index];
     acq->masked = (m->mask & MASK_ACQUISITION) ? true : false;
     track_mask[global_index] = (m->mask & MASK_TRACKING) ? true : false;
-    log_info("Mask for %s = 0x%02x", sid_str, m->mask);
+    log_info_sid(sid, "Mask = 0x%02x", m->mask);
   } else {
     log_warn("Mask not set for invalid SID");
   }
 }
 
 static WORKING_AREA_CCM(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
-static msg_t manage_acq_thread(void *arg)
+static void manage_acq_thread(void *arg)
 {
   /* TODO: This should be trigged by a semaphore from the acq ISR code, not
    * just ran periodically. */
@@ -175,8 +174,6 @@ static msg_t manage_acq_thread(void *arg)
     manage_tracking_startup();
     watchdog_notify(WD_NOTIFY_ACQ_MGMT);
   }
-
-  return 0;
 }
 
 void manage_acq_setup()
@@ -313,7 +310,7 @@ static acq_status_t * choose_acq_sat(void)
     return NULL;
   }
 
-  u32 pick = random_int() % total_score;
+  u32 pick = rand() % total_score;
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
@@ -361,20 +358,6 @@ static void manage_acq()
     return;
   }
 
-  u32 timer_count;
-  float cn0, cp, cf;
-
-  acq_set_sid(acq->sid);
-
-  /* We have our SID chosen, now load some fresh data
-   * into the acquisition ram on the Swift NAP for
-   * an initial coarse acquisition.
-   */
-  do {
-    timer_count = nap_timing_count() + 20000;
-    /* acq_load could timeout if we're preempted and miss the timing strobe */
-  } while (!acq_load(timer_count));
-
   /* Check for NaNs in dopp hints, or low > high */
   if (!(acq->dopp_hint_low <= acq->dopp_hint_high)) {
     log_error("Acq: caught bogus dopp_hints (%f, %f)",
@@ -383,40 +366,60 @@ static void manage_acq()
     acq->dopp_hint_high = ACQ_FULL_CF_MAX;
     acq->dopp_hint_low = ACQ_FULL_CF_MIN;
   }
-  acq_search(acq->dopp_hint_low, acq->dopp_hint_high, ACQ_FULL_CF_STEP);
 
-  /* Done with the coarse acquisition, check if we have found a
-   * satellite, if so save the results and start the loading
-   * for the fine acquisition. If not, start again choosing a
-   * different PRN.
-   */
-  acq_get_results(&cp, &cf, &cn0);
-  /* Send result of an acquisition to the host. */
-  acq_send_result(acq->sid, cn0, cp, cf);
-  if (cn0 < ACQ_THRESHOLD) {
-    /* Didn't find the satellite :( */
-    /* Double the size of the doppler search space for next time. */
-    float dilute = (acq->dopp_hint_high - acq->dopp_hint_low) / 2;
-    acq->dopp_hint_high = MIN(acq->dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
-    acq->dopp_hint_low = MAX(acq->dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
-    /* Decay hint scores */
-    for (u8 i = 0; i < ACQ_HINT_NUM; i++)
-      acq->score[i] = (acq->score[i] * 3) / 4;
-    /* Reset hint score for acquisition. */
-    acq->score[ACQ_HINT_PREV_ACQ] = 0;
-    return;
+  acq_result_t acq_result;
+  if (acq_search(acq->sid, acq->dopp_hint_low, acq->dopp_hint_high,
+                 ACQ_FULL_CF_STEP, &acq_result)) {
+
+    /* Send result of an acquisition to the host. */
+    acq_result_send(acq->sid, acq_result.cn0, acq_result.cp, acq_result.cf);
+
+    if (acq_result.cn0 < ACQ_THRESHOLD) {
+      /* Didn't find the satellite :( */
+      /* Double the size of the doppler search space for next time. */
+      float dilute = (acq->dopp_hint_high - acq->dopp_hint_low) / 2;
+      acq->dopp_hint_high = MIN(acq->dopp_hint_high + dilute, ACQ_FULL_CF_MAX);
+      acq->dopp_hint_low = MAX(acq->dopp_hint_low - dilute, ACQ_FULL_CF_MIN);
+      /* Decay hint scores */
+      for (u8 i = 0; i < ACQ_HINT_NUM; i++)
+        acq->score[i] = (acq->score[i] * 3) / 4;
+      /* Reset hint score for acquisition. */
+      acq->score[ACQ_HINT_PREV_ACQ] = 0;
+      return;
+    }
+
+    tracking_startup_params_t tracking_startup_params = {
+      .sid = acq->sid,
+      .sample_count = acq_result.sample_count,
+      .carrier_freq = acq_result.cf,
+      .code_phase = acq_result.cp,
+      .cn0_init = acq_result.cn0,
+      .elevation = TRACKING_ELEVATION_UNKNOWN
+    };
+
+    tracking_startup_request(&tracking_startup_params);
   }
+}
 
-  tracking_startup_params_t tracking_startup_params = {
-    .sid = acq->sid,
-    .sample_count = timer_count,
-    .carrier_freq = cf,
-    .code_phase = cp,
-    .cn0_init = cn0,
-    .elevation = TRACKING_ELEVATION_UNKNOWN
-  };
+/** Send results of an acquisition to the host.
+ *
+ * \param sid SID of the acquisition
+ * \param snr Signal to noise ratio of best point from acquisition.
+ * \param cp  Code phase of best point.
+ * \param cf  Carrier frequency of best point.
+ */
+static void acq_result_send(gnss_signal_t sid, float snr, float cp, float cf)
+{
+  msg_acq_result_t acq_result_msg;
 
-  tracking_startup_request(&tracking_startup_params);
+  acq_result_msg.sid = sid_to_sbp(sid);
+  acq_result_msg.snr = snr;
+  acq_result_msg.cp = cp;
+  acq_result_msg.cf = cf;
+
+  sbp_send_msg(SBP_MSG_ACQ_RESULT,
+               sizeof(msg_acq_result_t),
+               (u8 *)&acq_result_msg);
 }
 
 /** Find an available tracking channel to start tracking an acquired PRN with.
@@ -444,10 +447,10 @@ static u8 manage_track_new_acq(gnss_signal_t sid)
 static void check_clear_unhealthy(void)
 {
   static systime_t ticks;
-  if (chTimeElapsedSince(ticks) < S2ST(24*60*60))
+  if (chVTTimeElapsedSinceX(ticks) < S2ST(24*60*60))
     return;
 
-  ticks = chTimeNow();
+  ticks = chVTGetSystemTime();
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
     if (acq_status[i].state == ACQ_PRN_UNHEALTHY)
@@ -456,7 +459,7 @@ static void check_clear_unhealthy(void)
 }
 
 static WORKING_AREA_CCM(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
-static msg_t manage_track_thread(void *arg)
+static void manage_track_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("manage track");
@@ -470,8 +473,6 @@ static msg_t manage_track_thread(void *arg)
     );
     tracking_send_state();
   }
-
-  return 0;
 }
 
 void manage_track_setup()
@@ -519,9 +520,6 @@ static void manage_track()
       continue;
 
     gnss_signal_t sid = tracking_channel_sid_get(i);
-    char buf[SID_STR_LEN_MAX];
-    sid_to_string(buf, sizeof(buf), sid);
-
     u16 global_index = sid_to_global_index(sid);
     acq_status_t *acq = &acq_status[global_index];
 
@@ -535,7 +533,7 @@ static void manage_track()
     const ephemeris_t *e = ephemeris_get(sid);
     /* TODO: check alert flag */
     if (e->valid && !satellite_healthy(e)) {
-      log_info("%s unhealthy, dropping", buf);
+      log_info_sid(sid, "unhealthy, dropping");
       drop_channel(i);
       acq->state = ACQ_PRN_UNHEALTHY;
       continue;
@@ -550,21 +548,21 @@ static void manage_track()
     /* Optimistic phase lock detector "unlocked" for a while? */
     /* TODO: This isn't doing much.  Use the pessimistic detector instead? */
     if (tracking_channel_ld_opti_unlocked_ms_get(i) > TRACK_DROP_UNLOCKED_T) {
-      log_info("%s PLL unlocked too long, dropping", buf);
+      log_info_sid(sid, "PLL unlocked too long, dropping");
       drop_channel(i);
       continue;
     }
 
     /* CN0 below threshold for a while? */
     if (tracking_channel_cn0_drop_ms_get(i) > TRACK_DROP_CN0_T) {
-      log_info("%s low CN0 too long, dropping", buf);
+      log_info_sid(sid, "low CN0 too long, dropping");
       drop_channel(i);
       continue;
     }
 
     /* Is satellite below our elevation mask? */
     if (tracking_channel_evelation_degrees_get(i) < elevation_mask) {
-      log_info("%s below elevation mask, dropping", buf);
+      log_info_sid(sid, "below elevation mask, dropping");
       drop_channel(i);
       /* Erase the tracking hint score, and any others it might have */
       memset(&acq->score, 0, sizeof(acq->score));
@@ -651,8 +649,7 @@ bool tracking_startup_request(const tracking_startup_params_t *startup_params)
     result = tracking_startup_fifo_write(&tracking_startup_fifo,
                                          startup_params);
 
-    Mutex *m = chMtxUnlock();
-    assert(m == &tracking_startup_mutex);
+    chMtxUnlock(&tracking_startup_mutex);
   }
 
   return result;

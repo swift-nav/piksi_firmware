@@ -31,7 +31,7 @@
 u32 pps_width_microseconds = PPS_WIDTH_MICROSECONDS;
 
 static WORKING_AREA_CCM(wa_pps_thread, 256);
-static msg_t pps_thread(void *arg)
+static void pps_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("PPS");
@@ -46,8 +46,6 @@ static msg_t pps_thread(void *arg)
     }
     chThdSleepMilliseconds(PPS_THREAD_INTERVAL_MS);
   }
-
-  return 0;
 }
 
 /** Set PPS width.

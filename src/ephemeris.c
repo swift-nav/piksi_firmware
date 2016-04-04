@@ -33,14 +33,12 @@ static ephemeris_t es_candidate[PLATFORM_SIGNAL_COUNT] _CCM;
 
 static WORKING_AREA_CCM(wa_ephemeris_thread, 1400);
 
-static msg_t ephemeris_thread(void *arg);
-
-static msg_t ephemeris_thread(void *arg)
+static void ephemeris_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("ephemeris");
 
-  systime_t tx_epoch = chTimeNow();
+  systime_t tx_epoch = chVTGetSystemTime();
   while (1) {
 
     for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
@@ -70,36 +68,31 @@ static msg_t ephemeris_thread(void *arg)
     tx_epoch += MS2ST(EPHEMERIS_TRANSMIT_EPOCH_SPACING_ms);
     chThdSleepUntil(tx_epoch);
   }
-
-  return 0;
 }
 
 void ephemeris_new(ephemeris_t *e)
 {
   assert(sid_supported(e->sid));
 
-  char buf[SID_STR_LEN_MAX];
-  sid_to_string(buf, sizeof(buf), e->sid);
-
   gps_time_t t = get_current_time();
   u32 index = sid_to_global_index(e->sid);
   if (!ephemeris_valid(&es[index], &t)) {
     /* Our currently used ephemeris is bad, so we assume this is better. */
-    log_info("New untrusted ephemeris for %s", buf);
+    log_info_sid(e->sid, "New untrusted ephemeris");
     ephemeris_lock();
     es[index] = es_candidate[index] = *e;
     ephemeris_unlock();
 
   } else if (ephemeris_equal(&es_candidate[index], e)) {
     /* The received ephemeris matches our candidate, so we trust it. */
-    log_info("New trusted ephemeris for %s", buf);
+    log_info_sid(e->sid, "New trusted ephemeris");
     ephemeris_lock();
     es[index] = *e;
     ephemeris_unlock();
   } else {
     /* This is our first reception of this new ephemeris, so treat it with
      * suspicion and call it the new candidate. */
-    log_info("New ephemeris candidate for %s", buf);
+    log_info_sid(e->sid, "New ephemeris candidate");
     ephemeris_lock();
     es_candidate[index] = *e;
     ephemeris_unlock();
@@ -151,8 +144,7 @@ void ephemeris_lock(void)
 
 void ephemeris_unlock(void)
 {
-  Mutex *m = chMtxUnlock();
-  assert(m == &es_mutex);
+  chMtxUnlock(&es_mutex);
 }
 
 ephemeris_t *ephemeris_get(gnss_signal_t sid)
