@@ -36,6 +36,7 @@
 #include "ephemeris.h"
 #include "signal.h"
 #include "iono.h"
+#include "ndb.h"
 
 extern bool disable_raim;
 
@@ -335,19 +336,18 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     normalize_gps_time(&nm->tot);
 
     /* Calculate satellite parameters using the ephemeris. */
-    const ephemeris_t *e = ephemeris_get(nm->sid);
+    ephemeris_t ephe;
+    ndb_ephemeris_read(nm->sid, &ephe);
     u8 eph_valid;
     s8 ss_ret;
     double clock_err;
     double clock_rate_err;
 
-    ephemeris_lock();
-    eph_valid = ephemeris_valid(e, &nm->tot);
+    eph_valid = ephemeris_valid(&ephe, &nm->tot);
     if (eph_valid) {
-      ss_ret = calc_sat_state(e, &nm->tot, nm->sat_pos, nm->sat_vel,
+      ss_ret = calc_sat_state(&ephe, &nm->tot, nm->sat_pos, nm->sat_vel,
                               &clock_err, &clock_rate_err);
     }
-    ephemeris_unlock();
 
     if (!eph_valid || (ss_ret != 0)) {
       continue;

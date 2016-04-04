@@ -10,17 +10,14 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "l2c_capb.h"
+#ifndef SRC_NDB_H_
+#define SRC_NDB_H_
 
-/* Initial value matches the status of GPS constellation on 2016-05-17 */
-static u32 gps_l2cm_l2c_capabilities = 0xf7814bfd;
+#include <ndb/ndb_ephemeris.h>
+#include <ndb/ndb_almanac.h>
+#include <ndb/ndb_l2c_capb.h>
 
-void gps_l2cm_l2c_cap_store(u32 l2c_capb)
-{
-  gps_l2cm_l2c_capabilities = l2c_capb;
-}
+void ndb_setup();
+void ndb_sbp_updates();
 
-u32 gps_l2cm_l2c_cap_read()
-{
-  return gps_l2cm_l2c_capabilities;
-}
+#endif /* SRC_NDB_H_ */

@@ -9,13 +9,18 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
+#include "ndb.h"
+#include "ndb/ndb_internal.h"
 
-#ifndef SRC_L2C_CAPB_H_
-#define SRC_L2C_CAPB_H_
+/** Set up the decoding module. */
+void ndb_setup(void)
+{
+  ndb_init();
+  platform_ndb_init();
+  ndb_start();
+}
 
-#include "libswiftnav/common.h"
-
-void gps_l2cm_l2c_cap_store(u32 l2c_capb);
-u32 gps_l2cm_l2c_cap_read();
-
-#endif /* SRC_L2C_CAPB_H_ */
+void ndb_sbp_updates()
+{
+  platform_ndb_sbp_updates();
+}

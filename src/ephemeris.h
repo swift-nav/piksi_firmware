@@ -18,10 +18,6 @@
 #include <libswiftnav/signal.h>
 
 void ephemeris_setup(void);
-void ephemeris_lock(void);
-void ephemeris_unlock(void);
 void ephemeris_new(ephemeris_t *e);
-ephemeris_t *ephemeris_get(gnss_signal_t sid);
-
 #endif
 

@@ -79,7 +79,7 @@ typedef struct {
 static decoder_interface_list_element_t *decoder_interface_list = 0;
 static decoder_channel_t decoder_channels[NUM_DECODER_CHANNELS];
 
-static THD_WORKING_AREA(wa_decode_thread, 2000);
+static THD_WORKING_AREA(wa_decode_thread, 3072);
 
 static void decode_thread(void *arg);
 static const decoder_interface_t * decoder_interface_get(gnss_signal_t sid);

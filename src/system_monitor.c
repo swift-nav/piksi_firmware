@@ -85,7 +85,7 @@ void send_thread_states()
   g_ctime = 0;
 }
 
-static THD_WORKING_AREA(wa_track_status_thread, 256);
+static THD_WORKING_AREA(wa_track_status_thread, 288);
 static void track_status_thread(void *arg)
 {
   (void)arg;

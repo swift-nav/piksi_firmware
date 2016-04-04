@@ -47,6 +47,7 @@
 #include "iono.h"
 #include "sid_set.h"
 #include "cnav_msg_storage.h"
+#include "ndb.h"
 
 /* Maximum CPU time the solution thread is allowed to use. */
 #define SOLN_THD_CPU_MAX (0.60f)
@@ -433,7 +434,7 @@ static void sol_thd_sleep(systime_t *deadline, systime_t interval)
   chSysUnlock();
 }
 
-static THD_WORKING_AREA(wa_solution_thread, 8000);
+static THD_WORKING_AREA(wa_solution_thread, 8200);
 static void solution_thread(void *arg)
 {
   /* The flag is true when we have a fix */
@@ -493,13 +494,15 @@ static void solution_thread(void *arg)
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
     const channel_measurement_t *p_meas[n_ready];
     navigation_measurement_t *p_nav_meas[n_ready];
+    static ephemeris_t e_meas[MAX_CHANNELS];
     const ephemeris_t *p_e_meas[n_ready];
 
     /* Create arrays of pointers for use in calc_navigation_measurement */
     for (u8 i = 0; i < n_ready; i++) {
       p_meas[i] = &meas[i];
       p_nav_meas[i] = &nav_meas[i];
-      p_e_meas[i] = ephemeris_get(meas[i].sid);
+      ndb_ephemeris_read(meas[i].sid, &e_meas[i]);
+      p_e_meas[i] = &e_meas[i];
     }
 
     /* Create navigation measurements from the channel measurements */
@@ -512,10 +515,8 @@ static void solution_thread(void *arg)
      * observations after doing a PVT solution. */
     gps_time_t *p_rec_time = (time_quality == TIME_FINE) ? &rec_time : NULL;
 
-    ephemeris_lock();
     s8 nm_ret = calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
                                             p_rec_time, p_e_meas);
-    ephemeris_unlock();
 
     if (nm_ret != 0) {
        log_error("calc_navigation_measurement() returned an error");
@@ -707,19 +708,18 @@ static void solution_thread(void *arg)
         nm->tot.tow -= nm->raw_pseudorange / GPS_C;
         normalize_gps_time(&nm->tot);
 
-        const ephemeris_t *e = ephemeris_get(nm->sid);
+        ephemeris_t ephe;
+        ndb_ephemeris_read(nm->sid, &ephe);
         u8 eph_valid;
         s8 ss_ret;
         double clock_err;
         double clock_rate_err;
 
-        ephemeris_lock();
-        eph_valid = ephemeris_valid(e, &nm->tot);
+        eph_valid = ephemeris_valid(&ephe, &nm->tot);
         if (eph_valid) {
-          ss_ret = calc_sat_state(e, &nm->tot, nm->sat_pos, nm->sat_vel,
+          ss_ret = calc_sat_state(&ephe, &nm->tot, nm->sat_pos, nm->sat_vel,
                                   &clock_err, &clock_rate_err);
         }
-        ephemeris_unlock();
 
         if (!eph_valid || (ss_ret != 0)) {
           continue;
