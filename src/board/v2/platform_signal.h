@@ -31,4 +31,7 @@
 void platform_track_setup(void);
 void platform_decode_setup(void);
 
+void platform_ndb_init(void);
+void platform_ndb_sbp_updates(void);
+
 #endif /* SWIFTNAV_PLATFORM_SIGNAL_H */

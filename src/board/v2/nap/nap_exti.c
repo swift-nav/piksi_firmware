@@ -36,7 +36,7 @@
  *        if an exti has occurred, maybe we should change to u64? */
 u32 nap_exti_count;
 
-static WORKING_AREA_CCM(wa_nap_exti, 2000);
+static THD_WORKING_AREA(wa_nap_exti, 2048);
 static void nap_exti_thread(void *arg);
 static u32 nap_irq_rd_blocking(void);
 

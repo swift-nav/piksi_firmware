@@ -89,7 +89,7 @@ void send_thread_states()
   g_ctime = 0;
 }
 
-static THD_WORKING_AREA(wa_track_status_thread, 256);
+static THD_WORKING_AREA(wa_track_status_thread, 512);
 static void track_status_thread(void *arg)
 {
   (void)arg;
@@ -144,7 +144,7 @@ void sleep_until(systime_t *previous, systime_t period)
   *previous = future;
 }
 
-static WORKING_AREA_CCM(wa_system_monitor_thread, 1000);
+static WORKING_AREA_BCKP(wa_system_monitor_thread, 1024);
 static void system_monitor_thread(void *arg)
 {
   (void)arg;
@@ -231,7 +231,7 @@ static void debug_threads()
   }
 }
 
-static WORKING_AREA_CCM(wa_watchdog_thread, 1024);
+static WORKING_AREA_CCM(wa_watchdog_thread, 1536);
 static void watchdog_thread(void *arg)
 {
   (void)arg;

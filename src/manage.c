@@ -43,6 +43,7 @@
 #include "./system_monitor.h"
 #include "settings.h"
 #include "signal.h"
+#include "ndb.h"
 
 /** \defgroup manage Manage
  * Manage acquisition and tracking.
@@ -112,9 +113,6 @@ typedef struct {
 static tracking_startup_fifo_t tracking_startup_fifo;
 
 static MUTEX_DECL(tracking_startup_mutex);
-
-static almanac_t almanac[PLATFORM_SIGNAL_COUNT];
-
 static float elevation_mask = 0.0; /* degrees */
 static bool sbas_enabled = false;
 
@@ -190,8 +188,6 @@ void manage_acq_setup()
     acq_status[i].sid = sid_from_global_index(i);
 
     track_mask[i] = false;
-    almanac[i].valid = 0;
-
     if (!sbas_enabled &&
         (sid_to_constellation(acq_status[i].sid) == CONSTELLATION_SBAS)) {
       acq_status[i].masked = true;
@@ -243,11 +239,14 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
 
     float el = 0;
     double el_d, _, dopp_hint = 0, dopp_uncertainty = DOPP_UNCERT_ALMANAC;
+    union { ephemeris_t ephe; almanac_t alma; } orbit;
+    enum ndb_op_code oc;
 
     /* Do we have a suitable ephemeris for this sat?  If so, use
        that in preference to the almanac. */
-    const ephemeris_t *e = ephemeris_get(sid);
-    if (ephemeris_valid(e, t)) {
+    ephemeris_t *e = &orbit.ephe;
+    oc = ndb_ephemeris_read(sid, (ephemeris_t*)e);
+    if((NDB_ERR_NONE == oc) && ephemeris_valid(e, t)) {
       double sat_pos[3], sat_vel[3], el_d;
       calc_sat_state(e, t, sat_pos, sat_vel, &_, &_);
       wgsecef2azel(sat_pos, position_solution.pos_ecef, &_, &el_d);
@@ -265,8 +264,9 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
       if (time_quality >= TIME_FINE)
         dopp_uncertainty = DOPP_UNCERT_EPHEM;
     } else {
-      const almanac_t *a = &almanac[sid_to_global_index(sid)];
-      if (a->valid) {
+      almanac_t *a = &orbit.alma;
+      oc = ndb_almanac_read(sid, (almanac_t*)a);
+      if((NDB_ERR_NONE == oc) && (a->valid)) {
         calc_sat_az_el_almanac(a, t,
                                position_solution.pos_ecef, &_, &el_d);
         el = (float)(el_d) * R2D;
@@ -458,7 +458,7 @@ static void check_clear_unhealthy(void)
   }
 }
 
-static WORKING_AREA_BCKP(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
+static WORKING_AREA_CCM(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
 static void manage_track_thread(void *arg)
 {
   (void)arg;
@@ -540,9 +540,12 @@ static void manage_track()
     }
 
     /* Is ephemeris or alert flag marked unhealthy?*/
-    const ephemeris_t *e = ephemeris_get(sid);
     /* TODO: check alert flag */
-    if (e->valid && !satellite_healthy(e)) {
+    u8 v, h;
+    u32 fi;
+    gps_time_t toe;
+    enum ndb_op_code oc = ndb_ephemeris_info(sid, &v, &h, &toe, &fi);
+    if((NDB_ERR_NONE == oc) && v && !h) {
       log_info_sid(sid, "unhealthy, dropping");
       drop_channel(i);
       acq->state = ACQ_PRN_UNHEALTHY;
@@ -612,8 +615,13 @@ s8 use_tracking_channel(u8 i)
       .wn = WN_UNKNOWN,
       .tow = 1e-3 * tracking_channel_tow_ms_get(i)
     };
-    ephemeris_t *e = ephemeris_get(tracking_channel_sid_get(i));
-    return ephemeris_valid(e, &t) && satellite_healthy(e);
+    gnss_signal_t sid = tracking_channel_sid_get(i);
+    u8 v, h;
+    u32 fi;
+    gps_time_t toe;
+    ndb_ephemeris_info(sid, &v, &h, &toe, &fi);
+    u8 r = ephemeris_params_valid(v, fi, &toe, &t) && h;
+    return r;
   } else return 0;
 }
 

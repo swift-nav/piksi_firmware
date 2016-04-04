@@ -35,6 +35,7 @@
 #include "base_obs.h"
 #include "ephemeris.h"
 #include "signal.h"
+#include "ndb.h"
 
 extern bool disable_raim;
 
@@ -306,9 +307,9 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
     /* Check if we have an ephemeris for this satellite, we will need this to
      * fill in satellite position etc. parameters. */
-    ephemeris_lock();
-    ephemeris_t *e = ephemeris_get(sid);
-    if (ephemeris_valid(e, &t)) {
+    ephemeris_t ephe;
+    if((ndb_ephemeris_read(sid, &ephe) == NDB_ERR_NONE) &&
+       (ephemeris_valid(&ephe, &t))) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
@@ -321,7 +322,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(e, &t,
+      calc_sat_state(&ephe, &t,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
                      &clock_err, &clock_rate_err);
@@ -334,7 +335,6 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       base_obss_rx.nm[base_obss_rx.n].tot = t;
       base_obss_rx.n++;
     }
-    ephemeris_unlock();
   }
 
   /* If we can, and all the obs have been received, update to using the new

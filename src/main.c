@@ -39,6 +39,7 @@
 #include "pps.h"
 #include "decode.h"
 #include "signal.h"
+#include "ndb.h"
 
 extern void ext_setup(void);
 
@@ -145,6 +146,8 @@ int main(void)
   init();
   settings_setup();
   signal_init();
+
+  ndb_setup();
   ephemeris_setup();
 
   check_nap_auth();

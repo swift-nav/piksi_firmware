@@ -16,6 +16,8 @@
 
 #include "decode/decode_gps_l1ca.h"
 
+#include "ndb.h"
+
 void platform_track_setup(void)
 {
   track_gps_l1ca_register();
@@ -25,3 +27,17 @@ void platform_decode_setup(void)
 {
   decode_gps_l1ca_register();
 }
+
+void platform_ndb_init(void)
+{
+  ndb_ephemeris_init();
+  ndb_almanac_init();
+  ndb_l2c_capb_init();
+}
+
+void platform_ndb_sbp_updates(void)
+{
+  ndb_ephemeris_sbp_update();
+  ndb_almanac_sbp_update();
+}
+
