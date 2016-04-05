@@ -583,7 +583,6 @@ static void solution_thread(void *arg)
                                     base_obss.sat_dists, base_obss.pos_ecef,
                                     sdiffs);
             if (num_sdiffs >= 4) {
-              log_error("pos tow %f", new_obs_time.tow);
               output_baseline(num_sdiffs, sdiffs, &new_obs_time);
             }
           }
