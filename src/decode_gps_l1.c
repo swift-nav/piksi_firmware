@@ -102,10 +102,26 @@ static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
 
   /* Decode ephemeris to temporary struct */
   ephemeris_t e = {.sid = channel_info->sid};
-  s8 ret = process_subframe(&data->nav_msg, &e);;
+  s8 ret = process_subframe(&data->nav_msg, &e);
 
-  if (ret <= 0)
+  if (ret <= 0) {
+    /* If a large number of parity failures stop using the satellite */
+    /* Clear the old ephemeris as the satellite has failed */
+    if (data->nav_msg.parity_failures >= 7) {
+      ephemeris_clear(channel_info->sid);
+    }
+
     return;
+  }
+
+  /* Update alert flag */
+  u8 alert = data->nav_msg.alert;
+  alert |= data->nav_msg.as;
+  if (!tracking_channel_alert_sync(channel_info->tracking_channel, alert)) {
+    char buf[SID_STR_LEN_MAX];
+    sid_to_string(buf, sizeof(buf), channel_info->sid);
+    log_warn("%s alert set failed", buf);
+  }
 
   /* Decoded a new ephemeris. */
   ephemeris_new(&e);

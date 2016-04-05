@@ -49,6 +49,11 @@ typedef struct {
 } nav_time_sync_t;
 
 typedef struct {
+  u8 alert;
+  bool valid;
+} nav_alert_sync_t;
+
+typedef struct {
   /** FIFO for navigation message bits. */
   nav_bit_fifo_t nav_bit_fifo;
   /** Used to sync time decoded from navigation message
@@ -64,6 +69,9 @@ typedef struct {
   u16 lock_counter;
   /** Set if this channel should output I/Q samples on SBP. */
   bool output_iq;
+  /** Used to sync alert flag from navigation message
+   * back to tracking channel. */
+  nav_alert_sync_t nav_alert_sync;
 } tracker_internal_data_t;
 
 /** \} */
@@ -89,6 +97,9 @@ bool nav_time_sync_set(nav_time_sync_t *sync, s32 TOW_ms,
                        s8 bit_polarity, nav_bit_fifo_index_t read_index);
 bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
                        s8 *bit_polarity, nav_bit_fifo_index_t *read_index);
+void nav_alert_sync_init(nav_alert_sync_t *sync);
+bool nav_alert_sync_set(nav_alert_sync_t *sync, u8 alert);
+bool nav_alert_sync_get(nav_alert_sync_t *sync, u8 *alert);
 
 s8 nav_bit_quantize(s32 bit_integrate);
 

@@ -577,6 +577,17 @@ void tracking_channel_measurement_get(tracker_channel_id_t id,
   meas->lock_counter = internal_data->lock_counter;
 }
 
+/** Return the alert flag status for a tracker channel.
+ *
+ * \param id      ID of the tracker channel to use.
+ */
+bool tracking_channel_is_alert_set(tracker_channel_id_t id)
+{
+  const tracker_channel_t *tracker_channel = tracker_channel_get(id);
+  const tracker_common_data_t *common_data = &tracker_channel->common_data;
+  return (common_data->alert != 0);
+}
+
 /** Set the elevation angle for a tracker channel by sid.
  *
  * \param sid         Signal identifier for which the elevation should be set.
@@ -666,6 +677,28 @@ bool tracking_channel_time_sync(tracker_channel_id_t id, s32 TOW_ms,
   nav_bit_fifo_index_t read_index = internal_data->nav_bit_fifo.read_index;
   return nav_time_sync_set(&internal_data->nav_time_sync,
                            TOW_ms, bit_polarity, read_index);
+}
+
+/** Propagate decoded alert flag back to a tracking channel.
+ *
+ * \note This function should be called from the same thread as
+ * tracking_channel_nav_bit_get().
+ * \note It is assumed that the specified data is synchronized with the most
+ * recent nav bit read from the FIFO using tracking_channel_nav_bit_get().
+ *
+ * \param channel       Tracking channel to use.
+ * \param alert         Alert flag.
+ *
+ * \return true if data was enqueued successfully, false otherwise.
+ */
+bool tracking_channel_alert_sync(tracker_channel_id_t id, u8 alert)
+{
+  assert((alert == 0) ||
+         (alert == 1));
+
+  tracker_channel_t *tracker_channel = tracker_channel_get(id);
+  tracker_internal_data_t *internal_data = &tracker_channel->internal_data;
+  return nav_alert_sync_set(&internal_data->nav_alert_sync, alert);
 }
 
 /** Retrieve the channel info and internal data associated with a

@@ -65,6 +65,7 @@ void internal_data_init(tracker_internal_data_t *internal_data,
   nav_bit_fifo_init(&internal_data->nav_bit_fifo);
   nav_time_sync_init(&internal_data->nav_time_sync);
   bit_sync_init(&internal_data->bit_sync, sid);
+  nav_alert_sync_init(&internal_data->nav_alert_sync);
 }
 
 /** Initialize a nav_bit_fifo_t struct.
@@ -196,6 +197,61 @@ bool nav_time_sync_get(nav_time_sync_t *sync, s32 *TOW_ms,
     *TOW_ms = sync->TOW_ms;
     *bit_polarity = sync->bit_polarity;
     *read_index = sync->read_index;
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    sync->valid = false;
+    result = true;
+  }
+
+  return result;
+}
+
+/** Initialize a nav_alert_sync_t struct. */
+void nav_alert_sync_init(nav_alert_sync_t *sync)
+{
+  sync->valid = false;
+}
+
+/** Write pending alert sync data from the decoder thread.
+ *
+ * \note This function should only be called externally by the decoder thread.
+ *
+ * \param sync          nav_alert_sync_t struct to use.
+ * \param alert         Alert flag.
+ *
+ * \return true if data was stored successfully, false otherwise.
+ */
+bool nav_alert_sync_set(nav_alert_sync_t *sync, u8 alert)
+{
+
+  bool result = false;
+
+  if (!sync->valid) {
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    sync->alert = alert;
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    sync->valid = true;
+    result = true;
+  }
+
+  return result;
+}
+
+/** Read pending alert sync data provided by the decoder thread.
+ *
+ * \note This function should only be called internally by the tracking thread.
+ *
+ * \param sync          nav_alert_sync_t struct to use.
+ * \param alert         Alert flag.
+ *
+ * \return true if outputs are valid, false otherwise.
+ */
+bool nav_alert_sync_get(nav_alert_sync_t *sync, u8 *alert)
+{
+  bool result = false;
+
+  if (sync->valid) {
+    COMPILER_BARRIER(); /* Prevent compiler reordering */
+    *alert = sync->alert;
     COMPILER_BARRIER(); /* Prevent compiler reordering */
     sync->valid = false;
     result = true;
