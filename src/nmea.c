@@ -18,8 +18,10 @@
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
+#include <libswiftnav/time.h>
 
 #include "board/nap/track_channel.h"
+#include "track.h"
 #include "nmea.h"
 #include "peripherals/usart.h"
 #include "sbp.h"
@@ -32,6 +34,7 @@ u32 gprmc_msg_rate = 10;
 u32 gpvtg_msg_rate =  1;
 u32 gpgll_msg_rate = 10;
 u32 gpzda_msg_rate = 10;  //!!
+u32 gpgsa_msg_rate = 10;
 static struct nmea_dispatcher *nmea_dispatchers_head;
 /** \addtogroup io
  * \{ */
@@ -107,7 +110,8 @@ void nmea_setup(void)
   SETTING("nmea", "gprmc_msg_rate", gprmc_msg_rate, TYPE_INT);
   SETTING("nmea", "gpvtg_msg_rate", gpvtg_msg_rate, TYPE_INT);
   SETTING("nmea", "gpgll_msg_rate", gpgll_msg_rate, TYPE_INT);
-  SETTING("nmea", "gpzda_msg_rate", gpzda_msg_rate, TYPE_INT); //!!
+  SETTING("nmea", "gpzda_msg_rate", gpzda_msg_rate, TYPE_INT); 
+  SETTING("nmea", "gpgsa_msg_rate", gpgsa_msg_rate, TYPE_INT); 
 }
 
 /** Calculate and append the checksum of an NMEA sentence.
@@ -164,14 +168,11 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
   double lon_min = MINUTES(pos_llh[1]);
   lat_deg = abs(lat_deg);
   lon_deg = abs(lon_deg);
-  /* our sender_id is a u16, and most docs say it should be less than 2^10-1
-     here we shorten sender id into a number less than 1024 and then stringify*/ 
   char lat_dir = pos_llh[0] < 0 ? 'S' : 'N';
   char lon_dir = pos_llh[1] < 0 ? 'W' : 'E';
 
   NMEA_SENTENCE_START(120);
   /* Note, geoid separation is set to 0 because no geoid model exists*/
-  /* TODO don't send out diff_age or station ID unless differential (gated on fix mode)*/
   NMEA_SENTENCE_PRINTF("$GPGGA,%02d%02d%06.3f,"
                        "%02d%010.7f,%c,%03d%010.7f,%c,"
                        "%01d,%02d,%.1f,%.2f,M,0,M,",
@@ -180,6 +181,8 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
                        fix_type, n_used, hdop, pos_llh[2]
                        );
   if (fix_type>1) {
+  /* our sender_id is a u16, and most docs say it should be less than 2^10-1
+     here we take least significant bits for a number less than 1024*/ 
     NMEA_SENTENCE_PRINTF("%.1f,%04d",diff_age, station_id&0x3FF);
   }
   else {
@@ -418,16 +421,35 @@ void nmea_gpzda(const gps_time_t *gps_t )
   unix_t = gps2time( gps_t );
   gmtime_r( &unix_t, &t );
   double frac_s = fmod( gps_t->tow, 1.0 );
-  NMEA_SENTENCE_START(40); //!!
+  NMEA_SENTENCE_START(40); 
   NMEA_SENTENCE_PRINTF(
                 "$GPZDA,%02d%02d%06.3f," /* Command, Time (UTC) */
                 "%02d,%02d,%d," /* Date Stamp */
                 "00,00", /* Time zone */
                 t.tm_hour, t.tm_min, t.tm_sec + frac_s,
-                t.tm_mday, t.tm_mon + 1, 2016 );
+                t.tm_mday, t.tm_mon + 1, 2016);
   NMEA_SENTENCE_DONE();
 
 } // nmea_gpzda()
+
+
+static void nmea_assemble_gpgsa(const dops_t *dops)
+{
+  /* Assemble list of currently tracked GPS PRNs */
+  u8 prns[nap_track_n_channels];
+  u8 num_prns = 0;
+  for (u32 i=0; i<nap_track_n_channels; i++) {
+    if (tracking_channel_running(i)) {
+      gnss_signal_t sid = tracking_channel_sid_get(i);
+      if (sid_to_constellation(sid) == CONSTELLATION_GPS) {
+        prns[num_prns++] = sid.sat;
+      }
+    }
+  }
+  /* Send GPGSA message */
+  nmea_gpgsa(prns, num_prns, dops);
+}
+
 
 
 /** Generate and send periodic NMEA GPGSV, GPRMC, GPVTG, GPGLL
@@ -440,7 +462,8 @@ void nmea_gpzda(const gps_time_t *gps_t )
  * \param nav_meas Array of n navigation_measurement structs.
  */
 void nmea_send_msgs(gnss_solution *soln, u8 n,
-                    navigation_measurement_t *nm)
+                    navigation_measurement_t *nm,
+                    const dops_t *dops)
 {
   DO_EVERY(gpgsv_msg_rate,
     nmea_gpgsv(n, nm, soln);
@@ -456,6 +479,9 @@ void nmea_send_msgs(gnss_solution *soln, u8 n,
   );
   DO_EVERY( gpzda_msg_rate,
     nmea_gpzda(&soln->time);
+  );
+  DO_EVERY( gpgsa_msg_rate,
+    nmea_assemble_gpgsa(dops);
   );
 }
 

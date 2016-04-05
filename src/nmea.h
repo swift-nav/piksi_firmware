@@ -47,7 +47,7 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t);
 void nmea_gpvtg(const gnss_solution *soln);
 void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t);
 void nmea_send_msgs(gnss_solution *soln, u8 n, 
-                    navigation_measurement_t *nm);
+                    navigation_measurement_t *nm, const dops_t *dops);
 
 /** Register a new dispatcher for NMEA messages
  *
