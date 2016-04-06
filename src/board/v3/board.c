@@ -18,6 +18,14 @@
 #include "hal.h"
 #include "zynq7000.h"
 
+#define LED_GPIO_LINE PAL_LINE(GPIO1, 15)
+#define BUTTON_GPIO_LINE PAL_LINE(GPIO1, 19)
+
+#define SPI_MOSI_GPIO_LINE PAL_LINE(GPIO0, 10)
+#define SPI_MISO_GPIO_LINE PAL_LINE(GPIO0, 11)
+#define SPI_CLK_GPIO_LINE PAL_LINE(GPIO0, 12)
+#define SPI_SS_GPIO_LINE PAL_LINE(GPIO0, 13)
+
 const PALConfig pal_default_config;
 const WDGConfig board_wdg_config = {
   .period_ms = 30000,
@@ -55,6 +63,28 @@ void boardInit(void)
   /* SPI REFCLK = 1GHz / 20 = 50MHz */
   *(volatile uint32_t *)0xF8000158 &= ~(0x3F << 8);
   *(volatile uint32_t *)0xF8000158 |= (20 << 8);
+
+  /* Assert FPGA resets */
+  *(volatile uint32_t *)0xF8000240 = 0xf;
+
+  /* FPGA_CLK0 = 1GHz / 10 = 100MHz */
+  *(volatile uint32_t *)0xF8000170 &= ~(0x3F << 20);
+  *(volatile uint32_t *)0xF8000170 |= (1 << 20);
+  *(volatile uint32_t *)0xF8000170 &= ~(0x3F << 8);
+  *(volatile uint32_t *)0xF8000170 |= (10 << 8);
+
+  /* Release FPGA resets */
+  *(volatile uint32_t *)0xF8000240 = 0x0;
+
+  /* Configure button and LED pins */
+  palSetLineMode(BUTTON_GPIO_LINE, PAL_MODE_INPUT);
+  palSetLineMode(LED_GPIO_LINE, PAL_MODE_OUTPUT_PUSHPULL);
+
+  /* Configure frontend SPI pins */
+  palSetLineMode(SPI_MOSI_GPIO_LINE, PAL_MODE_CUSTOM(PAL_DIR_PERICTRL, PAL_PULL_NONE, PAL_SPEED_SLOW, PAL_PIN_FUNCTION(5 << 4)));
+  palSetLineMode(SPI_MISO_GPIO_LINE, PAL_MODE_CUSTOM(PAL_DIR_INPUT, PAL_PULL_NONE, PAL_SPEED_SLOW, PAL_PIN_FUNCTION(5 << 4)));
+  palSetLineMode(SPI_CLK_GPIO_LINE, PAL_MODE_CUSTOM(PAL_DIR_PERICTRL, PAL_PULL_NONE, PAL_SPEED_SLOW, PAL_PIN_FUNCTION(5 << 4)));
+  palSetLineMode(SPI_SS_GPIO_LINE, PAL_MODE_OUTPUT_PUSHPULL);
 
   cycle_counter_init();
 }

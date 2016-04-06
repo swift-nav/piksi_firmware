@@ -98,4 +98,14 @@
  */
 #define ZYNQ7000_WDG_USE_PRV_WDT                    TRUE
 
+/*
+ * AXI DMA driver system settings.
+ */
+#define ZYNQ7000_AXI_DMA_USE_AXI_DMA0               TRUE
+#define ZYNQ7000_AXI_DMA0_MM2S_PRESENT              TRUE
+#define ZYNQ7000_AXI_DMA0_S2MM_PRESENT              TRUE
+#define ZYNQ7000_AXI_DMA0_MM2S_IRQ_PRIORITY         4
+#define ZYNQ7000_AXI_DMA0_S2MM_IRQ_PRIORITY         4
+#define ZYNQ7000_AXI_DMA_USE_AXI_DMA1               FALSE
+
 #endif /* _MCUCONF_H_ */

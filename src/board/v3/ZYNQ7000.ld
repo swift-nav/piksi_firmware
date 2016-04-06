@@ -23,7 +23,7 @@
 MEMORY
 {
     flash : org = 0x00100000, len = 1M
-    ram0  : org = 0x00100000 + 1M, len = 1M
+    ram0  : org = 0x00100000 + 1M, len = 10M
     ram1  : org = 0x00000000, len = 0
     ram2  : org = 0x00000000, len = 0
     ram3  : org = 0x00000000, len = 0

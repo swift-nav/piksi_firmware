@@ -10,20 +10,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_ACQ_H
-#define SWIFTNAV_ACQ_H
+#ifndef SWIFTNAV_NAP_CONSTANTS_H
+#define SWIFTNAV_NAP_CONSTANTS_H
 
-#include <libswiftnav/common.h>
-#include <libswiftnav/signal.h>
+#define NAP_FRONTEND_SAMPLE_RATE_Hz                                (99.375e6)
 
-typedef struct {
-  u32 sample_count;
-  float cp;
-  float cf;
-  float cn0;
-} acq_result_t;
+#define NAP_ACQ_DECIMATION_RATE                                          (12)
+#define NAP_ACQ_SAMPLE_RATE_Hz                  (NAP_FRONTEND_SAMPLE_RATE_Hz  \
+                                                   / NAP_ACQ_DECIMATION_RATE)
 
-bool acq_search(gnss_signal_t sid, float cf_min, float cf_max,
-                float cf_bin_width, acq_result_t *acq_result);
-
-#endif /* SWIFTNAV_ACQ_H */
+#endif /* SWIFTNAV_NAP_CONSTANTS_H */

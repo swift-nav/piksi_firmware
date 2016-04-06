@@ -151,6 +151,8 @@ void frontend_configure(void)
 void frontend_setup(void)
 {
   /* Register any setting... */
+
+  frontend_configure();
 }
 
 bool frontend_ant_status(void)
