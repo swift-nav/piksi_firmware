@@ -62,7 +62,7 @@
 #define LD_PARAMS          "0.0247, 1.5, 50, 240"
 #define LD_PARAMS_DISABLE  "0.02, 1e-6, 1, 1"
 
-#define CN0_EST_LPF_CUTOFF 5
+#define CN0_EST_LPF_CUTOFF 0.1f
 
 #define INTEG_PERIOD_20_MS 20
 
