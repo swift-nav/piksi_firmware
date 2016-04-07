@@ -41,6 +41,7 @@ float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples);
 
 /* Update interface */
 void tracking_channels_update(u32 channels_mask);
+void tracking_channels_process(void);
 
 /* State management interface */
 bool tracker_channel_available(tracker_channel_id_t id, gnss_signal_t sid);
