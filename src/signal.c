@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2011-2016 Swift Navigation Inc.
  * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Contact: Pasi Miettinen <pasi.miettinen@exafore.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -32,6 +33,8 @@ static const u16 code_signal_counts[CODE_COUNT] = {
   [CODE_GPS_L1CA] = PLATFORM_SIGNAL_COUNT_GPS_L1CA,
   [CODE_GPS_L2CM] = PLATFORM_SIGNAL_COUNT_GPS_L2CM,
   [CODE_SBAS_L1CA] = PLATFORM_SIGNAL_COUNT_SBAS_L1CA,
+  [CODE_GLO_L1CA] = PLATFORM_SIGNAL_COUNT_GLO_L1CA,
+  [CODE_GLO_L2CA] = PLATFORM_SIGNAL_COUNT_GLO_L2CA,
 };
 
 /** Initialize the signal module. */
