@@ -102,6 +102,12 @@ static void handle_nap_exti(void)
   irq &= NAP_IRQ_TRACK_MASK;
   tracking_channels_update(irq);
 
+  u32 err = nap_error_rd_blocking();
+  if (err) {
+    log_error("SwiftNAP Error: 0x%08X", (unsigned int)err);
+    tracking_channels_missed_update_error(err);
+  }
+
   watchdog_notify(WD_NOTIFY_NAP_ISR);
   nap_exti_count++;
 }

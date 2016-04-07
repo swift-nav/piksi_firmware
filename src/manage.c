@@ -514,18 +514,29 @@ static void manage_track()
   for (u8 i=0; i<nap_track_n_channels; i++) {
 
     /* Skip channels that aren't in use */
-    if (!tracking_channel_running(i) ||
-        /* Give newly-initialized channels a chance to converge */
-        tracking_channel_running_time_ms_get(i) < TRACK_INIT_T)
+    if (!tracking_channel_running(i)) {
       continue;
+    }
 
     gnss_signal_t sid = tracking_channel_sid_get(i);
     u16 global_index = sid_to_global_index(sid);
     acq_status_t *acq = &acq_status[global_index];
 
+    /* Has an error occurred? */
+    if (tracking_channel_error(i)) {
+      log_warn_sid(sid, "error occurred, dropping");
+      drop_channel(i);
+      continue;
+    }
+
     /* Is tracking masked? */
     if (track_mask[global_index]) {
       drop_channel(i);
+      continue;
+    }
+
+    /* Give newly-initialized channels a chance to converge */
+    if (tracking_channel_running_time_ms_get(i) < TRACK_INIT_T) {
       continue;
     }
 
@@ -593,6 +604,8 @@ s8 use_tracking_channel(u8 i)
   /* To use a channel's measurements in an SPP or RTK solution, we
      require the following conditions: */
   if (tracking_channel_running(i)
+      /* Make sure no errors have occurred. */
+      && !tracking_channel_error(i)
       /* Check SNR has been above threshold for the minimum time. */
       && (tracking_channel_cn0_useable_ms_get(i) > TRACK_SNR_THRES_COUNT)
       /* Satellite elevation is above the mask. */

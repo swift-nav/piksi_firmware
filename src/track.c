@@ -58,12 +58,21 @@ typedef enum {
   EVENT_DISABLE_WAIT_COMPLETE
 } event_t;
 
+/* Bitfield */
+typedef enum {
+  ERROR_FLAG_NONE =                         0x00,
+  ERROR_FLAG_MISSED_UPDATE =                0x01,
+  ERROR_FLAG_INTERRUPT_WHILE_DISABLED =     0x02,
+} error_flag_t;
+
 /** Top-level generic tracker channel. */
 typedef struct {
   /** State of this channel. */
   state_t state;
   /** Time at which the channel was disabled. */
   systime_t disable_time;
+  /** Error flags. May be set at any time by the tracking thread. */
+  volatile error_flag_t error_flags;
   /** Info associated with this channel. */
   tracker_channel_info_t info;
   /** Data common to all tracker implementations. RW from channel interface
@@ -123,6 +132,9 @@ static void common_data_init(tracker_common_data_t *common_data,
                              u32 sample_count, float carrier_freq, float cn0);
 static void tracker_channel_lock(tracker_channel_t *tracker_channel);
 static void tracker_channel_unlock(tracker_channel_t *tracker_channel);
+static void error_flags_clear(tracker_channel_t *tracker_channel);
+static void error_flags_add(tracker_channel_t *tracker_channel,
+                            error_flag_t error_flag);
 
 
 /** Set up the tracking module. */
@@ -264,6 +276,22 @@ void tracking_channels_process(void)
   }
 }
 
+/** Sets the missed update error for the specified tracking channels.
+ * \param channels_mask   Bitfield indicating the tracking channels for which
+ *                        a missed update error has occurred.
+ */
+void tracking_channels_missed_update_error(u32 channels_mask)
+{
+  for (u32 channel = 0; channel < nap_track_n_channels; channel++) {
+    tracker_channel_t *tracker_channel = tracker_channel_get(channel);
+    bool error = (channels_mask & 1) ? true : false;
+    if (error) {
+      error_flags_add(tracker_channel, ERROR_FLAG_MISSED_UPDATE);
+    }
+    channels_mask >>= 1;
+  }
+}
+
 /** Determine if a tracker channel is available to track the specified sid.
  *
  * \param id      ID of the tracker channel to be checked.
@@ -327,6 +355,9 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
                      carrier_freq, cn0_init);
     internal_data_init(&tracker_channel->internal_data, sid);
     interface_function(tracker_channel, tracker_interface->init);
+
+    /* Clear error flags before starting NAP tracking channel */
+    error_flags_clear(tracker_channel);
 
     /* Change the channel state to ENABLED. */
     event(tracker_channel, EVENT_ENABLE);
@@ -401,6 +432,16 @@ bool tracking_channel_running(tracker_channel_id_t id)
 {
   const tracker_channel_t *tracker_channel = tracker_channel_get(id);
   return (tracker_channel_state_get(tracker_channel) == STATE_ENABLED);
+}
+
+/** Determine whether an error has occurred for a tracker channel.
+ *
+ * \param id      ID of the tracker channel to use.
+ */
+bool tracking_channel_error(tracker_channel_id_t id)
+{
+  const tracker_channel_t *tracker_channel = tracker_channel_get(id);
+  return (tracker_channel->error_flags != ERROR_FLAG_NONE);
 }
 
 /** Return the C/N0 estimate for a tracker channel.
@@ -740,6 +781,7 @@ static void tracker_channel_process(tracker_channel_t *tracker_channel,
          * register must be written to clear the interrupt flag. Set error
          * flag to indicate that NAP is in an unknown state. */
         nap_channel_disable(tracker_channel);
+        error_flags_add(tracker_channel, ERROR_FLAG_INTERRUPT_WHILE_DISABLED);
       }
       break;
     }
@@ -1012,6 +1054,26 @@ static void tracker_channel_lock(tracker_channel_t *tracker_channel)
 static void tracker_channel_unlock(tracker_channel_t *tracker_channel)
 {
   chMtxUnlock(&tracker_channel->mutex);
+}
+
+/** Clear the error flags for a tracker channel.
+ *
+ * \param tracker_channel   Tracker channel to use.
+ */
+static void error_flags_clear(tracker_channel_t *tracker_channel)
+{
+  tracker_channel->error_flags = ERROR_FLAG_NONE;
+}
+
+/** Add an error flag to a tracker channel.
+ *
+ * \param tracker_channel   Tracker channel to use.
+ * \param error_flag        Error flag to add.
+ */
+static void error_flags_add(tracker_channel_t *tracker_channel,
+                            error_flag_t error_flag)
+{
+  tracker_channel->error_flags |= error_flag;
 }
 
 /** \} */
