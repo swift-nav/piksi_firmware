@@ -1,5 +1,5 @@
 
-USE_OPT += -mfpu=neon
+USE_OPT += -mfpu=neon -mfloat-abi=hard
 
 ##############################################################################
 # Architecture or project specific options
