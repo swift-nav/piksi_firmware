@@ -31,7 +31,7 @@
 static const u32 baud_rates[] = {115200, 57600};//, 230400, 38400, 19200};
 
 /* This is the command string we send to the radios */
-static char commandstr[MAXLEN] = "AT&F,ATS1=57,ATS2=64,ATS5=0,AT&W,ATZ";
+static char commandstr[MAXLEN] = "AT&F,ATS1=57,ATS2=64,ATS5=0,ATS6=0,AT&W,ATZ";
 
 /**
 * This function hooks into the UART setup code before DMA gets enabled,
