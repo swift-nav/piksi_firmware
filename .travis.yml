@@ -10,5 +10,7 @@ install:
 script:
   # setup.sh PATH update doesn't seem to work on Travis, add manually for now
   - export PATH=$PATH:~/gcc-arm-none-eabi/bin
-  - make
+  - make PIKSI_HW=v2
+  - make clean
+  - make PIKSI_HW=v3
 
