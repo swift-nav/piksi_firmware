@@ -182,7 +182,7 @@ void HardFaultVector(void)
   static uint32_t *psp, *lr;
   asm("mrs %0, psp" : "=r"(psp) : : );
   asm("mov %0, lr" : "=r"(lr) : : );
-  
+
   static char msg[256];
   sprintf(msg, "HFSR=%08X CFSR=%08X MMFAR=%08X BFAR=%08X PSP=%08X LR=%08X "
           "r0=%08X r1=%08X r2=%08X r3=%08X r12=%08X lr=%08X pc=%08X psr=%08X",

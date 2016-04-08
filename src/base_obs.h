@@ -24,8 +24,8 @@
  * \{ */
 
 typedef struct {
-  /** GPS time of the observation. */
-  gps_time_t t;
+  /** GPS system time of the observation. */
+  gps_time_t tor;
   /** Approximate base station position.
    * This may be the position as reported by the base station itself or the
    * position obtained from doing a single point solution using the base
@@ -45,6 +45,11 @@ typedef struct {
 /** Maximum difference between observation times to consider them matched. */
 #define TIME_MATCH_THRESHOLD 2e-3
 
+/** Maximum distance between calculated and surveyed base station single point
+ * position for error checking.
+ */
+#define BASE_STATION_DISTANCE_THRESHOLD 5
+
 /* \} */
 
 extern mutex_t base_obs_lock;
@@ -58,4 +63,3 @@ extern double base_pos_ecef[3];
 void base_obs_setup(void);
 
 #endif
-

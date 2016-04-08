@@ -29,6 +29,7 @@
 #include "simulator.h"
 #include "settings.h"
 #include "signal.h"
+#include "timing.h"
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
@@ -77,6 +78,10 @@ typedef struct {
   mutex_t nap_mutex;
   /** Elevation angle, degrees. TODO: find a better place for this. */
   s8 elevation;
+  /** Carrier phase integer offset in cycles. */
+  double carrier_phase_offset;
+  /** Used to detect a cycle slip. */
+  u16 carrier_phase_offset_lock;
   /** Associated tracker interface. */
   const tracker_interface_t *interface;
   /** Associated tracker instance. */
@@ -306,6 +311,9 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
     tracker_channel->tracker = tracker;
 
     tracker_channel->elevation = elevation;
+
+    /* Reset the carrier phase offset so it gets set again. */
+    tracker_channel->carrier_phase_offset = 0.0;
 
     /* Adjust the channel start time as the start_sample_count passed
      * in corresponds to a PROMPT code phase rollover but we want to
@@ -575,6 +583,37 @@ void tracking_channel_measurement_get(tracker_channel_id_t id,
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = internal_data->lock_counter;
+
+  /* Check if lock counter changed */
+  if (tracker_channel->carrier_phase_offset_lock
+      != internal_data->lock_counter) {
+    tracker_channel->carrier_phase_offset_lock = internal_data->lock_counter;
+    tracker_channel->carrier_phase_offset = 0.0;
+  }
+
+  /* Adjust carrier phase initial integer offset to be approximately equal to
+     pseudorange. */
+  if ((time_quality == TIME_FINE)
+      && (tracker_channel->carrier_phase_offset == 0.0)) {
+    u64 rec_tc = nap_timing_count();
+    /* Check for possible rollover */
+    if ((rec_tc & 0x00000000FFFFFFFF) >= common_data->sample_count) {
+      gps_time_t tor = rx2gpstime((rec_tc & 0xFFFFFFFF00000000)
+                                  | common_data->sample_count);
+      gps_time_t tot;
+      tot.tow = 1e-3 * meas->time_of_week_ms;
+      tot.tow += meas->code_phase_chips / GPS_CA_CHIPPING_RATE;
+      gps_time_match_weeks(&tot, &tor);
+      tracker_channel->carrier_phase_offset = round(GPS_L1_HZ
+                                                    * gpsdifftime(&tor, &tot));
+    } else {
+      char buf[SID_STR_LEN_MAX];
+      sid_to_string(buf, sizeof(buf), tracker_channel->info.sid);
+      log_debug("%s: Rollover while setting initial carrier phase offset.",
+                buf);
+    }
+  }
+  meas->carrier_phase -= tracker_channel->carrier_phase_offset;
 }
 
 /** Set the elevation angle for a tracker channel by sid.

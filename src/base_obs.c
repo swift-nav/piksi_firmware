@@ -116,40 +116,69 @@ static void update_obss(obss_t *new_obss)
    * is the only thread that writes to base_obss. */
   chMtxLock(&base_obs_lock);
 
+  for (u8 i = 0; i < new_obss->n; i++) {
+    /* Set the time */
+    new_obss->nm[i].tot = new_obss->tor;
+    new_obss->nm[i].tot.tow -=
+          new_obss->nm[i].raw_pseudorange / GPS_C;
+    normalize_gps_time(&new_obss->nm[i].tot);
+
+    double clock_err;
+    double clock_rate_err;
+    /* Calculate satellite parameters using the ephemeris. */
+    ephemeris_lock();
+    ephemeris_t *e = ephemeris_get(new_obss->nm[i].sid);
+    calc_sat_state(e, &new_obss->nm[i].tot,
+                   new_obss->nm[i].sat_pos,
+                   new_obss->nm[i].sat_vel,
+                   &clock_err, &clock_rate_err);
+    ephemeris_unlock();
+
+    /* Apply corrections to the raw pseudorange, carrier phase and Doppler. */
+    /* TODO Make a function to apply some of these corrections.
+     *      They are used in a couple places. */
+    new_obss->nm[i].pseudorange =
+          new_obss->nm[i].raw_pseudorange
+          + clock_err * GPS_C;
+    new_obss->nm[i].carrier_phase =
+          new_obss->nm[i].raw_carrier_phase
+          - clock_err * GPS_L1_HZ;
+
+    /* Used in tdcp_doppler */
+    new_obss->nm[i].doppler = clock_rate_err * GPS_L1_HZ;
+
+    /* We also apply the clock correction to the time of transmit. */
+    new_obss->nm[i].tot.tow -= clock_err;
+    normalize_gps_time(&new_obss->nm[i].tot);
+  }
+
   /* Create a set of navigation measurements to store the previous
    * observations. */
   static u8 n_old = 0;
+  static gps_time_t tor_old = {.wn = 0, .tow = 0};
   static navigation_measurement_t nm_old[MAX_CHANNELS];
 
   /* Fill in the navigation measurements in base_obss, using TDCP method to
    * calculate the Doppler shift. */
   base_obss.n = tdcp_doppler(new_obss->n, new_obss->nm,
-                             n_old, nm_old, base_obss.nm);
-  /* Copy over the time. */
-  base_obss.t = new_obss->t;
+                             n_old, nm_old, base_obss.nm,
+                             gpsdifftime(&new_obss->tor, &tor_old));
 
   /* Copy the current observations over to nm_old so we can difference
    * against them next time around. */
   memcpy(nm_old, new_obss->nm,
          new_obss->n * sizeof(navigation_measurement_t));
   n_old = new_obss->n;
+  tor_old = new_obss->tor;
+
+  /* Copy over the time. */
+  base_obss.tor = new_obss->tor;
 
   /* Reset the `has_pos` flag. */
   u8 has_pos_old = base_obss.has_pos;
   base_obss.has_pos = 0;
-  /* Check if the base station has sent us its position explicitly via a
-   * BASE_POS SBP message (as indicated by #base_pos_known), and if so use
-   * that. No need to lock before reading here as base_pos_* is only written
-   * from this thread (SBP).
-   */
-  if (base_pos_known) {
-    /* Copy the known base station position into `base_obss`. */
-    memcpy(base_obss.pos_ecef, base_pos_ecef, sizeof(base_pos_ecef));
-    /* Indicate that the position is valid. */
-    base_obss.has_pos = 1;
-  /* The base station wasn't sent to us explicitly but if we have >= 4
-   * satellites we can calculate it ourselves (approximately). */
-  } else if (base_obss.n >= 4) {
+
+  if (base_obss.n >= 4) {
     gnss_solution soln;
     dops_t dops;
 
@@ -175,23 +204,42 @@ static void update_obss(obss_t *new_obss)
         memcpy(base_obss.pos_ecef, soln.pos_ecef, 3 * sizeof(double));
       }
       base_obss.has_pos = 1;
+
+      if (base_pos_known) {
+       double base_distance = vector_distance(3, soln.pos_ecef, base_pos_ecef);
+
+       if (base_distance > BASE_STATION_DISTANCE_THRESHOLD) {
+         /* TODO this seems to be triggered all the time. Likely due to our
+          * poor SPP performance and the filter above. */
+         log_warn("Received base station position %f m from PVT position.",
+                  base_distance);
+       }
+      }
     } else {
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
       log_warn("Error calculating base station position: (%s).", pvt_err_msg[-ret-1]);
     }
   }
+
   /* If the base station position is known then calculate the satellite ranges.
    * This calculation will be used later by the propagation functions. */
   if (base_obss.has_pos) {
+    /* Check if the base station has sent us its position explicitly via a
+     * BASE_POS SBP message (as indicated by #base_pos_known).
+     * No need to lock before reading here as base_pos_* is only written
+     * from this thread (SBP).
+     */
+
     for (u8 i=0; i < base_obss.n; i++) {
-      double dx[3];
-      vector_subtract(3, base_obss.nm[i].sat_pos, base_obss.pos_ecef, dx);
-      base_obss.sat_dists[i] = vector_norm(3, dx);
+      base_obss.sat_dists[i] = vector_distance(3, base_obss.nm[i].sat_pos,
+                                               base_obss.pos_ecef);
     }
   }
+
   /* Unlock base_obss mutex. */
   chMtxUnlock(&base_obs_lock);
+
   /* Signal that a complete base observation has been received. */
   chBSemSignal(&base_obs_received);
 }
@@ -216,7 +264,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * so we can verify we haven't dropped a message. */
   static s16 prev_count = 0;
 
-  static gps_time_t prev_t = {.tow = 0.0, .wn = 0};
+  static gps_time_t prev_tor = {.tow = 0.0, .wn = 0};
 
   /* As we receive observation messages we assemble them into a working
    * `obss_t` (`base_obss_rx`) so as not to disturb the global `base_obss`
@@ -235,7 +283,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   sbp_send_msg_(SBP_MSG_OBS, len, msg, 0);
 
   /* GPS time of observation. */
-  gps_time_t t;
+  gps_time_t tor;
   /* Total number of messages in the observation set / sequence. */
   u8 total;
   /* The current message number in the sequence. */
@@ -243,32 +291,32 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 
   /* Decode the message header to get the time and how far through the sequence
    * we are. */
-  unpack_obs_header((observation_header_t*)msg, &t, &total, &count);
+  unpack_obs_header((observation_header_t*)msg, &tor, &total, &count);
 
   /* Check to see if the observation is aligned with our internal observations,
    * i.e. is it going to time match one of our local obs. */
   u32 obs_freq = soln_freq / obs_output_divisor;
-  double epoch_count = t.tow * obs_freq;
+  double epoch_count = tor.tow * obs_freq;
   double dt = fabs(epoch_count - round(epoch_count)) / obs_freq;
   if (dt > TIME_MATCH_THRESHOLD) {
     log_warn("Unaligned observation from base station ignored, "
-             "tow = %.3f, dt = %.3f", t.tow, dt);
+             "tow = %.3f, dt = %.3f", tor.tow, dt);
     return;
   }
 
   /* Calculate packet latency. */
   if (time_quality >= TIME_COARSE) {
     gps_time_t now = get_current_time();
-    float latency_ms = (float) ((now.tow - t.tow) * 1000.0);
+    float latency_ms = (float) ((now.tow - tor.tow) * 1000.0);
     log_obs_latency(latency_ms);
   }
 
   /* Verify sequence integrity */
   if (count == 0) {
-    prev_t = t;
+    prev_tor = tor;
     prev_count = 0;
-  } else if (prev_t.tow != t.tow ||
-             prev_t.wn != t.wn ||
+  } else if (prev_tor.tow != tor.tow ||
+             prev_tor.wn != tor.wn ||
              prev_count + 1 != count) {
     log_info("Dropped one of the observation packets! Skipping this sequence.");
     prev_count = -1;
@@ -285,7 +333,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
    * state. */
   if (count == 0) {
     base_obss_rx.n = 0;
-    base_obss_rx.t = t;
+    base_obss_rx.tor = tor;
   }
 
   /* Pull out the contents of the message. */
@@ -302,30 +350,17 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
      * fill in satellite position etc. parameters. */
     ephemeris_lock();
     ephemeris_t *e = ephemeris_get(sid);
-    if (ephemeris_valid(e, &t)) {
+    if (ephemeris_valid(e, &tor)) {
       /* Unpack the observation into a navigation_measurement_t. */
       unpack_obs_content(
         &obs[i],
         &base_obss_rx.nm[base_obss_rx.n].raw_pseudorange,
-        &base_obss_rx.nm[base_obss_rx.n].carrier_phase,
+        &base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase,
         &base_obss_rx.nm[base_obss_rx.n].snr,
         &base_obss_rx.nm[base_obss_rx.n].lock_counter,
         &base_obss_rx.nm[base_obss_rx.n].sid
       );
-      double clock_err;
-      double clock_rate_err;
-      /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(e, &t,
-                     base_obss_rx.nm[base_obss_rx.n].sat_pos,
-                     base_obss_rx.nm[base_obss_rx.n].sat_vel,
-                     &clock_err, &clock_rate_err);
-      /* Apply corrections to the raw pseudorange. */
-      /* TODO Make a function to apply some of these corrections.
-       *      They are used in a couple places. */
-      base_obss_rx.nm[base_obss_rx.n].pseudorange =
-            base_obss_rx.nm[base_obss_rx.n].raw_pseudorange + clock_err * GPS_C;
-      /* Set the time */
-      base_obss_rx.nm[base_obss_rx.n].tot = t;
+
       base_obss_rx.n++;
     }
     ephemeris_unlock();
