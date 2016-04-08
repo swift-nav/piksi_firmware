@@ -18,6 +18,20 @@ else
 	MAKEFLAGS += PRN=$(PRN)
 endif
 
+ifeq ($(PIKSI_HW),)
+  PIKSI_HW=v2
+endif
+
+MAKEFLAGS += PIKSI_HW=$(PIKSI_HW)
+
+ifeq ($(PIKSI_HW),v2)
+	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-m4
+endif
+
+ifeq ($(PIKSI_HW),v3)
+	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-a9
+endif
+
 .PHONY: all tests firmware docs hitl .FORCE
 
 all: firmware # tests
