@@ -73,17 +73,17 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
     msg_gps_time_t gps_time;
     sbp_make_gps_time(&gps_time, &soln->time, 0);
     sbp_send_msg(SBP_MSG_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
+    if (chVTTimeElapsedSinceX(last_dgnss) > DGNSS_TIMEOUT) {
+      /* Position in LLH. */
+      msg_pos_llh_t pos_llh;
+      sbp_make_pos_llh(&pos_llh, soln, 0);
+      sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
 
-    /* Position in LLH. */
-    msg_pos_llh_t pos_llh;
-    sbp_make_pos_llh(&pos_llh, soln, 0);
-    sbp_send_msg(SBP_MSG_POS_LLH, sizeof(pos_llh), (u8 *) &pos_llh);
-
-    /* Position in ECEF. */
-    msg_pos_ecef_t pos_ecef;
-    sbp_make_pos_ecef(&pos_ecef, soln, 0);
-    sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
-
+      /* Position in ECEF. */
+      msg_pos_ecef_t pos_ecef;
+      sbp_make_pos_ecef(&pos_ecef, soln, 0);
+      sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
+    }
     /* Velocity in NED. */
     msg_vel_ned_t vel_ned;
     sbp_make_vel_ned(&vel_ned, soln, 0);
