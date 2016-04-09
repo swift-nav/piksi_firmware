@@ -593,10 +593,10 @@ void tracking_channel_measurement_get(tracker_channel_id_t id,
 
   /* Adjust carrier phase initial integer offset to be approximately equal to
      pseudorange. */
-  if ((time_quality == TIME_FINE)
+  /*if ((time_quality == TIME_FINE)
       && (tracker_channel->carrier_phase_offset == 0.0)) {
     u64 rec_tc = nap_timing_count();
-    /* Check for possible rollover */
+    /* Check for possible rollover * /
     if ((rec_tc & 0x00000000FFFFFFFF) >= common_data->sample_count) {
       gps_time_t tor = rx2gpstime((rec_tc & 0xFFFFFFFF00000000)
                                   | common_data->sample_count);
@@ -613,7 +613,7 @@ void tracking_channel_measurement_get(tracker_channel_id_t id,
                 buf);
     }
   }
-  meas->carrier_phase -= tracker_channel->carrier_phase_offset;
+  meas->carrier_phase -= tracker_channel->carrier_phase_offset;*/
 }
 
 /** Set the elevation angle for a tracker channel by sid.
