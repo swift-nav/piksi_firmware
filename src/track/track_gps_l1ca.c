@@ -21,8 +21,7 @@
 #include <string.h>
 
 #include "settings.h"
-
-#define NUM_GPS_L1CA_TRACKERS   12
+#include "signal.h"
 
 /*  code: nbw zeta k carr_to_code
  carrier:                    nbw  zeta k fll_aid */

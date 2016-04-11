@@ -15,6 +15,7 @@
 #include <assert.h>
 #include "track.h"
 #include "decode.h"
+#include "signal.h"
 
 /** \defgroup decoding Decoding
  * Receive data bits from tracking channels and decode navigation messages.
@@ -55,8 +56,6 @@
  *   It does not matter in which order the two structures are released as they
  *   are allocated independently when initializing decoding.
  */
-
-#define NUM_DECODER_CHANNELS  12
 
 typedef enum {
   DECODER_CHANNEL_STATE_DISABLED,
@@ -109,6 +108,8 @@ void decode_setup(void)
     decoder_channels[i].state = DECODER_CHANNEL_STATE_DISABLED;
     decoder_channels[i].decoder = 0;
   }
+
+  platform_decode_setup();
 
   chThdCreateStatic(wa_decode_thread, sizeof(wa_decode_thread),
                     NORMALPRIO-1, decode_thread, NULL);

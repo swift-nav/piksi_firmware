@@ -41,10 +41,13 @@ BOARDSRC := \
         $(BOARDDIR)/m25_flash.o \
         $(BOARDDIR)/max2769.o \
         $(BOARDDIR)/usart_support.o \
+        $(BOARDDIR)/platform_signal.o \
         $(SWIFTNAV_ROOT)/src/peripherals/stm_flash.o \
         $(SWIFTNAV_ROOT)/src/peripherals/spi_wrapper.o \
         $(SWIFTNAV_ROOT)/src/peripherals/random.o \
         $(SWIFTNAV_ROOT)/src/peripherals/watchdog.o \
+        $(SWIFTNAV_ROOT)/src/track/track_gps_l1ca.o \
+        $(SWIFTNAV_ROOT)/src/decode/decode_gps_l1.o \
 
 # Define linker script file here
 LDSCRIPT= $(BOARDDIR)/STM32F405xG.ld

@@ -26,7 +26,6 @@
 #include "init.h"
 #include "manage.h"
 #include "track.h"
-#include "track_gps_l1ca.h"
 #include "timing.h"
 #include "ext_events.h"
 #include "solution.h"
@@ -39,7 +38,6 @@
 #include "ephemeris.h"
 #include "pps.h"
 #include "decode.h"
-#include "decode_gps_l1.h"
 #include "signal.h"
 
 extern void ext_setup(void);
@@ -173,9 +171,7 @@ int main(void)
   ext_event_setup();
   position_setup();
   track_setup();
-  track_gps_l1ca_register();
   decode_setup();
-  decode_gps_l1_register();
 
   manage_acq_setup();
   manage_track_setup();

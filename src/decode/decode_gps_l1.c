@@ -18,8 +18,7 @@
 #include "sbp.h"
 #include "sbp_utils.h"
 #include "decode.h"
-
-#define NUM_GPS_L1_DECODERS   12
+#include "signal.h"
 
 typedef struct {
   nav_msg_t nav_msg;
