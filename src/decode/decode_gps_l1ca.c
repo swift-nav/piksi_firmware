@@ -10,74 +10,76 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include "decode_gps_l1ca.h"
+#include "decode.h"
+
 #include <libswiftnav/logging.h>
 #include <libswiftnav/nav_msg.h>
 #include <assert.h>
+
 #include "ephemeris.h"
 #include "track.h"
 #include "sbp.h"
 #include "sbp_utils.h"
-#include "decode.h"
 #include "signal.h"
 
 typedef struct {
   nav_msg_t nav_msg;
-} gps_l1_decoder_data_t;
+} gps_l1ca_decoder_data_t;
 
-static decoder_t gps_l1_decoders[NUM_GPS_L1_DECODERS];
-static gps_l1_decoder_data_t gps_l1_decoder_data[NUM_GPS_L1_DECODERS];
+static decoder_t gps_l1ca_decoders[NUM_GPS_L1CA_DECODERS];
+static gps_l1ca_decoder_data_t gps_l1ca_decoder_data[NUM_GPS_L1CA_DECODERS];
 
-static void decoder_gps_l1_init(const decoder_channel_info_t *channel_info,
-                                decoder_data_t *decoder_data);
-static void decoder_gps_l1_disable(const decoder_channel_info_t *channel_info,
-                                   decoder_data_t *decoder_data);
-static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
-                                   decoder_data_t *decoder_data);
+static void decoder_gps_l1ca_init(const decoder_channel_info_t *channel_info,
+                                  decoder_data_t *decoder_data);
+static void decoder_gps_l1ca_disable(const decoder_channel_info_t *channel_info,
+                                     decoder_data_t *decoder_data);
+static void decoder_gps_l1ca_process(const decoder_channel_info_t *channel_info,
+                                     decoder_data_t *decoder_data);
 
-static const decoder_interface_t decoder_interface_gps_l1 = {
+static const decoder_interface_t decoder_interface_gps_l1ca = {
   .code =         CODE_GPS_L1CA,
-  .init =         decoder_gps_l1_init,
-  .disable =      decoder_gps_l1_disable,
-  .process =      decoder_gps_l1_process,
-  .decoders =     gps_l1_decoders,
-  .num_decoders = NUM_GPS_L1_DECODERS
+  .init =         decoder_gps_l1ca_init,
+  .disable =      decoder_gps_l1ca_disable,
+  .process =      decoder_gps_l1ca_process,
+  .decoders =     gps_l1ca_decoders,
+  .num_decoders = NUM_GPS_L1CA_DECODERS
 };
 
-static decoder_interface_list_element_t list_element_gps_l1 = {
-  .interface = &decoder_interface_gps_l1,
+static decoder_interface_list_element_t list_element_gps_l1ca = {
+  .interface = &decoder_interface_gps_l1ca,
   .next = 0
 };
 
-void decode_gps_l1_register(void)
+void decode_gps_l1ca_register(void)
 {
-  for (u32 i=0; i<NUM_GPS_L1_DECODERS; i++) {
-    gps_l1_decoders[i].active = false;
-    gps_l1_decoders[i].data = &gps_l1_decoder_data[i];
+  for (u32 i=0; i<NUM_GPS_L1CA_DECODERS; i++) {
+    gps_l1ca_decoders[i].active = false;
+    gps_l1ca_decoders[i].data = &gps_l1ca_decoder_data[i];
   }
 
-  decoder_interface_register(&list_element_gps_l1);
+  decoder_interface_register(&list_element_gps_l1ca);
 }
 
-/* GPS L1 decoder */
-static void decoder_gps_l1_init(const decoder_channel_info_t *channel_info,
-                                decoder_data_t *decoder_data)
+static void decoder_gps_l1ca_init(const decoder_channel_info_t *channel_info,
+                                  decoder_data_t *decoder_data)
 {
   (void)channel_info;
-  gps_l1_decoder_data_t *data = decoder_data;
+  gps_l1ca_decoder_data_t *data = decoder_data;
   nav_msg_init(&data->nav_msg);
 }
 
-static void decoder_gps_l1_disable(const decoder_channel_info_t *channel_info,
-                                   decoder_data_t *decoder_data)
+static void decoder_gps_l1ca_disable(const decoder_channel_info_t *channel_info,
+                                     decoder_data_t *decoder_data)
 {
   (void)channel_info;
   (void)decoder_data;
 }
 
-static void decoder_gps_l1_process(const decoder_channel_info_t *channel_info,
-                                   decoder_data_t *decoder_data)
+static void decoder_gps_l1ca_process(const decoder_channel_info_t *channel_info,
+                                     decoder_data_t *decoder_data)
 {
-  gps_l1_decoder_data_t *data = decoder_data;
+  gps_l1ca_decoder_data_t *data = decoder_data;
 
   /* Process incoming nav bits */
   s8 soft_bit;

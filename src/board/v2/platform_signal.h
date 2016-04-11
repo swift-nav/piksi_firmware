@@ -26,7 +26,7 @@
 
 /* Decoder configuration */
 #define NUM_DECODER_CHANNELS      12
-#define NUM_GPS_L1_DECODERS       12
+#define NUM_GPS_L1CA_DECODERS     12
 
 void platform_track_setup(void);
 void platform_decode_setup(void);
