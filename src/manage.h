@@ -16,7 +16,7 @@
 #include <ch.h>
 #include <libswiftnav/common.h>
 #include <libswiftnav/signal.h>
-#include "board/nap/acq_channel.h"
+#include "board/acq.h"
 
 /** \addtogroup manage
  * \{ */
@@ -52,7 +52,7 @@
 
 #define ACQ_FULL_CF_MIN  -8500
 #define ACQ_FULL_CF_MAX   8500
-#define ACQ_FULL_CF_STEP  (1 / NAP_ACQ_CARRIER_FREQ_UNITS_PER_HZ)
+#define ACQ_FULL_CF_STEP  acq_bin_width()
 
 #define MANAGE_NO_CHANNELS_FREE 255
 

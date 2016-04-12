@@ -17,7 +17,7 @@
 
 #include <libswiftnav/logging.h>
 
-#include "board/nap/acq_channel.h"
+#include "acq_channel.h"
 #include "acq.h"
 #include "sbp.h"
 #include "sbp_utils.h"

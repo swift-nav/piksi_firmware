@@ -33,6 +33,11 @@
 static void code_resample(gnss_signal_t sid, float chips_per_sample,
                           fft_cplx_t *resampled, u32 resampled_length);
 
+float acq_bin_width(void)
+{
+  return NAP_ACQ_SAMPLE_RATE_Hz / (1 << FFT_LEN_LOG2_MAX);
+}
+
 bool acq_search(gnss_signal_t sid, float cf_min, float cf_max,
                 float cf_bin_width, acq_result_t *acq_result)
 {

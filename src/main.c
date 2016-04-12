@@ -21,7 +21,6 @@
 
 #include "peripherals/leds.h"
 #include "board/nap/nap_conf.h"
-#include "board/nap/acq_channel.h"
 #include "board/frontend.h"
 #include "sbp.h"
 #include "init.h"
