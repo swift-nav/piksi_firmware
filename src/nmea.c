@@ -33,7 +33,7 @@ u32 gpgsv_msg_rate = 10;
 u32 gprmc_msg_rate = 10;
 u32 gpvtg_msg_rate =  1;
 u32 gpgll_msg_rate = 10;
-u32 gpzda_msg_rate = 10;  //!!
+u32 gpzda_msg_rate = 10;  
 u32 gpgsa_msg_rate = 10;
 static struct nmea_dispatcher *nmea_dispatchers_head;
 /** \addtogroup io
@@ -439,12 +439,14 @@ static void nmea_assemble_gpgsa(const dops_t *dops)
   u8 prns[nap_track_n_channels];
   u8 num_prns = 0;
   for (u32 i=0; i<nap_track_n_channels; i++) {
+    tracking_channel_lock(i); 
     if (tracking_channel_running(i)) {
       gnss_signal_t sid = tracking_channel_sid_get(i);
       if (sid_to_constellation(sid) == CONSTELLATION_GPS) {
         prns[num_prns++] = sid.sat;
       }
     }
+    tracking_channel_unlock(i);
   }
   /* Send GPGSA message */
   nmea_gpgsa(prns, num_prns, dops);
