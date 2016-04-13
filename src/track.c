@@ -737,60 +737,55 @@ static void tracker_channel_process(tracker_channel_t *tracker_channel,
                                     bool update_required)
 {
   switch (tracker_channel_state_get(tracker_channel)) {
-    case STATE_ENABLED:
-    {
-      if (update_required) {
-        tracker_channel_lock(tracker_channel);
-        {
-          interface_function(tracker_channel,
-                             tracker_channel->interface->update);
-        }
-        tracker_channel_unlock(tracker_channel);
-      }
-      break;
-    }
-
-    case STATE_DISABLE_REQUESTED:
-    {
-      nap_channel_disable(tracker_channel);
+  case STATE_ENABLED: {
+    if (update_required) {
       tracker_channel_lock(tracker_channel);
       {
         interface_function(tracker_channel,
-                           tracker_channel->interface->disable);
-        tracker_channel->disable_time = chVTGetSystemTimeX();
-        event(tracker_channel, EVENT_DISABLE);
+                           tracker_channel->interface->update);
       }
       tracker_channel_unlock(tracker_channel);
-      break;
     }
+  }
+  break;
 
-    case STATE_DISABLE_WAIT:
+  case STATE_DISABLE_REQUESTED: {
+    nap_channel_disable(tracker_channel);
+    tracker_channel_lock(tracker_channel);
     {
+      interface_function(tracker_channel,
+                         tracker_channel->interface->disable);
+      tracker_channel->disable_time = chVTGetSystemTimeX();
+      event(tracker_channel, EVENT_DISABLE);
+    }
+    tracker_channel_unlock(tracker_channel);
+  }
+  break;
+
+  case STATE_DISABLE_WAIT: {
+    nap_channel_disable(tracker_channel);
+    if (chVTTimeElapsedSinceX(tracker_channel->disable_time) >=
+          MS2ST(CHANNEL_DISABLE_WAIT_TIME_ms)) {
+      event(tracker_channel, EVENT_DISABLE_WAIT_COMPLETE);
+    }
+  }
+  break;
+
+  case STATE_DISABLED: {
+    if (update_required) {
+      /* Tracking channel is not owned by the update thread, but the update
+       * register must be written to clear the interrupt flag. Set error
+       * flag to indicate that NAP is in an unknown state. */
       nap_channel_disable(tracker_channel);
-      if (chVTTimeElapsedSinceX(tracker_channel->disable_time) >=
-            MS2ST(CHANNEL_DISABLE_WAIT_TIME_ms)) {
-        event(tracker_channel, EVENT_DISABLE_WAIT_COMPLETE);
-      }
-      break;
+      error_flags_add(tracker_channel, ERROR_FLAG_INTERRUPT_WHILE_DISABLED);
     }
+  }
+  break;
 
-    case STATE_DISABLED:
-    {
-      if (update_required) {
-        /* Tracking channel is not owned by the update thread, but the update
-         * register must be written to clear the interrupt flag. Set error
-         * flag to indicate that NAP is in an unknown state. */
-        nap_channel_disable(tracker_channel);
-        error_flags_add(tracker_channel, ERROR_FLAG_INTERRUPT_WHILE_DISABLED);
-      }
-      break;
-    }
-
-    default:
-    {
-      assert(!"Invalid tracking channel state");
-      break;
-    }
+  default: {
+    assert(!"Invalid tracking channel state");
+  }
+  break;
   }
 }
 
