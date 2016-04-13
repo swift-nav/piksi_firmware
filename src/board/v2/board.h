@@ -373,10 +373,10 @@ extern struct usart_support_s SD1, SD3, SD6;
                                      PIN_MODE_OUTPUT(GPIOB_MAX_NSHDN) |     \
                                      PIN_MODE_OUTPUT(GPIOB_MAX_NIDLE) |     \
                                      PIN_MODE_OUTPUT(GPIOB_SPI2NSS_MAX) |   \
-                                     PIN_MODE_OUTPUT(GPIOB_SPI2NSS_FLASH) | \
-                                     PIN_MODE_ALTERNATE(GPIOB_SPI2SCK) |    \
-                                     PIN_MODE_ALTERNATE(GPIOB_SPI2MISO) |   \
-                                     PIN_MODE_ALTERNATE(GPIOB_SPI2MOSI))
+                                     PIN_MODE_INPUT(GPIOB_SPI2NSS_FLASH) | \
+                                     PIN_MODE_INPUT(GPIOB_SPI2SCK) |    \
+                                     PIN_MODE_INPUT(GPIOB_SPI2MISO) |   \
+                                     PIN_MODE_INPUT(GPIOB_SPI2MOSI))
 #define VAL_GPIOB_OTYPER            (PIN_OTYPE_PUSHPULL(GPIOB_V_USB) |      \
                                      PIN_OTYPE_PUSHPULL(GPIOB_FTDI_NRST) |  \
                                      PIN_OTYPE_PUSHPULL(GPIOB_PIN2) |       \
@@ -535,7 +535,7 @@ extern struct usart_support_s SD1, SD3, SD6;
                                      PIN_ODR_HIGH(GPIOC_PIN9) |             \
                                      PIN_ODR_HIGH(GPIOC_UART3_TX) |         \
                                      PIN_ODR_HIGH(GPIOC_UART3_RX) |         \
-                                     PIN_ODR_LOW(GPIOC_FPGA_PROGRAM_B) |   \
+                                     PIN_ODR_HIGH(GPIOC_FPGA_PROGRAM_B) |   \
                                      PIN_ODR_HIGH(GPIOC_PIN13) |            \
                                      PIN_ODR_HIGH(GPIOC_PIN14) |            \
                                      PIN_ODR_HIGH(GPIOC_PIN15))

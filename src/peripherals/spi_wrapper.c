@@ -45,41 +45,6 @@ static const spi_slave_t spi_slave[] = {
   [SPI_SLAVE_FRONTEND] = {&spi_bus_2, {NULL, PAL_PORT(LINE_SPI2NSS_MAX), PAL_PAD(LINE_SPI2NSS_MAX), 0, true}},
 };
 
-/** Set up the SPI buses.
- * Set up the SPI peripheral, SPI clocks, SPI pins, and SPI pins' clocks.
- */
-void spi_setup(void)
-{
-  palSetLineMode(LINE_SPI1NSS, PAL_MODE_OUTPUT_PUSHPULL);
-  palSetLineMode(LINE_SPI1SCK, PAL_MODE_ALTERNATE(5));
-  palSetLineMode(LINE_SPI1MISO, PAL_MODE_ALTERNATE(5));
-  palSetLineMode(LINE_SPI1MOSI, PAL_MODE_ALTERNATE(5));
-
-  palSetLineMode(LINE_SPI2NSS_MAX, PAL_MODE_OUTPUT_PUSHPULL);
-  palSetLineMode(LINE_SPI2NSS_FLASH, PAL_MODE_OUTPUT_PUSHPULL);
-  palSetLineMode(LINE_SPI2SCK, PAL_MODE_ALTERNATE(5));
-  palSetLineMode(LINE_SPI2MISO, PAL_MODE_ALTERNATE(5));
-  palSetLineMode(LINE_SPI2MOSI, PAL_MODE_ALTERNATE(5));
-}
-
-/** Deactivate SPI buses.
- * Disable SPI peripherals, SPI clocks, High-Z SPI pins, and disable SPI pins'
- * clocks.
- */
-void spi_deactivate(void)
-{
-  palSetLineMode(LINE_SPI1NSS, PAL_MODE_INPUT);
-  palSetLineMode(LINE_SPI1SCK, PAL_MODE_INPUT);
-  palSetLineMode(LINE_SPI1MISO, PAL_MODE_INPUT);
-  palSetLineMode(LINE_SPI1MOSI, PAL_MODE_INPUT);
-
-  palSetLineMode(LINE_SPI2NSS_MAX, PAL_MODE_INPUT);
-  palSetLineMode(LINE_SPI2NSS_FLASH, PAL_MODE_INPUT);
-  palSetLineMode(LINE_SPI2SCK, PAL_MODE_INPUT);
-  palSetLineMode(LINE_SPI2MISO, PAL_MODE_INPUT);
-  palSetLineMode(LINE_SPI2MOSI, PAL_MODE_INPUT);
-}
-
 /** Lock the SPI bus used by the selected peripheral.
  * \note This function may be called before spi_slave_select() to enforce
  * exclusive access to the SPI bus across multiple transactions.
