@@ -468,12 +468,6 @@
 /* Port-specific settings (override port settings defaulted in chcore.h).    */
 /*===========================================================================*/
 
-/* Change vector table location for compatibility with the bootloader. */
-#define CORTEX_VTOR_INIT 0x08004000
-
-#define _CCM __attribute__((section (".ccmram")))
-#define WORKING_AREA_CCM(s, n) THD_WORKING_AREA(s, n) _CCM
-
 #include "chconf_board.h"
 
 #endif  /* _CHCONF_H_ */
