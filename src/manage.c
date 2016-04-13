@@ -162,7 +162,7 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 }
 
-static WORKING_AREA_CCM(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
+static WORKING_AREA_BCKP(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
 static void manage_acq_thread(void *arg)
 {
   /* TODO: This should be trigged by a semaphore from the acq ISR code, not
@@ -459,7 +459,7 @@ static void check_clear_unhealthy(void)
   }
 }
 
-static WORKING_AREA_CCM(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
+static WORKING_AREA_BCKP(wa_manage_track_thread, MANAGE_TRACK_THREAD_STACK);
 static void manage_track_thread(void *arg)
 {
   (void)arg;
