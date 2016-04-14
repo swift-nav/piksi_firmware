@@ -199,11 +199,6 @@ static void system_monitor_thread(void *arg)
      send_thread_states(); 
     );
 
-    u32 err = nap_error_rd_blocking();
-    if (err) {
-      log_error("SwiftNAP Error: 0x%08X", (unsigned int)err);
-    }
-
     sleep_until(&time, MS2ST(heartbeat_period_milliseconds));
   }
 }

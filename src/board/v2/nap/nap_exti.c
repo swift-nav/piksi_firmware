@@ -29,6 +29,8 @@
 /** \addtogroup nap
  * \{ */
 
+#define PROCESS_PERIOD_ms (1000)
+
 /* Number of NAP exti ISR's that have occured.
  * TODO : if this starts being used for anything other than waiting to see
  *        if an exti has occurred, maybe we should change to u64? */
@@ -100,6 +102,12 @@ static void handle_nap_exti(void)
   irq &= NAP_IRQ_TRACK_MASK;
   tracking_channels_update(irq);
 
+  u32 err = nap_error_rd_blocking();
+  if (err) {
+    log_error("SwiftNAP Error: 0x%08X", (unsigned int)err);
+    tracking_channels_missed_update_error(err);
+  }
+
   watchdog_notify(WD_NOTIFY_NAP_ISR);
   nap_exti_count++;
 }
@@ -111,7 +119,7 @@ static void nap_exti_thread(void *arg)
 
   while (TRUE) {
     /* Waiting for the IRQ to happen.*/
-    chBSemWait(&nap_exti_sem);
+    chBSemWaitTimeout(&nap_exti_sem, MS2ST(PROCESS_PERIOD_ms));
 
     /* We need a level (not edge) sensitive interrupt -
      * if there is another interrupt pending on the Swift
@@ -123,6 +131,7 @@ static void nap_exti_thread(void *arg)
     while (palReadLine(LINE_NAP_IRQ)) {
       handle_nap_exti();
     }
+    tracking_channels_process();
     spi_unlock(SPI_SLAVE_FPGA);
 
   }

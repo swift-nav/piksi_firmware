@@ -42,19 +42,28 @@
 #define COMPILER_BARRIER() asm volatile ("" : : : "memory")
 
 #define GPS_WEEK_LENGTH_ms (1000 * WEEK_SECS)
-#define CHANNEL_SHUTDOWN_TIME_ms 100
+#define CHANNEL_DISABLE_WAIT_TIME_ms 100
 
 typedef enum {
   STATE_DISABLED,
   STATE_ENABLED,
-  STATE_DISABLE_REQUESTED
+  STATE_DISABLE_REQUESTED,
+  STATE_DISABLE_WAIT
 } state_t;
 
 typedef enum {
   EVENT_ENABLE,
   EVENT_DISABLE_REQUEST,
-  EVENT_DISABLE
+  EVENT_DISABLE,
+  EVENT_DISABLE_WAIT_COMPLETE
 } event_t;
+
+/* Bitfield */
+typedef enum {
+  ERROR_FLAG_NONE =                         0x00,
+  ERROR_FLAG_MISSED_UPDATE =                0x01,
+  ERROR_FLAG_INTERRUPT_WHILE_DISABLED =     0x02,
+} error_flag_t;
 
 /** Top-level generic tracker channel. */
 typedef struct {
@@ -62,6 +71,8 @@ typedef struct {
   state_t state;
   /** Time at which the channel was disabled. */
   systime_t disable_time;
+  /** Error flags. May be set at any time by the tracking thread. */
+  volatile error_flag_t error_flags;
   /** Info associated with this channel. */
   tracker_channel_info_t info;
   /** Data common to all tracker implementations. RW from channel interface
@@ -71,10 +82,8 @@ typedef struct {
    * functions called within channel interface functions. RO from functions
    * in this module. */
   tracker_internal_data_t internal_data;
-  /** Mutex used to protect access to the channel. */
+  /** Mutex used to permit atomic reads of channel data. */
   mutex_t mutex;
-  /** Mutex used to handle NAP shutdown delay. */
-  mutex_t nap_mutex;
   /** Elevation angle, degrees. TODO: find a better place for this. */
   s8 elevation;
   /** Associated tracker interface. */
@@ -123,6 +132,9 @@ static void common_data_init(tracker_common_data_t *common_data,
                              u32 sample_count, float carrier_freq, float cn0);
 static void tracker_channel_lock(tracker_channel_t *tracker_channel);
 static void tracker_channel_unlock(tracker_channel_t *tracker_channel);
+static void error_flags_clear(tracker_channel_t *tracker_channel);
+static void error_flags_add(tracker_channel_t *tracker_channel,
+                            error_flag_t error_flag);
 
 
 /** Set up the tracking module. */
@@ -137,7 +149,6 @@ void track_setup(void)
     tracker_channels[i].state = STATE_DISABLED;
     tracker_channels[i].tracker = 0;
     chMtxObjectInit(&tracker_channels[i].mutex);
-    chMtxObjectInit(&tracker_channels[i].nap_mutex);
   }
 }
 
@@ -255,6 +266,32 @@ void tracking_channels_update(u32 channels_mask)
   }
 }
 
+/** Handles background tasks for all tracking channels.
+ */
+void tracking_channels_process(void)
+{
+  for (u32 channel = 0; channel < nap_track_n_channels; channel++) {
+    tracker_channel_t *tracker_channel = tracker_channel_get(channel);
+    tracker_channel_process(tracker_channel, false);
+  }
+}
+
+/** Sets the missed update error for the specified tracking channels.
+ * \param channels_mask   Bitfield indicating the tracking channels for which
+ *                        a missed update error has occurred.
+ */
+void tracking_channels_missed_update_error(u32 channels_mask)
+{
+  for (u32 channel = 0; channel < nap_track_n_channels; channel++) {
+    tracker_channel_t *tracker_channel = tracker_channel_get(channel);
+    bool error = (channels_mask & 1) ? true : false;
+    if (error) {
+      error_flags_add(tracker_channel, ERROR_FLAG_MISSED_UPDATE);
+    }
+    channels_mask >>= 1;
+  }
+}
+
 /** Determine if a tracker channel is available to track the specified sid.
  *
  * \param id      ID of the tracker channel to be checked.
@@ -319,38 +356,32 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
     internal_data_init(&tracker_channel->internal_data, sid);
     interface_function(tracker_channel, tracker_interface->init);
 
-    const tracker_common_data_t *common_data = &tracker_channel->common_data;
-
-    /* Lock the NAP mutex while setting up NAP registers and updating state.
-     * This allows the update thread to deal with trailing interrupts after
-     * the channel is disabled by writing the update register as required. */
-    chMtxLock(&tracker_channel->nap_mutex);
-
-    /* Starting carrier phase is set to zero as we don't
-     * know the carrier freq well enough to calculate it.
-     */
-    /* Start with code phase of zero as we have conspired for the
-     * channel to be initialised on an EARLY code phase rollover.
-     */
-    nap_track_code_wr_blocking(tracker_channel->info.nap_channel, sid);
-    nap_track_init_wr_blocking(tracker_channel->info.nap_channel, 0, 0, 0);
-    nap_track_update_wr_blocking(
-      tracker_channel->info.nap_channel,
-      common_data->carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ,
-      common_data->code_phase_rate * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ,
-      0, 0
-    );
-
-    /* Schedule the timing strobe for start_sample_count. */
-    nap_timing_strobe(start_sample_count);
+    /* Clear error flags before starting NAP tracking channel */
+    error_flags_clear(tracker_channel);
 
     /* Change the channel state to ENABLED. */
     event(tracker_channel, EVENT_ENABLE);
-
-    chMtxUnlock(&tracker_channel->nap_mutex);
   }
   tracker_channel_unlock(tracker_channel);
 
+  /* Starting carrier phase is set to zero as we don't
+   * know the carrier freq well enough to calculate it.
+   */
+  /* Start with code phase of zero as we have conspired for the
+   * channel to be initialised on an EARLY code phase rollover.
+   */
+  const tracker_common_data_t *common_data = &tracker_channel->common_data;
+  nap_track_code_wr_blocking(tracker_channel->info.nap_channel, sid);
+  nap_track_init_wr_blocking(tracker_channel->info.nap_channel, 0, 0, 0);
+  nap_track_update_wr_blocking(
+    tracker_channel->info.nap_channel,
+    common_data->carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ,
+    common_data->code_phase_rate * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ,
+    0, 0
+  );
+
+  /* Schedule the timing strobe for start_sample_count. */
+  nap_timing_strobe(start_sample_count);
   nap_timing_strobe_wait(100);
 
   return true;
@@ -401,6 +432,16 @@ bool tracking_channel_running(tracker_channel_id_t id)
 {
   const tracker_channel_t *tracker_channel = tracker_channel_get(id);
   return (tracker_channel_state_get(tracker_channel) == STATE_ENABLED);
+}
+
+/** Determine whether an error has occurred for a tracker channel.
+ *
+ * \param id      ID of the tracker channel to use.
+ */
+bool tracking_channel_error(tracker_channel_id_t id)
+{
+  const tracker_channel_t *tracker_channel = tracker_channel_get(id);
+  return (tracker_channel->error_flags != ERROR_FLAG_NONE);
 }
 
 /** Return the C/N0 estimate for a tracker channel.
@@ -696,50 +737,55 @@ static void tracker_channel_process(tracker_channel_t *tracker_channel,
                                     bool update_required)
 {
   switch (tracker_channel_state_get(tracker_channel)) {
-    case STATE_ENABLED:
-    {
-      if (update_required) {
-        tracker_channel_lock(tracker_channel);
-        {
-          interface_function(tracker_channel,
-                             tracker_channel->interface->update);
-        }
-        tracker_channel_unlock(tracker_channel);
-      }
-      break;
-    }
-    case STATE_DISABLE_REQUESTED:
-    {
-      nap_channel_disable(tracker_channel);
+  case STATE_ENABLED: {
+    if (update_required) {
       tracker_channel_lock(tracker_channel);
       {
         interface_function(tracker_channel,
-                           tracker_channel->interface->disable);
-        tracker_channel->disable_time = chVTGetSystemTimeX();
-        event(tracker_channel, EVENT_DISABLE);
+                           tracker_channel->interface->update);
       }
       tracker_channel_unlock(tracker_channel);
-      break;
     }
-    case STATE_DISABLED:
+  }
+  break;
+
+  case STATE_DISABLE_REQUESTED: {
+    nap_channel_disable(tracker_channel);
+    tracker_channel_lock(tracker_channel);
     {
-      if (update_required) {
-        /* Tracking channel is not owned by the update thread, but the update
-         * register must be written to clear the interrupt flag. Atomically
-         * verify state and write the update register. */
-        chMtxLock(&tracker_channel->nap_mutex);
-        if (tracker_channel_state_get(tracker_channel) == STATE_DISABLED) {
-          nap_channel_disable(tracker_channel);
-        }
-        chMtxUnlock(&tracker_channel->nap_mutex);
-      }
-      break;
+      interface_function(tracker_channel,
+                         tracker_channel->interface->disable);
+      tracker_channel->disable_time = chVTGetSystemTimeX();
+      event(tracker_channel, EVENT_DISABLE);
     }
-    default:
-    {
-      assert(!"Invalid tracking channel state");
-      break;
+    tracker_channel_unlock(tracker_channel);
+  }
+  break;
+
+  case STATE_DISABLE_WAIT: {
+    nap_channel_disable(tracker_channel);
+    if (chVTTimeElapsedSinceX(tracker_channel->disable_time) >=
+          MS2ST(CHANNEL_DISABLE_WAIT_TIME_ms)) {
+      event(tracker_channel, EVENT_DISABLE_WAIT_COMPLETE);
     }
+  }
+  break;
+
+  case STATE_DISABLED: {
+    if (update_required) {
+      /* Tracking channel is not owned by the update thread, but the update
+       * register must be written to clear the interrupt flag. Set error
+       * flag to indicate that NAP is in an unknown state. */
+      nap_channel_disable(tracker_channel);
+      error_flags_add(tracker_channel, ERROR_FLAG_INTERRUPT_WHILE_DISABLED);
+    }
+  }
+  break;
+
+  default: {
+    assert(!"Invalid tracking channel state");
+  }
+  break;
   }
 }
 
@@ -841,9 +887,6 @@ static bool tracker_channel_runnable(const tracker_channel_t *tracker_channel,
 {
   if (tracker_channel_state_get(tracker_channel) != STATE_DISABLED)
       return false;
-  if (chVTTimeElapsedSinceX(tracker_channel->disable_time) <
-        MS2ST(CHANNEL_SHUTDOWN_TIME_ms))
-    return false;
 
   *tracker_interface = tracker_interface_lookup(sid);
   if (!available_tracker_get(*tracker_interface, tracker))
@@ -949,6 +992,12 @@ static void event(tracker_channel_t *tracker_channel, event_t event)
 
   case EVENT_DISABLE: {
     assert(tracker_channel->state == STATE_DISABLE_REQUESTED);
+    tracker_channel->state = STATE_DISABLE_WAIT;
+  }
+  break;
+
+  case EVENT_DISABLE_WAIT_COMPLETE: {
+    assert(tracker_channel->state == STATE_DISABLE_WAIT);
     assert(tracker_channel->tracker->active == true);
     /* Sequence point for disable is setting channel state = STATE_DISABLED
      * and/or tracker active = false (order of these two is irrelevant here) */
@@ -1000,6 +1049,26 @@ static void tracker_channel_lock(tracker_channel_t *tracker_channel)
 static void tracker_channel_unlock(tracker_channel_t *tracker_channel)
 {
   chMtxUnlock(&tracker_channel->mutex);
+}
+
+/** Clear the error flags for a tracker channel.
+ *
+ * \param tracker_channel   Tracker channel to use.
+ */
+static void error_flags_clear(tracker_channel_t *tracker_channel)
+{
+  tracker_channel->error_flags = ERROR_FLAG_NONE;
+}
+
+/** Add an error flag to a tracker channel.
+ *
+ * \param tracker_channel   Tracker channel to use.
+ * \param error_flag        Error flag to add.
+ */
+static void error_flags_add(tracker_channel_t *tracker_channel,
+                            error_flag_t error_flag)
+{
+  tracker_channel->error_flags |= error_flag;
 }
 
 /** \} */
