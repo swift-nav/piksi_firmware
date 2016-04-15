@@ -13,7 +13,13 @@
 #include "acq.h"
 
 #include "nap/nap_acq.h"
+#include "nap/acq_channel.h"
 #include "nap_common.h"
+
+float acq_bin_width(void)
+{
+  return (float)NAP_ACQ_SAMPLE_FREQ / (1 << NAP_ACQ_CARRIER_FREQ_WIDTH);
+}
 
 bool acq_search(gnss_signal_t sid, float cf_min, float cf_max,
                 float cf_bin_width, acq_result_t *acq_result)

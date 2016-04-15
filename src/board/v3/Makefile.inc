@@ -69,6 +69,9 @@ BOARDSRC := \
         $(BOARDDIR)/init.o \
         $(BOARDDIR)/acq.o \
         $(BOARDDIR)/usart_support.o \
+        $(BOARDDIR)/nap/axi_dma.o \
+        $(BOARDDIR)/nap/fft.o \
+        $(BOARDDIR)/nap/nap_common.o \
         $(BOARDDIR)/nap/nap_dummy.o
 
 BOARDASM := \

@@ -10,22 +10,19 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_ACQ_H
-#define SWIFTNAV_ACQ_H
+#include "nap_common.h"
 
-#include <libswiftnav/common.h>
-#include <libswiftnav/signal.h>
+#include "nap_regs.h"
+#include "nap_constants.h"
+#include "axi_dma.h"
 
-typedef struct {
-  u32 sample_count;
-  float cp;
-  float cf;
-  float cn0;
-} acq_result_t;
+#include <math.h>
 
-float acq_bin_width(void);
+void nap_setup(void)
+{
+  axi_dma_init();
+  axi_dma_start(&AXIDMADriver1);
 
-bool acq_search(gnss_signal_t sid, float cf_min, float cf_max,
-                float cf_bin_width, acq_result_t *acq_result);
-
-#endif /* SWIFTNAV_ACQ_H */
+  NAP->FE_PINC[0] = (u32)round(14.58e6 * pow(2.0, 32.0)
+                                   / NAP_FRONTEND_SAMPLE_RATE_Hz);
+}

@@ -7,10 +7,6 @@ u8 nap_track_n_channels;
 u8 nap_acq_fft_index_bits;
 u8 nap_acq_downsample_stages;
 
-void nap_setup(void)
-{
-}
-
 void nap_callbacks_setup(void)
 {
 }

@@ -10,8 +10,8 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_ACQ_H
-#define SWIFTNAV_ACQ_H
+#ifndef SWIFTNAV_NAP_ACQ_H
+#define SWIFTNAV_NAP_ACQ_H
 
 #include <libswiftnav/common.h>
 #include <libswiftnav/signal.h>
