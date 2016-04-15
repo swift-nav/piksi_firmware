@@ -17,13 +17,7 @@
 #include <libswiftnav/common.h>
 #include <libswiftnav/signal.h>
 
-/* Platform-specific code support ==== */
-#define CODE_GPS_L1CA_SUPPORT     1
-#define CODE_GPS_L2CM_SUPPORT     0
-#define CODE_SBAS_L1CA_SUPPORT    1
-#define CODE_GLO_L1CA_SUPPORT     0
-#define CODE_GLO_L2CA_SUPPORT     0
-/* =================================== */
+#include "platform_signal.h"
 
 /** \addtogroup signal
  * \{ */

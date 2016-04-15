@@ -37,8 +37,6 @@
  * tracking measurements each integration period.
  * \{ */
 
-#define NUM_TRACKER_CHANNELS  12
-
 #define COMPILER_BARRIER() asm volatile ("" : : : "memory")
 
 #define GPS_WEEK_LENGTH_ms (1000 * WEEK_SECS)
@@ -150,6 +148,8 @@ void track_setup(void)
     tracker_channels[i].tracker = 0;
     chMtxObjectInit(&tracker_channels[i].mutex);
   }
+
+  platform_track_setup();
 }
 
 /** Send tracking state SBP message.

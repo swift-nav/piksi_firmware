@@ -97,7 +97,6 @@ CSRC := $(STARTUPSRC) \
         $(SWIFTNAV_ROOT)/src/track.o \
         $(SWIFTNAV_ROOT)/src/track_internal.o \
         $(SWIFTNAV_ROOT)/src/track_api.o \
-        $(SWIFTNAV_ROOT)/src/track_gps_l1ca.o \
         $(SWIFTNAV_ROOT)/src/manage.o \
         $(SWIFTNAV_ROOT)/src/settings.o \
         $(SWIFTNAV_ROOT)/src/timing.o \
@@ -112,7 +111,6 @@ CSRC := $(STARTUPSRC) \
         $(SWIFTNAV_ROOT)/src/ephemeris.o \
         $(SWIFTNAV_ROOT)/src/pps.o \
         $(SWIFTNAV_ROOT)/src/decode.o \
-        $(SWIFTNAV_ROOT)/src/decode_gps_l1.o \
         $(SWIFTNAV_ROOT)/src/signal.o \
         main.c
 

@@ -72,7 +72,10 @@ BOARDSRC := \
         $(BOARDDIR)/nap/axi_dma.o \
         $(BOARDDIR)/nap/fft.o \
         $(BOARDDIR)/nap/nap_common.o \
-        $(BOARDDIR)/nap/nap_dummy.o
+        $(BOARDDIR)/nap/nap_dummy.o \
+        $(BOARDDIR)/platform_signal.o \
+        $(SWIFTNAV_ROOT)/src/track/track_gps_l1ca.o \
+        $(SWIFTNAV_ROOT)/src/decode/decode_gps_l1ca.o \
 
 BOARDASM := \
         $(BOARDDIR)/cpu_init.s \
