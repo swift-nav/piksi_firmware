@@ -24,6 +24,7 @@
 #include "peripherals/usart.h"
 #include "sbp.h"
 #include "settings.h"
+#include "main.h"
 
 const char NMEA_MODULE[] = "nmea";
 

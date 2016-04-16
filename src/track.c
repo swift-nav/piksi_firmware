@@ -210,42 +210,6 @@ void tracking_send_state()
   sbp_send_msg(SBP_MSG_TRACKING_STATE, sizeof(states), (u8*)states);
 }
 
-/** Calculate the future code phase after N samples.
- * Calculate the expected code phase in N samples time with carrier aiding.
- *
- * \param code_phase   Current code phase in chips.
- * \param carrier_freq Current carrier frequency (i.e. Doppler) in Hz used for
- *                     carrier aiding.
- * \param n_samples    N, the number of samples to propagate for.
- *
- * \return The propagated code phase in chips.
- */
-float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
-{
-  /* Calculate the code phase rate with carrier aiding. */
-  u32 code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) *
-                            NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
-
-  /* Internal Swift NAP code phase is in chips*2^32:
-   *
-   * |  Chip no.  | Sub-chip | Fractional sub-chip |
-   * | 0 ... 1022 | 0 ... 15 |  0 ... (2^28 - 1)   |
-   *
-   * Code phase rate is directly added in this representation,
-   * the nominal code phase rate corresponds to 1 sub-chip.
-   */
-
-  /* Calculate code phase in chips*2^32. */
-  u64 propagated_code_phase = (u64)(code_phase * (((u64)1)<<32)) + n_samples *
-                                  (u64)code_phase_rate;
-
-  /* Convert code phase back to natural units with sub-chip precision.
-   * NOTE: the modulo is required to fix the fact rollover should
-   * occur at 1023 not 1024.
-   */
-  return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
-}
-
 /** Handles pending IRQs for the specified tracking channels.
  * \param channels_mask   Bitfield indicating the tracking channels for which
  *                        an IRQ is pending.
@@ -313,16 +277,17 @@ bool tracker_channel_available(tracker_channel_id_t id, gnss_signal_t sid)
  *
  * \param id                    ID of the tracker channel to be initialized.
  * \param sid                   Signal to be tracked.
+ * \param ref_sample_count      NAP sample count at which code_phase was acquired.
+ * \param code_phase            Code phase
  * \param carrier_freq          Carrier frequency Doppler (Hz).
- * \param start_sample_count    NAP sample count at which to start the channel.
  * \param cn0_init              Initial C/N0 estimate (dBHz).
  * \param elevation             Elevation (deg).
  *
  * \return true if the tracker channel was initialized, false otherwise.
  */
 bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
-                          float carrier_freq,  u32 start_sample_count,
-                          float cn0_init, s8 elevation)
+                          u32 ref_sample_count, float code_phase,
+                          float carrier_freq, float cn0_init, s8 elevation)
 {
   tracker_channel_t *tracker_channel = tracker_channel_get(id);
 
@@ -349,9 +314,8 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
      * start the channel on an EARLY code phase rollover.
      */
     /* TODO : change hardcoded sample rate */
-    start_sample_count -= 0.5*16;
 
-    common_data_init(&tracker_channel->common_data, start_sample_count,
+    common_data_init(&tracker_channel->common_data, ref_sample_count,
                      carrier_freq, cn0_init);
     internal_data_init(&tracker_channel->internal_data, sid);
     interface_function(tracker_channel, tracker_interface->init);
@@ -364,25 +328,10 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
   }
   tracker_channel_unlock(tracker_channel);
 
-  /* Starting carrier phase is set to zero as we don't
-   * know the carrier freq well enough to calculate it.
-   */
-  /* Start with code phase of zero as we have conspired for the
-   * channel to be initialised on an EARLY code phase rollover.
-   */
-  const tracker_common_data_t *common_data = &tracker_channel->common_data;
-  nap_track_code_wr_blocking(tracker_channel->info.nap_channel, sid);
-  nap_track_init_wr_blocking(tracker_channel->info.nap_channel, 0, 0, 0);
-  nap_track_update_wr_blocking(
-    tracker_channel->info.nap_channel,
-    common_data->carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ,
-    common_data->code_phase_rate * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ,
-    0, 0
-  );
-
-  /* Schedule the timing strobe for start_sample_count. */
-  nap_timing_strobe(start_sample_count);
-  nap_timing_strobe_wait(100);
+  u32 snapshot = nap_track_init(tracker_channel->info.nap_channel,
+                                sid, ref_sample_count,
+                                carrier_freq, code_phase);
+  tracker_channel->common_data.sample_count = snapshot;
 
   return true;
 }
@@ -607,7 +556,8 @@ void tracking_channel_measurement_get(tracker_channel_id_t id,
   meas->code_phase_chips = (double)common_data->code_phase_early /
                                NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
   meas->code_phase_rate = common_data->code_phase_rate;
-  meas->carrier_phase = common_data->carrier_phase / (double)(1<<24);
+  meas->carrier_phase = common_data->carrier_phase /
+                        (double)(1ull<<NAP_TRACK_CARRIER_FREQ_WIDTH);
   meas->carrier_freq = common_data->carrier_freq;
   meas->time_of_week_ms = common_data->TOW_ms;
   meas->receiver_time = (double)common_data->sample_count / SAMPLE_FREQ;
@@ -836,7 +786,7 @@ static bool track_iq_output_notify(struct setting *s, const char *val)
  */
 static void nap_channel_disable(const tracker_channel_t *tracker_channel)
 {
-  nap_track_update_wr_blocking(tracker_channel->info.nap_channel, 0, 0, 0, 0);
+  nap_track_disable(tracker_channel->info.nap_channel);
 }
 
 /** Retrieve the tracker channel associated with a tracker channel ID.

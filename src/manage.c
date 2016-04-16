@@ -697,22 +697,11 @@ static void manage_tracking_startup(void)
       continue;
     }
 
-    /* Transition to tracking. */
-    u32 track_count = nap_timing_count() + 20000;
-    float cp = propagate_code_phase(startup_params.code_phase,
-                                    startup_params.carrier_freq,
-                                    track_count -
-                                        startup_params.sample_count);
-
-    /* Contrive for the timing strobe to occur at or close to a
-     * PRN edge (code phase = 0) */
-    track_count += 16 * (1023.0-cp) *
-                      (1.0 + startup_params.carrier_freq / GPS_L1_HZ);
-
     /* Start the tracking channel */
     if(!tracker_channel_init(chan, startup_params.sid,
+                             startup_params.sample_count,
+                             startup_params.code_phase,
                              startup_params.carrier_freq,
-                             track_count,
                              startup_params.cn0_init,
                              TRACKING_ELEVATION_UNKNOWN)) {
       log_error("tracker channel init failed");

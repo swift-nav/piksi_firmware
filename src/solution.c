@@ -41,6 +41,7 @@
 #include "ephemeris.h"
 #include "signal.h"
 #include "system_monitor.h"
+#include "main.h"
 
 MemoryPool obs_buff_pool;
 mailbox_t obs_mailbox;

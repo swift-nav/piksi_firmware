@@ -73,6 +73,7 @@ BOARDSRC := \
         $(BOARDDIR)/nap/fft.o \
         $(BOARDDIR)/nap/nap_common.o \
         $(BOARDDIR)/nap/nap_dummy.o \
+        $(BOARDDIR)/nap/nap_track.o \
         $(BOARDDIR)/platform_signal.o \
         $(SWIFTNAV_ROOT)/src/track/track_gps_l1ca.o \
         $(SWIFTNAV_ROOT)/src/decode/decode_gps_l1ca.o \

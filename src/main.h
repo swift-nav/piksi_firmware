@@ -15,8 +15,6 @@
 
 #include <libswiftnav/common.h>
 
-#define SAMPLE_FREQ 16368000
-
 /* See http://c-faq.com/cpp/multistmt.html for
  * and explaination of the do {} while(0)
  */
