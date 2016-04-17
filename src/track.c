@@ -553,11 +553,9 @@ void tracking_channel_measurement_get(tracker_channel_id_t id,
 
   /* Update our channel measurement. */
   meas->sid = tracker_channel->info.sid;
-  meas->code_phase_chips = (double)common_data->code_phase_early /
-                               NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
+  meas->code_phase_chips = common_data->code_phase_early;
   meas->code_phase_rate = common_data->code_phase_rate;
-  meas->carrier_phase = common_data->carrier_phase /
-                        (double)(1ull<<NAP_TRACK_CARRIER_FREQ_WIDTH);
+  meas->carrier_phase = common_data->carrier_phase;
   meas->carrier_freq = common_data->carrier_freq;
   meas->time_of_week_ms = common_data->TOW_ms;
   meas->receiver_time = (double)common_data->sample_count / SAMPLE_FREQ;

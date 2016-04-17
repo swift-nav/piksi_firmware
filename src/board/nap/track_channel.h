@@ -32,7 +32,10 @@ u32 nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
 void nap_track_update_wr_blocking(u8 channel, s32 carrier_freq,
                                   u32 code_phase_rate, u8 rollover_count,
                                   u8 corr_spacing);
-void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[]);
+void nap_track_corr_rd_blocking(u8 channel,
+                                u32* count_snapshot, corr_t corrs[],
+                                double *code_phase_early,
+                                double *carrier_phase);
 
 void nap_track_disable(u8 channel);
 

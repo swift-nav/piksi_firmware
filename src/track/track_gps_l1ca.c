@@ -204,7 +204,9 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
      * correlations. */
     corr_t cs[3];
     tracker_correlations_read(channel_info->context, cs,
-                              &data->corr_sample_count);
+                              &common_data->sample_count,
+                              &common_data->code_phase_early,
+                              &common_data->carrier_phase);
     /* accumulate short cycle correlations with long */
     for(int i = 0; i < 3; i++) {
       data->cs[i].I += cs[i].I;
@@ -212,22 +214,11 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     }
   } else {
     tracker_correlations_read(channel_info->context, data->cs,
-                              &data->corr_sample_count);
+                              &common_data->sample_count,
+                              &common_data->code_phase_early,
+                              &common_data->carrier_phase);
     alias_detect_first(&data->alias_detect, data->cs[1].I, data->cs[1].Q);
   }
-
-  common_data->sample_count += data->corr_sample_count;
-  common_data->code_phase_early = (u64)common_data->code_phase_early +
-                           (u64)data->corr_sample_count
-                             * data->code_phase_rate_fp_prev;
-  common_data->carrier_phase += (s64)data->carrier_freq_fp_prev
-                           * data->corr_sample_count;
-  /* TODO: Fix this in the FPGA - first integration is one sample short. */
-  if (common_data->update_count == 0)
-    common_data->carrier_phase -= data->carrier_freq_fp_prev;
-  data->code_phase_rate_fp_prev = data->code_phase_rate_fp;
-  data->carrier_freq_fp_prev = data->carrier_freq_fp;
-
   common_data->TOW_ms = tracker_tow_update(channel_info->context,
                                    common_data->TOW_ms,
                                    data->short_cycle ? 1 : (data->int_ms-1));

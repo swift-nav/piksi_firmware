@@ -16,7 +16,8 @@
 BSEMAPHORE_DECL(timing_strobe_sem, TRUE);
 
 struct {
-  u32 phase;
+  u32 code_phase;
+  s64 carrier_phase;
   u32 len;
 } pipeline[NAP_MAX_N_TRACK_CHANNELS];
 
@@ -79,7 +80,9 @@ u32 nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
                                    NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
   NAP->TRK_CH[channel].CODE_PINC = cp_rate;
   pipeline[channel].len = NAP->TRK_CH[channel].LENGTH = calc_length_samples(1, 0, cp_rate)+1;
-  pipeline[channel].phase = (NAP->TRK_CH[channel].LENGTH) * cp_rate;
+  pipeline[channel].code_phase = (NAP->TRK_CH[channel].LENGTH) * cp_rate;
+  pipeline[channel].carrier_phase = NAP->TRK_CH[channel].LENGTH *
+                                    (s64)-NAP->TRK_CH[channel].CARR_PINC;
   NAP->TRK_CONTROL |= (1 << channel); /* Set to start on the timing strobe */
 
   NAP->TRK_TIMING_COMPARE = track_count - SAMPLE_FREQ / GPS_CA_CHIPPING_RATE;
@@ -99,7 +102,7 @@ void nap_track_update_wr_blocking(u8 channel, s32 carrier_freq,
   NAP->TRK_CH[channel].CARR_PINC = -carrier_freq;
   NAP->TRK_CH[channel].CODE_PINC = code_phase_rate;
   NAP->TRK_CH[channel].LENGTH = calc_length_samples(rollover_count + 1,
-                                    pipeline[channel].phase,
+                                    pipeline[channel].code_phase,
                                     code_phase_rate);
 
   volatile u16 cp_int = NAP->TRK_CH[channel].CODE_PHASE_INT;
@@ -107,7 +110,10 @@ void nap_track_update_wr_blocking(u8 channel, s32 carrier_freq,
     asm("nop");
 }
 
-void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[])
+void nap_track_corr_rd_blocking(u8 channel,
+                                u32* count_snapshot, corr_t corrs[],
+                                double *code_phase_early,
+                                double *carrier_phase)
 {
   corr_t lc[5];
   if (NAP->TRK_CH[channel].STATUS & 0x3F)
@@ -117,17 +123,19 @@ void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[])
     lc[i].I = NAP->TRK_CH[channel].CORR[i].I >> 8;
     lc[i].Q = NAP->TRK_CH[channel].CORR[i].Q >> 8;
   }
-  *sample_count = pipeline[channel].len;
-  pipeline[channel].len = NAP->TRK_CH[channel].LENGTH;
+  *count_snapshot = NAP->TRK_CH[channel].START_SNAPSHOT;
+  u64 nap_phase = ((u64)NAP->TRK_CH[channel].CODE_PHASE_INT << 32) |
+                        NAP->TRK_CH[channel].CODE_PHASE_FRAC;
+  *code_phase_early = (double)nap_phase / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
+  *carrier_phase = (double)pipeline[channel].carrier_phase / (1ull << 32);
   memcpy(corrs, &lc[1], sizeof(corr_t)*3);
-  if (pipeline[channel].phase != NAP->TRK_CH[channel].CODE_PHASE_FRAC) {
-    volatile u64 nap_phase = ((u64)NAP->TRK_CH[channel].CODE_PHASE_INT << 32) |
-                             NAP->TRK_CH[channel].CODE_PHASE_FRAC;
-    (void)nap_phase;
+  if (pipeline[channel].code_phase != NAP->TRK_CH[channel].CODE_PHASE_FRAC)
     asm("nop");
-  }
-  pipeline[channel].phase +=
+  pipeline[channel].code_phase +=
     NAP->TRK_CH[channel].LENGTH * NAP->TRK_CH[channel].CODE_PINC;
+  pipeline[channel].carrier_phase -=
+    NAP->TRK_CH[channel].LENGTH * (s64)NAP->TRK_CH[channel].CARR_PINC;
+  pipeline[channel].len = NAP->TRK_CH[channel].LENGTH;
   if (!(NAP->STATUS & 1))
     asm("bkpt");
 }
