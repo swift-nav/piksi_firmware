@@ -14,9 +14,22 @@
 #include "nap_conf.h"
 #include "nap_common.h"
 #include "track_channel.h"
+#include "track.h"
 
 #include "libswiftnav/prns.h"
 #include "libswiftnav/constants.h"
+
+#include <string.h>
+
+static struct nap_ch_state {
+  u32 code_pinc;
+  u32 code_pinc_prev;
+  s32 carr_pinc;
+  s32 carr_pinc_prev;
+  u32 code_phase;
+  s64 carrier_phase;
+  u32 count_snapshot;
+} nap_ch_state[NAP_MAX_N_TRACK_CHANNELS];
 
 /** \addtogroup nap
  * \{ */
@@ -58,42 +71,6 @@ static void nap_track_init_pack(u8 pack[], u8 prn, s32 carrier_phase, u16 code_p
   pack[5] = (prn & 0x1F) | (carrier_phase << 5 & 0xE0);
 }
 
-/** Calculate the future code phase after N samples.
- * Calculate the expected code phase in N samples time with carrier aiding.
- *
- * \param code_phase   Current code phase in chips.
- * \param carrier_freq Current carrier frequency (i.e. Doppler) in Hz used for
- *                     carrier aiding.
- * \param n_samples    N, the number of samples to propagate for.
- *
- * \return The propagated code phase in chips.
- */
-static float propagate_code_phase(float code_phase, float carrier_freq, u32 n_samples)
-{
-  /* Calculate the code phase rate with carrier aiding. */
-  u32 code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) *
-                            NAP_TRACK_NOMINAL_CODE_PHASE_RATE;
-
-  /* Internal Swift NAP code phase is in chips*2^32:
-   *
-   * |  Chip no.  | Sub-chip | Fractional sub-chip |
-   * | 0 ... 1022 | 0 ... 15 |  0 ... (2^28 - 1)   |
-   *
-   * Code phase rate is directly added in this representation,
-   * the nominal code phase rate corresponds to 1 sub-chip.
-   */
-
-  /* Calculate code phase in chips*2^32. */
-  u64 propagated_code_phase = (u64)(code_phase * (((u64)1)<<32)) + n_samples *
-                                  (u64)code_phase_rate;
-
-  /* Convert code phase back to natural units with sub-chip precision.
-   * NOTE: the modulo is required to fix the fact rollover should
-   * occur at 1023 not 1024.
-   */
-  return (float)((u32)(propagated_code_phase >> 28) % (1023*16)) / 16.0;
-}
-
 /** Write to a NAP track channel's INIT register.
  * Sets PRN (deprecated), initial carrier phase, and initial code phase of a
  * NAP track channel. The tracking channel will start correlating with these
@@ -112,7 +89,8 @@ static float propagate_code_phase(float code_phase, float carrier_freq, u32 n_sa
 void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
                     float carrier_freq, float code_phase)
 {
-  ref_timing_count -= 0.5*16;
+  struct nap_ch_state *s = &nap_ch_state[channel];
+  memset(s, 0, sizeof(*s));
 
   u32 track_count = nap_timing_count() + 20000;
   float cp = propagate_code_phase(code_phase, carrier_freq,
@@ -120,7 +98,8 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
 
   /* Contrive for the timing strobe to occur at or close to a
    * PRN edge (code phase = 0) */
-  track_count += 16 * (1023.0-cp) * (1.0 + carrier_freq / GPS_L1_HZ);
+  track_count += (SAMPLE_FREQ/GPS_CA_CHIPPING_RATE) * (1023.0-cp) *
+                 (1.0 + carrier_freq / GPS_L1_HZ);
 
   nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
                      + NAP_REG_TRACK_CODE_OFFSET, 128, 0, ca_code(sid));
@@ -131,15 +110,17 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
                      + NAP_REG_TRACK_INIT_OFFSET, 6, 0, temp);
 
   double cp_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
-  nap_track_update_wr_blocking(channel,
-    carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ,
-    cp_rate * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ,
-    0, 0
-  );
+  nap_track_update_wr_blocking(channel, carrier_freq, cp_rate, 0, 0);
 
   /* Schedule the timing strobe for start_sample_count. */
+  track_count -= SAMPLE_FREQ / (2*GPS_CA_CHIPPING_RATE);
   nap_timing_strobe(track_count);
   nap_timing_strobe_wait(100);
+  
+  s->count_snapshot = track_count;
+  s->carrier_phase = -s->carr_pinc;
+  s->carr_pinc_prev = s->carr_pinc;
+  s->code_pinc_prev = s->code_pinc;
 }
 
 /** Pack data for writing to a NAP track channel's UPDATE register.
@@ -178,13 +159,18 @@ static void nap_track_update_pack(u8 pack[], s32 carrier_freq, u32 code_phase_ra
  * \param carrier_freq    Next correlation period's carrier frequency.
  * \param code_phase_rate Next correlation period's code phase rate.
  */
-void nap_track_update_wr_blocking(u8 channel, s32 carrier_freq,
-                                  u32 code_phase_rate, u8 rollover_count,
+void nap_track_update_wr_blocking(u8 channel, double carrier_freq,
+                                  double code_phase_rate, u8 rollover_count,
                                   u8 corr_spacing)
 {
-  u8 temp[8] = { 0 };
+  struct nap_ch_state *s = &nap_ch_state[channel];
+  s->carr_pinc_prev = s->carr_pinc;
+  s->carr_pinc = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
+  s->code_pinc_prev = s->code_pinc;
+  s->code_pinc = code_phase_rate * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
-  nap_track_update_pack(temp, carrier_freq, code_phase_rate,
+  u8 temp[8] = { 0 };
+  nap_track_update_pack(temp, s->carr_pinc, s->code_pinc,
                         rollover_count, corr_spacing);
   nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
                      + NAP_REG_TRACK_UPDATE_OFFSET, 8, 0, temp);
@@ -226,14 +212,30 @@ static void nap_track_corr_unpack(u8 packed[], u32* sample_count, corr_t corrs[]
  * \param sample_count Number of sample clock cycles in correlation period.
  * \param corrs        Array of E,P,L correlations from correlation period.
  */
-void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[])
+//void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[])
+void nap_track_corr_rd_blocking(u8 channel,
+                                u32* count_snapshot, corr_t corrs[],
+                                double *code_phase_early,
+                                double *carrier_phase)
 {
+  struct nap_ch_state *s = &nap_ch_state[channel];
+  u32 sample_count;
   /* 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8) + 24 bits sample count. */
   u8 temp[2*3*3 + 3];
 
   nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
                      + NAP_REG_TRACK_CORR_OFFSET, 2*3*3 + 3, temp, temp);
-  nap_track_corr_unpack(temp, sample_count, corrs);
+  nap_track_corr_unpack(temp, &sample_count, corrs);
+  
+  s->count_snapshot += sample_count;
+  s->code_phase += (u64)sample_count * s->code_pinc_prev;
+  s->carrier_phase += (s64)sample_count * s->carr_pinc_prev;
+  s->carr_pinc_prev = s->carr_pinc;
+  s->code_pinc_prev = s->code_pinc_prev;
+
+  *count_snapshot = s->count_snapshot;
+  *code_phase_early = (double)s->code_phase / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
+  *carrier_phase = (double)s->carrier_phase / (1 << NAP_TRACK_CARRIER_FREQ_WIDTH);
 }
 
 /** Unpack data read from a NAP track channel's PHASE register.

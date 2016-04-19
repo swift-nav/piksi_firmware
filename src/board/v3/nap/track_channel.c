@@ -1,5 +1,18 @@
+/*
+ * Copyright (C) 2016 Swift Navigation Inc.
+ * Contact: Gareth McMullin <gareth@swiftnav.com>
+ *
+ * This source is subject to the license found in the file 'LICENSE' which must
+ * be be distributed together with this source. All other rights reserved.
+ *
+ * THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND,
+ * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
 #include "nap/nap_common.h"
 #include "nap/track_channel.h"
+#include "track.h"
 
 #include <ch.h>
 
@@ -15,31 +28,11 @@
 
 BSEMAPHORE_DECL(timing_strobe_sem, TRUE);
 
-struct {
+static struct {
   u32 code_phase;
   s64 carrier_phase;
   u32 len;
-} pipeline[NAP_MAX_N_TRACK_CHANNELS];
-
-/** Calculate the future code phase after N samples.
- * Calculate the expected code phase in N samples time with carrier aiding.
- *
- * \param code_phase   Current code phase in chips.
- * \param carrier_freq Current carrier frequency (i.e. Doppler) in Hz used for
- *                     carrier aiding.
- * \param n_samples    N, the number of samples to propagate for.
- *
- * \return The propagated code phase in chips.
- */
-static double propagate_code_phase(double code_phase, double carrier_freq, u32 n_samples)
-{
-  /* Calculate the code phase rate with carrier aiding. */
-  double code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
-  code_phase += n_samples * code_phase_rate / SAMPLE_FREQ;
-  u32 cp_int = floor(code_phase);
-  code_phase -= cp_int - (cp_int % 1023);
-  return code_phase;
-}
+} nap_ch_state[NAP_MAX_N_TRACK_CHANNELS];
 
 static u32 calc_length_samples(u8 codes, s32 cp_start, u32 cp_rate)
 {
@@ -50,7 +43,7 @@ static u32 calc_length_samples(u8 codes, s32 cp_start, u32 cp_rate)
   return samples;
 }
 
-u32 nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
+void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
                    float carrier_freq, float code_phase)
 {
   u32 now = NAP->TIMING_COUNT;
@@ -79,9 +72,9 @@ u32 nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   NAP->TRK_CH[channel].CARR_PINC = -carrier_freq *
                                    NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
   NAP->TRK_CH[channel].CODE_PINC = cp_rate;
-  pipeline[channel].len = NAP->TRK_CH[channel].LENGTH = calc_length_samples(1, 0, cp_rate)+1;
-  pipeline[channel].code_phase = (NAP->TRK_CH[channel].LENGTH) * cp_rate;
-  pipeline[channel].carrier_phase = NAP->TRK_CH[channel].LENGTH *
+  nap_ch_state[channel].len = NAP->TRK_CH[channel].LENGTH = calc_length_samples(1, 0, cp_rate)+1;
+  nap_ch_state[channel].code_phase = (NAP->TRK_CH[channel].LENGTH) * cp_rate;
+  nap_ch_state[channel].carrier_phase = NAP->TRK_CH[channel].LENGTH *
                                     (s64)-NAP->TRK_CH[channel].CARR_PINC;
   NAP->TRK_CONTROL |= (1 << channel); /* Set to start on the timing strobe */
 
@@ -90,20 +83,21 @@ u32 nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   //chThdSleep(CH_CFG_ST_FREQUENCY * ceil((float)(track_count - now)/SAMPLE_FREQ));
   /* Spin until we're really running */
   while (!(NAP->TRK_CH[channel].STATUS & NAP_TRK_STATUS_RUNNING));
-  return NAP->TRK_CH[channel].START_SNAPSHOT;
 }
 
-void nap_track_update_wr_blocking(u8 channel, s32 carrier_freq,
-                                  u32 code_phase_rate, u8 rollover_count,
+void nap_track_update_wr_blocking(u8 channel, double carrier_freq,
+                                  double code_phase_rate, u8 rollover_count,
                                   u8 corr_spacing)
 {
   (void)corr_spacing; /* This is always written as 0 now... */
 
-  NAP->TRK_CH[channel].CARR_PINC = -carrier_freq;
-  NAP->TRK_CH[channel].CODE_PINC = code_phase_rate;
+  u32 cp_rate_fp = code_phase_rate * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
+  NAP->TRK_CH[channel].CARR_PINC = -carrier_freq *
+                                   NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
+  NAP->TRK_CH[channel].CODE_PINC = cp_rate_fp;
   NAP->TRK_CH[channel].LENGTH = calc_length_samples(rollover_count + 1,
-                                    pipeline[channel].code_phase,
-                                    code_phase_rate);
+                                    nap_ch_state[channel].code_phase,
+                                    cp_rate_fp);
 
   volatile u16 cp_int = NAP->TRK_CH[channel].CODE_PHASE_INT;
   if ((cp_int != 0x3fe)) /* Sanity check, we should be just before rollover */
@@ -117,7 +111,7 @@ void nap_track_corr_rd_blocking(u8 channel,
 {
   corr_t lc[5];
   if (NAP->TRK_CH[channel].STATUS & 0x3F)
-    log_error("Track correlator overflow 0x%08X on channel %d",
+    log_warn("Track correlator overflow 0x%08X on channel %d",
               NAP->TRK_CH[channel].STATUS, channel);
   for (u8 i = 0; i < 5; i++) {
     lc[i].I = NAP->TRK_CH[channel].CORR[i].I >> 8;
@@ -127,15 +121,15 @@ void nap_track_corr_rd_blocking(u8 channel,
   u64 nap_phase = ((u64)NAP->TRK_CH[channel].CODE_PHASE_INT << 32) |
                         NAP->TRK_CH[channel].CODE_PHASE_FRAC;
   *code_phase_early = (double)nap_phase / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
-  *carrier_phase = (double)pipeline[channel].carrier_phase / (1ull << 32);
+  *carrier_phase = (double)nap_ch_state[channel].carrier_phase / (1ull << 32);
   memcpy(corrs, &lc[1], sizeof(corr_t)*3);
-  if (pipeline[channel].code_phase != NAP->TRK_CH[channel].CODE_PHASE_FRAC)
+  if (nap_ch_state[channel].code_phase != NAP->TRK_CH[channel].CODE_PHASE_FRAC)
     asm("nop");
-  pipeline[channel].code_phase +=
+  nap_ch_state[channel].code_phase +=
     NAP->TRK_CH[channel].LENGTH * NAP->TRK_CH[channel].CODE_PINC;
-  pipeline[channel].carrier_phase -=
+  nap_ch_state[channel].carrier_phase -=
     NAP->TRK_CH[channel].LENGTH * (s64)NAP->TRK_CH[channel].CARR_PINC;
-  pipeline[channel].len = NAP->TRK_CH[channel].LENGTH;
+  nap_ch_state[channel].len = NAP->TRK_CH[channel].LENGTH;
   if (!(NAP->STATUS & 1))
     asm("bkpt");
 }

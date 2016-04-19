@@ -273,6 +273,26 @@ bool tracker_channel_available(tracker_channel_id_t id, gnss_signal_t sid)
                                   &tracker_interface);
 }
 
+/** Calculate the future code phase after N samples.
+ * Calculate the expected code phase in N samples time with carrier aiding.
+ *
+ * \param code_phase   Current code phase in chips.
+ * \param carrier_freq Current carrier frequency (i.e. Doppler) in Hz used for
+ *                     carrier aiding.
+ * \param n_samples    N, the number of samples to propagate for.
+ *
+ * \return The propagated code phase in chips.
+ */
+double propagate_code_phase(double code_phase, double carrier_freq, u32 n_samples)
+{
+  /* Calculate the code phase rate with carrier aiding. */
+  double code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
+  code_phase += n_samples * code_phase_rate / SAMPLE_FREQ;
+  u32 cp_int = floor(code_phase);
+  code_phase -= cp_int - (cp_int % 1023);
+  return code_phase;
+}
+
 /** Initialize a tracker channel to track the specified sid.
  *
  * \param id                    ID of the tracker channel to be initialized.
@@ -328,10 +348,8 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
   }
   tracker_channel_unlock(tracker_channel);
 
-  u32 snapshot = nap_track_init(tracker_channel->info.nap_channel,
-                                sid, ref_sample_count,
-                                carrier_freq, code_phase);
-  tracker_channel->common_data.sample_count = snapshot;
+  nap_track_init(tracker_channel->info.nap_channel, sid, ref_sample_count,
+                 carrier_freq, code_phase);
 
   return true;
 }
