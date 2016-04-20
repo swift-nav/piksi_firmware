@@ -403,10 +403,7 @@ static void solution_thread(void *arg)
     /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
      * more intelligent with the solution time.
      */
-    static u8 n_ready_old = 0;
-    u64 nav_tc = nap_timing_count();
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
-
     const channel_measurement_t *p_meas[n_ready];
     navigation_measurement_t *p_nav_meas[n_ready];
     const ephemeris_t *p_e_meas[n_ready];
@@ -419,34 +416,40 @@ static void solution_thread(void *arg)
     }
 
     /* Create navigation measurements from the channel measurements */
+    u64 rec_tc = nap_timing_count();
+    gps_time_t rec_time = rx2gpstime(rec_tc);
     ephemeris_lock();
-    gps_time_t nav_time = rx2gpstime(nav_tc);
     if (time_quality == TIME_FINE) {
       /* If we have timing then we can calculate the relationship between
        * receiver time and GPS time and hence provide the pseudorange
        * calculation with the local GPS time of reception. */
       calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                  (double)((u32)nav_tc)/SAMPLE_FREQ,
-								  &nav_time, p_e_meas);
+                                  (double)((u32)rec_tc) / SAMPLE_FREQ,
+								                  &rec_time, p_e_meas);
     } else {
       /* If a FINE quality time solution is not available then don't pass in a
        * `nav_time`. This will result in valid pseudoranges but with a large
        * and arbitrary receiver clock error. We may want to discard these
        * observations after doing a PVT solution. */
       calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                  (double)((u32)nav_tc)/SAMPLE_FREQ,
-								  NULL, p_e_meas);
+                                  (double)((u32)rec_tc) / SAMPLE_FREQ,
+								                  NULL, p_e_meas);
     }
     ephemeris_unlock();
 
+    static u64 rec_tc_old = 0;
+    static u8 n_ready_old = 0;
+    static navigation_measurement_t nav_meas_old[MAX_CHANNELS];
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
     u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
-                                   nav_meas_old, nav_meas_tdcp);
+                                   nav_meas_old, nav_meas_tdcp,
+                                   (double)(rec_tc - rec_tc_old) / SAMPLE_FREQ);
 
     /* Store current observations for next time for
      * TDCP Doppler calculation. */
     memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
     n_ready_old = n_ready;
+    rec_tc_old = rec_tc;
 
     if (n_ready_tdcp < 4) {
       /* Not enough sats to compute PVT */
@@ -485,13 +488,20 @@ static void solution_thread(void *arg)
        * bias after the time estimate is first improved may cause issues for
        * e.g. carrier smoothing. Easier just to discard this first solution.
        */
-      set_time_fine(nav_tc, position_solution.time);
+      set_time_fine(rec_tc, position_solution.time);
       continue;
+    }
+
+    /* Calculate the receiver clock error and if >1ms perform a clock jump */
+    double rx_err = gpsdifftime(&rec_time, &position_solution.time);
+    log_debug("RX clock error = %f", rx_err);
+    if (fabs(rx_err) >= 1e-3) {
+    log_info("RX clock error %f > 1ms, resetting!", rx_err);
+      set_time_fine(rec_tc, position_solution.time);
     }
 
     /* Update global position solution state. */
     position_updated();
-    set_time_fine(nav_tc, position_solution.time);
 
     /* Save elevation angles every so often */
     DO_EVERY((u32)soln_freq,
@@ -534,18 +544,21 @@ static void solution_thread(void *arg)
                                   sdiffs);
           ephemeris_unlock();
           if (num_sdiffs >= 4) {
-            output_baseline(num_sdiffs, sdiffs, &position_solution.time);
+            output_baseline(num_sdiffs, sdiffs, &position_solution.time); // TODO use rec time?
           }
+        } else {
         }
       }
     }
     chMtxUnlock(&base_obs_lock);
 
+    // TODO do epoch alignment before pvt? to match base obs?
     /* Calculate the time of the nearest solution epoch, where we expected
      * to be, and calculate how far we were away from it. */
-    double expected_tow = round(position_solution.time.tow*soln_freq)
-                            / soln_freq;
+    double expected_tow = round(position_solution.time.tow * soln_freq)
+                          / soln_freq;
     double t_err = expected_tow - position_solution.time.tow;
+
     /* Only send observations that are closely aligned with the desired
      * solution epochs to ensure they haven't been propagated too far. */
     /* Output obervations only every obs_output_divisor times, taking
@@ -565,6 +578,7 @@ static void solution_thread(void *arg)
       gps_time_t new_obs_time;
       new_obs_time.wn = position_solution.time.wn;
       new_obs_time.tow = expected_tow;
+      normalize_gps_time(&new_obs_time);
       if (!simulation_enabled() && time_quality == TIME_FINE) {
         send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
       }
