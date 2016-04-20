@@ -124,7 +124,9 @@ static void update_obss(obss_t *new_obss)
   /* Fill in the navigation measurements in base_obss, using TDCP method to
    * calculate the Doppler shift. */
   base_obss.n = tdcp_doppler(new_obss->n, new_obss->nm,
-                             n_old, nm_old, base_obss.nm);
+                             n_old, nm_old, base_obss.nm,
+                             /* TODO Is this right? */
+                             gpsdifftime(&new_obss->nm[0].tot, &nm_old[0].tot));
   /* Copy over the time. */
   base_obss.t = new_obss->t;
 
@@ -307,7 +309,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       unpack_obs_content(
         &obs[i],
         &base_obss_rx.nm[base_obss_rx.n].raw_pseudorange,
-        &base_obss_rx.nm[base_obss_rx.n].carrier_phase,
+        &base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase,
         &base_obss_rx.nm[base_obss_rx.n].snr,
         &base_obss_rx.nm[base_obss_rx.n].lock_counter,
         &base_obss_rx.nm[base_obss_rx.n].sid
@@ -325,6 +327,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       base_obss_rx.nm[base_obss_rx.n].pseudorange =
             base_obss_rx.nm[base_obss_rx.n].raw_pseudorange + clock_err * GPS_C;
       /* Set the time */
+      /* TODO: (kleeman) this is definitely wrong. */
       base_obss_rx.nm[base_obss_rx.n].tot = t;
       base_obss_rx.n++;
     }
