@@ -24,6 +24,7 @@
 #include "board/nap/nap_conf.h"
 #include "sbp.h"
 #include "error.h"
+#include "xadc.h"
 
 #define SLCR_PSS_RST_CTRL (*(volatile u32 *)0xf8000200)
 #define SLCR_PSS_RST_CTRL_SOFT_RST 1
@@ -76,6 +77,8 @@ void init(void)
   nap_callbacks_setup();
 
   reset_callback_register();
+
+  xadc_init();
 }
 
 /* Check NAP authentication status. Block and print error message
