@@ -268,13 +268,14 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
     } else {
       const almanac_t *a = &almanac[sid_to_global_index(sid)];
       if (a->valid) {
-        calc_sat_az_el_almanac(a, t->tow, t->wn-1024,
+        calc_sat_az_el_almanac(a, t,
                                position_solution.pos_ecef, &_, &el_d);
         el = (float)(el_d) * R2D;
         if (el < elevation_mask)
           return SCORE_BELOWMASK;
-        dopp_hint = -calc_sat_doppler_almanac(a, t->tow, t->wn,
-                                              position_solution.pos_ecef);
+        calc_sat_doppler_almanac(a, t,
+                                 position_solution.pos_ecef, &dopp_hint);
+        dopp_hint = -dopp_hint;
       } else {
         return SCORE_COLDSTART; /* Couldn't determine satellite state. */
       }

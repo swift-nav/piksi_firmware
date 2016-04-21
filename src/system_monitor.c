@@ -36,7 +36,7 @@
 #define WATCHDOG_THREAD_PERIOD_MS 15000
 extern const WDGConfig board_wdg_config;
 
-/* Maximum distance between calculated and surveyed base station single point 
+/* Maximum distance between calculated and surveyed base station single point
  * position for error checking.
  */
 #define BASE_STATION_DISTANCE_THRESHOLD 15000
@@ -89,7 +89,7 @@ void send_thread_states()
   g_ctime = 0;
 }
 
-static WORKING_AREA_CCM(wa_track_status_thread, 256);
+static THD_WORKING_AREA(wa_track_status_thread, 256);
 static void track_status_thread(void *arg)
 {
   (void)arg;
@@ -194,9 +194,9 @@ static void system_monitor_thread(void *arg)
       iar_state.num_hyps = dgnss_iar_num_hyps();
     }
     sbp_send_msg(SBP_MSG_IAR_STATE, sizeof(msg_iar_state_t), (u8 *)&iar_state);
-    
-    DO_EVERY(2, 
-     send_thread_states(); 
+
+    DO_EVERY(2,
+     send_thread_states();
     );
 
     sleep_until(&time, MS2ST(heartbeat_period_milliseconds));
@@ -307,4 +307,3 @@ void watchdog_notify(watchdog_notify_t thread_id)
 }
 
 /** \} */
-

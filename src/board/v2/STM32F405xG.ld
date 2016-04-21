@@ -58,7 +58,7 @@ SECTIONS {
       *(.bss.nkf)
     } > ram4
 }
- 
+
 PROVIDE(_coffee_fs_area = ORIGIN(coffee_fs_rom));
 PROVIDE(_ecoffee_fs_area = ORIGIN(coffee_fs_rom) + LENGTH(coffee_fs_rom));
 

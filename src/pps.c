@@ -30,7 +30,7 @@
 /** Number of microseconds the PPS will remain high (default: 200000). */
 u32 pps_width_microseconds = PPS_WIDTH_MICROSECONDS;
 
-static WORKING_AREA_CCM(wa_pps_thread, 256);
+static THD_WORKING_AREA(wa_pps_thread, 256);
 static void pps_thread(void *arg)
 {
   (void)arg;
