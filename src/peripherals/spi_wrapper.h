@@ -34,8 +34,6 @@ enum {
 
 #define SPI_USE_ASYNC    TRUE
 
-void spi_setup(void);
-void spi_deactivate(void);
 void spi_lock(u8 slave);
 void spi_unlock(u8 slave);
 void spi_slave_select(u8 slave);

@@ -28,6 +28,9 @@
 
 BSEMAPHORE_DECL(timing_strobe_sem, TRUE);
 
+static void flash_spi_setup(void);
+static void flash_spi_release(void);
+
 /** \addtogroup board
  * \{ */
 
@@ -50,13 +53,13 @@ void nap_setup()
   nap_conf_b_clear();
 
   /* Initialise the SPI peripheral so that we can set up the RF frontend. */
-  spi_setup();
+  flash_spi_setup();
 
   /* Configure the front end. */
   frontend_configure();
 
   /* Deactivate SPI buses so the FPGA can use the SPI2 bus to configure. */
-  spi_deactivate();
+  flash_spi_release();
 
   /* Allow the FPGA to configure. */
   nap_conf_b_set();
@@ -67,11 +70,14 @@ void nap_setup()
   /* Wait for FPGA to read authentication hash out of flash (uses SPI2 bus). */
   while (!(nap_hash_rd_done())) ;
 
-  /* FPGA is done using SPI2: re-initialise the SPI peripheral. */
-  spi_setup();
-
   /* Switch the STM's clock to use the Frontend clock from the NAP */
   stm32_clock_init();
+
+  /* Reinitialize HAL after switching clock */
+  halInit();
+
+  /* FPGA is done using SPI2: re-initialise the SPI peripheral. */
+  flash_spi_setup();
 
   /* Set up the NAP interrupt line. */
   nap_exti_setup();
@@ -80,6 +86,26 @@ void nap_setup()
    * channels, etc) from configuration flash.
    */
   nap_conf_rd_parameters();
+}
+
+/** Set up pins used for SPI communication with the flash chip.
+ */
+static void flash_spi_setup(void)
+{
+  palSetLineMode(LINE_SPI2NSS_FLASH, PAL_MODE_OUTPUT_PUSHPULL);
+  palSetLineMode(LINE_SPI2SCK, PAL_MODE_ALTERNATE(5));
+  palSetLineMode(LINE_SPI2MISO, PAL_MODE_ALTERNATE(5));
+  palSetLineMode(LINE_SPI2MOSI, PAL_MODE_ALTERNATE(5));
+}
+
+/** Release pins used for SPI communication with the flash chip.
+ */
+static void flash_spi_release(void)
+{
+  palSetLineMode(LINE_SPI2NSS_FLASH, PAL_MODE_INPUT_PULLUP);
+  palSetLineMode(LINE_SPI2SCK, PAL_MODE_INPUT);
+  palSetLineMode(LINE_SPI2MISO, PAL_MODE_INPUT);
+  palSetLineMode(LINE_SPI2MOSI, PAL_MODE_INPUT);
 }
 
 /** Check if NAP configuration is finished.
