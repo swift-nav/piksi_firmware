@@ -38,6 +38,7 @@ BOARDSRC := \
         $(BOARDDIR)/nap/nap_acq.o \
         $(BOARDDIR)/nap/acq_channel.o \
         $(BOARDDIR)/nap/track_channel.o \
+        $(BOARDDIR)/nap/track_regs.o \
         $(BOARDDIR)/m25_flash.o \
         $(BOARDDIR)/max2769.o \
         $(BOARDDIR)/usart_support.o \

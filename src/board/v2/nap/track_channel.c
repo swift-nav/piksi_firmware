@@ -21,6 +21,27 @@
 
 #include <string.h>
 
+/* NAP track channel parameters.
+ * TODO : get rid of some of these INIT reg specific defines by just writing
+ * whole phase through init register? Tracking channel init registers don't
+ * get written very often so it shouldn't increase SPI link budget much.
+ */
+#define NAP_TRACK_CARRIER_FREQ_WIDTH              24
+#define NAP_TRACK_CODE_PHASE_WIDTH                29
+#define NAP_TRACK_CODE_PHASE_FRACTIONAL_WIDTH     32
+
+#define NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ       \
+  ((1 << NAP_TRACK_CARRIER_FREQ_WIDTH) / (double)SAMPLE_FREQ)
+
+#define NAP_TRACK_NOMINAL_CODE_PHASE_RATE         \
+  (1 << (NAP_TRACK_CODE_PHASE_WIDTH - 1))
+
+#define NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ    \
+  (NAP_TRACK_NOMINAL_CODE_PHASE_RATE / 1.023e6)
+
+#define NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP       \
+  ((u64)1 << NAP_TRACK_CODE_PHASE_FRACTIONAL_WIDTH)
+
 static struct nap_ch_state {
   u32 code_pinc;
   u32 code_pinc_prev;
@@ -33,43 +54,6 @@ static struct nap_ch_state {
 
 /** \addtogroup nap
  * \{ */
-
-/** \defgroup track_channel Track Channel
- * Interface to the SwiftNAP track channels.
- * \{ */
-
-/* SPI register IDs */
-#define NAP_REG_TRACK_BASE           0x0A
-#define NAP_TRACK_N_REGS             5
-#define NAP_REG_TRACK_INIT_OFFSET    0x00
-#define NAP_REG_TRACK_UPDATE_OFFSET  0x01
-#define NAP_REG_TRACK_CORR_OFFSET    0x02
-#define NAP_REG_TRACK_PHASE_OFFSET   0x03
-#define NAP_REG_TRACK_CODE_OFFSET    0x04
-
-/** Number of tracking channels.
- * Actual number of track channels NAP configuration was built with. Read from
- * configuration flash at runtime with nap_conf_rd_parameters().
- */
-u8 nap_track_n_channels;
-
-/** Pack data for writing to a NAP track channel's INIT register.
- *
- * \param pack          Array of u8 to pack data into.
- * \param prn           CA code PRN number (0-31) to track. (deprecated)
- * \param carrier_phase Initial carrier phase.
- * \param code_phase    Initial code phase.
- */
-static void nap_track_init_pack(u8 pack[], u8 prn, s32 carrier_phase, u16 code_phase)
-{
-  /* TODO: No longer need to write PRN. */
-  pack[0] = ((code_phase << 5) >> 16) & 0x07;
-  pack[1] = (code_phase << 5) >> 8;
-  pack[2] = (((carrier_phase << 5) >> 24) & 0x1F) | (code_phase << 5);
-  pack[3] = (carrier_phase << 5) >> 16;
-  pack[4] = (carrier_phase << 5) >> 8;
-  pack[5] = (prn & 0x1F) | (carrier_phase << 5 & 0xE0);
-}
 
 /** Write to a NAP track channel's INIT register.
  * Sets PRN (deprecated), initial carrier phase, and initial code phase of a
@@ -101,16 +85,11 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   track_count += (SAMPLE_FREQ/GPS_CA_CHIPPING_RATE) * (1023.0-cp) *
                  (1.0 + carrier_freq / GPS_L1_HZ);
 
-  nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
-                     + NAP_REG_TRACK_CODE_OFFSET, 128, 0, ca_code(sid));
-
-  u8 temp[6] = { 0, 0, 0, 0, 0, 0 };
-  nap_track_init_pack(temp, 0, 0, 0);
-  nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
-                     + NAP_REG_TRACK_INIT_OFFSET, 6, 0, temp);
+  nap_track_code_wr_blocking(channel, sid);
+  nap_track_init_wr_blocking(channel, 0, 0, 0);
 
   double cp_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
-  nap_track_update_wr_blocking(channel, carrier_freq, cp_rate, 0, 0);
+  nap_track_update(channel, carrier_freq, cp_rate, 0, 0);
 
   /* Schedule the timing strobe for start_sample_count. */
   track_count -= SAMPLE_FREQ / (2*GPS_CA_CHIPPING_RATE);
@@ -123,24 +102,6 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   s->code_pinc_prev = s->code_pinc;
 }
 
-/** Pack data for writing to a NAP track channel's UPDATE register.
- *
- * \param pack            Array of u8 to pack data into.
- * \param carrier_freq    Next correlation period's carrier frequency.
- * \param code_phase_rate Next correlation period's code phase rate.
- */
-static void nap_track_update_pack(u8 pack[], s32 carrier_freq, u32 code_phase_rate,
-                           u8 rollover_count, u8 corr_spacing)
-{
-  pack[0] = (code_phase_rate >> 24) & 0x1F;
-  pack[1] = (code_phase_rate >> 16);
-  pack[2] = (code_phase_rate >> 8);
-  pack[3] = code_phase_rate;
-  pack[4] = ((corr_spacing << 1) & 0xFE) | ((carrier_freq >> 16) & 0x01);
-  pack[5] = carrier_freq >> 8;
-  pack[6] = carrier_freq;
-  pack[7] = rollover_count;
-}
 
 /** Write to a NAP track channel's UPDATE register.
  * Write new carrier frequency and code phase rate to a NAP track channel's
@@ -159,9 +120,9 @@ static void nap_track_update_pack(u8 pack[], s32 carrier_freq, u32 code_phase_ra
  * \param carrier_freq    Next correlation period's carrier frequency.
  * \param code_phase_rate Next correlation period's code phase rate.
  */
-void nap_track_update_wr_blocking(u8 channel, double carrier_freq,
-                                  double code_phase_rate, u8 rollover_count,
-                                  u8 corr_spacing)
+void nap_track_update(u8 channel, double carrier_freq,
+                      double code_phase_rate, u8 rollover_count,
+                      u8 corr_spacing)
 {
   struct nap_ch_state *s = &nap_ch_state[channel];
   s->carr_pinc_prev = s->carr_pinc;
@@ -169,41 +130,8 @@ void nap_track_update_wr_blocking(u8 channel, double carrier_freq,
   s->code_pinc_prev = s->code_pinc;
   s->code_pinc = code_phase_rate * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
-  u8 temp[8] = { 0 };
-  nap_track_update_pack(temp, s->carr_pinc, s->code_pinc,
-                        rollover_count, corr_spacing);
-  nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
-                     + NAP_REG_TRACK_UPDATE_OFFSET, 8, 0, temp);
-}
-
-/** Unpack data read from a NAP track channel's CORR register.
- *
- * \param packed       Array of u8 data read from channnel's CORR register.
- * \param sample_count Number of sample clock cycles in correlation period.
- * \param corrs        Array of E,P,L correlations from correlation period.
- */
-static void nap_track_corr_unpack(u8 packed[], u32* sample_count, corr_t corrs[])
-{
-  /* graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
-
-  struct { s32 xtend : 24; } sign;
-
-  *sample_count = (packed[0] << 16) | (packed[1] << 8) | packed[2];
-
-  for (u8 i = 0; i < 3; i++) {
-
-    sign.xtend  = (packed[6 * (3 - i - 1) + 3] << 16) /* MSB */
-                | (packed[6 * (3 - i - 1) + 4] << 8)  /* Middle byte */
-                | (packed[6 * (3 - i - 1) + 5]);      /* LSB */
-
-    corrs[i].Q = sign.xtend;  /* Sign extend! */
-
-    sign.xtend  = (packed[6 * (3 - i - 1) + 6] << 16) /* MSB */
-                | (packed[6 * (3 - i - 1) + 7] << 8)  /* Middle byte */
-                | (packed[6 * (3 - i - 1) + 8]);      /* LSB */
-
-    corrs[i].I = sign.xtend;  /* Sign extend! */
-  }
+  nap_track_update_wr_blocking(channel, s->carr_pinc, s->code_pinc,
+                               rollover_count, corr_spacing);
 }
 
 /** Read data from a NAP track channel's CORR register.
@@ -212,20 +140,15 @@ static void nap_track_corr_unpack(u8 packed[], u32* sample_count, corr_t corrs[]
  * \param sample_count Number of sample clock cycles in correlation period.
  * \param corrs        Array of E,P,L correlations from correlation period.
  */
-//void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[])
-void nap_track_corr_rd_blocking(u8 channel,
-                                u32* count_snapshot, corr_t corrs[],
-                                double *code_phase_early,
-                                double *carrier_phase)
+void nap_track_read_results(u8 channel,
+                            u32* count_snapshot, corr_t corrs[],
+                            double *code_phase_early,
+                            double *carrier_phase)
 {
   struct nap_ch_state *s = &nap_ch_state[channel];
   u32 sample_count;
-  /* 2 (I or Q) * 3 (E, P or L) * 3 (24 bits / 8) + 24 bits sample count. */
-  u8 temp[2*3*3 + 3];
 
-  nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
-                     + NAP_REG_TRACK_CORR_OFFSET, 2*3*3 + 3, temp, temp);
-  nap_track_corr_unpack(temp, &sample_count, corrs);
+  nap_track_corr_rd_blocking(channel, &sample_count, corrs);
   
   s->count_snapshot += sample_count;
   s->code_phase += (u64)sample_count * s->code_pinc_prev;
@@ -236,55 +159,6 @@ void nap_track_corr_rd_blocking(u8 channel,
   *count_snapshot = s->count_snapshot;
   *code_phase_early = (double)s->code_phase / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
   *carrier_phase = (double)s->carrier_phase / (1 << NAP_TRACK_CARRIER_FREQ_WIDTH);
-}
-
-/** Unpack data read from a NAP track channel's PHASE register.
- *
- * \param packed        Array of u8 data read from channnel's PHASE register.
- * \param carrier_phase Carrier phase at end of last correlation period.
- * \param code_phase    Prompt code phase at end of last correlation period.
- *                      (deprecated, is always zero, as prompt code phase
- *                      rollovers are defined to be edges of correlation
- *                      period)
- */
-/* TODO : take code phase out of phase register, it's always zero */
-static void nap_track_phase_unpack(u8 packed[], s32* carrier_phase, u64* code_phase)
-{
-  /* graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend */
-
-  struct { s32 xtend : 24; } sign;
-
-  sign.xtend = packed[8] |
-               (packed[7] << 8) |
-               (packed[6] << 16);
-
-  *carrier_phase = sign.xtend; /* Sign extend! */
-
-  *code_phase = (u64)packed[5] |
-                ((u64)packed[4] << 8) |
-                ((u64)packed[3] << 16) |
-                ((u64)packed[2] << 24) |
-                ((u64)packed[1] << 32) |
-                ((u64)packed[0] << 40);
-}
-
-/** Read data from a NAP track channel's PHASE register.
- *
- * \param channel       NAP track channel whose PHASE register to read.
- * \param carrier_phase Carrier phase at end of last correlation period.
- * \param code_phase    Prompt code phase at end of last correlation period.
- *                      (deprecated, is always zero, as prompt code phase
- *                      rollovers are defined to be edges of correlation
- *                      period)
- */
-void nap_track_phase_rd_blocking(u8 channel, s32* carrier_phase,
-                                 u64* code_phase)
-{
-  u8 temp[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-
-  nap_xfer_blocking(NAP_REG_TRACK_BASE + channel * NAP_TRACK_N_REGS
-                     + NAP_REG_TRACK_PHASE_OFFSET, 9, temp, temp);
-  nap_track_phase_unpack(temp, carrier_phase, code_phase);
 }
 
 void nap_track_disable(u8 channel)

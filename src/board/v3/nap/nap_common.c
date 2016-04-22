@@ -10,9 +10,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include "board.h"
 #include "nap/nap_common.h"
 
-#include "nap_regs.h"
+#include "nap_hw.h"
 #include "nap_constants.h"
 #include "axi_dma.h"
 

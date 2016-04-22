@@ -16,7 +16,7 @@
 #include <ch.h>
 
 #include "axi_dma.h"
-#include "nap_regs.h"
+#include "nap_hw.h"
 
 #define DATA_MEMORY_BARRIER() asm volatile ("dmb" : : : "memory")
 

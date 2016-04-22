@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include "board.h"
 #include "nap/nap_common.h"
 #include "nap/track_channel.h"
 #include "track.h"
@@ -23,6 +24,22 @@
 
 #include <assert.h>
 #include <string.h>
+
+#define FPGA_FREQ 100e6
+#define TRACK_SAMPLE_FREQ (SAMPLE_FREQ / 4)
+
+/* NAP track channel parameters. */
+#define NAP_TRACK_CARRIER_FREQ_WIDTH              32
+#define NAP_TRACK_CODE_PHASE_FRACTIONAL_WIDTH     32
+
+#define NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ       \
+  (((u64)1 << NAP_TRACK_CARRIER_FREQ_WIDTH) / (double)TRACK_SAMPLE_FREQ)
+
+#define NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP       \
+  ((u64)1 << NAP_TRACK_CODE_PHASE_FRACTIONAL_WIDTH)
+
+#define NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ    \
+  (NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP / TRACK_SAMPLE_FREQ)
 
 #define SPACING_HALF_CHIP         ((u16)(FPGA_FREQ / GPS_CA_CHIPPING_RATE) / 2)
 
@@ -80,14 +97,12 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
 
   NAP->TRK_TIMING_COMPARE = track_count - SAMPLE_FREQ / GPS_CA_CHIPPING_RATE;
 
-  //chThdSleep(CH_CFG_ST_FREQUENCY * ceil((float)(track_count - now)/SAMPLE_FREQ));
-  /* Spin until we're really running */
-  while (!(NAP->TRK_CH[channel].STATUS & NAP_TRK_STATUS_RUNNING));
+  chThdSleep(CH_CFG_ST_FREQUENCY * ceil((float)(track_count - now)/SAMPLE_FREQ));
 }
 
-void nap_track_update_wr_blocking(u8 channel, double carrier_freq,
-                                  double code_phase_rate, u8 rollover_count,
-                                  u8 corr_spacing)
+void nap_track_update(u8 channel, double carrier_freq,
+                      double code_phase_rate, u8 rollover_count,
+                      u8 corr_spacing)
 {
   (void)corr_spacing; /* This is always written as 0 now... */
 
@@ -104,10 +119,10 @@ void nap_track_update_wr_blocking(u8 channel, double carrier_freq,
     asm("nop");
 }
 
-void nap_track_corr_rd_blocking(u8 channel,
-                                u32* count_snapshot, corr_t corrs[],
-                                double *code_phase_early,
-                                double *carrier_phase)
+void nap_track_read_results(u8 channel,
+                            u32* count_snapshot, corr_t corrs[],
+                            double *code_phase_early,
+                            double *carrier_phase)
 {
   corr_t lc[5];
   if (NAP->TRK_CH[channel].STATUS & 0x3F)

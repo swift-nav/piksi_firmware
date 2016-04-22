@@ -16,6 +16,8 @@
 #include <libswiftnav/common.h>
 #include <libswiftnav/time.h>
 
+#include "board.h"
+
 /** \addtogroup timing Timing
  * \{ */
 

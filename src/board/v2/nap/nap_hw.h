@@ -14,7 +14,7 @@
 #ifndef SWIFTNAV_NAP_HW_V2_H
 #define SWIFTNAV_NAP_HW_V2_H
 
-#define SAMPLE_FREQ 16368000
+#include <libswiftnav/signal.h>
 
 /** \addtogroup nap
  * \{ */
@@ -41,27 +41,6 @@
 /** Max number of tracking channels NAP configuration will be built with. */
 #define NAP_MAX_N_TRACK_CHANNELS     12
 
-/* NAP track channel parameters.
- * TODO : get rid of some of these INIT reg specific defines by just writing
- * whole phase through init register? Tracking channel init registers don't
- * get written very often so it shouldn't increase SPI link budget much.
- */
-#define NAP_TRACK_CARRIER_FREQ_WIDTH              24
-#define NAP_TRACK_CODE_PHASE_WIDTH                29
-#define NAP_TRACK_CODE_PHASE_FRACTIONAL_WIDTH     32
-
-#define NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ       \
-  ((1 << NAP_TRACK_CARRIER_FREQ_WIDTH) / (double)SAMPLE_FREQ)
-
-#define NAP_TRACK_NOMINAL_CODE_PHASE_RATE         \
-  (1 << (NAP_TRACK_CODE_PHASE_WIDTH - 1))
-
-#define NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ    \
-  (NAP_TRACK_NOMINAL_CODE_PHASE_RATE / 1.023e6)
-
-#define NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP       \
-  ((u64)1 << NAP_TRACK_CODE_PHASE_FRACTIONAL_WIDTH)
-
 u8 nap_conf_done(void);
 u8 nap_hash_rd_done(void);
 
@@ -82,6 +61,14 @@ inline u32 nap_read_u32(u8 reg_id)
   nap_xfer_blocking(reg_id, 4, (u8 *)&val, (u8 *)&val);
   return __builtin_bswap32(val);
 }
+
+void nap_track_code_wr_blocking(u8 channel, gnss_signal_t sid);
+void nap_track_init_wr_blocking(u8 channel, u8 prn, s32 carrier_phase,
+                                u16 code_phase);
+void nap_track_update_wr_blocking(u8 channel, s32 carrier_freq,
+                                  u32 code_phase_rate, u8 rollover_count,
+                                  u8 corr_spacing);
+void nap_track_corr_rd_blocking(u8 channel, u32* sample_count, corr_t corrs[]);
 
 #endif
 

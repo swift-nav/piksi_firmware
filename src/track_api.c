@@ -63,8 +63,8 @@ void tracker_correlations_read(tracker_context_t *context, corr_t *cs,
   tracker_internal_context_resolve(context, &channel_info, &internal_data);
 
   /* Read NAP CORR register */
-  nap_track_corr_rd_blocking(channel_info->nap_channel, sample_count, cs,
-                             code_phase, carrier_phase);
+  nap_track_read_results(channel_info->nap_channel, sample_count, cs,
+                         code_phase, carrier_phase);
 }
 
 /** Write the NAP update register for a tracker channel.
@@ -82,8 +82,8 @@ void tracker_retune(tracker_context_t *context, double carrier_freq,
   tracker_internal_context_resolve(context, &channel_info, &internal_data);
 
   /* Write NAP UPDATE register. */
-  nap_track_update_wr_blocking(channel_info->nap_channel, carrier_freq,
-                               code_phase_rate, rollover_count, 0);
+  nap_track_update(channel_info->nap_channel, carrier_freq,
+                   code_phase_rate, rollover_count, 0);
 }
 
 /** Update the TOW for a tracker channel.

@@ -17,6 +17,13 @@
 #ifndef _BOARD_H_
 #define _BOARD_H_
 
+#include <gic.h>
+
+#define SAMPLE_FREQ 99.375e6
+
+#define IRQ_ID_NAP_TRACK IRQ_ID_FPGA3
+#define NAP_IRQ_PRIORITY 4
+
 #define SD_FTDI  (&SD2)
 #define SD_UARTA (&SD1)
 #define SD_UARTB NULL
