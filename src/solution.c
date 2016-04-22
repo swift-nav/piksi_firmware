@@ -42,6 +42,9 @@
 #include "signal.h"
 #include "system_monitor.h"
 
+/* Maximum CPU time the solution thread is allowed to use. */
+#define SOLN_THD_CPU_MAX (0.60f)
+
 MemoryPool obs_buff_pool;
 mailbox_t obs_mailbox;
 
@@ -343,22 +346,41 @@ static void update_sat_elevations(const navigation_measurement_t nav_meas[],
   }
 }
 
-bool chThdSleepUntilCheck(systime_t time)
+/** Sleep until the next solution deadline.
+ *
+ * \param deadline    Pointer to the current deadline, updated by this function.
+ * \param interval    Interval by which the deadline should be advanced.
+ */
+static void sol_thd_sleep(systime_t *deadline, systime_t interval)
 {
+  *deadline += interval;
+
   chSysLock();
-  systime_t systime = chVTGetSystemTimeX();
-  if (time > systime) {
-    chThdSleepS(time - systime);
-    chSysUnlock();
-  } else {
-    chSysUnlock();
-    if (time != systime) {
-      log_warn("Solution thread missed deadline, "
-               "time = %lu, deadline = %lu", systime, time);
-      return false;
+  while (1) {
+    /* Sleep for at least (1-SOLN_THD_CPU_MAX) * interval ticks so that
+     * execution time is limited to SOLN_THD_CPU_MAX. */
+    systime_t systime = chVTGetSystemTimeX();
+    systime_t delta = *deadline - systime;
+    systime_t sleep_min = (systime_t)ceilf((1.0f-SOLN_THD_CPU_MAX) * interval);
+    if ((systime_t)(delta - sleep_min) <= ((systime_t)-1) / 2) {
+      chThdSleepS(delta);
+      break;
+    } else {
+      chSysUnlock();
+      if (delta <= ((systime_t)-1) / 2) {
+        /* Deadline is in the future. Skipping due to high CPU usage. */
+        log_warn("Solution thread skipping deadline, "
+                  "time = %lu, deadline = %lu", systime, *deadline);
+      } else {
+        /* Deadline is in the past. */
+        log_warn("Solution thread missed deadline, "
+                 "time = %lu, deadline = %lu", systime, *deadline);
+      }
+      *deadline += interval;
+      chSysLock();
     }
   }
-  return true;
+  chSysUnlock();
 }
 
 static WORKING_AREA_CCM(wa_solution_thread, 8000);
@@ -371,10 +393,8 @@ static void solution_thread(void *arg)
   static navigation_measurement_t nav_meas_old[MAX_CHANNELS];
 
   while (TRUE) {
-    do {
-      deadline += (CH_CFG_ST_FREQUENCY/soln_freq);
-    } while (!chThdSleepUntilCheck(deadline));
 
+    sol_thd_sleep(&deadline, CH_CFG_ST_FREQUENCY/soln_freq);
     watchdog_notify(WD_NOTIFY_SOLUTION);
 
     /* Here we do all the nice simulation-related stuff. */
