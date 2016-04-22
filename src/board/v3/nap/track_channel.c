@@ -25,7 +25,6 @@
 #include <assert.h>
 #include <string.h>
 
-#define FPGA_FREQ 100e6
 #define TRACK_SAMPLE_FREQ (SAMPLE_FREQ / 4)
 
 /* NAP track channel parameters. */
@@ -41,7 +40,7 @@
 #define NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ    \
   (NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP / TRACK_SAMPLE_FREQ)
 
-#define SPACING_HALF_CHIP         ((u16)(FPGA_FREQ / GPS_CA_CHIPPING_RATE) / 2)
+#define SPACING_HALF_CHIP         ((u16)(TRACK_SAMPLE_FREQ / GPS_CA_CHIPPING_RATE) / 2)
 
 BSEMAPHORE_DECL(timing_strobe_sem, TRUE);
 
