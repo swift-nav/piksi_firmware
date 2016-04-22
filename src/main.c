@@ -145,6 +145,7 @@ int main(void)
   init();
   settings_setup();
   signal_init();
+  ephemeris_setup();
 
   check_nap_auth();
 
@@ -205,8 +206,6 @@ int main(void)
   READ_ONLY_PARAMETER("system_info", "nap_channels", nap_track_n_channels,
                       TYPE_INT);
   READ_ONLY_PARAMETER("system_info", "nap_fft_index_bits", nap_acq_fft_index_bits, TYPE_INT);
-
-  ephemeris_setup();
 
   /* Send message to inform host we are up and running. */
   u32 startup_flags = 0;
