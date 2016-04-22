@@ -46,7 +46,6 @@ BSEMAPHORE_DECL(timing_strobe_sem, TRUE);
 
 static struct {
   u32 code_phase;
-  s64 carrier_phase;
   u32 len;
 } nap_ch_state[NAP_MAX_N_TRACK_CHANNELS];
 
@@ -90,8 +89,6 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   NAP->TRK_CH[channel].CODE_PINC = cp_rate;
   nap_ch_state[channel].len = NAP->TRK_CH[channel].LENGTH = calc_length_samples(1, 0, cp_rate)+1;
   nap_ch_state[channel].code_phase = (NAP->TRK_CH[channel].LENGTH) * cp_rate;
-  nap_ch_state[channel].carrier_phase = NAP->TRK_CH[channel].LENGTH *
-                                    (s64)-NAP->TRK_CH[channel].CARR_PINC;
   NAP->TRK_CONTROL |= (1 << channel); /* Set to start on the timing strobe */
 
   NAP->TRK_TIMING_COMPARE = track_count - SAMPLE_FREQ / GPS_CA_CHIPPING_RATE;
@@ -132,17 +129,17 @@ void nap_track_read_results(u8 channel,
     lc[i].Q = NAP->TRK_CH[channel].CORR[i].Q >> 8;
   }
   *count_snapshot = NAP->TRK_CH[channel].START_SNAPSHOT;
-  u64 nap_phase = ((u64)NAP->TRK_CH[channel].CODE_PHASE_INT << 32) |
-                        NAP->TRK_CH[channel].CODE_PHASE_FRAC;
-  *code_phase_early = (double)nap_phase / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
-  *carrier_phase = (double)nap_ch_state[channel].carrier_phase / (1ull << 32);
+  u64 nap_code_phase = ((u64)NAP->TRK_CH[channel].CODE_PHASE_INT << 32) |
+                             NAP->TRK_CH[channel].CODE_PHASE_FRAC;
+  u64 nap_carr_phase = ((u64)NAP->TRK_CH[channel].CARR_PHASE_INT << 32) |
+                             NAP->TRK_CH[channel].CARR_PHASE_FRAC;
+  *code_phase_early = (double)nap_code_phase / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
+  *carrier_phase = (double)-nap_carr_phase / (1ull << 32);
   memcpy(corrs, &lc[1], sizeof(corr_t)*3);
   if (nap_ch_state[channel].code_phase != NAP->TRK_CH[channel].CODE_PHASE_FRAC)
     asm("nop");
   nap_ch_state[channel].code_phase +=
     NAP->TRK_CH[channel].LENGTH * NAP->TRK_CH[channel].CODE_PINC;
-  nap_ch_state[channel].carrier_phase -=
-    NAP->TRK_CH[channel].LENGTH * (s64)NAP->TRK_CH[channel].CARR_PINC;
   nap_ch_state[channel].len = NAP->TRK_CH[channel].LENGTH;
   if (!(NAP->STATUS & 1))
     asm("bkpt");
