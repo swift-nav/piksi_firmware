@@ -18,8 +18,10 @@
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
+#include <libswiftnav/time.h>
 
 #include "board/nap/track_channel.h"
+#include "track.h"
 #include "nmea.h"
 #include "peripherals/usart.h"
 #include "sbp.h"
@@ -29,8 +31,10 @@ const char NMEA_MODULE[] = "nmea";
 
 u32 gpgsv_msg_rate = 10;
 u32 gprmc_msg_rate = 10;
-u32 gpvtg_msg_rate = 10;
+u32 gpvtg_msg_rate =  1;
 u32 gpgll_msg_rate = 10;
+u32 gpzda_msg_rate = 10;  
+u32 gpgsa_msg_rate = 10;
 static struct nmea_dispatcher *nmea_dispatchers_head;
 /** \addtogroup io
  * \{ */
@@ -106,6 +110,8 @@ void nmea_setup(void)
   SETTING("nmea", "gprmc_msg_rate", gprmc_msg_rate, TYPE_INT);
   SETTING("nmea", "gpvtg_msg_rate", gpvtg_msg_rate, TYPE_INT);
   SETTING("nmea", "gpgll_msg_rate", gpgll_msg_rate, TYPE_INT);
+  SETTING("nmea", "gpzda_msg_rate", gpzda_msg_rate, TYPE_INT); 
+  SETTING("nmea", "gpgsa_msg_rate", gpgsa_msg_rate, TYPE_INT); 
 }
 
 /** Calculate and append the checksum of an NMEA sentence.
@@ -146,7 +152,7 @@ static void nmea_append_checksum(char *s, size_t size)
  * \param dops Pointer to dops_t struct.
  */
 void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
-                u8 fix_type, double hdop)
+                u8 fix_type, double hdop, double diff_age, u16 station_id)
 {
   time_t unix_t;
   struct tm t;
@@ -162,18 +168,26 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
   double lon_min = MINUTES(pos_llh[1]);
   lat_deg = abs(lat_deg);
   lon_deg = abs(lon_deg);
-
   char lat_dir = pos_llh[0] < 0 ? 'S' : 'N';
   char lon_dir = pos_llh[1] < 0 ? 'W' : 'E';
 
   NMEA_SENTENCE_START(120);
+  /* Note, geoid separation is set to 0 because no geoid model exists*/
   NMEA_SENTENCE_PRINTF("$GPGGA,%02d%02d%06.3f,"
                        "%02d%010.7f,%c,%03d%010.7f,%c,"
-                       "%01d,%02d,%.1f,%.2f,M,,M,,",
+                       "%01d,%02d,%.1f,%.2f,M,0,M,",
                        t.tm_hour, t.tm_min, t.tm_sec + frac_s,
                        lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
                        fix_type, n_used, hdop, pos_llh[2]
                        );
+  if (fix_type>1) {
+  /* our sender_id is a u16, and most docs say it should be less than 2^10-1
+     here we take least significant bits for a number less than 1024*/ 
+    NMEA_SENTENCE_PRINTF("%.1f,%04d",diff_age, station_id&0x3FF);
+  }
+  else {
+    NMEA_SENTENCE_PRINTF(",");
+  }
   NMEA_SENTENCE_DONE();
 }
 
@@ -290,7 +304,7 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
   y = soln->vel_ned[1];
   z = soln->vel_ned[2];
   float course = atan2(y,x);
-
+  if ( course < 0 ) course += 2 * M_PI;
   /* Conversion to magnitue knots */
   velocity = MS2KNOTTS(x,y,z);
 
@@ -330,7 +344,7 @@ void nmea_gpvtg(const gnss_solution *soln)
   y = soln->vel_ned[1];
   z = soln->vel_ned[2];
   float course = atan2(y,x);
-
+  if ( course < 0 ) course += 2 * M_PI;
   /* Conversion to magnitue knots */
   vknots = MS2KNOTTS(x,y,z);
   /* Conversion to magnitue km/hr */
@@ -387,6 +401,58 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
   NMEA_SENTENCE_DONE();
 }
 
+/** Assemble an NMEA GPZDA message and send it out NMEA USARTs.
+ * NMEA ZDA contains UTC date and time
+ *
+ * \param soln Pointer to gnss_solution struct
+ * \param gps_t Pointer to the current GPS Time
+ */
+void nmea_gpzda(const gps_time_t *gps_t )
+{
+
+  /* NMEA Parameters
+   * Ex.
+   * $GPZDA,210232.00,24,03,2016,00,00*66
+   *
+   */
+  time_t unix_t;
+  struct tm t;
+
+  unix_t = gps2time( gps_t );
+  gmtime_r( &unix_t, &t );
+  double frac_s = fmod( gps_t->tow, 1.0 );
+  NMEA_SENTENCE_START(40); 
+  NMEA_SENTENCE_PRINTF(
+                "$GPZDA,%02d%02d%06.3f," /* Command, Time (UTC) */
+                "%02d,%02d,%d," /* Date Stamp */
+                "00,00", /* Time zone */
+                t.tm_hour, t.tm_min, t.tm_sec + frac_s,
+                t.tm_mday, t.tm_mon + 1, 2016);
+  NMEA_SENTENCE_DONE();
+
+} // nmea_gpzda()
+
+
+static void nmea_assemble_gpgsa(const dops_t *dops)
+{
+  /* Assemble list of currently tracked GPS PRNs */
+  u8 prns[nap_track_n_channels];
+  u8 num_prns = 0;
+  for (u32 i=0; i<nap_track_n_channels; i++) {
+    tracking_channel_lock(i); 
+    if (tracking_channel_running(i)) {
+      gnss_signal_t sid = tracking_channel_sid_get(i);
+      if (sid_to_constellation(sid) == CONSTELLATION_GPS) {
+        prns[num_prns++] = sid.sat;
+      }
+    }
+    tracking_channel_unlock(i);
+  }
+  /* Send GPGSA message */
+  nmea_gpgsa(prns, num_prns, dops);
+}
+
+
 
 /** Generate and send periodic NMEA GPGSV, GPRMC, GPVTG, GPGLL
  * (but not GPGGA) messages.
@@ -398,7 +464,8 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
  * \param nav_meas Array of n navigation_measurement structs.
  */
 void nmea_send_msgs(gnss_solution *soln, u8 n,
-                    navigation_measurement_t *nm)
+                    navigation_measurement_t *nm,
+                    const dops_t *dops)
 {
   DO_EVERY(gpgsv_msg_rate,
     nmea_gpgsv(n, nm, soln);
@@ -412,7 +479,14 @@ void nmea_send_msgs(gnss_solution *soln, u8 n,
   DO_EVERY(gpgll_msg_rate,
     nmea_gpgll(soln, &soln->time);
   );
+  DO_EVERY( gpzda_msg_rate,
+    nmea_gpzda(&soln->time);
+  );
+  DO_EVERY( gpgsa_msg_rate,
+    nmea_assemble_gpgsa(dops);
+  );
 }
+
 /** \cond */
 void _nmea_dispatcher_register(struct nmea_dispatcher *d)
 {

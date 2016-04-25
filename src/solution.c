@@ -109,9 +109,9 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
 {
   if (chVTTimeElapsedSinceX(last_dgnss) > DGNSS_TIMEOUT) {
     nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
-               fix_mode, dops->hdop);
+               fix_mode, dops->hdop, 0, 0);
   }
-  nmea_send_msgs(soln, n, nm);
+  nmea_send_msgs(soln, n, nm, dops);
 
 }
 
@@ -142,7 +142,8 @@ double calc_heading(const double b_ned[3])
  * \param flags u8 RTK solution flags. 1 if float, 0 if fixed
  */
 void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
-                            double ref_ecef[3], u8 flags)
+                            double ref_ecef[3], u8 flags, double hdop, 
+                            double corrections_age, u16 sender_id)
 {
   double* base_station_pos;
   msg_baseline_ecef_t sbp_ecef;
@@ -182,7 +183,7 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
     wgsecef2llh(pseudo_absolute_ecef, pseudo_absolute_llh);
     u8 fix_mode = (flags & 1) ? NMEA_GGA_FIX_RTK : NMEA_GGA_FIX_FLOAT;
     /* TODO: Don't fake DOP!! */
-    nmea_gpgga(pseudo_absolute_llh, t, n_sats, fix_mode, 1.5);
+    nmea_gpgga(pseudo_absolute_llh, t, n_sats, fix_mode, hdop, corrections_age, sender_id);
     /* now send pseudo absolute sbp message */
     /* Flag in message is defined as follows :float->2, fixed->1 */
     /* We defined the flags for the SBP protocol to be spp->0, fixed->1, float->2 */
@@ -199,7 +200,7 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
 }
 
 static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
-                            const gps_time_t *t)
+                            const gps_time_t *t, double hdop, double diff_time, u16 base_id)
 {
   double b[3];
   u8 num_used, flags;
@@ -238,7 +239,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     break;
   }
 
-  solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags);
+  solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags, hdop, diff_time, base_id);
 }
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
@@ -318,7 +319,7 @@ static void solution_simulation()
     solution_send_baseline(&(soln->time),
       simulation_current_num_sats(),
       simulation_current_baseline_ecef(),
-      simulation_ref_ecef(), flags);
+      simulation_ref_ecef(), flags, 1.5, 0.25, 1023);
 
     double t_check = expected_tow * (soln_freq / obs_output_divisor);
     if (fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
@@ -488,7 +489,8 @@ static void solution_thread(void *arg)
                                     sdiffs);
             ephemeris_unlock();
             if (num_sdiffs >= 4) {
-              output_baseline(num_sdiffs, sdiffs, &position_solution.time);
+              output_baseline(num_sdiffs, sdiffs, &position_solution.time, pdt, 
+                              dops.hdop, base_obss.sender_id);
             }
           }
 
@@ -586,7 +588,7 @@ static bool init_done = false;
 static bool init_known_base = false;
 static bool reset_iar = false;
 
-void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
+void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, u16 base_id)
 {
   if (init_known_base) {
     if (n_sds > 4) {
@@ -628,7 +630,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds)
      * for this observation. */
     if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED &&
         !simulation_enabled() && n_sds >= 4) {
-      output_baseline(n_sds, sds, t);
+      output_baseline(n_sds, sds, t, 0, 0, base_id);
     }
   }
 }
@@ -678,7 +680,7 @@ static void time_matched_obs_thread(void *arg)
            * our filters. */
           n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
         }
-        process_matched_obs(n_sds, &obss->t, sds);
+        process_matched_obs(n_sds, &obss->t, sds, base_obss.sender_id);
         chPoolFree(&obs_buff_pool, obss);
         break;
       } else {

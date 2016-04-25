@@ -123,7 +123,6 @@ static void acq_result_send(gnss_signal_t sid, float snr, float cp, float cf);
 static u8 manage_track_new_acq(gnss_signal_t sid);
 static void manage_acq(void);
 static void manage_track(void);
-static void nmea_send(void);
 
 static void manage_tracking_startup(void);
 static void tracking_startup_fifo_init(tracking_startup_fifo_t *fifo);
@@ -469,7 +468,6 @@ static void manage_track_thread(void *arg)
     DO_EVERY(2,
       check_clear_unhealthy();
       manage_track();
-      nmea_send();
       watchdog_notify(WD_NOTIFY_TRACKING_MGMT);
     );
     tracking_send_state();
@@ -581,23 +579,6 @@ static void manage_track()
       continue;
     }
   }
-}
-
-static void nmea_send(void)
-{
-  /* Assemble list of currently tracked GPS PRNs */
-  u8 prns[nap_track_n_channels];
-  u8 num_prns = 0;
-  for (u32 i=0; i<nap_track_n_channels; i++) {
-    if (tracking_channel_running(i)) {
-      gnss_signal_t sid = tracking_channel_sid_get(i);
-      if (sid_to_constellation(sid) == CONSTELLATION_GPS) {
-        prns[num_prns++] = sid.sat;
-      }
-    }
-  }
-  /* Send GPGSA message */
-  nmea_gpgsa(prns, num_prns, 0);
 }
 
 s8 use_tracking_channel(u8 i)

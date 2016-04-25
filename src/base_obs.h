@@ -35,6 +35,7 @@ typedef struct {
   u8 has_pos;
   /** Number of observations in the set. */
   u8 n;
+  u8 sender_id;
   /** Set of observations. */
   navigation_measurement_t nm[MAX_CHANNELS];
   /** Distances to each satellite based on `pos_ecef` and `nm`.
