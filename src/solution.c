@@ -78,7 +78,7 @@ static u16 lock_counters[PLATFORM_SIGNAL_COUNT];
 bool disable_raim = false;
 bool send_heading = false;
 
-void solution_send_sbp(gnss_solution *soln, dops_t *dops)
+void solution_send_sbp(gnss_solution *soln, dops_t *dops, bool clock_jump)
 {
   if (soln) {
     /* Send GPS_TIME message first. */
@@ -97,14 +97,17 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
       sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
     }
     /* Velocity in NED. */
-    msg_vel_ned_t vel_ned;
-    sbp_make_vel_ned(&vel_ned, soln, 0);
-    sbp_send_msg(SBP_MSG_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
+    /* Do not send if there has been a clock jump. Velocity may be unreliable.*/
+    if (!clock_jump) {
+      msg_vel_ned_t vel_ned;
+      sbp_make_vel_ned(&vel_ned, soln, 0);
+      sbp_send_msg(SBP_MSG_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
 
-    /* Velocity in ECEF. */
-    msg_vel_ecef_t vel_ecef;
-    sbp_make_vel_ecef(&vel_ecef, soln, 0);
-    sbp_send_msg(SBP_MSG_VEL_ECEF, sizeof(vel_ecef), (u8 *) &vel_ecef);
+      /* Velocity in ECEF. */
+      msg_vel_ecef_t vel_ecef;
+      sbp_make_vel_ecef(&vel_ecef, soln, 0);
+      sbp_send_msg(SBP_MSG_VEL_ECEF, sizeof(vel_ecef), (u8 *) &vel_ecef);
+    }
   }
 
   if (dops) {
@@ -117,13 +120,13 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 }
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm,
-                        u8 fix_mode)
+                        u8 fix_mode, bool clock_jump)
 {
   if (chVTTimeElapsedSinceX(last_dgnss) > DGNSS_TIMEOUT(soln_freq)) {
     nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
                fix_mode, dops->hdop, 0, 0);
   }
-  nmea_send_msgs(soln, n, nm, dops);
+  nmea_send_msgs(soln, n, nm, dops, clock_jump);
 
 }
 
@@ -315,11 +318,11 @@ static void solution_simulation()
 
   if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
     /* Then we send fake messages. */
-    solution_send_sbp(soln, simulation_current_dops_solution());
+    solution_send_sbp(soln, simulation_current_dops_solution(), FALSE);
     solution_send_nmea(soln, simulation_current_dops_solution(),
                        simulation_current_num_sats(),
                        simulation_current_navigation_measurements(),
-                       NMEA_GGA_FIX_GPS);
+                       NMEA_GGA_FIX_GPS, FALSE);
 
   }
 
@@ -400,6 +403,8 @@ static void solution_thread(void *arg)
   chRegSetThreadName("solution");
 
   systime_t deadline = chVTGetSystemTimeX();
+
+  bool clock_jump = FALSE;
 
   while (TRUE) {
 
@@ -505,7 +510,7 @@ static void solution_thread(void *arg)
       );
 
       /* Send just the DOPs and exit the loop */
-      solution_send_sbp(0, &dops);
+      solution_send_sbp(0, &dops, clock_jump);
       continue;
     }
 
@@ -529,9 +534,11 @@ static void solution_thread(void *arg)
     /* Calculate the receiver clock error and if >1ms perform a clock jump */
     double rx_err = gpsdifftime(&rec_time, &position_solution.time);
     log_debug("RX clock error = %f", rx_err);
+    clock_jump = FALSE;
     if (fabs(rx_err) >= 1e-3) {
     log_info("RX clock error %f > 1ms, resetting!", rx_err);
       set_time_fine(rec_tc, position_solution.time);
+      clock_jump = TRUE;
     }
 
     /* Update global position solution state. */
@@ -544,10 +551,10 @@ static void solution_thread(void *arg)
 
     if (!simulation_enabled()) {
       /* Output solution. */
-      solution_send_sbp(&position_solution, &dops);
+      solution_send_sbp(&position_solution, &dops, clock_jump);
       solution_send_nmea(&position_solution, &dops,
                          n_ready_tdcp, nav_meas_tdcp,
-                         NMEA_GGA_FIX_GPS);
+                         NMEA_GGA_FIX_GPS, clock_jump);
     }
 
     /* There are two corrections that are applied to the pseudorange,
