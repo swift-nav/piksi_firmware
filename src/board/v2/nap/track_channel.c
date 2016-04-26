@@ -15,11 +15,19 @@
 #include "nap_common.h"
 #include "track_channel.h"
 #include "track.h"
+#include "main.h"
 
 #include "libswiftnav/prns.h"
 #include "libswiftnav/constants.h"
 
 #include <string.h>
+
+/** \addtogroup nap
+ * \{ */
+
+/** \defgroup track_channel Track Channel
+ * Interface to the SwiftNAP track channels.
+ * \{ */
 
 /* NAP track channel parameters.
  * TODO : get rid of some of these INIT reg specific defines by just writing
@@ -93,13 +101,16 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
 
   /* Schedule the timing strobe for start_sample_count. */
   track_count -= SAMPLE_FREQ / (2*GPS_CA_CHIPPING_RATE);
-  nap_timing_strobe(track_count);
-  nap_timing_strobe_wait(100);
   
   s->count_snapshot = track_count;
   s->carrier_phase = -s->carr_pinc;
   s->carr_pinc_prev = s->carr_pinc;
   s->code_pinc_prev = s->code_pinc;
+
+  COMPILER_BARRIER();
+
+  nap_timing_strobe(track_count);
+  nap_timing_strobe_wait(100);
 }
 
 

@@ -41,9 +41,9 @@ typedef struct {
                                     phase detector last "unlocked". */
   s32 TOW_ms;                  /**< TOW in ms. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
-  double code_phase_early;        /**< Early code phase. */
+  double code_phase_early;     /**< Early code phase. */
   double code_phase_rate;      /**< Code phase rate in chips/s. */
-  double carrier_phase;           /**< Carrier phase in NAP register units. */
+  double carrier_phase;        /**< Carrier phase in NAP register units. */
   double carrier_freq;         /**< Carrier frequency Hz. */
   float cn0;                   /**< Current estimate of C/N0. */
 } tracker_common_data_t;

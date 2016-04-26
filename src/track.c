@@ -329,12 +329,6 @@ bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
 
     tracker_channel->elevation = elevation;
 
-    /* Adjust the channel start time as the start_sample_count passed
-     * in corresponds to a PROMPT code phase rollover but we want to
-     * start the channel on an EARLY code phase rollover.
-     */
-    /* TODO : change hardcoded sample rate */
-
     common_data_init(&tracker_channel->common_data, ref_sample_count,
                      carrier_freq, cn0_init);
     internal_data_init(&tracker_channel->internal_data, sid);

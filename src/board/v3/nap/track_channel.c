@@ -14,6 +14,7 @@
 #include "nap/nap_common.h"
 #include "nap/track_channel.h"
 #include "track.h"
+#include "main.h"
 
 #include <ch.h>
 
@@ -72,7 +73,7 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
                  (1.0 + carrier_freq / GPS_L1_HZ);
 
   u8 prn = sid.sat - 1;
-  NAP->TRK_CH[channel].CONTROL = prn << NAP_TRK_CONTROL_PRN_Pos;
+  NAP->TRK_CH[channel].CONTROL = prn << NAP_TRK_CONTROL_SAT_Pos;
   /* We always start at zero code phase */
   NAP->TRK_CH[channel].CODE_INIT_INT = 0;
   NAP->TRK_CH[channel].CODE_INIT_FRAC = 0;
@@ -91,8 +92,9 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   nap_ch_state[channel].code_phase = (NAP->TRK_CH[channel].LENGTH) * cp_rate;
   NAP->TRK_CONTROL |= (1 << channel); /* Set to start on the timing strobe */
 
-  NAP->TRK_TIMING_COMPARE = track_count - SAMPLE_FREQ / GPS_CA_CHIPPING_RATE;
+  COMPILER_BARRIER();
 
+  NAP->TRK_TIMING_COMPARE = track_count - SAMPLE_FREQ / GPS_CA_CHIPPING_RATE;
   chThdSleep(CH_CFG_ST_FREQUENCY * ceil((float)(track_count - now)/SAMPLE_FREQ));
 }
 

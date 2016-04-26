@@ -30,7 +30,7 @@ static BSEMAPHORE_DECL(nap_exti_sem, TRUE);
 static WORKING_AREA_CCM(wa_nap_exti, 2000);
 static void nap_exti_thread(void *arg);
 
-u8 nap_track_n_channels = 1;
+u8 nap_track_n_channels = 0;
 
 void nap_setup(void)
 {
