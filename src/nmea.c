@@ -34,7 +34,7 @@ static u32 gpgsv_msg_rate = 10;
 static u32 gprmc_msg_rate = 10;
 static u32 gpvtg_msg_rate =  1;
 static u32 gpgll_msg_rate = 10;
-static u32 gpzda_msg_rate = 10;  
+static u32 gpzda_msg_rate = 10;
 static u32 gpgsa_msg_rate = 10;
 
 static struct nmea_dispatcher *nmea_dispatchers_head;
@@ -68,7 +68,7 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
       sentence_bufp = sentence_buf_end; \
     } while (0)
 
-/** NMEA_SENTENCE_DONE: append checksum and dispatch. 
+/** NMEA_SENTENCE_DONE: append checksum and dispatch.
  * \note According to section 5.3.1 of the NMEA 0183 spec, sentences are
  *       terminated with <CR><LF>. The sentence_buf is null_terminated.
  *       The call to nmea_output has been modified to remove the NULL.
@@ -84,7 +84,7 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
  * The message is also sent to all dispatchers registered with
  * ::nmea_dispatcher_register.
- 
+
  * \param s The NMEA sentence to output.
  * \param size This is the C-string size, not including the null character
  */
@@ -120,8 +120,8 @@ void nmea_setup(void)
   SETTING("nmea", "gprmc_msg_rate", gprmc_msg_rate, TYPE_INT);
   SETTING("nmea", "gpvtg_msg_rate", gpvtg_msg_rate, TYPE_INT);
   SETTING("nmea", "gpgll_msg_rate", gpgll_msg_rate, TYPE_INT);
-  SETTING("nmea", "gpzda_msg_rate", gpzda_msg_rate, TYPE_INT); 
-  SETTING("nmea", "gpgsa_msg_rate", gpgsa_msg_rate, TYPE_INT); 
+  SETTING("nmea", "gpzda_msg_rate", gpzda_msg_rate, TYPE_INT);
+  SETTING("nmea", "gpgsa_msg_rate", gpgsa_msg_rate, TYPE_INT);
 }
 
 /** Calculate and append the checksum of an NMEA sentence.
@@ -174,9 +174,9 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
 
   unix_t = gps2time(gps_t);
   gmtime_r(&unix_t, &t);
- 
+
   double frac_s  = fmod(gps_t->tow, 1.0);
-  
+
   double lat     = fabs(round(R2D * pos_llh[0] * 1e8) /1e8);
   double lon     = fabs(round(R2D * pos_llh[1] * 1e8) /1e8);
 
@@ -187,7 +187,7 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
   char   lon_dir = pos_llh[1] < 0.0 ? 'W' : 'E';
   u16    lon_deg = (u16)lon;
   double lon_min = (lon - (double)lon_deg) * 60.0;
-  
+
   NMEA_SENTENCE_START(120);
   NMEA_SENTENCE_PRINTF("$GPGGA,%02d%02d%06.3f,"
                        "%02u%010.7f,%c,%03u%010.7f,%c,"
@@ -196,13 +196,12 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
                        lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
                        fix_type, n_used, hdop, pos_llh[2]
                        );
-  if (fix_type>1) {
+  if (fix_type > 1) {
     NMEA_SENTENCE_PRINTF("%.1f,%04d",diff_age, station_id & 0x3FF); /* ID range is 0000 to 1023 */
-  }
-  else {
+  } else {
     NMEA_SENTENCE_PRINTF(",");
   }
-  
+
   NMEA_SENTENCE_DONE();
 }
 
@@ -265,7 +264,7 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
           (u16)round(az * R2D),
           (u8)round(nav_meas[n].snr)
           );
-      } 
+      }
       n++;
     }
 
@@ -287,7 +286,7 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
 
   unix_t = gps2time(gps_t);
   gmtime_r(&unix_t, &t);
-  
+
   double frac_s  = fmod(gps_t->tow, 1.0);
 
   double lat     = fabs(round(R2D * soln->pos_llh[0] * 1e8) / 1e8);
@@ -306,7 +305,7 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
   y = soln->vel_ned[1];
   z = soln->vel_ned[2];
   float course = R2D * atan2(y,x);
-  if (course < 0.0) { 
+  if (course < 0.0) {
     course += 360.0;
   }
   /* Conversion to magnitue knots */
@@ -371,7 +370,7 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
   gmtime_r(&unix_t, &t);
 
   double frac_s  = fmod(gps_t->tow, 1.0);
-  
+
   double lat     = fabs(round(R2D * soln->pos_llh[0] * 1e8) / 1e8);
   double lon     = fabs(round(R2D * soln->pos_llh[1] * 1e8) / 1e8);
 
@@ -381,7 +380,7 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
 
   char   lon_dir = soln->pos_llh[1] < 0.0 ? 'W' : 'E';
   u16    lon_deg = (u16)lon;
-  double lon_min = (lon - (double)lon_deg) * 60.0;  
+  double lon_min = (lon - (double)lon_deg) * 60.0;
 
   NMEA_SENTENCE_START(120);
   NMEA_SENTENCE_PRINTF("$GPGLL,"
@@ -406,7 +405,7 @@ void nmea_gpzda(const gps_time_t *gps_t)
   gmtime_r(&unix_t, &t);
   double frac_s = fmod(gps_t->tow, 1.0);
 
-  NMEA_SENTENCE_START(40); 
+  NMEA_SENTENCE_START(40);
   NMEA_SENTENCE_PRINTF(
                 "$GPZDA,%02d%02d%06.3f," /* Command, Time (UTC) */
                 "%02d,%02d,%d,"          /* Date Stamp */
@@ -424,7 +423,7 @@ static void nmea_assemble_gpgsa(const dops_t *dops)
   u8 prns[nap_track_n_channels];
   u8 num_prns = 0;
   for (u32 i=0; i<nap_track_n_channels; i++) {
-    tracking_channel_lock(i); 
+    tracking_channel_lock(i);
     if (tracking_channel_running(i)) {
       gnss_signal_t sid = tracking_channel_sid_get(i);
       if (sid_to_constellation(sid) == CONSTELLATION_GPS) {
@@ -444,23 +443,29 @@ static void nmea_assemble_gpgsa(const dops_t *dops)
  *
  * Called from solution thread.
  *
- * \param soln     Pointer to gnss_solution struct.
- * \param n        Number of satellites in use.
- * \param nav_meas Array of n navigation_measurement structs.
+ * \param soln          Pointer to gnss_solution struct.
+ * \param n             Number of satellites in use.
+ * \param nav_meas      Array of n navigation_measurement structs.
+ * \param skip_velocity If TRUE then don't output any messages with velocity.
  */
 void nmea_send_msgs(gnss_solution *soln, u8 n,
                     navigation_measurement_t *nm,
-                    const dops_t *dops)
+                    const dops_t *dops,
+                    bool skip_velocity)
 {
-  DO_EVERY(gprmc_msg_rate,
-    nmea_gprmc(soln, &soln->time);
-  );
+  if (!skip_velocity) {
+    DO_EVERY(gprmc_msg_rate,
+      nmea_gprmc(soln, &soln->time);
+    );
+  }
   DO_EVERY(gpgll_msg_rate,
     nmea_gpgll(soln, &soln->time);
   );
-  DO_EVERY(gpvtg_msg_rate,
-    nmea_gpvtg(soln);
-  );  
+  if (!skip_velocity) {
+    DO_EVERY(gpvtg_msg_rate,
+      nmea_gpvtg(soln);
+    );
+  }
   DO_EVERY(gpzda_msg_rate,
     nmea_gpzda(&soln->time);
   );
@@ -469,7 +474,7 @@ void nmea_send_msgs(gnss_solution *soln, u8 n,
   );
   DO_EVERY(gpgsv_msg_rate,
     nmea_gpgsv(n, nm, soln);
-  );  
+  );
 }
 
 /** \cond */
