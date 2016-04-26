@@ -34,7 +34,7 @@ u32 gpgsv_msg_rate = 10;
 u32 gprmc_msg_rate = 10;
 u32 gpvtg_msg_rate =  1;
 u32 gpgll_msg_rate = 10;
-u32 gpzda_msg_rate = 10;  
+u32 gpzda_msg_rate = 10;
 u32 gpgsa_msg_rate = 10;
 static struct nmea_dispatcher *nmea_dispatchers_head;
 /** \addtogroup io
@@ -65,7 +65,7 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
     if (sentence_bufp >= sentence_buf_end) \
       sentence_bufp = sentence_buf_end; } while (0)
 
-/** NMEA_SENTENCE_DONE: append checksum and dispatch. 
+/** NMEA_SENTENCE_DONE: append checksum and dispatch.
  * \note According to section 5.3.1 of the NMEA 0183 spec, sentences are
  *       terminated with <CR><LF>. The sentence_buf is null_terminated.
  *       The call to nmea_output has been modified to remove the NULL.
@@ -81,7 +81,7 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
  * The message is also sent to all dispatchers registered with
  * ::nmea_dispatcher_register.
- 
+
  * \param s The NMEA sentence to output.
  * \param size This is the C-string size, not including the null character
  */
@@ -118,8 +118,8 @@ void nmea_setup(void)
   SETTING("nmea", "gprmc_msg_rate", gprmc_msg_rate, TYPE_INT);
   SETTING("nmea", "gpvtg_msg_rate", gpvtg_msg_rate, TYPE_INT);
   SETTING("nmea", "gpgll_msg_rate", gpgll_msg_rate, TYPE_INT);
-  SETTING("nmea", "gpzda_msg_rate", gpzda_msg_rate, TYPE_INT); 
-  SETTING("nmea", "gpgsa_msg_rate", gpgsa_msg_rate, TYPE_INT); 
+  SETTING("nmea", "gpzda_msg_rate", gpzda_msg_rate, TYPE_INT);
+  SETTING("nmea", "gpgsa_msg_rate", gpgsa_msg_rate, TYPE_INT);
 }
 
 /** Calculate and append the checksum of an NMEA sentence.
@@ -190,7 +190,7 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
                        );
   if (fix_type>1) {
   /* our sender_id is a u16, and most docs say it should be less than 2^10-1
-     here we take least significant bits for a number less than 1024*/ 
+     here we take least significant bits for a number less than 1024*/
     NMEA_SENTENCE_PRINTF("%.1f,%04d",diff_age, station_id&0x3FF);
   }
   else {
@@ -429,7 +429,7 @@ void nmea_gpzda(const gps_time_t *gps_t )
   unix_t = gps2time( gps_t );
   gmtime_r( &unix_t, &t );
   double frac_s = fmod( gps_t->tow, 1.0 );
-  NMEA_SENTENCE_START(40); 
+  NMEA_SENTENCE_START(40);
   NMEA_SENTENCE_PRINTF(
                 "$GPZDA,%02d%02d%06.3f," /* Command, Time (UTC) */
                 "%02d,%02d,%d," /* Date Stamp */
@@ -447,7 +447,7 @@ static void nmea_assemble_gpgsa(const dops_t *dops)
   u8 prns[nap_track_n_channels];
   u8 num_prns = 0;
   for (u32 i=0; i<nap_track_n_channels; i++) {
-    tracking_channel_lock(i); 
+    tracking_channel_lock(i);
     if (tracking_channel_running(i)) {
       gnss_signal_t sid = tracking_channel_sid_get(i);
       if (sid_to_constellation(sid) == CONSTELLATION_GPS) {
@@ -467,23 +467,27 @@ static void nmea_assemble_gpgsa(const dops_t *dops)
  *
  * Called from solution thread.
  *
- * \param soln     Pointer to gnss_solution struct.
- * \param n        Number of satellites in use
- * \param nav_meas Array of n navigation_measurement structs.
+ * \param soln          Pointer to gnss_solution struct.
+ * \param n             Number of satellites in use
+ * \param nav_meas      Array of n navigation_measurement structs.
+ * \param skip_velocity If TRUE then don't output any messages with velocity.
  */
 void nmea_send_msgs(gnss_solution *soln, u8 n,
                     navigation_measurement_t *nm,
-                    const dops_t *dops)
+                    const dops_t *dops,
+                    bool skip_velocity)
 {
   DO_EVERY(gpgsv_msg_rate,
     nmea_gpgsv(n, nm, soln);
   );
-  DO_EVERY(gprmc_msg_rate,
-    nmea_gprmc(soln, &soln->time);
-  );
-  DO_EVERY(gpvtg_msg_rate,
-    nmea_gpvtg(soln);
-  );
+  if (!skip_velocity) {
+    DO_EVERY(gprmc_msg_rate,
+      nmea_gprmc(soln, &soln->time);
+    );
+    DO_EVERY(gpvtg_msg_rate,
+      nmea_gpvtg(soln);
+    );
+  }
   DO_EVERY(gpgll_msg_rate,
     nmea_gpgll(soln, &soln->time);
   );
