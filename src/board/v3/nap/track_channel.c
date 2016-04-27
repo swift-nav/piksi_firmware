@@ -133,7 +133,7 @@ void nap_track_read_results(u8 channel,
   *count_snapshot = NAP->TRK_CH[channel].START_SNAPSHOT;
   u64 nap_code_phase = ((u64)NAP->TRK_CH[channel].CODE_PHASE_INT << 32) |
                              NAP->TRK_CH[channel].CODE_PHASE_FRAC;
-  u64 nap_carr_phase = ((u64)NAP->TRK_CH[channel].CARR_PHASE_INT << 32) |
+  s64 nap_carr_phase = ((s64)NAP->TRK_CH[channel].CARR_PHASE_INT << 32) |
                              NAP->TRK_CH[channel].CARR_PHASE_FRAC;
   *code_phase_early = (double)nap_code_phase / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
   *carrier_phase = (double)-nap_carr_phase / (1ull << 32);

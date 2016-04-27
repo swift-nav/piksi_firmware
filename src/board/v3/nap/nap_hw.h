@@ -24,7 +24,7 @@ typedef struct {
   const volatile uint32_t START_SNAPSHOT;
   volatile uint32_t LENGTH;
   volatile uint32_t SPACING;
-  const volatile uint32_t CARR_PHASE_INT;
+  const volatile int32_t CARR_PHASE_INT;
   const volatile uint32_t CARR_PHASE_FRAC;
   volatile int32_t CARR_PINC;
   volatile uint32_t CODE_INIT_INT;
