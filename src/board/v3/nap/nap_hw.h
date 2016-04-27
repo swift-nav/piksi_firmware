@@ -59,6 +59,9 @@ typedef struct {
   volatile uint32_t TRK_IRQ_ERROR;
   volatile uint32_t TRK_TIMING_COMPARE;
   volatile uint32_t TRK_TIMING_SNAPSHOT;
+  volatile uint32_t PPS_CONTROL;
+  volatile uint32_t PPS_TIMING_COMPARE;
+  volatile uint32_t EVENT_TIMING_SNAPSHOT;
   volatile uint32_t FE_PINC[8];
   nap_trk_regs_t TRK_CH[NAP_MAX_N_TRACK_CHANNELS];
 } nap_t;
