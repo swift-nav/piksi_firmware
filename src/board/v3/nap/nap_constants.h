@@ -19,6 +19,12 @@
 #define NAP_ACQ_SAMPLE_RATE_Hz                  (NAP_FRONTEND_SAMPLE_RATE_Hz  \
                                                    / NAP_ACQ_DECIMATION_RATE)
 
+#define NAP_KEY_LENGTH                                                   (16)
+
+#define NAP_VERSION_OFFSET                                                (0)
+#define NAP_VERSION_LENGTH                                               (14)
+
 #define NAP_DNA_OFFSET                                                   (14)
+#define NAP_DNA_LENGTH                                                    (2)
 
 #endif /* SWIFTNAV_NAP_CONSTANTS_H */

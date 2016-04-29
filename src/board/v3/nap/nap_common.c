@@ -128,13 +128,14 @@ u8 nap_conf_rd_version_string(char version_string[])
 {
   u8 i = 0;
   u32 reg = 0;
+  u32 ctrl = (NAP->CONTROL & ~((u32)NAP_CONTROL_VERSION_ADDR_Msk));
 
   do {
-    NAP->CONTROL = (i << 1);
+    NAP->CONTROL = ctrl | (i << NAP_CONTROL_VERSION_ADDR_Pos);
     reg = NAP->VERSION;
     memcpy(version_string + i * sizeof(reg), &reg, sizeof(reg));
     ++i;
-  } while (reg && i < NAP_DNA_OFFSET);
+  } while (reg && i < NAP_VERSION_LENGTH);
   version_string[i * sizeof(reg)] = 0;
 
   return strlen(version_string);
@@ -142,15 +143,14 @@ u8 nap_conf_rd_version_string(char version_string[])
 
 void nap_rd_dna(u8 dna[])
 {
-  u8 i = 0;
   u32 reg = 0;
+  u32 ctrl = (NAP->CONTROL & ~((u32)NAP_CONTROL_VERSION_ADDR_Msk));
 
-  do {
-    NAP->CONTROL = ((i + NAP_DNA_OFFSET) << 1);
+  for (u8 i = 0; i < NAP_DNA_LENGTH; ++i) {
+    NAP->CONTROL = ctrl | ((i+NAP_DNA_OFFSET) << NAP_CONTROL_VERSION_ADDR_Pos);
     reg = NAP->VERSION;
     memcpy(dna + i * sizeof(reg), &reg, sizeof(reg));
-    ++i;
-  } while (i < 2);
+  }
 }
 
 void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -172,7 +172,8 @@ void nap_callbacks_setup(void)
 
 void nap_unlock(const u8 key[])
 {
-  for (u8 i = 0; i < 16; ++i) {
-    NAP->CONTROL = ((u32)key[i] << 24) | (i << 20);
+  for (u8 i = 0; i < NAP_KEY_LENGTH; ++i) {
+    NAP->CONTROL = ((u32)key[i] << NAP_CONTROL_KEY_BYTE_Pos) |
+        (i << NAP_CONTROL_KEY_ADDR_Pos);
   }
 }
