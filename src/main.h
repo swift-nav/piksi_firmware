@@ -15,7 +15,7 @@
 
 #include <libswiftnav/common.h>
 
-#define SAMPLE_FREQ 16368000
+#define COMPILER_BARRIER() asm volatile ("" : : : "memory")
 
 /* See http://c-faq.com/cpp/multistmt.html for
  * and explaination of the do {} while(0)

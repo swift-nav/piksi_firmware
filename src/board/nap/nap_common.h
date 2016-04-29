@@ -22,25 +22,6 @@
 /** \addtogroup nap
  * \{ */
 
-/* NAP Register Addresses. */
-#define NAP_REG_IRQ                 0x00
-#define NAP_REG_ERROR               0x01
-#define NAP_REG_PPS_WIDTH           0xF4
-#define NAP_REG_PPS_COMPARE         0xF5
-#define NAP_REG_EXT_EVENT_TIME      0xF6
-#define NAP_REG_TIMING_COMPARE      0xF8
-#define NAP_REG_TIMING_COUNT        0xF9
-#define NAP_REG_TIMING_COUNT_LATCH  0xFA
-#define NAP_REG_HASH_STATUS         0xFB
-#define NAP_REG_DNA                 0xFD
-#define NAP_REG_RDWR                0xFE
-#define NAP_REG_DECEASED_COW        0xFF
-/* Status of NAP authentication hash comparison. */
-/* TODO: change NAP_HASH_MATCH to non 0x00/0xFF value so it is more reliable */
-#define NAP_HASH_MATCH              0
-#define NAP_HASH_MISMATCH           1
-#define NAP_HASH_NOTREADY           2
-
 /** A complex IQ correlation. */
 typedef struct {
   s32 I;  /**< In-phase correlation. */
@@ -63,27 +44,6 @@ extern binary_semaphore_t timing_strobe_sem;
 
 void nap_setup(void);
 
-u8 nap_conf_done(void);
-u8 nap_hash_rd_done(void);
-
-void nap_conf_b_set(void);
-void nap_conf_b_clear(void);
-
-void nap_xfer_blocking(u8 reg_id, u16 n_bytes, u8 data_in[],
-                       const u8 data_out[]);
-
-/** Convenience function to read 4 bytes from a register (writing zeros) and
- * convert to host byte order (i.e. little-endian).
- * \param reg_id   NAP register ID.
- * \return u32 register value
- */
-inline u32 nap_read_u32(u8 reg_id)
-{
-  u32 val = 0;
-  nap_xfer_blocking(reg_id, 4, (u8 *)&val, (u8 *)&val);
-  return __builtin_bswap32(val);
-}
-
 u32 nap_error_rd_blocking(void);
 
 u8 nap_hash_status(void);
@@ -102,6 +62,8 @@ u32 nap_rw_ext_event(u8 *event_pin, ext_event_trigger_t *event_trig,
 
 void nap_pps(u64 rising_edge_count_8x);
 void nap_pps_width(u32 falling_edge_count);
+
+#include "nap/nap_hw.h"
 
 #endif  /* SWIFTNAV_NAP_COMMON_H */
 

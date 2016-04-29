@@ -70,11 +70,6 @@ static bool use_alias_detection = true;
 
 typedef struct {
   aided_tl_state_t tl_state;   /**< Tracking loop filter state. */
-  u32 code_phase_rate_fp;      /**< Code phase rate in NAP register units. */
-  u32 code_phase_rate_fp_prev; /**< Previous code phase rate in NAP register units. */
-  s32 carrier_freq_fp;         /**< Carrier frequency in NAP register units. */
-  s32 carrier_freq_fp_prev;    /**< Previous carrier frequency in NAP register units. */
-  u32 corr_sample_count;       /**< Number of samples in correlation period. */
   corr_t cs[3];                /**< EPL correlation results in correlation period. */
   cn0_est_state_t cn0_est;     /**< C/N0 Estimator. */
   u8 int_ms;                   /**< Integration length. */
@@ -162,10 +157,6 @@ static void tracker_gps_l1ca_init(const tracker_channel_info_t *channel_info,
                 l->carr_bw, l->carr_zeta, l->carr_k,
                 l->carr_fll_aid_gain);
 
-  data->code_phase_rate_fp = common_data->code_phase_rate*NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-  data->code_phase_rate_fp_prev = data->code_phase_rate_fp;
-  data->carrier_freq_fp = (s32)(common_data->carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
-  data->carrier_freq_fp_prev = data->carrier_freq_fp;
   data->short_cycle = true;
 
   /* Initialise C/N0 estimator */
@@ -204,7 +195,9 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
      * correlations. */
     corr_t cs[3];
     tracker_correlations_read(channel_info->context, cs,
-                              &data->corr_sample_count);
+                              &common_data->sample_count,
+                              &common_data->code_phase_early,
+                              &common_data->carrier_phase);
     /* accumulate short cycle correlations with long */
     for(int i = 0; i < 3; i++) {
       data->cs[i].I += cs[i].I;
@@ -212,22 +205,11 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     }
   } else {
     tracker_correlations_read(channel_info->context, data->cs,
-                              &data->corr_sample_count);
+                              &common_data->sample_count,
+                              &common_data->code_phase_early,
+                              &common_data->carrier_phase);
     alias_detect_first(&data->alias_detect, data->cs[1].I, data->cs[1].Q);
   }
-
-  common_data->sample_count += data->corr_sample_count;
-  common_data->code_phase_early = (u64)common_data->code_phase_early +
-                           (u64)data->corr_sample_count
-                             * data->code_phase_rate_fp_prev;
-  common_data->carrier_phase += (s64)data->carrier_freq_fp_prev
-                           * data->corr_sample_count;
-  /* TODO: Fix this in the FPGA - first integration is one sample short. */
-  if (common_data->update_count == 0)
-    common_data->carrier_phase -= data->carrier_freq_fp_prev;
-  data->code_phase_rate_fp_prev = data->code_phase_rate_fp;
-  data->carrier_freq_fp_prev = data->carrier_freq_fp;
-
   common_data->TOW_ms = tracker_tow_update(channel_info->context,
                                    common_data->TOW_ms,
                                    data->short_cycle ? 1 : (data->int_ms-1));
@@ -241,8 +223,8 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     data->short_cycle = !data->short_cycle;
 
     if (!data->short_cycle) {
-      tracker_retune(channel_info->context, data->carrier_freq_fp,
-                     data->code_phase_rate_fp, 0);
+      tracker_retune(channel_info->context, common_data->carrier_freq,
+                     common_data->code_phase_rate, 0);
       return;
     }
   }
@@ -302,13 +284,6 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   common_data->carrier_freq = data->tl_state.carr_freq;
   common_data->code_phase_rate = data->tl_state.code_freq + GPS_CA_CHIPPING_RATE;
 
-  data->code_phase_rate_fp_prev = data->code_phase_rate_fp;
-  data->code_phase_rate_fp = common_data->code_phase_rate
-    * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
-
-  data->carrier_freq_fp = common_data->carrier_freq
-    * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
-
   /* Attempt alias detection if we have pessimistic phase lock detect, OR
      (optimistic phase lock detect AND are in second-stage tracking) */
   if (use_alias_detection &&
@@ -364,8 +339,8 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     common_data->mode_change_count = common_data->update_count;
   }
 
-  tracker_retune(channel_info->context, data->carrier_freq_fp,
-                 data->code_phase_rate_fp,
+  tracker_retune(channel_info->context, common_data->carrier_freq,
+                 common_data->code_phase_rate,
                  data->int_ms == 1 ? 0 : data->int_ms - 2);
 }
 

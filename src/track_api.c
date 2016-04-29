@@ -55,14 +55,16 @@ void tracker_interface_register(tracker_interface_list_element_t *element)
  * \param sample_count    Output sample count.
  */
 void tracker_correlations_read(tracker_context_t *context, corr_t *cs,
-                               u32 *sample_count)
+                               u32 *sample_count,
+                               double *code_phase, double *carrier_phase)
 {
   const tracker_channel_info_t *channel_info;
   tracker_internal_data_t *internal_data;
   tracker_internal_context_resolve(context, &channel_info, &internal_data);
 
   /* Read NAP CORR register */
-  nap_track_corr_rd_blocking(channel_info->nap_channel, sample_count, cs);
+  nap_track_read_results(channel_info->nap_channel, sample_count, cs,
+                         code_phase, carrier_phase);
 }
 
 /** Write the NAP update register for a tracker channel.
@@ -72,16 +74,16 @@ void tracker_correlations_read(tracker_context_t *context, corr_t *cs,
  * \param code_phase_rate_fp  Code phase rate in NAP register units.
  * \param rollover_count      Number of code cycles to integrate over.
  */
-void tracker_retune(tracker_context_t *context, s32 carrier_freq_fp,
-                    u32 code_phase_rate_fp, u8 rollover_count)
+void tracker_retune(tracker_context_t *context, double carrier_freq,
+                    double code_phase_rate, u8 rollover_count)
 {
   const tracker_channel_info_t *channel_info;
   tracker_internal_data_t *internal_data;
   tracker_internal_context_resolve(context, &channel_info, &internal_data);
 
   /* Write NAP UPDATE register. */
-  nap_track_update_wr_blocking(channel_info->nap_channel, carrier_freq_fp,
-                               code_phase_rate_fp, rollover_count, 0);
+  nap_track_update(channel_info->nap_channel, carrier_freq,
+                   code_phase_rate, rollover_count, 0);
 }
 
 /** Update the TOW for a tracker channel.

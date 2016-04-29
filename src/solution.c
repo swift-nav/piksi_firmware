@@ -41,6 +41,7 @@
 #include "ephemeris.h"
 #include "signal.h"
 #include "system_monitor.h"
+#include "main.h"
 
 /* Maximum CPU time the solution thread is allowed to use. */
 #define SOLN_THD_CPU_MAX (0.60f)
