@@ -21,8 +21,8 @@
 
 #define NAP_KEY_LENGTH                                                   (16)
 
-#define NAP_VERSION_OFFSET                                                (0)
-#define NAP_VERSION_LENGTH                                               (14)
+#define NAP_VERSION_STRING_OFFSET                                         (1)
+#define NAP_VERSION_STRING_LENGTH                                        (13)
 
 #define NAP_DNA_OFFSET                                                   (14)
 #define NAP_DNA_LENGTH                                                    (2)

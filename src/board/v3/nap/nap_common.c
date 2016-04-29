@@ -124,6 +124,12 @@ static void nap_exti_thread(void *arg)
   }
 }
 
+u32 nap_conf_rd_version(void)
+{
+  NAP->CONTROL = (NAP->CONTROL & ~((u32)NAP_CONTROL_VERSION_ADDR_Msk));
+  return NAP->VERSION;
+}
+
 u8 nap_conf_rd_version_string(char version_string[])
 {
   u8 i = 0;
@@ -131,11 +137,12 @@ u8 nap_conf_rd_version_string(char version_string[])
   u32 ctrl = (NAP->CONTROL & ~((u32)NAP_CONTROL_VERSION_ADDR_Msk));
 
   do {
-    NAP->CONTROL = ctrl | (i << NAP_CONTROL_VERSION_ADDR_Pos);
+    NAP->CONTROL = ctrl | ((i + NAP_VERSION_STRING_OFFSET) <<
+        NAP_CONTROL_VERSION_ADDR_Pos);
     reg = NAP->VERSION;
     memcpy(version_string + i * sizeof(reg), &reg, sizeof(reg));
     ++i;
-  } while (reg && i < NAP_VERSION_LENGTH);
+  } while (reg && i < NAP_VERSION_STRING_LENGTH);
   version_string[i * sizeof(reg)] = 0;
 
   return strlen(version_string);
@@ -147,7 +154,8 @@ void nap_rd_dna(u8 dna[])
   u32 ctrl = (NAP->CONTROL & ~((u32)NAP_CONTROL_VERSION_ADDR_Msk));
 
   for (u8 i = 0; i < NAP_DNA_LENGTH; ++i) {
-    NAP->CONTROL = ctrl | ((i+NAP_DNA_OFFSET) << NAP_CONTROL_VERSION_ADDR_Pos);
+    NAP->CONTROL = ctrl | ((i + NAP_DNA_OFFSET)
+        << NAP_CONTROL_VERSION_ADDR_Pos);
     reg = NAP->VERSION;
     memcpy(dna + i * sizeof(reg), &reg, sizeof(reg));
   }
