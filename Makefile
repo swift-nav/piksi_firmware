@@ -32,7 +32,7 @@ ifeq ($(PIKSI_HW),v3)
 	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-a9
 endif
 
-.PHONY: all tests firmware docs hitl .FORCE
+.PHONY: all tests firmware docs hitl_setup hitl hitlv3 .FORCE
 
 all: firmware # tests
 
@@ -78,7 +78,7 @@ docs:
 	$(MAKE) -C docs/diagrams
 	doxygen docs/Doxyfile
 
-hitl: firmware
+hitl_setup: firmware
 	# Usage:
 	# `make hitl` will run the default "quick" test plan (1 capture job)
 	# Optionally specify a desired test plan:
@@ -90,6 +90,12 @@ hitl: firmware
 	else \
 		git clone git@github.com:swift-nav/hitl_tools.git build/hitl_tools --depth 1; \
 	fi
-	bash build/hitl_tools/make_hitl.sh $(TEST_PLAN)
+
+hitl: hitl_setup
+	TEST_PLAN=$(TEST_PLAN) TEST_CONFIG=$(TEST_CONFIG) bash build/hitl_tools/make_hitl.sh
+
+
+hitlv3: hitl_setup
+	TEST_PLAN=$(TEST_PLAN) TEST_CONFIG=v3_config bash build/hitl_tools/make_hitl.sh
 
 .FORCE:
