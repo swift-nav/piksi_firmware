@@ -19,4 +19,6 @@
 #define NAP_ACQ_SAMPLE_RATE_Hz                  (NAP_FRONTEND_SAMPLE_RATE_Hz  \
                                                    / NAP_ACQ_DECIMATION_RATE)
 
+#define NAP_DNA_OFFSET                                                   (14)
+
 #endif /* SWIFTNAV_NAP_CONSTANTS_H */

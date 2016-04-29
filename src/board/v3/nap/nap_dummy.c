@@ -6,10 +6,6 @@
 u8 nap_acq_fft_index_bits;
 u8 nap_acq_downsample_stages;
 
-void nap_callbacks_setup(void)
-{
-}
-
 u32 nap_error_rd_blocking(void)
 {
   return 0;
@@ -22,12 +18,6 @@ u32 nap_rw_ext_event(u8 *event_pin, ext_event_trigger_t *event_trig,
   (void)event_trig;
   (void)next_trig;
   return 0;
-}
-
-u8 nap_conf_rd_version_string(char version_string[])
-{
-  strcpy(version_string, "v0.16");
-  return strlen(version_string);
 }
 
 s32 nap_conf_rd_serial_number(void)

@@ -12,6 +12,7 @@
 
 #include "board.h"
 #include "nap/nap_common.h"
+#include "../../sbp.h"
 
 #include "nap_hw.h"
 #include "nap_constants.h"
@@ -21,10 +22,12 @@
 #include "system_monitor.h"
 
 #include <math.h>
+#include <string.h>
 
 #define PROCESS_PERIOD_ms (1000)
 
 void nap_isr(void *context);
+void nap_unlock(const u8 key[]);
 
 static BSEMAPHORE_DECL(nap_exti_sem, TRUE);
 static WORKING_AREA_CCM(wa_nap_exti, 2000);
@@ -50,6 +53,8 @@ void nap_setup(void)
   gic_irq_sensitivity_set(IRQ_ID_NAP_TRACK, IRQ_SENSITIVITY_EDGE);
   gic_irq_priority_set(IRQ_ID_NAP_TRACK, NAP_IRQ_PRIORITY);
   gic_irq_enable(IRQ_ID_NAP_TRACK);
+
+  /* TODO: Call nap_unlock with valid key */
 }
 
 u64 nap_timing_count(void)
@@ -119,3 +124,55 @@ static void nap_exti_thread(void *arg)
   }
 }
 
+u8 nap_conf_rd_version_string(char version_string[])
+{
+  u8 i = 0;
+  u32 reg = 0;
+
+  do {
+    NAP->CONTROL = (i << 1);
+    reg = NAP->VERSION;
+    memcpy(version_string + i * sizeof(reg), &reg, sizeof(reg));
+    ++i;
+  } while (reg && i < NAP_DNA_OFFSET);
+  version_string[i * sizeof(reg)] = 0;
+
+  return strlen(version_string);
+}
+
+void nap_rd_dna(u8 dna[])
+{
+  u8 i = 0;
+  u32 reg = 0;
+
+  do {
+    NAP->CONTROL = ((i + NAP_DNA_OFFSET) << 1);
+    reg = NAP->VERSION;
+    memcpy(dna + i * sizeof(reg), &reg, sizeof(reg));
+    ++i;
+  } while (i < 2);
+}
+
+void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void)msg; (void) context;
+  u8 dna[8];
+  nap_rd_dna(dna);
+
+  sbp_send_msg(SBP_MSG_NAP_DEVICE_DNA_RESP, 8, dna);
+}
+
+void nap_callbacks_setup(void)
+{
+  static sbp_msg_callbacks_node_t nap_dna_node;
+
+  sbp_register_cbk(SBP_MSG_NAP_DEVICE_DNA_REQ, &nap_rd_dna_callback,
+      &nap_dna_node);
+}
+
+void nap_unlock(const u8 key[])
+{
+  for (u8 i = 0; i < 16; ++i) {
+    NAP->CONTROL = ((u32)key[i] << 24) | (i << 20);
+  }
+}
