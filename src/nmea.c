@@ -65,18 +65,25 @@ static struct nmea_dispatcher *nmea_dispatchers_head;
     if (sentence_bufp >= sentence_buf_end) \
       sentence_bufp = sentence_buf_end; } while (0)
 
-/** NMEA_SENTENCE_DONE: append checksum and dispatch. */
+/** NMEA_SENTENCE_DONE: append checksum and dispatch. 
+ * \note According to section 5.3.1 of the NMEA 0183 spec, sentences are
+ *       terminated with <CR><LF>. The sentence_buf is null_terminated.
+ *       The call to nmea_output has been modified to remove the NULL.
+ *       This will also affect all registered dispatchers
+ */
 #define NMEA_SENTENCE_DONE() do { \
     if (sentence_bufp == sentence_buf_end) \
       log_warn("NMEA %.6s cut off", sentence_buf); \
     nmea_append_checksum(sentence_buf, sizeof(sentence_buf)); \
-    nmea_output(sentence_buf, sentence_bufp - sentence_buf + NMEA_SUFFIX_LEN); \
+    nmea_output(sentence_buf, sentence_bufp - sentence_buf + NMEA_SUFFIX_LEN-1); \
   } while (0)
 
 /** Output NMEA sentence to all USARTs configured in NMEA mode.
  * The message is also sent to all dispatchers registered with
  * ::nmea_dispatcher_register.
+ 
  * \param s The NMEA sentence to output.
+ * \param size This is the C-string size, not including the null character
  */
 static void nmea_output(char *s, size_t size)
 {
