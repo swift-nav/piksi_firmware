@@ -22,6 +22,7 @@
 
 #include "settings.h"
 #include "signal.h"
+#include "board.h"
 
 /*  code: nbw zeta k carr_to_code
  carrier:                    nbw  zeta k fll_aid */
@@ -48,7 +49,18 @@
 #define LD_PARAMS_EXTRAOPT "0.02, 0.8, 150, 50"
 #define LD_PARAMS_DISABLE  "0.02, 1e-6, 1, 1"
 
-#define CN0_EST_LPF_CUTOFF 5
+/* C/N0 LPF cutoff frequency. The lower it is, the more stable CN0 looks like */
+#define CN0_EST_LPF_CUTOFF_HZ (.1f)
+/* Noise bandwidth: GPS L1 1.023 * 2. Make 16dB offset. */
+#define CN0_EST_BW_HZ         (2.046e6f)
+
+/* Configure C/N0 estimator algorithm */
+#define cn0_est_init      cn0_est_bl_init
+#define cn0_est_update    cn0_est_bl_update
+/* Configure C/N0 value filter algorithm */
+#define cn0_filter_t      bw2_filter_t
+#define cn0_filter_init   bw2_filter_init
+#define cn0_filter_update bw2_filter_update
 
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
@@ -72,6 +84,7 @@ typedef struct {
   aided_tl_state_t tl_state;   /**< Tracking loop filter state. */
   corr_t cs[3];                /**< EPL correlation results in correlation period. */
   cn0_est_state_t cn0_est;     /**< C/N0 Estimator. */
+  cn0_filter_t    cn0_filt;    /**< C/N0 Filter */
   u8 int_ms;                   /**< Integration length. */
   bool short_cycle;            /**< Set to true when a short 1ms integration is requested. */
   u8 stage;                    /**< 0 = First-stage. 1 ms integration.
@@ -159,8 +172,16 @@ static void tracker_gps_l1ca_init(const tracker_channel_info_t *channel_info,
 
   data->short_cycle = true;
 
-  /* Initialise C/N0 estimator */
-  cn0_est_init(&data->cn0_est, 1e3/data->int_ms, common_data->cn0, CN0_EST_LPF_CUTOFF, 1e3/data->int_ms);
+  /* Initialise C/N0 estimator and filter */
+  cn0_est_init(&data->cn0_est,
+                  CN0_EST_BW_HZ,
+                  common_data->cn0,
+                  SAMPLE_FREQ,
+                  1e3/data->int_ms);
+  cn0_filter_init(&data->cn0_filt,
+                  common_data->cn0,
+                  CN0_EST_LPF_CUTOFF_HZ,
+                  1e3/data->int_ms);
 
   lock_detect_init(&data->lock_detect,
                    lock_detect_params.k1, lock_detect_params.k2,
@@ -238,7 +259,8 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   corr_t* cs = data->cs;
 
   /* Update C/N0 estimate */
-  common_data->cn0 = cn0_est(&data->cn0_est, cs[1].I/data->int_ms, cs[1].Q/data->int_ms);
+  common_data->cn0 = cn0_est_update(&data->cn0_est, cs[1].I, cs[1].Q);
+  common_data->cn0 = cn0_filter_update(&data->cn0_filt, common_data->cn0);
   if (common_data->cn0 > track_cn0_drop_thres)
     common_data->cn0_above_drop_thres_count = common_data->update_count;
 
@@ -319,8 +341,15 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
                        tracker_bit_length_get(channel_info->context));
     data->short_cycle = true;
 
-    cn0_est_init(&data->cn0_est, 1e3 / data->int_ms, common_data->cn0,
-                 CN0_EST_LPF_CUTOFF, 1e3 / data->int_ms);
+    cn0_est_init(&data->cn0_est,      /* C/N0 estimator object */
+                 CN0_EST_BW_HZ,       /* BW */
+                 common_data->cn0,    /* Initial C/N0 */
+                 SAMPLE_FREQ,         /* Sampling frequency */
+                 1e3 / data->int_ms); /* Loop filter frequency */
+    cn0_filter_init(&data->cn0_filt,       /* Structure */
+                    common_data->cn0,      /* Initial C/N0 */
+                    CN0_EST_LPF_CUTOFF_HZ, /* Cut-off filter frequency */
+                    1e3 / data->int_ms);   /* Loop filter frequency */
 
     /* Recalculate filter coefficients */
     aided_tl_retune(&data->tl_state, 1e3 / data->int_ms,
