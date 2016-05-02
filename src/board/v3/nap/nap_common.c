@@ -33,7 +33,7 @@ static BSEMAPHORE_DECL(nap_exti_sem, TRUE);
 static WORKING_AREA_CCM(wa_nap_exti, 2000);
 static void nap_exti_thread(void *arg);
 
-static u8 nap_dna[8] = {0};
+static u8 nap_dna[NAP_DNA_LENGTH] = {0};
 u8 nap_track_n_channels = 0;
 
 void nap_setup(void)
@@ -139,13 +139,13 @@ u8 nap_conf_rd_version_string(char version_string[])
   u32 ctrl = (NAP->CONTROL & ~((u32)NAP_CONTROL_VERSION_ADDR_Msk));
 
   do {
-    NAP->CONTROL = ctrl | ((i + NAP_VERSION_STRING_OFFSET) <<
+    NAP->CONTROL = ctrl | ((i + NAP_VERSION_STRING_OFFSET) / sizeof(reg) <<
         NAP_CONTROL_VERSION_ADDR_Pos);
     reg = NAP->VERSION;
-    memcpy(version_string + i * sizeof(reg), &reg, sizeof(reg));
-    ++i;
+    memcpy(&version_string[i], &reg, sizeof(reg));
+    i += sizeof(reg);
   } while (reg && i < NAP_VERSION_STRING_LENGTH);
-  version_string[i * sizeof(reg)] = 0;
+  version_string[i] = 0;
 
   return strlen(version_string);
 }
@@ -155,18 +155,18 @@ void nap_rd_dna(u8 dna[])
   u32 reg = 0;
   u32 ctrl = (NAP->CONTROL & ~((u32)NAP_CONTROL_VERSION_ADDR_Msk));
 
-  for (u8 i = 0; i < NAP_DNA_LENGTH; ++i) {
-    NAP->CONTROL = ctrl | ((i + NAP_DNA_OFFSET)
-        << NAP_CONTROL_VERSION_ADDR_Pos);
+  for (u8 i = 0; i < NAP_DNA_LENGTH; i += sizeof(reg)) {
+    NAP->CONTROL = ctrl | ((i + NAP_DNA_OFFSET) / sizeof(reg) <<
+        NAP_CONTROL_VERSION_ADDR_Pos);
     reg = NAP->VERSION;
-    memcpy(dna + i * sizeof(reg), &reg, sizeof(reg));
+    memcpy(&dna[i], &reg, sizeof(reg));
   }
 }
 
 void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void)msg; (void) context;
-  sbp_send_msg(SBP_MSG_NAP_DEVICE_DNA_RESP, 8, nap_dna);
+  sbp_send_msg(SBP_MSG_NAP_DEVICE_DNA_RESP, NAP_DNA_LENGTH, nap_dna);
 }
 
 void nap_callbacks_setup(void)

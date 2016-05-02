@@ -21,10 +21,10 @@
 
 #define NAP_KEY_LENGTH                                                   (16)
 
-#define NAP_VERSION_STRING_OFFSET                                         (1)
-#define NAP_VERSION_STRING_LENGTH                                        (13)
+#define NAP_VERSION_STRING_OFFSET                                         (4)
+#define NAP_VERSION_STRING_LENGTH                                        (52)
 
-#define NAP_DNA_OFFSET                                                   (14)
-#define NAP_DNA_LENGTH                                                    (2)
+#define NAP_DNA_OFFSET                                                   (56)
+#define NAP_DNA_LENGTH                                                    (8)
 
 #endif /* SWIFTNAV_NAP_CONSTANTS_H */
