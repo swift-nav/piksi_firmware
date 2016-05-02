@@ -33,10 +33,14 @@ static BSEMAPHORE_DECL(nap_exti_sem, TRUE);
 static WORKING_AREA_CCM(wa_nap_exti, 2000);
 static void nap_exti_thread(void *arg);
 
+static u8 nap_dna[8] = {0};
 u8 nap_track_n_channels = 0;
 
 void nap_setup(void)
 {
+  nap_rd_dna(nap_dna);
+  /* TODO: Call nap_unlock with valid key */
+
   nap_track_n_channels = (NAP->STATUS & NAP_STATUS_TRACKING_CH_Msk) >>
                           NAP_STATUS_TRACKING_CH_Pos;
   nap_track_n_channels = MIN(nap_track_n_channels, NAP_MAX_N_TRACK_CHANNELS);
@@ -53,8 +57,6 @@ void nap_setup(void)
   gic_irq_sensitivity_set(IRQ_ID_NAP_TRACK, IRQ_SENSITIVITY_EDGE);
   gic_irq_priority_set(IRQ_ID_NAP_TRACK, NAP_IRQ_PRIORITY);
   gic_irq_enable(IRQ_ID_NAP_TRACK);
-
-  /* TODO: Call nap_unlock with valid key */
 }
 
 u64 nap_timing_count(void)
@@ -164,10 +166,7 @@ void nap_rd_dna(u8 dna[])
 void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void)msg; (void) context;
-  u8 dna[8];
-  nap_rd_dna(dna);
-
-  sbp_send_msg(SBP_MSG_NAP_DEVICE_DNA_RESP, 8, dna);
+  sbp_send_msg(SBP_MSG_NAP_DEVICE_DNA_RESP, 8, nap_dna);
 }
 
 void nap_callbacks_setup(void)
