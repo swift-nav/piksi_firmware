@@ -16,6 +16,7 @@
 
 #include "peripherals/usart.h"
 #include "error.h"
+#include "main.h"
 
 #define USART_TX_BUFFER_LEN 2048
 #define USART_RX_BUFFER_LEN 2048
@@ -70,6 +71,10 @@ static void usart_support_init_tx(struct usart_support_s *sd)
 
 static void usart_support_init_rx(struct usart_support_s *sd)
 {
+  struct usart_rx_dma_state *s = &sd->rx;
+  s->rd = s->rd_wraps = s->wr_wraps = 0;
+  COMPILER_BARRIER();
+
   /* Setup RX DMA */
   dmaStreamSetMode(sd->rx.dma, sd->dmamode | STM32_DMA_CR_DIR_P2M |
                                STM32_DMA_CR_MINC | STM32_DMA_CR_TCIE |
@@ -149,10 +154,12 @@ void usart_support_disable(void *sd)
   if (sd == NULL)
     return;
 
-  USART_TypeDef *u = ((struct usart_support_s *)sd)->usart;
-  u->CR1 = 0;
-  u->CR2 = 0;
-  u->CR3 = 0;
+  struct usart_support_s *u = (struct usart_support_s *)sd;
+  USART_TypeDef *us = u->usart;
+  dmaStreamDisable(u->rx.dma);
+  us->CR1 = 0;
+  us->CR2 = 0;
+  us->CR3 = 0;
 }
 
 static void usart_rx_dma_isr(struct usart_rx_dma_state* s, u32 flags)
