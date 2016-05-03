@@ -206,21 +206,7 @@ static void system_monitor_thread(void *arg)
 static void debug_threads()
 {
   const char* state[] = {
-    "READY",
-    "CURRENT",
-    "SUSPENDED",
-    "WTSEM",
-    "WTMTX",
-    "WTCOND",
-    "SLEEPING",
-    "WTEXIT",
-    "WTOREVT",
-    "WTANDEVT",
-    "SNDMSGQ",
-    "SNDMSG",
-    "WTMSG",
-    "WTQUEUE",
-    "FINAL"
+    CH_STATE_NAMES
   };
   thread_t *tp = chRegFirstThread();
   while (tp) {
