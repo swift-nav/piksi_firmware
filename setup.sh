@@ -113,6 +113,13 @@ function bootstrap_osx () {
         log_info "Installing homebrew..."
         homebrew_install
     fi
+    # Download and install GCC ARM Embedded
+    if [[ ! -x /usr/local/Cellar/gcc-arm-none-eabi/ ]]; then
+        log_info "Installing gcc-arm-none-eabi..."
+        brew tap PX4/homebrew-px4
+        brew update
+        brew install gcc-arm-none-eabi
+    fi
     # Download and install Ansible
     if [[ ! -x /usr/local/bin/ansible ]]; then
         log_info "Installing Ansible..."
