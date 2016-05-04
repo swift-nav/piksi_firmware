@@ -179,10 +179,7 @@ static void update_obss(obss_t *new_obss)
   /* Copy over the time. */
   base_obss.tor = new_obss->tor;
 
-  /* Reset the `has_pos` flag. */
   u8 has_pos_old = base_obss.has_pos;
-  base_obss.has_pos = 0;
-
   if (base_obss.n >= 4) {
     gnss_solution soln;
     dops_t dops;
@@ -219,10 +216,13 @@ static void update_obss(obss_t *new_obss)
        }
       }
     } else {
+      base_obss.has_pos = 0;
       /* TODO(dsk) check for repair failure */
       /* There was an error calculating the position solution. */
       log_warn("Error calculating base station position: (%s).", pvt_err_msg[-ret-1]);
     }
+  } else {
+    base_obss.has_pos = 0;
   }
 
   /* If the base station position is known then calculate the satellite ranges.
