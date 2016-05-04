@@ -35,8 +35,6 @@ typedef enum {
 
 #define MAX_AGE_OF_DIFFERENTIAL 1.0
 
-#define DGNSS_TIMEOUT S2ST(2)
-
 #define OBS_N_BUFF 5
 #define OBS_BUFF_SIZE (OBS_N_BUFF * sizeof(obss_t))
 

@@ -46,6 +46,13 @@
 /* Maximum CPU time the solution thread is allowed to use. */
 #define SOLN_THD_CPU_MAX (0.60f)
 
+/** number of solution periods before SPP resumes in pseudo-absolute mode */
+#define DGNSS_TIMEOUT_PERIODS 2
+
+/** number of OS ticks before SPP resumes in pseudo-absolute mode */
+#define DGNSS_TIMEOUT(soln_freq_hz) MS2ST((DGNSS_TIMEOUT_PERIODS * \
+  1/((float) (soln_freq_hz)) * 1000))
+
 MemoryPool obs_buff_pool;
 mailbox_t obs_mailbox;
 
@@ -77,7 +84,7 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
     msg_gps_time_t gps_time;
     sbp_make_gps_time(&gps_time, &soln->time, 0);
     sbp_send_msg(SBP_MSG_GPS_TIME, sizeof(gps_time), (u8 *) &gps_time);
-    if (chVTTimeElapsedSinceX(last_dgnss) > DGNSS_TIMEOUT) {
+    if (chVTTimeElapsedSinceX(last_dgnss) > DGNSS_TIMEOUT(soln_freq)) {
       /* Position in LLH. */
       msg_pos_llh_t pos_llh;
       sbp_make_pos_llh(&pos_llh, soln, 0);
@@ -111,7 +118,7 @@ void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm,
                         u8 fix_mode)
 {
-  if (chVTTimeElapsedSinceX(last_dgnss) > DGNSS_TIMEOUT) {
+  if (chVTTimeElapsedSinceX(last_dgnss) > DGNSS_TIMEOUT(soln_freq)) {
     nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
                fix_mode, dops->hdop, 0, 0);
   }
@@ -771,8 +778,7 @@ void init_base_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 void solution_setup()
 {
   /* Set time of last differential solution in the past. */
-  last_dgnss = chVTGetSystemTime() - DGNSS_TIMEOUT;
-
+  last_dgnss = chVTGetSystemTime() - DGNSS_TIMEOUT(soln_freq);
   SETTING("solution", "soln_freq", soln_freq, TYPE_FLOAT);
   SETTING("solution", "output_every_n_obs", obs_output_divisor, TYPE_INT);
 
