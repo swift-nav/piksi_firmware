@@ -611,11 +611,8 @@ static void solution_thread(void *arg)
 
     /* Only send observations that are closely aligned with the desired
      * solution epochs to ensure they haven't been propagated too far. */
-    /* Output obervations only every obs_output_divisor times, taking
-     * care to ensure that the observations are aligned. */
-    double t_check = expected_tow * (soln_freq / obs_output_divisor);
-    if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
-        fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+    if (fabs(t_err) < OBS_PROPAGATION_LIMIT) {
+
       /* Propagate observation to desired time. */
       /* We have to use the tdcp_doppler result to account for TCXO drift. */
       for (u8 i = 0; i < n_ready_tdcp; i++) {
@@ -637,8 +634,15 @@ static void solution_thread(void *arg)
         ephemeris_unlock();
       }
 
-      /* Send the observations. */
-      if (!simulation_enabled() && time_quality == TIME_FINE) {
+      /* Output obervations only every obs_output_divisor times, taking
+       * care to ensure that the observations are aligned. */
+      /* Also only output observations once our receiver clock is
+       * correctly set. */
+      double t_check = expected_tow * (soln_freq / obs_output_divisor);
+      if (!simulation_enabled() &&
+          time_quality == TIME_FINE &&
+          fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+        /* Send the observations. */
         send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
       }
 
@@ -654,8 +658,6 @@ static void solution_thread(void *arg)
            * process a low-latency differential solution. */
 
           /* Hook in low-latency filter here. */
-          /* TODO currently low latency mode disabled as it does not work
-           * with the CORS compatibility changes */
           if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
               base_obss.has_pos) {
 
