@@ -445,8 +445,13 @@ static void solution_thread(void *arg)
     }
 
     ephemeris_lock();
-    calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                (double)((u32)nav_tc)/SAMPLE_FREQ, p_e_meas);
+    if (calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
+                                    (double)((u32)nav_tc)/SAMPLE_FREQ, p_e_meas)
+        != 0) {
+      log_error("calc_navigation_measurement() returned an error");
+      ephemeris_unlock();
+      continue;
+    }
     ephemeris_unlock();
 
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];

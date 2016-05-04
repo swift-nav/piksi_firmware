@@ -321,10 +321,12 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
       double clock_err;
       double clock_rate_err;
       /* Calculate satellite parameters using the ephemeris. */
-      calc_sat_state(e, &t,
+      if (calc_sat_state(e, &t,
                      base_obss_rx.nm[base_obss_rx.n].sat_pos,
                      base_obss_rx.nm[base_obss_rx.n].sat_vel,
-                     &clock_err, &clock_rate_err);
+                     &clock_err, &clock_rate_err) != 0) {
+        continue;
+      }
       /* Apply corrections to the raw pseudorange. */
       /* TODO Make a function to apply some of these corrections.
        *      They are used in a couple places. */
