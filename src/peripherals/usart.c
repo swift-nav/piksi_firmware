@@ -30,6 +30,7 @@ usart_settings_t ftdi_usart = {
   .baud_rate          = USART_DEFAULT_BAUD_FTDI,
   .sbp_message_mask   = 0xFFFF,
   .configure_telemetry_radio_on_boot = 0,
+  .sbp_fwd = 1,
 };
 
 usart_settings_t uarta_usart = {
@@ -37,6 +38,7 @@ usart_settings_t uarta_usart = {
   .baud_rate          = USART_DEFAULT_BAUD_RADIO,
   .sbp_message_mask   = 0x40,
   .configure_telemetry_radio_on_boot = 1,
+  .sbp_fwd = 0,
 };
 
 usart_settings_t uartb_usart = {
@@ -44,6 +46,7 @@ usart_settings_t uartb_usart = {
   .baud_rate        = USART_DEFAULT_BAUD_TTL,
   .sbp_message_mask = 0xFF00,
   .configure_telemetry_radio_on_boot = 1,
+  .sbp_fwd = 0,
 };
 
 bool all_uarts_enabled = false;
@@ -75,6 +78,7 @@ void usarts_setup()
 
   SETTING("uart_ftdi", "mode", ftdi_usart.mode, TYPE_PORTMODE);
   SETTING("uart_ftdi", "sbp_message_mask", ftdi_usart.sbp_message_mask, TYPE_INT);
+  SETTING("uart_ftdi", "fwd_msg", ftdi_usart.sbp_fwd, TYPE_INT);
   SETTING_NOTIFY("uart_ftdi", "baudrate", ftdi_usart.baud_rate, TYPE_INT,
                  baudrate_change_notify);
 
@@ -82,6 +86,7 @@ void usarts_setup()
   SETTING("uart_uarta", "sbp_message_mask", uarta_usart.sbp_message_mask, TYPE_INT);
   SETTING("uart_uarta", "configure_telemetry_radio_on_boot",
           uarta_usart.configure_telemetry_radio_on_boot, TYPE_BOOL);
+  SETTING("uart_uarta", "fwd_msg", uarta_usart.sbp_fwd, TYPE_INT);
   SETTING_NOTIFY("uart_uarta", "baudrate", uarta_usart.baud_rate, TYPE_INT,
           baudrate_change_notify);
 
@@ -89,6 +94,7 @@ void usarts_setup()
   SETTING("uart_uartb", "sbp_message_mask", uartb_usart.sbp_message_mask, TYPE_INT);
   SETTING("uart_uartb", "configure_telemetry_radio_on_boot",
           uartb_usart.configure_telemetry_radio_on_boot, TYPE_BOOL);
+  SETTING("uart_uartb", "fwd_msg", uartb_usart.sbp_fwd, TYPE_INT);
   SETTING_NOTIFY("uart_uartb", "baudrate", uartb_usart.baud_rate, TYPE_INT,
           baudrate_change_notify);
 

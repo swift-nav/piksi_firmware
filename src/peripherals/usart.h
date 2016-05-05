@@ -31,6 +31,7 @@ typedef struct {
   u32 baud_rate;
   u32 sbp_message_mask;
   u8  configure_telemetry_radio_on_boot;
+  u8  sbp_fwd;
 } usart_settings_t;
 
 /** Message and baud rate settings for all USARTs. */

@@ -145,7 +145,7 @@ void sbp_disable()
 }
 
 /** Checks if the message should be sent from a particular USART. */
-static inline u32 use_usart(usart_settings_t *us, u16 msg_type)
+static inline u32 use_usart(usart_settings_t *us, u16 msg_type, u16 sender_id)
 {
   if (us->mode != SBP)
     /* This USART is not in SBP mode. */
@@ -153,6 +153,10 @@ static inline u32 use_usart(usart_settings_t *us, u16 msg_type)
 
   if (!(us->sbp_message_mask & msg_type))
     /* This message type is masked out on this USART. */
+    return 0;
+ 
+  if(!us->sbp_fwd && sender_id == 0)
+    /* This USART is set up to not forward any messages (sender ID of 0).*/ 
     return 0;
 
   return 1;
@@ -198,9 +202,8 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
                           len, buff, &sbp_buffer_write);
 
   /* Don't relayed messages (sender_id 0) on the A and B UARTs. (Only FTDI USB) */
-  if (sender_id != 0) {
 
-    if (use_usart(&uarta_usart, msg_type) && usart_claim(&uarta_state, SBP_MODULE)) {
+    if (use_usart(&uarta_usart, msg_type, sender_id) && usart_claim(&uarta_state, SBP_MODULE)) {
       usart_write(&uarta_state, sbp_buffer, sbp_buffer_length);
       usart_release(&uarta_state);
     }
@@ -209,7 +212,7 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
       MAX(uart_state_msg.uart_a.tx_buffer_level,
         255 - (255 * usart_tx_n_free(&uarta_state)) / (SERIAL_BUFFERS_SIZE-1));
 
-    if (use_usart(&uartb_usart, msg_type) && usart_claim(&uartb_state, SBP_MODULE)) {
+    if (use_usart(&uartb_usart, msg_type, sender_id) && usart_claim(&uartb_state, SBP_MODULE)) {
       usart_write(&uartb_state, sbp_buffer, sbp_buffer_length);
       usart_release(&uartb_state);
     }
@@ -218,9 +221,7 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
       MAX(uart_state_msg.uart_b.tx_buffer_level,
         255 - (255 * usart_tx_n_free(&uartb_state)) / (SERIAL_BUFFERS_SIZE-1));
 
-  }
-
-  if (use_usart(&ftdi_usart, msg_type) && usart_claim(&ftdi_state, SBP_MODULE)) {
+  if (use_usart(&ftdi_usart, msg_type, sender_id) && usart_claim(&ftdi_state, SBP_MODULE)) {
     usart_write(&ftdi_state, sbp_buffer, sbp_buffer_length);
     usart_release(&ftdi_state);
   }
