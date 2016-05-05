@@ -54,6 +54,8 @@ typedef struct {
   volatile uint32_t ACQ_TIMING_SNAPSHOT;
   volatile uint32_t ACQ_START_SNAPSHOT;
   volatile uint32_t ACQ_FFT_CONFIG;
+  volatile uint32_t ACQ_PEAK_MAGSQ;
+  volatile uint32_t ACQ_PEAK_SUM;
   volatile uint32_t TRK_CONTROL;
   volatile uint32_t TRK_IRQ;
   volatile uint32_t TRK_IRQ_ERROR;
@@ -79,6 +81,9 @@ typedef struct {
 #define NAP_CONTROL_KEY_BYTE_Pos (24U)
 #define NAP_CONTROL_KEY_BYTE_Msk (0xFFU << NAP_CONTROL_KEY_BYTE_Pos)
 
+#define NAP_ACQ_STATUS_PEAK_INDEX_Pos (7U)
+#define NAP_ACQ_STATUS_PEAK_INDEX_Msk (0x7FFFU << NAP_ACQ_STATUS_PEAK_INDEX_Pos)
+
 #define NAP_ACQ_CONTROL_DMA_INPUT_Pos (0U)
 #define NAP_ACQ_CONTROL_DMA_INPUT_Msk (0x1U << NAP_ACQ_CONTROL_DMA_INPUT_Pos)
 #define NAP_ACQ_CONTROL_DMA_INPUT_FFT (0U)
@@ -97,6 +102,9 @@ typedef struct {
 
 #define NAP_ACQ_CONTROL_LENGTH_Pos (5U)
 #define NAP_ACQ_CONTROL_LENGTH_Msk (0xFFFFFU << NAP_ACQ_CONTROL_LENGTH_Pos)
+
+#define NAP_ACQ_CONTROL_PEAK_SEARCH_Pos (25U)
+#define NAP_ACQ_CONTROL_PEAK_SEARCH (1U)
 
 #define NAP_ACQ_FFT_CONFIG_DIR_Pos (0U)
 #define NAP_ACQ_FFT_CONFIG_DIR_Msk (0x1U << NAP_ACQ_FFT_CONFIG_DIR_Pos)

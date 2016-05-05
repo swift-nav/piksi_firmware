@@ -81,7 +81,8 @@ static void control_set_dma(void)
       (NAP_ACQ_CONTROL_FFT_INPUT_DMA      << NAP_ACQ_CONTROL_FFT_INPUT_Pos) |
       (0                                  << NAP_ACQ_CONTROL_RF_FE_Pos) |
       (0                                  << NAP_ACQ_CONTROL_RF_FE_CH_Pos) |
-      (0                                  << NAP_ACQ_CONTROL_LENGTH_Pos);
+      (0                                  << NAP_ACQ_CONTROL_LENGTH_Pos) |
+      (NAP_ACQ_CONTROL_PEAK_SEARCH        << NAP_ACQ_CONTROL_PEAK_SEARCH_Pos);
 }
 
 /** Set the ACQ control register for frontend samples input.
