@@ -19,6 +19,7 @@
 #include <libswiftnav/logging.h>
 
 #include "nap/nap_constants.h"
+#include "nap/nap_hw.h"
 #include "nap/fft.h"
 
 #define CHIP_RATE 1.023e6f
@@ -102,26 +103,13 @@ bool acq_search(gnss_signal_t sid, float cf_min, float cf_max,
     }
 
     /* Peak search */
-    float mag_sq_sum = 0.0f;
-    bool match = false;
-    for (u32 i=0; i<fft_len; i++) {
-      const fft_cplx_t *r = &result_fft[i];
-
-      float re = (float)r->re;
-      float im = (float)r->im;
-      float mag_sq = re*re + im*im;
-      mag_sq_sum += mag_sq;
-
-      if (mag_sq > best_mag_sq) {
-        best_mag_sq = mag_sq;
-        best_doppler = doppler;
-        best_sample_offset = i;
-        match = true;
-      }
-    }
-
-    if (match) {
-      best_mag_sq_sum = mag_sq_sum;
+    float mag_sq = (float)NAP->ACQ_PEAK_MAGSQ;
+    if (mag_sq > best_mag_sq) {
+      best_doppler = doppler;
+      best_mag_sq = mag_sq;
+      best_mag_sq_sum = (float)NAP->ACQ_PEAK_SUM;
+      best_sample_offset = ((NAP->ACQ_STATUS & NAP_ACQ_STATUS_PEAK_INDEX_Msk)
+          >> NAP_ACQ_STATUS_PEAK_INDEX_Pos);
     }
   }
 
