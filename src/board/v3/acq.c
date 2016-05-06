@@ -103,13 +103,21 @@ bool acq_search(gnss_signal_t sid, float cf_min, float cf_max,
     }
 
     /* Peak search */
+    u32 acq_status = NAP->ACQ_STATUS;
     float mag_sq = (float)NAP->ACQ_PEAK_MAGSQ;
     if (mag_sq > best_mag_sq) {
       best_doppler = doppler;
       best_mag_sq = mag_sq;
-      best_mag_sq_sum = (float)NAP->ACQ_PEAK_SUM;
-      best_sample_offset = ((NAP->ACQ_STATUS & NAP_ACQ_STATUS_PEAK_INDEX_Msk)
+      best_mag_sq_sum = (float)NAP->ACQ_SUM_MAGSQ;
+      best_sample_offset = ((acq_status & NAP_ACQ_STATUS_PEAK_INDEX_Msk)
           >> NAP_ACQ_STATUS_PEAK_INDEX_Pos);
+    }
+
+    if (acq_status & NAP_ACQ_STATUS_PEAK_MAGSQ_OVF_Msk) {
+      log_error("Acquisition: Magnitude squared overflow.");
+    }
+    if (acq_status & NAP_ACQ_STATUS_SUM_MAGSQ_OVF_Msk) {
+      log_error("Acquisition: Magnitude squared sum overflow.");
     }
   }
 
