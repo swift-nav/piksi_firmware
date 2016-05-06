@@ -38,6 +38,7 @@ extern u8 nap_acq_downsample_stages;
 void nap_conf_rd_parameters(void);
 
 u8 nap_conf_rd_version_string(char version_string[]);
+u32 nap_conf_rd_version(void);
 s32 nap_conf_rd_serial_number(void);
 u32 nap_conf_rd_hw_rev(void);
 const char * nap_conf_rd_hw_rev_string(void);

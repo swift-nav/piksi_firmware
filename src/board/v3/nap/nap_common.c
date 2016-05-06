@@ -12,6 +12,7 @@
 
 #include "board.h"
 #include "nap/nap_common.h"
+#include "../../sbp.h"
 
 #include "nap_hw.h"
 #include "nap_constants.h"
@@ -21,19 +22,25 @@
 #include "system_monitor.h"
 
 #include <math.h>
+#include <string.h>
 
 #define PROCESS_PERIOD_ms (1000)
 
 void nap_isr(void *context);
+void nap_unlock(const u8 key[]);
 
 static BSEMAPHORE_DECL(nap_exti_sem, TRUE);
 static WORKING_AREA_CCM(wa_nap_exti, 2000);
 static void nap_exti_thread(void *arg);
 
+static u8 nap_dna[NAP_DNA_LENGTH] = {0};
 u8 nap_track_n_channels = 0;
 
 void nap_setup(void)
 {
+  nap_rd_dna(nap_dna);
+  /* TODO: Call nap_unlock with valid key */
+
   nap_track_n_channels = (NAP->STATUS & NAP_STATUS_TRACKING_CH_Msk) >>
                           NAP_STATUS_TRACKING_CH_Pos;
   nap_track_n_channels = MIN(nap_track_n_channels, NAP_MAX_N_TRACK_CHANNELS);
@@ -119,3 +126,64 @@ static void nap_exti_thread(void *arg)
   }
 }
 
+u32 nap_conf_rd_version(void)
+{
+  NAP->CONTROL = (NAP->CONTROL & ~((u32)NAP_CONTROL_VERSION_ADDR_Msk));
+  return NAP->VERSION;
+}
+
+u8 nap_conf_rd_version_string(char version_string[])
+{
+  u8 i = 0;
+  u32 reg = 0;
+  u32 ctrl = (NAP->CONTROL & ~((u32)NAP_CONTROL_VERSION_ADDR_Msk));
+
+  do {
+    NAP->CONTROL = ctrl | ((i + NAP_VERSION_STRING_OFFSET) / sizeof(reg) <<
+        NAP_CONTROL_VERSION_ADDR_Pos);
+    reg = NAP->VERSION;
+    memcpy(&version_string[i], &reg, sizeof(reg));
+    i += sizeof(reg);
+  } while (reg && i < NAP_VERSION_STRING_LENGTH);
+  version_string[i] = 0;
+
+  return strlen(version_string);
+}
+
+void nap_rd_dna(u8 dna[])
+{
+  u32 reg = 0;
+  u32 ctrl = (NAP->CONTROL & ~((u32)NAP_CONTROL_VERSION_ADDR_Msk));
+
+  for (u8 i = 0; i < NAP_DNA_LENGTH; i += sizeof(reg)) {
+    NAP->CONTROL = ctrl | ((i + NAP_DNA_OFFSET) / sizeof(reg) <<
+        NAP_CONTROL_VERSION_ADDR_Pos);
+    reg = NAP->VERSION;
+    memcpy(&dna[i], &reg, sizeof(reg));
+  }
+}
+
+void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)
+{
+  (void)sender_id; (void)len; (void)msg; (void) context;
+  sbp_send_msg(SBP_MSG_NAP_DEVICE_DNA_RESP, NAP_DNA_LENGTH, nap_dna);
+}
+
+void nap_callbacks_setup(void)
+{
+  static sbp_msg_callbacks_node_t nap_dna_node;
+
+  sbp_register_cbk(SBP_MSG_NAP_DEVICE_DNA_REQ, &nap_rd_dna_callback,
+      &nap_dna_node);
+}
+
+void nap_unlock(const u8 key[])
+{
+  u32 ctrl = (NAP->CONTROL & ~((u32)NAP_CONTROL_KEY_ADDR_Msk |
+        NAP_CONTROL_KEY_BYTE_Msk));
+
+  for (u8 i = 0; i < NAP_KEY_LENGTH; ++i) {
+    NAP->CONTROL = ctrl | ((u32)key[i] << NAP_CONTROL_KEY_BYTE_Pos) |
+        (i << NAP_CONTROL_KEY_ADDR_Pos);
+  }
+}

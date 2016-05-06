@@ -91,6 +91,11 @@ u8 nap_conf_rd_version_string(char version_string[])
   return strlen(version_string);
 }
 
+u32 nap_conf_rd_version(void)
+{
+  return 0;
+}
+
 s32 nap_conf_rd_serial_number(void)
 {
   return 0;
