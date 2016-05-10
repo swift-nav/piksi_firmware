@@ -111,6 +111,8 @@ void tracker_bit_sync_update(tracker_context_t *context, u32 int_ms,
                              s32 corr_prompt_real);
 u8 tracker_bit_length_get(tracker_context_t *context);
 bool tracker_bit_aligned(tracker_context_t *context);
+bool tracker_has_bit_sync(tracker_context_t *context);
+bool tracker_next_bit_aligned(tracker_context_t *context, u32 int_ms);
 void tracker_ambiguity_unknown(tracker_context_t *context);
 void tracker_correlations_send(tracker_context_t *context, const corr_t *cs);
 

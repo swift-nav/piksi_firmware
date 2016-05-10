@@ -26,6 +26,7 @@
 #include "track.h"
 #include "track_api.h"
 #include "track_internal.h"
+#include "track_profiles.h"
 #include "simulator.h"
 #include "settings.h"
 #include "signal.h"
@@ -151,6 +152,7 @@ void track_setup(void)
   }
 
   platform_track_setup();
+  tp_init();
 }
 
 /** Send tracking state SBP message.
