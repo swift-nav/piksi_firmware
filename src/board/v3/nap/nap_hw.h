@@ -54,6 +54,7 @@ typedef struct {
   volatile uint32_t ACQ_TIMING_SNAPSHOT;
   volatile uint32_t ACQ_START_SNAPSHOT;
   volatile uint32_t ACQ_FFT_CONFIG;
+  volatile uint32_t ACQ_PINC;
   volatile uint32_t ACQ_PEAK_MAGSQ;
   volatile uint32_t ACQ_SUM_MAGSQ;
   volatile uint32_t TRK_CONTROL;
