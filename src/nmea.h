@@ -32,7 +32,6 @@
 #define NMEA_GGA_FIX_MANUAL  7
 #define NMEA_GGA_FIX_SIM     8
 
-#define MINUTES(X) fabs(60 * (R2D * (X) - ((s16)(R2D * (X)))));
 #define MS2KNOTTS(x,y,z) sqrt((x)*(x) + (y)*(y) + (z)*(z)) * 1.94385
 #define MS2KMHR(x,y,z) sqrt((x)*(x)+(y)*(y)+(z)*(z)) * (3600/1000)
 

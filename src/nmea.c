@@ -167,22 +167,24 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
 
   unix_t = gps2time(gps_t);
   gmtime_r(&unix_t, &t);
+ 
+  double frac_s  = fmod(gps_t->tow, 1.0);
+  
+  double lat     = fabs( round( R2D * pos_llh[0] * 1e8 ) / 1e8 );
+  double lon     = fabs( round( R2D * pos_llh[1] * 1e8 ) / 1e8 );
 
-  double frac_s = fmod(gps_t->tow, 1.0);
+  char   lat_dir = pos_llh[0] < 0.0 ? 'S' : 'N';
+  u16    lat_deg = (u16)lat;
+  double lat_min = (lat - (double)lat_deg) * 60.0;
 
-  s16 lat_deg = R2D * (pos_llh[0]);
-  double lat_min = MINUTES(pos_llh[0]);
-  s16 lon_deg = R2D * (pos_llh[1]);
-  double lon_min = MINUTES(pos_llh[1]);
-  lat_deg = abs(lat_deg);
-  lon_deg = abs(lon_deg);
-  char lat_dir = pos_llh[0] < 0 ? 'S' : 'N';
-  char lon_dir = pos_llh[1] < 0 ? 'W' : 'E';
-
+  char   lon_dir = pos_llh[1] < 0.0 ? 'W' : 'E';
+  u16    lon_deg = (u16)lon;
+  double lon_min = (lon - (double)lon_deg) * 60.0;
+  
   NMEA_SENTENCE_START(120);
   /* Note, geoid separation is set to 0 because no geoid model exists*/
   NMEA_SENTENCE_PRINTF("$GPGGA,%02d%02d%06.3f,"
-                       "%02d%010.7f,%c,%03d%010.7f,%c,"
+                       "%02u%010.7f,%c,%03u%010.7f,%c,"
                        "%01d,%02d,%.1f,%.2f,M,0,M,",
                        t.tm_hour, t.tm_min, t.tm_sec + frac_s,
                        lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
@@ -294,17 +296,19 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
 
   unix_t = gps2time(gps_t);
   gmtime_r(&unix_t, &t);
-  double frac_s = fmod(gps_t->tow, 1.0);
+  
+  double frac_s  = fmod(gps_t->tow, 1.0);
 
-  s16 lat_deg = R2D * (soln->pos_llh[0]);
-  double lat_min = MINUTES(soln->pos_llh[0]);
-  s16 lon_deg = R2D * (soln->pos_llh[1]);
-  double lon_min = MINUTES(soln->pos_llh[1]);
-  lat_deg = abs(lat_deg);
-  lon_deg = abs(lon_deg);
+  double lat     = fabs( round( R2D * soln->pos_llh[0] * 1e8 ) / 1e8 );
+  double lon     = fabs( round( R2D * soln->pos_llh[1] * 1e8 ) / 1e8 );
 
-  char lat_dir = soln->pos_llh[0] < 0 ? 'S' : 'N';
-  char lon_dir = soln->pos_llh[1] < 0 ? 'W' : 'E';
+  char   lat_dir = soln->pos_llh[0] < 0.0 ? 'S' : 'N';
+  u16    lat_deg = (u16)lat;
+  double lat_min = (lat - (double)lat_deg) * 60.0;
+
+  char   lon_dir = soln->pos_llh[1] < 0.0 ? 'W' : 'E';
+  u16    lon_deg = (u16)lon;
+  double lon_min = (lon - (double)lon_deg) * 60.0;
 
   float velocity;
   float x,y,z;
@@ -319,7 +323,7 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
   NMEA_SENTENCE_START(140);
   NMEA_SENTENCE_PRINTF(
                 "$GPRMC,%02d%02d%06.3f,A," /* Command, Time (UTC), Valid */
-                "%02d%010.7f,%c,%03d%010.7f,%c," /* Lat/Lon */
+                "%02u%010.7f,%c,%03u%010.7f,%c," /* Lat/Lon */
                 "%06.2f,%05.1f," /* Speed, Course */
                 "%02d%02d%02d," /* Date Stamp */
                 ",", /* Variation */
@@ -389,20 +393,22 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
   unix_t = gps2time(gps_t);
   gmtime_r(&unix_t, &t);
 
-  double frac_s = fmod(gps_t->tow, 1.0);
-  s16 lat_deg = R2D * (soln->pos_llh[0]);
-  double lat_min = MINUTES(soln->pos_llh[0]);
-  s16 lon_deg = R2D * (soln->pos_llh[1]);
-  double lon_min =  MINUTES(soln->pos_llh[1]);
-  lat_deg = abs(lat_deg);
-  lon_deg = abs(lon_deg);
+  double frac_s  = fmod(gps_t->tow, 1.0);
+  
+  double lat     = fabs( round( R2D * soln->pos_llh[0] * 1e8 ) / 1e8 );
+  double lon     = fabs( round( R2D * soln->pos_llh[1] * 1e8 ) / 1e8 );
 
-  char lat_dir = soln->pos_llh[0] < 0 ? 'S' : 'N';
-  char lon_dir = soln->pos_llh[1] < 0 ? 'W' : 'E';
+  char   lat_dir = soln->pos_llh[0] < 0.0 ? 'S' : 'N';
+  u16    lat_deg = (u16)lat;
+  double lat_min = (lat - (double)lat_deg) * 60.0;
+
+  char   lon_dir = soln->pos_llh[1] < 0.0 ? 'W' : 'E';
+  u16    lon_deg = (u16)lon;
+  double lon_min = (lon - (double)lon_deg) * 60.0;  
 
   NMEA_SENTENCE_START(120);
   NMEA_SENTENCE_PRINTF("$GPGLL,"
-                "%02d%010.7f,%c,%03d%010.7f,%c," /* Lat/Lon */
+                "%02u%010.7f,%c,%03u%010.7f,%c," /* Lat/Lon */
                 "%02d%02d%06.3f,A", /* Time (UTC), Valid */
                 lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
                 t.tm_hour, t.tm_min, t.tm_sec + frac_s);
