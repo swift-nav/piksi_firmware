@@ -435,7 +435,7 @@ void nmea_gpzda(const gps_time_t *gps_t )
                 "%02d,%02d,%d," /* Date Stamp */
                 "00,00", /* Time zone */
                 t.tm_hour, t.tm_min, t.tm_sec + frac_s,
-                t.tm_mday, t.tm_mon + 1, 2016);
+                t.tm_mday, t.tm_mon + 1, 1900 + t.tm_year );
   NMEA_SENTENCE_DONE();
 
 } // nmea_gpzda()
