@@ -411,12 +411,13 @@ static void solution_thread(void *arg)
       solution_simulation();
     }
 
+    u64 nav_tc = nap_timing_count();
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
       tracking_channel_lock(i);
       if (use_tracking_channel(i)) {
-        tracking_channel_measurement_get(i, &meas[n_ready]);
+        tracking_channel_measurement_get(i, nav_tc, &meas[n_ready]);
         n_ready++;
       }
       tracking_channel_unlock(i);
@@ -432,7 +433,6 @@ static void solution_thread(void *arg)
      * more intelligent with the solution time.
      */
     static u8 n_ready_old = 0;
-    u64 nav_tc = nap_timing_count();
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
 
     const channel_measurement_t *p_meas[n_ready];
@@ -445,8 +445,7 @@ static void solution_thread(void *arg)
     }
 
     ephemeris_lock();
-    if (calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                    (double)((u32)nav_tc)/SAMPLE_FREQ, p_e_meas)
+    if (calc_navigation_measurement(n_ready, p_meas, p_nav_meas, p_e_meas)
         != 0) {
       log_error("calc_navigation_measurement() returned an error");
       ephemeris_unlock();

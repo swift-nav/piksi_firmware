@@ -553,9 +553,10 @@ bool tracking_channel_bit_polarity_resolved(tracker_channel_id_t id)
 /** Retrieve a channel measurement for a tracker channel.
  *
  * \param id      ID of the tracker channel to use.
+ * \param ref_tc  Reference timing count.
  * \param meas    Pointer to output channel_measurement_t.
  */
-void tracking_channel_measurement_get(tracker_channel_id_t id,
+void tracking_channel_measurement_get(tracker_channel_id_t id, u32 ref_tc,
                                       channel_measurement_t *meas)
 {
   tracker_channel_t *tracker_channel = tracker_channel_get(id);
@@ -570,7 +571,8 @@ void tracking_channel_measurement_get(tracker_channel_id_t id,
   meas->carrier_phase = common_data->carrier_phase;
   meas->carrier_freq = common_data->carrier_freq;
   meas->time_of_week_ms = common_data->TOW_ms;
-  meas->receiver_time = (double)common_data->sample_count / SAMPLE_FREQ;
+  meas->rec_time_delta = (double)((s32)(common_data->sample_count - ref_tc))
+                             / SAMPLE_FREQ;
   meas->snr = common_data->cn0;
   if (internal_data->bit_polarity == BIT_POLARITY_INVERTED) {
     meas->carrier_phase += 0.5;
