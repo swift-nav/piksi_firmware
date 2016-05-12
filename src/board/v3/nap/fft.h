@@ -32,14 +32,10 @@ typedef enum {
 } fft_dir_t;
 
 typedef enum {
-  FFT_SAMPLES_INPUT_RF1_CH0 = 0,
-  FFT_SAMPLES_INPUT_RF1_CH1 = 1,
-  FFT_SAMPLES_INPUT_RF2_CH0 = 2,
-  FFT_SAMPLES_INPUT_RF2_CH1 = 3,
-  FFT_SAMPLES_INPUT_RF3_CH0 = 4,
-  FFT_SAMPLES_INPUT_RF3_CH1 = 5,
-  FFT_SAMPLES_INPUT_RF4_CH0 = 6,
-  FFT_SAMPLES_INPUT_RF5_CH1 = 7
+  FFT_SAMPLES_INPUT_RF1 = 0,
+  FFT_SAMPLES_INPUT_RF2 = 1,
+  FFT_SAMPLES_INPUT_RF3 = 2,
+  FFT_SAMPLES_INPUT_RF4 = 3,
 } fft_samples_input_t;
 
 bool fft(const fft_cplx_t *in, fft_cplx_t *out, u32 len_log2,
