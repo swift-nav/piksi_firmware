@@ -11,7 +11,10 @@
  */
 
 #include "track_gps_l1ca.h"
+#include "track_gps_l2cm.h" /* for L1C/A to L2 CM tracking handover */
 #include "track_api.h"
+#include "track.h"
+#include "decode.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
@@ -49,6 +52,9 @@
 #define LD_PARAMS_DISABLE  "0.02, 1e-6, 1, 1"
 
 #define CN0_EST_LPF_CUTOFF 5
+
+/* Convert milliseconds to L1C/A chips */
+#define L1CA_TRACK_MS_TO_CHIPS(ms) ((ms) * GPS_L1CA_CHIPS_NUM)
 
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
@@ -224,7 +230,8 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
     if (!data->short_cycle) {
       tracker_retune(channel_info->context, common_data->carrier_freq,
-                     common_data->code_phase_rate, 0);
+                     common_data->code_phase_rate,
+                     L1CA_TRACK_MS_TO_CHIPS(1));
       return;
     }
   }
@@ -337,11 +344,19 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
     /* Indicate that a mode change has occurred. */
     common_data->mode_change_count = common_data->update_count;
+
+    do_l1ca_to_l2cm_handover(common_data->sample_count,
+                             channel_info->sid.sat,
+                             channel_info->nap_channel,
+                             common_data->code_phase_early);
   }
 
+  u32 chips_to_correlate = (1 == data->int_ms) ?
+                           L1CA_TRACK_MS_TO_CHIPS(1) :
+                           L1CA_TRACK_MS_TO_CHIPS(data->int_ms - 1);
+
   tracker_retune(channel_info->context, common_data->carrier_freq,
-                 common_data->code_phase_rate,
-                 data->int_ms == 1 ? 0 : data->int_ms - 2);
+                 common_data->code_phase_rate, chips_to_correlate);
 }
 
 /** Parse a string describing the tracking loop filter parameters into

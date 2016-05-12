@@ -13,12 +13,14 @@
 #include "platform_signal.h"
 
 #include "track/track_gps_l1ca.h"
+#include "track/track_gps_l2cm.h"
 
 #include "decode/decode_gps_l1ca.h"
 
 void platform_track_setup(void)
 {
   track_gps_l1ca_register();
+  track_gps_l2cm_register();
 }
 
 void platform_decode_setup(void)
