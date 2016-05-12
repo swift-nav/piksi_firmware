@@ -76,7 +76,6 @@ static void control_set_dma(void)
       (NAP_ACQ_CONTROL_DMA_INPUT_FFT      << NAP_ACQ_CONTROL_DMA_INPUT_Pos) |
       (NAP_ACQ_CONTROL_FFT_INPUT_DMA      << NAP_ACQ_CONTROL_FFT_INPUT_Pos) |
       (0                                  << NAP_ACQ_CONTROL_RF_FE_Pos) |
-      (0                                  << NAP_ACQ_CONTROL_RF_FE_CH_Pos) |
       (0                                  << NAP_ACQ_CONTROL_LENGTH_Pos);
 }
 
@@ -91,8 +90,7 @@ static void control_set_samples(fft_samples_input_t samples_input,
   NAP->ACQ_CONTROL =
       (NAP_ACQ_CONTROL_DMA_INPUT_FFT      << NAP_ACQ_CONTROL_DMA_INPUT_Pos) |
       (NAP_ACQ_CONTROL_FFT_INPUT_FRONTEND << NAP_ACQ_CONTROL_FFT_INPUT_Pos) |
-      ((samples_input >> 1)               << NAP_ACQ_CONTROL_RF_FE_Pos) |
-      ((samples_input & 1)                << NAP_ACQ_CONTROL_RF_FE_CH_Pos) |
+      ((samples_input)                    << NAP_ACQ_CONTROL_RF_FE_Pos) |
       (len_points                         << NAP_ACQ_CONTROL_LENGTH_Pos);
 
   /* Set up timing compare */
