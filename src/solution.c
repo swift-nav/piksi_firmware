@@ -153,7 +153,7 @@ double calc_heading(const double b_ned[3])
  * \param flags u8 RTK solution flags. 1 if float, 0 if fixed
  */
 void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
-                            double ref_ecef[3], u8 flags, double hdop, 
+                            double ref_ecef[3], u8 flags, double hdop,
                             double corrections_age, u16 sender_id)
 {
   double* base_station_pos;
@@ -521,7 +521,7 @@ static void solution_thread(void *arg)
                                     sdiffs);
             ephemeris_unlock();
             if (num_sdiffs >= 4) {
-              output_baseline(num_sdiffs, sdiffs, &position_solution.time, pdt, 
+              output_baseline(num_sdiffs, sdiffs, &position_solution.time, pdt,
                               dops.hdop, base_obss.sender_id);
             }
           }
