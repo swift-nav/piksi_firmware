@@ -47,7 +47,11 @@ void nap_setup(void)
   axi_dma_init();
   axi_dma_start(&AXIDMADriver1);
 
+  /* NAP_FE10_PINC initialization for GPS L1C/A processing */
   NAP->FE_PINC[0] = (u32)round(14.58e6 * pow(2.0, 32.0)
+                                   / NAP_FRONTEND_SAMPLE_RATE_Hz);
+  /* NAP_FE40_PINC initialization for GPS L2C processing */
+  NAP->FE_PINC[6] = (u32)round(7.4e6 * pow(2.0, 32.0)
                                    / NAP_FRONTEND_SAMPLE_RATE_Hz);
 
   /* Enable NAP interrupt */

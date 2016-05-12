@@ -15,9 +15,19 @@
 
 #include <libswiftnav/common.h>
 
+#ifdef FEATURE_L2C
+# define L2C_WEAK
+#else
+# define L2C_WEAK __attribute__ ((weak, alias ("l2c_not_implemented")))
+#endif  /* FEATURE_L2C */
+
+int l2c_not_implemented() __attribute__ ((weak));
+inline int l2c_not_implemented() { return -1; }
+
+void track_gps_l2cm_register(void) L2C_WEAK;
 void do_l1ca_to_l2cm_handover(u32 sample_count,
                               u16 sat,
                               u8 nap_channel,
-                              float code_phase);
+                              float code_phase) L2C_WEAK;
 
 #endif /* SWIFTNAV_TRACK_GPS_L2CM_H */
