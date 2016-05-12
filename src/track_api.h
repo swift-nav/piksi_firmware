@@ -104,7 +104,7 @@ void tracker_correlations_read(tracker_context_t *context, corr_t *cs,
                                u32 *sample_count,
                                double *code_phase, double *carrier_phase);
 void tracker_retune(tracker_context_t *context, double carrier_freq,
-                    double code_phase_rate, u8 rollover_count);
+                    double code_phase_rate, u32 chips_to_correlate);
 s32 tracker_tow_update(tracker_context_t *context, s32 current_TOW_ms,
                        u32 int_ms);
 void tracker_bit_sync_update(tracker_context_t *context, u32 int_ms,

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Copyright (C) 2011-2014,2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *          Colin Beighley <colin@swift-nav.com>
  *
@@ -77,16 +77,19 @@ static struct nap_ch_state {
  * \param prn           CA code PRN (0-31) to track. (deprecated)
  * \param carrier_phase Initial code phase.
  * \param code_phase    Initial carrier phase.
+ * \param chips_to_correlate How many chips to correlate (unused)
  */
 void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
-                    float carrier_freq, float code_phase)
+                    float carrier_freq, float code_phase, u32 chips_to_correlate)
 {
   struct nap_ch_state *s = &nap_ch_state[channel];
   memset(s, 0, sizeof(*s));
 
+  (void) chips_to_correlate;
+
   u32 track_count = nap_timing_count() + 20000;
   float cp = propagate_code_phase(code_phase, carrier_freq,
-                                  track_count - ref_timing_count);
+                                  track_count - ref_timing_count, sid.code);
 
   /* Contrive for the timing strobe to occur at or close to a
    * PRN edge (code phase = 0) */
@@ -130,17 +133,24 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
  * \param channel         NAP track channel whose UPDATE register to write.
  * \param carrier_freq    Next correlation period's carrier frequency.
  * \param code_phase_rate Next correlation period's code phase rate.
+ * \param chips_to_correlate How many chips to correlate over.
+ * \param corr_spacing    Spacing between correlator's EPL replicas.
  */
 void nap_track_update(u8 channel, double carrier_freq,
-                      double code_phase_rate, u8 rollover_count,
+                      double code_phase_rate, u32 chips_to_correlate,
                       u8 corr_spacing)
 {
+  u8 rollover_count;
   struct nap_ch_state *s = &nap_ch_state[channel];
   s->carr_pinc_prev = s->carr_pinc;
   s->carr_pinc = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
   s->code_pinc_prev = s->code_pinc;
   s->code_pinc = code_phase_rate * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
+  rollover_count = (u8) (chips_to_correlate / GPS_L1CA_CHIPS_NUM);
+  if (rollover_count) {
+    rollover_count -= 1;
+  }
   nap_track_update_wr_blocking(channel, s->carr_pinc, s->code_pinc,
                                rollover_count, corr_spacing);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Copyright (C) 2011-2014,2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -25,6 +25,7 @@
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
 #include <libswiftnav/signal.h>
+#include <libswiftnav/constants.h>
 
 #include "main.h"
 #include "board/nap/track_channel.h"
@@ -191,6 +192,13 @@ void manage_acq_setup()
 
     track_mask[i] = false;
     almanac[i].valid = 0;
+
+    if (CODE_GPS_L2CM == acq_status[i].sid.code) {
+      /* Do not acquire GPS L2C.
+       * Do GPS L1 C/A to L2C handover at the tracking stage instead. */
+      acq_status[i].state = ACQ_PRN_SKIP;
+      acq_status[i].masked = true;
+    }
 
     if (!sbas_enabled &&
         (sid_to_constellation(acq_status[i].sid) == CONSTELLATION_SBAS)) {
@@ -400,6 +408,7 @@ static void manage_acq()
       .sample_count = acq_result.sample_count,
       .carrier_freq = acq_result.cf,
       .code_phase = acq_result.cp,
+      .chips_to_correlate = GPS_L1CA_CHIPS_NUM,
       .cn0_init = acq_result.cn0,
       .elevation = TRACKING_ELEVATION_UNKNOWN
     };
@@ -440,7 +449,9 @@ static u8 manage_track_new_acq(gnss_signal_t sid)
    */
   for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracker_channel_available(i, sid) &&
-        decoder_channel_available(i, sid)) {
+        /** \todo: the (sid.code == 1) part is to be removed once L2C
+                   data decoding channel support is added */
+        (decoder_channel_available(i, sid) || (sid.code == 1))) {
       return i;
     }
   }
@@ -690,6 +701,7 @@ static void manage_tracking_startup(void)
                              startup_params.sample_count,
                              startup_params.code_phase,
                              startup_params.carrier_freq,
+                             startup_params.chips_to_correlate,
                              startup_params.cn0_init,
                              TRACKING_ELEVATION_UNKNOWN)) {
       log_error("tracker channel init failed");
