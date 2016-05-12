@@ -62,6 +62,11 @@ extern u64 g_ctime;
   }                                                                         \
 }
 
+/**
+ * @brief   WFI configuration
+ */
+#define CORTEX_ENABLE_WFI_IDLE  TRUE
+
 /* Change vector table location for compatibility with the bootloader. */
 #define CORTEX_VTOR_INIT 0x08004000
 

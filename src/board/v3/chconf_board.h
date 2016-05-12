@@ -75,9 +75,6 @@ extern uint64_t g_ctime;
  */
 #define ARM_FPU                 neon
 
-/* Change vector table location for compatibility with the bootloader. */
-#define CORTEX_VTOR_INIT 0x08004000
-
 #define _CCM
 #define WORKING_AREA_CCM(s, n) THD_WORKING_AREA(s, n) _CCM
 
