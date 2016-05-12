@@ -452,27 +452,19 @@ static void solution_thread(void *arg)
 
     /* Create navigation measurements from the channel measurements */
     ephemeris_lock();
-    if (time_quality == TIME_FINE) {
-      /* If we have timing then we can calculate the relationship between
-       * receiver time and GPS time and hence provide the pseudorange
-       * calculation with the local GPS time of reception. */
-      if (calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                      &rec_time, p_e_meas) != 0) {
-                                    log_error("calc_navigation_measurement() returned an error");
-                                    ephemeris_unlock();
-                                    continue;
-      }
-    } else {
-      /* If a FINE quality time solution is not available then don't pass in a
-       * `nav_time`. This will result in valid pseudoranges but with a large
-       * and arbitrary receiver clock error. We may want to discard these
-       * observations after doing a PVT solution. */
-      if calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                     NULL, p_e_meas) != 0) {
-                                    log_error("calc_navigation_measurement() returned an error");
-                                    ephemeris_unlock();
-                                    continue;
-      }
+    /* If we have timing then we can calculate the relationship between
+     * receiver time and GPS time and hence provide the pseudorange
+     * calculation with the local GPS time of reception. */
+    /* If a FINE quality time solution is not available then don't pass in a
+     * `nav_time`. This will result in valid pseudoranges but with a large
+     * and arbitrary receiver clock error. We may want to discard these
+     * observations after doing a PVT solution. */
+    gps_time_t *p_rec_time = (time_quality == TIME_FINE) ? &rec_time : NULL;
+    if (calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
+								                   p_rec_time, p_e_meas) != 0) {
+      log_error("calc_navigation_measurement() returned an error");
+      ephemeris_unlock();
+      continue;
     }
     ephemeris_unlock();
 
@@ -591,7 +583,7 @@ static void solution_thread(void *arg)
       nav_meas_tdcp[i].raw_pseudorange += GPS_C * gpsdifftime(&position_solution.time, &rec_time);
       nav_meas_tdcp[i].pseudorange += GPS_C * gpsdifftime(&position_solution.time, &rec_time);
     }
-    /**
+    /*
      * The next correction is done to create a new pseudorange that is valid for
      * a different time of arrival.  In particular we'd like to propagate all the
      * observations such that they represent what we would have observed had
