@@ -22,6 +22,7 @@
 #include "sbp.h"
 #include "sbp_utils.h"
 #include "signal.h"
+#include "l2c_capb.h"
 
 typedef struct {
   nav_msg_t nav_msg;
@@ -101,18 +102,25 @@ static void decoder_gps_l1ca_process(const decoder_channel_info_t *channel_info,
   if (!subframe_ready(&data->nav_msg))
     return;
 
-  /* Decode ephemeris to temporary struct */
-  ephemeris_t e = {.sid = channel_info->sid};
-  s8 ret = process_subframe(&data->nav_msg, &e);;
-
+  /* Decode nav data to temporary structure */
+  gps_l1ca_decoded_data_t dd;
+  s8 ret = process_subframe(&data->nav_msg, channel_info->sid, &dd);
   if (ret <= 0)
     return;
 
-  /* Decoded a new ephemeris. */
-  ephemeris_new(&e);
 
-  ephemeris_t *eph = ephemeris_get(channel_info->sid);
-  if (!eph->valid) {
-    log_info_sid(channel_info->sid, "ephemeris is invalid");
+  if (dd.gps_l2c_sv_capability_upd_flag) {
+    /* Store new L2C value  */
+    log_debug("L2C capabilities received: 0x%x", dd.gps_l2c_sv_capability);
+    gps_l2cm_l2c_cap_store(dd.gps_l2c_sv_capability);
+  }
+
+  if(dd.ephemeris_upd_flag) {
+    /* Decoded a new ephemeris. */
+    ephemeris_new(&dd.ephemeris);
+    ephemeris_t *eph = ephemeris_get(channel_info->sid);
+    if (!eph->valid) {
+      log_info_sid(channel_info->sid, "ephemeris is invalid");
+    }
   }
 }
