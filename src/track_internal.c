@@ -62,6 +62,9 @@ void internal_data_init(tracker_internal_data_t *internal_data,
 
   internal_data->bit_polarity = BIT_POLARITY_UNKNOWN;
 
+  /* Reset the carrier phase offset so it gets set again. */
+  internal_data->carrier_phase_offset = 0.0;
+
   nav_bit_fifo_init(&internal_data->nav_bit_fifo);
   nav_time_sync_init(&internal_data->nav_time_sync);
   bit_sync_init(&internal_data->bit_sync, sid);
