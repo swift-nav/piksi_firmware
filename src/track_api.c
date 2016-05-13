@@ -227,6 +227,7 @@ void tracker_ambiguity_unknown(tracker_context_t *context)
   internal_data->bit_polarity = BIT_POLARITY_UNKNOWN;
   internal_data->lock_counter =
       tracking_lock_counter_increment(channel_info->sid);
+  internal_data->carrier_phase_offset = 0.0;
 }
 
 /** Output a correlation data message for a tracker channel.
