@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2014 Swift Navigation Inc.
+ * Copyright (C) 2013-2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -32,8 +32,8 @@
 #define NMEA_GGA_FIX_MANUAL  7
 #define NMEA_GGA_FIX_SIM     8
 
-#define MS2KNOTTS(x,y,z) sqrt((x)*(x) + (y)*(y) + (z)*(z)) * 1.94385
-#define MS2KMHR(x,y,z) sqrt((x)*(x)+(y)*(y)+(z)*(z)) * (3600/1000)
+#define MS2KNOTTS(x,y,z)     sqrt((x)*(x) + (y)*(y) + (z)*(z)) * 1.94385
+#define MS2KMHR(x,y,z)       sqrt((x)*(x)+(y)*(y)+(z)*(z)) * (3600.0/1000.0)
 
 
 void nmea_setup(void);
@@ -45,6 +45,7 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
 void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t);
 void nmea_gpvtg(const gnss_solution *soln);
 void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t);
+void nmea_gpzda(const gps_time_t *gps_t);
 void nmea_send_msgs(gnss_solution *soln, u8 n, 
                     navigation_measurement_t *nm, const dops_t *dops);
 
