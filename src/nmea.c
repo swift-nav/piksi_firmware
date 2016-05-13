@@ -191,7 +191,7 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
   NMEA_SENTENCE_START( 120 );
   NMEA_SENTENCE_PRINTF("$GPGGA,%02d%02d%06.3f,"
                        "%02u%010.7f,%c,%03u%010.7f,%c,"
-                       "%01d,%02d,%.1f,%.2f,M,,M,",
+                       "%01d,%02d,%.1f,%.2f,M,0.0,M,",
                        t.tm_hour, t.tm_min, t.tm_sec + frac_s,
                        lat_deg, lat_min, lat_dir, lon_deg, lon_min, lon_dir,
                        fix_type, n_used, hdop, pos_llh[2]
