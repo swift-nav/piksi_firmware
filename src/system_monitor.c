@@ -176,7 +176,7 @@ static void system_monitor_thread(void *arg)
       base_distance = vector_distance(3, base_ecef, position_solution.pos_ecef);
 
       if (base_distance > BASE_STATION_DISTANCE_THRESHOLD) {
-        log_warn("Sending invalid surveyed position coordinates.");
+        log_warn("Invalid surveyed position coordinates. No base position message will be sent.");
       } else {
         sbp_send_msg(SBP_MSG_BASE_POS_ECEF, sizeof(msg_base_pos_ecef_t), (u8 *)&base_ecef);
       }
