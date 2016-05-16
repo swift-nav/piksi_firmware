@@ -24,6 +24,7 @@
 #include <libswiftnav/time.h>
 #include <ch.h>
 #include <track.h>
+#include <assert.h>
 
 #include "settings.h"
 
@@ -278,9 +279,11 @@ void simulation_step_tracking_and_observations(double elapsed)
   /* First we calculate all the current sat positions, velocities */
   for (u8 i=0; i<simulation_num_almanacs; i++) {
     double clock_err, clock_rate_err;
-    calc_sat_state_almanac(&simulation_almanacs[i], &t,
-      simulation_sats_pos[i], simulation_sats_vel[i],
-      &clock_err, &clock_rate_err);
+    s8 r = calc_sat_state_almanac(&simulation_almanacs[i], &t,
+                                  simulation_sats_pos[i],
+                                  simulation_sats_vel[i],
+                                  &clock_err, &clock_rate_err);
+    assert(r == 0);
   }
 
 
@@ -288,9 +291,10 @@ void simulation_step_tracking_and_observations(double elapsed)
   u8 num_sats_selected = 0;
   double az, el;
   for (u8 i=0; i<simulation_num_almanacs; i++) {
-    calc_sat_az_el_almanac(&simulation_almanacs[i], &t,
-                            sim_state.pos, &az, &el);
+    s8 r = calc_sat_az_el_almanac(&simulation_almanacs[i], &t,
+                                  sim_state.pos, &az, &el);
 
+    assert(r == 0);
     if (el > 0 &&
         num_sats_selected < sim_settings.num_sats &&
         num_sats_selected < MAX_CHANNELS) {
