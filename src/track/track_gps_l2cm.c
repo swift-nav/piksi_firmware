@@ -180,37 +180,6 @@ void track_gps_l2cm_register(void)
   tracker_interface_register(&tracker_interface_list_element_gps_l2cm);
 }
 
-/** Check if a satellite is already in track
- *
- * \param sat Satellite ID
- * \retval false Satellite is not in track
- * \retval true Satellite is in track
- */
-static bool is_in_track(u16 sat)
-{
-  bool ret = false;
-  gps_l2cm_tracker_data_t* ptr;
-  u32 i;
-
-  for (i = 0;
-       i < sizeof(gps_l2cm_trackers) / sizeof(gps_l2cm_trackers[0]);
-       i++) {
-
-    if (!gps_l2cm_trackers[i].active) {
-      continue;
-    }
-    ptr = (gps_l2cm_tracker_data_t*)gps_l2cm_trackers[i].data;
-    if (NULL == ptr) {
-      continue;
-    }
-    if (ptr->sat == sat) {
-      ret = true;
-      break;
-    }
-  }
-  return ret;
-}
-
 /** Do L1C/A to L2 CM handover.
  *
  * The condition for the handover is the availability of bitsync on L1 C/A
@@ -225,10 +194,6 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
                               u8 nap_channel,
                               float code_phase)
 {
-  if (is_in_track(sat)) {
-    return; /* L2C signal from the SV is already in track */
-  }
-
   /* First, get L2C capability for the SV from NDB */
   u32 l2c_cpbl;
   // TODO: uncomment this as soon as NDB gets available
@@ -259,10 +224,11 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
   l2c_cpbl |= (u32)1 << (32 - 1);
 
   /* compose SID: same SV, but code is L2 CM */
-  gnss_signal_t sid = {
-    .sat  = sat,
-    .code = CODE_GPS_L2CM
-  };
+  gnss_signal_t sid = construct_sid(CODE_GPS_L2CM, sat);
+
+  if (!tracking_startup_ready(sid)) {
+    return; /* L2C signal from the SV is already in track */
+  }
 
   if (0 == (l2c_cpbl & ((u32)1 << (sat - 1)))) {
     log_info_sid(sid, "SV does not support L2C signal");
@@ -287,7 +253,10 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
   /* get initial cn0 from parent L1 channel */
   float cn0_init = tracking_channel_cn0_get(nap_channel);
 
-  s8 elevation = tracking_channel_evelation_degrees_get(nap_channel);
+  /* The best elevation estimation could be retrieved by calling
+     tracking_channel_evelation_degrees_get(nap_channel) here.
+     However, we assume it is done where tracker_channel_init()
+     is called. */
 
   tracking_startup_params_t startup_params = {
     .sid                = sid,
@@ -296,7 +265,7 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
     .code_phase         = code_phase,
     .chips_to_correlate = L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS,
     .cn0_init           = cn0_init,
-    .elevation          = elevation
+    .elevation          = TRACKING_ELEVATION_UNKNOWN
   };
 
   if (tracking_startup_request(&startup_params)) {
@@ -486,6 +455,13 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
 
   common_data->update_count += data->int_ms;
 
+  /* L2C bit sync is known once we start tracking it since
+     the L2C ranging code length matches the bit length (20ms).
+     This is the end of 20ms integration period and the edge
+     of a data bit. */
+  tracker_bit_sync_set(channel_info->context, 0);
+
+  /* Call the bit sync update API to do data decoding */
   tracker_bit_sync_update(channel_info->context, data->int_ms, data->cs[1].I);
 
   corr_t* cs = data->cs;
