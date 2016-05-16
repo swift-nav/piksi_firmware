@@ -193,13 +193,6 @@ void manage_acq_setup()
     track_mask[i] = false;
     almanac[i].valid = 0;
 
-    if (CODE_GPS_L2CM == acq_status[i].sid.code) {
-      /* Do not acquire GPS L2C.
-       * Do GPS L1 C/A to L2C handover at the tracking stage instead. */
-      acq_status[i].state = ACQ_PRN_SKIP;
-      acq_status[i].masked = true;
-    }
-
     if (!sbas_enabled &&
         (sid_to_constellation(acq_status[i].sid) == CONSTELLATION_SBAS)) {
       acq_status[i].masked = true;
@@ -306,6 +299,12 @@ static acq_status_t * choose_acq_sat(void)
   gps_time_t t = get_current_time();
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
+    if (CODE_GPS_L2CM == acq_status[i].sid.code) {
+      /* Do not acquire GPS L2C.
+       * Do GPS L1 C/A to L2C handover at the tracking stage instead. */
+      continue;
+    }
+
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
         acq_status[i].masked)
       continue;
@@ -646,6 +645,19 @@ u8 tracking_channels_ready()
   return n_ready;
 }
 
+/** Checks if tracking can be started for a given sid.
+ *
+ * \param sid Signal ID to check.
+ * \retval true sid tracking can be started.
+ * \retval false sid tracking cannot be started.
+ */
+bool tracking_startup_ready(gnss_signal_t sid)
+{
+  u16 global_index = sid_to_global_index(sid);
+  acq_status_t *acq = &acq_status[global_index];
+  return (acq->state == ACQ_PRN_ACQUIRING) && (!acq->masked);
+}
+
 /** Queue a request to start up tracking and decoding for the specified sid.
  *
  * \note This function is thread-safe and non-blocking.
@@ -677,6 +689,11 @@ static void manage_tracking_startup(void)
   while(tracking_startup_fifo_read(&tracking_startup_fifo, &startup_params)) {
 
     acq_status_t *acq = &acq_status[sid_to_global_index(startup_params.sid)];
+
+    /* Make sure the SID is not already tracked. */
+    if (acq->state == ACQ_PRN_TRACKING) {
+      continue;
+    }
 
     /* Make sure a tracking channel and a decoder channel are available */
     u8 chan = manage_track_new_acq(startup_params.sid);

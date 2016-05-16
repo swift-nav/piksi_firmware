@@ -143,6 +143,20 @@ s32 tracker_tow_update(tracker_context_t *context, s32 current_TOW_ms,
   return current_TOW_ms;
 }
 
+/** Set bit sync phase reference
+ *
+ * \param context           Tracker context.
+ * \param bit_phase_ref     Bit phase reference.
+ */
+void tracker_bit_sync_set(tracker_context_t *context, s8 bit_phase_ref)
+{
+  const tracker_channel_info_t *channel_info;
+  tracker_internal_data_t *internal_data;
+  tracker_internal_context_resolve(context, &channel_info, &internal_data);
+
+  bit_sync_set(&internal_data->bit_sync, bit_phase_ref);
+}
+
 /** Update bit sync and output navigation message bits for a tracker channel.
  *
  * \param context           Tracker context.
@@ -155,13 +169,6 @@ void tracker_bit_sync_update(tracker_context_t *context, u32 int_ms,
   const tracker_channel_info_t *channel_info;
   tracker_internal_data_t *internal_data;
   tracker_internal_context_resolve(context, &channel_info, &internal_data);
-
-  /* L2C bit sync is known once we start tracking it since
-     ranging code length matches bit length (20ms) */
-  if (CODE_GPS_L2CM == channel_info->sid.code) {
-    internal_data->bit_sync.bit_phase_ref = ~(BITSYNC_UNSYNCED);
-    return;
-  }
 
   /* Update bit sync */
   s32 bit_integrate;
