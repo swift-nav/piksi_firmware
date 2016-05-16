@@ -171,35 +171,6 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
                               double carrier_freq,
                               float cn0_init)
 {
-  /* First, get L2C capability for the SV from NDB */
-  u32 l2c_cpbl;
-  // TODO: uncomment this as soon as NDB gets available
-  // ndb_gps_l2cm_l2c_cap_read(&l2c_cpbl);
-
-  // TODO: remove this as soon as NDB gets available
-  // GPS PRNs with L2C capability:
-  // 01 03 05 06 07 08 09 10 12 15 17 24 25 26 27 29 30 31 32
-  // as per http://tinyurl.com/zj5q62h
-  l2c_cpbl = (u32)1 << (1 - 1);
-  l2c_cpbl |= (u32)1 << (3 - 1);
-  l2c_cpbl |= (u32)1 << (5 - 1);
-  l2c_cpbl |= (u32)1 << (6 - 1);
-  l2c_cpbl |= (u32)1 << (7 - 1);
-  l2c_cpbl |= (u32)1 << (8 - 1);
-  l2c_cpbl |= (u32)1 << (9 - 1);
-  l2c_cpbl |= (u32)1 << (10 - 1);
-  l2c_cpbl |= (u32)1 << (12 - 1);
-  l2c_cpbl |= (u32)1 << (15 - 1);
-  l2c_cpbl |= (u32)1 << (17 - 1);
-  l2c_cpbl |= (u32)1 << (24 - 1);
-  l2c_cpbl |= (u32)1 << (25 - 1);
-  l2c_cpbl |= (u32)1 << (26 - 1);
-  l2c_cpbl |= (u32)1 << (27 - 1);
-  l2c_cpbl |= (u32)1 << (29 - 1);
-  l2c_cpbl |= (u32)1 << (30 - 1);
-  l2c_cpbl |= (u32)1 << (31 - 1);
-  l2c_cpbl |= (u32)1 << (32 - 1);
-
   /* compose SID: same SV, but code is L2 CM */
   gnss_signal_t sid = construct_sid(CODE_GPS_L2CM, sat);
 
@@ -207,8 +178,7 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
     return; /* L2C signal from the SV is already in track */
   }
 
-  if (0 == (l2c_cpbl & ((u32)1 << (sat - 1)))) {
-    log_info_sid(sid, "SV does not support L2C signal");
+  if (0 == (gps_l2cm_l2c_cap_read() & ((u32)1 << (sat - 1)))) {
     return;
   }
 
