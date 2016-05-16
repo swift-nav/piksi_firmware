@@ -82,6 +82,7 @@ void manage_track_setup(void);
 s8 use_tracking_channel(u8 i);
 u8 tracking_channels_ready(void);
 
+bool tracking_startup_ready(gnss_signal_t sid);
 bool tracking_startup_request(const tracking_startup_params_t *startup_params);
 
 #endif
