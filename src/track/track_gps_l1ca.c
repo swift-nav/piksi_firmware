@@ -344,13 +344,15 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
     /* Indicate that a mode change has occurred. */
     common_data->mode_change_count = common_data->update_count;
+  }
 
+  if (data->lock_detect.outo &&
+      tracker_bit_aligned(channel_info->context))
     do_l1ca_to_l2cm_handover(common_data->sample_count,
                              channel_info->sid.sat,
                              common_data->code_phase_early,
                              common_data->carrier_freq,
                              common_data->cn0);
-  }
 
   u32 chips_to_correlate = (1 == data->int_ms) ?
                            L1CA_TRACK_MS_TO_CHIPS(1) :
