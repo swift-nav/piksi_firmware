@@ -25,8 +25,14 @@
 #include "sbp.h"
 #include "error.h"
 
+#define REQUIRED_NAP_VERSION_MASK (0xFFFF0000U)
+#define REQUIRED_NAP_VERSION_VAL  (0x03000000U)
+
 #define SLCR_PSS_RST_CTRL (*(volatile u32 *)0xf8000200)
 #define SLCR_PSS_RST_CTRL_SOFT_RST 1
+
+static bool nap_version_ok(u32 version);
+static void nap_version_check(void);
 
 /** Resets the device back into the bootloader. */
 static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -62,13 +68,31 @@ void pre_init(void)
 
 void init(void)
 {
+  fault_handling_setup();
+  reset_callback_register();
+
+  nap_version_check();
   nap_setup();
 
   srand(0);
 
-  fault_handling_setup();
-  reset_callback_register();
   nap_callbacks_setup();
+}
+
+static bool nap_version_ok(u32 version)
+{
+  return ((version & REQUIRED_NAP_VERSION_MASK) == REQUIRED_NAP_VERSION_VAL);
+}
+
+static void nap_version_check(void)
+{
+  u32 nap_version = nap_conf_rd_version();
+  if (!nap_version_ok(nap_version)) {
+    while (1) {
+      log_error("Unsupported NAP version: 0x%08x", nap_version);
+      chThdSleepSeconds(2);
+    }
+  }
 }
 
 /* Check NAP authentication status. Block and print error message
