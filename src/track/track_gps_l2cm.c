@@ -197,12 +197,21 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
   /* compose SID: same SV, but code is L2 CM */
   gnss_signal_t sid = construct_sid(CODE_GPS_L2CM, sat);
 
+  if (0 == (gps_l2cm_l2c_cap_read() & ((u32)1 << (sat - 1)))) {
+    /* satellite doesn't support l2c */
+    return;
+  }
+
   if (!tracking_startup_ready(sid)) {
     return; /* L2C signal from the SV is already in track */
   }
 
-  if (0 == (gps_l2cm_l2c_cap_read() & ((u32)1 << (sat - 1)))) {
-    log_info_sid(sid, "SV does not support L2C signal");
+  /* Prevent tracking_startup_fifo from being flooded with same satellite.
+   * After calling tracking_startup_request() it takes few seconds before
+   * channel is marked as active (after succesful tracker channel init) and
+   * during this time multiple handover requests arrive. */
+  if (!l1ca_l2cm_handover_reserve(sat)) {
+    /* handover already in progress */
     return;
   }
 
