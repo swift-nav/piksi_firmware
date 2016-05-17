@@ -34,6 +34,7 @@
 
 static bool nap_version_ok(u32 version);
 static void nap_version_check(void);
+static void nap_auth_check(void);
 
 /** Resets the device back into the bootloader. */
 static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -74,6 +75,7 @@ void init(void)
 
   nap_version_check();
   nap_setup();
+  nap_auth_check();
   nap_callbacks_setup();
 
   srand(0);
@@ -100,8 +102,9 @@ static void nap_version_check(void)
  * USARTs, and SBP subsystems are set up, so that SBP messages and
  * be sent and received (it can't go in init() or nap_setup()).
  */
-void check_nap_auth(void)
+static void nap_auth_check(void)
 {
+
 }
 
 s32 serial_number_get(void)

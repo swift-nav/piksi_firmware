@@ -66,8 +66,6 @@ int main(void)
   signal_init();
   ephemeris_setup();
 
-  check_nap_auth();
-
   static char hw_revision_string[64] = {0};
   hw_revision_string_get(hw_revision_string);
   log_info("HW revision: %s", hw_revision_string);

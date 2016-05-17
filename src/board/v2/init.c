@@ -35,6 +35,7 @@
 #define SCB_AIRCR_SYSRESETREQ                   (1 << 2)
 
 static void nap_version_check(void);
+static void nap_auth_check(void);
 static s8 compare_version(const char *a, const char *b);
 
 /** Resets the device back into the bootloader. */
@@ -107,6 +108,7 @@ void init(void)
   reset_callback_register();
 
   nap_version_check();
+  nap_auth_check();
   nap_callbacks_setup();
 
   rng_setup();
@@ -135,7 +137,7 @@ static void nap_version_check(void)
  * USARTs, and SBP subsystems are set up, so that SBP messages and
  * be sent and received (it can't go in init() or nap_setup()).
  */
-void check_nap_auth(void)
+static void nap_auth_check(void)
 {
   u8 nhs = nap_hash_status();
   if (nhs != NAP_HASH_MATCH) {
