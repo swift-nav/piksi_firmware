@@ -142,6 +142,17 @@ int main(void)
   chSysInit();
 
   /* Piksi hardware initialization. */
+  pre_init();
+
+  usarts_setup();
+  static s32 serial_number;
+  serial_number = nap_conf_rd_serial_number();
+  if (serial_number < 0) {
+    /* TODO: Handle this properly! */
+    serial_number = 0x2222;
+  }
+  sbp_setup(serial_number);
+
   init();
   settings_setup();
   signal_init();
@@ -163,9 +174,6 @@ int main(void)
       chThdSleepSeconds(2);
     }
   }
-
-  static s32 serial_number;
-  serial_number = nap_conf_rd_serial_number();
 
   frontend_setup();
   timing_setup();

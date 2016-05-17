@@ -55,27 +55,20 @@ static void reset_callback_register(void)
   );
 }
 
-void init(void)
+void pre_init(void)
 {
   led_setup();
+}
 
+void init(void)
+{
   nap_setup();
 
   srand(0);
 
-  usarts_setup();
-  s32 serial_number = -1;//nap_conf_rd_serial_number();
-  if (serial_number < 0) {
-    /* TODO: Handle this properly! */
-    serial_number = 0x2222;
-  }
-  sbp_setup(serial_number);
-
   fault_handling_setup();
-
-  nap_callbacks_setup();
-
   reset_callback_register();
+  nap_callbacks_setup();
 }
 
 /* Check NAP authentication status. Block and print error message

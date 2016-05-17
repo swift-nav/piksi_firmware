@@ -82,7 +82,7 @@ static void stm_unique_id_callback_register(void)
                    &stm_unique_id_node);
 }
 
-void init(void)
+void pre_init(void)
 {
   /* Delay on start-up as some programmers reset the STM twice. */
   for (u32 i = 0; i < 600000; i++)
@@ -90,25 +90,20 @@ void init(void)
 
   led_setup();
 
+  /* v2 NAP provides external clock input for the STM and
+   * must be configured here. */
   nap_setup();
+}
 
-  usarts_setup();
-  s32 serial_number = nap_conf_rd_serial_number();
-  if (serial_number < 0) {
-    /* TODO: Handle this properly! */
-    serial_number = 0x2222;
-  }
-  sbp_setup(serial_number);
+void init(void)
+{
+  fault_handling_setup();
+  reset_callback_register();
 
   rng_setup();
   srand(random_int());
 
-  fault_handling_setup();
-
   nap_callbacks_setup();
-
-  reset_callback_register();
-
   stm_unique_id_callback_register();
 }
 

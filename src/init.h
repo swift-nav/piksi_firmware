@@ -13,6 +13,7 @@
 #ifndef SWIFTNAV_INIT_H
 #define SWIFTNAV_INIT_H
 
+void pre_init(void);
 void init(void);
 void check_nap_auth(void);
 
