@@ -146,7 +146,7 @@ int main(void)
 
   usarts_setup();
   static s32 serial_number;
-  serial_number = nap_conf_rd_serial_number();
+  serial_number = serial_number_get();
   if (serial_number < 0) {
     /* TODO: Handle this properly! */
     serial_number = 0x2222;

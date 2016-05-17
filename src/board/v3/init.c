@@ -80,6 +80,11 @@ void check_nap_auth(void)
 {
 }
 
+s32 serial_number_get(void)
+{
+  /* TODO: read from NVM */
+  return -1;
+}
 
 /** Our own basic implementation of sbrk().
  * This overrides the version provided by newlib/libnosys which now checks that
