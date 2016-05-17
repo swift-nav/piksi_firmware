@@ -72,6 +72,7 @@ BOARDSRC := \
         $(BOARDDIR)/nap/axi_dma.o \
         $(BOARDDIR)/nap/fft.o \
         $(BOARDDIR)/nap/nap_common.o \
+        $(BOARDDIR)/nap/nap_conf.o \
         $(BOARDDIR)/nap/nap_dummy.o \
         $(BOARDDIR)/nap/track_channel.o \
         $(BOARDDIR)/platform_signal.o \

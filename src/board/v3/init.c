@@ -13,6 +13,7 @@
 #include <hal.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <libsbp/sbp.h>
 
@@ -21,7 +22,7 @@
 #include "main.h"
 #include "peripherals/leds.h"
 #include "board/nap/nap_common.h"
-#include "board/nap/nap_conf.h"
+#include "nap/nap_conf.h"
 #include "sbp.h"
 #include "error.h"
 
@@ -73,10 +74,9 @@ void init(void)
 
   nap_version_check();
   nap_setup();
+  nap_callbacks_setup();
 
   srand(0);
-
-  nap_callbacks_setup();
 }
 
 static bool nap_version_ok(u32 version)
@@ -108,6 +108,19 @@ s32 serial_number_get(void)
 {
   /* TODO: read from NVM */
   return -1;
+}
+
+u8 hw_revision_string_get(char *hw_revision_string)
+{
+  /* TODO: read from NVM */
+  const char *s = "alpha";
+  strcpy(hw_revision_string, s);
+  return strlen(hw_revision_string);
+}
+
+u8 nap_version_string_get(char *nap_version_string)
+{
+  return nap_conf_rd_version_string(nap_version_string);
 }
 
 /** Our own basic implementation of sbrk().

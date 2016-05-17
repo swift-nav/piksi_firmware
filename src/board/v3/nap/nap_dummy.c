@@ -20,16 +20,6 @@ u32 nap_rw_ext_event(u8 *event_pin, ext_event_trigger_t *event_trig,
   return 0;
 }
 
-s32 nap_conf_rd_serial_number(void)
-{
-  return 0;
-}
-
-const char * nap_conf_rd_hw_rev_string(void)
-{
-  return "hw version";
-}
-
 void nap_pps(u64 rising_edge_count_8x)
 {
   (void)rising_edge_count_8x;
