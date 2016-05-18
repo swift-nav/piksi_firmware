@@ -36,10 +36,11 @@
 /** Helper macro for array size computation */
 #define ARR_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 
-/** Default C/N0 threshold in dB/Hz for keeping track */
+/** Default C/N0 threshold in dB/Hz for keeping track (for 1 ms integration) */
 #define TP_DEFAULT_CN0_USE_THRESHOLD  (31.f)
-/** Default C/N0 threshold in dB/Hz for dropping track */
+/** Default C/N0 threshold in dB/Hz for dropping track (for 1 ms integration) */
 #define TP_DEFAULT_CN0_DROP_THRESHOLD (31.f)
+
 /** C/N0 threshold when we can't say if we are still tracking */
 #define TP_HARD_CN0_DROP_THRESHOLD (23.f)
 /** Fixed SNR offset for converting 1ms C/N0 to SNR */
@@ -50,6 +51,14 @@
 #define TP_SNR_THRESHOLD_MAX (40.f + TP_SNR_OFFSET)
 /** C/N0 threshold state lock counter */
 #define TP_SNR_STATE_COUNT_LOCK (31)
+
+/** Dynamics threshold for acceleration (stable) */
+#define TP_ACCEL_THRESHOLD_LOW  (2.f)
+/** Dynamics threshold for acceleration (unstable) */
+#define TP_ACCEL_THRESHOLD_HIGH (9.f)
+/** Dynamics threshold state lock counter */
+#define TP_ACCEL_THRESHOLD_LOCK (31)
+
 /** Profile lock time duration in ms. */
 #define TP_CHANGE_LOCK_COUNTDOWN_MS (1250)
 
@@ -67,10 +76,14 @@ typedef struct {
   tp_report_t   last_report;       /**< Last data from tracker */
   u32           profile_update:1;  /**< Flag if the profile update is required */
   u32           cur_profile_i:3;   /**< Index of the currently active profile (integration) */
+  u32           cur_profile_d:3;   /**< Index of the currently active profile (dynamics) */
   u32           next_profile_i:3;  /**< Index of the next selected profile (integration) */
+  u32           next_profile_d:3;  /**< Index of the next selected profile (dynamics)  */
   float         cn0_offset;        /**< C/N0 offset in dB to tune thresholds */
   u32           low_cn0_count:5;   /**< State lock counter for C/N0 threshold */
   u32           high_cn0_count:5;  /**< State lock counter for C/N0 threshold */
+  u32           accel_count:5;     /**< State lock counter for dynamics threshold */
+  u32           accel_count_idx:2; /**< State lock value for dynamics threshold */
   u32           lock_time_ms:16;   /**< Profile lock count down timer */
   float         prev_val[4];       /**< Filtered counters: v,a,j,C/N0 */
   float         filt_val[4];       /**< Filtered counters: v,a,j,C/N0 */
@@ -122,8 +135,21 @@ static const tp_loop_params_t loop_params_initial = {
 };
 
 #ifdef TP_USE_1MS_PROFILES
+/** Tracking profile for stable/1ms/pipelining */
+static const tp_loop_params_t loop_params_1ms_s = {
+  .coherent_ms = 1,
+  .carr_bw = 12,
+  .carr_zeta = 1.f,
+  .carr_k = 1,
+  .carr_to_code = 1540,
+  .code_bw = 1,
+  .code_zeta = 1.f,
+  .code_k = 1,
+  .carr_fll_aid_gain = 0,
+  .mode = TP_TM_PIPELINING
+};
 /** Tracking profile for normal/1ms/pipelining */
-static const tp_loop_params_t loop_params_1ms = {
+static const tp_loop_params_t loop_params_1ms_n = {
   .coherent_ms = 1,
   .carr_bw = 20,
   .carr_zeta = 1.f,
@@ -131,6 +157,22 @@ static const tp_loop_params_t loop_params_1ms = {
   .carr_to_code = 1540,
   .code_bw = 1,
   .code_zeta = 1.f,
+  .code_k = 1,
+  .carr_fll_aid_gain = 0,
+  .mode = TP_TM_PIPELINING
+};
+/** Tracking profile for unstable/1ms/pipelining */
+static const tp_loop_params_t loop_params_1ms_u = {
+  /* The configration is taken from previous 1ms profile:
+   * "(1 ms, (1, 0.7, 1, 1540), (40, 0.7, 1, 5))"
+   */
+  .coherent_ms = 1,
+  .carr_bw = 40,
+  .carr_zeta = .7f,
+  .carr_k = 1,
+  .carr_to_code = 1540,
+  .code_bw = 1,
+  .code_zeta = .7f,
   .code_k = 1,
   .carr_fll_aid_gain = 0,
   .mode = TP_TM_PIPELINING
@@ -160,7 +202,24 @@ static const tp_loop_params_t loop_params_2ms = {
 /**
  * 5 ms tracking parameters for GPS L1 C/A
  */
-static const tp_loop_params_t loop_params_5ms = {
+static const tp_loop_params_t loop_params_5ms_s = {
+  /* "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
+
+  .coherent_ms = 5,
+  .carr_bw = 15,
+  .carr_zeta = 1.f,
+  .carr_k = 1,
+  .carr_to_code = 1540,
+  .code_bw = 1,
+  .code_zeta = 0.7f,
+  .code_k = 1,
+  .carr_fll_aid_gain = 0,
+  .mode = TP_TM_ONE_PLUS_N
+};
+/**
+ * 5 ms tracking parameters for GPS L1 C/A
+ */
+static const tp_loop_params_t loop_params_5ms_n = {
   /* "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
 
   .coherent_ms = 5,
@@ -195,7 +254,24 @@ static const tp_loop_params_t loop_params_10ms = {
 };
 #endif /* TP_USE_10MS_PROFILES */
 #ifdef TP_USE_20MS_PROFILES
-static const tp_loop_params_t loop_params_20ms = {
+/**
+ * 20 ms tracking parameters for GPS L1 C/A
+ */
+static const tp_loop_params_t loop_params_20ms_s = {
+  /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
+
+  .coherent_ms = 20,
+  .carr_bw = 6, // 10/.9 is good; 5(1. is better
+  .carr_zeta = 1.f,
+  .carr_k = 1.f,
+  .carr_to_code = 1540,
+  .code_bw = 1,
+  .code_zeta = .9f,
+  .code_k = 1,
+  .carr_fll_aid_gain = 0,
+  .mode = TP_TM_ONE_PLUS_N
+};
+static const tp_loop_params_t loop_params_20ms_n = {
   /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
 
   .coherent_ms = 20,
@@ -218,24 +294,39 @@ static const tp_loop_params_t loop_params_20ms = {
  */
 enum
 {
-  TP_PROFILE_INI=0,
+  TP_PROFILE_ROW_INI=0,
 #ifdef TP_USE_1MS_PROFILES
-  TP_PROFILE_1MS,
+  TP_PROFILE_ROW_1MS,
 #endif
 #ifdef TP_USE_2MS_PROFILES
-  TP_PROFILE_2MS,
+  TP_PROFILE_ROW_2MS,
 #endif
 #ifdef TP_USE_5MS_PROFILES
-  TP_PROFILE_5MS,
+  TP_PROFILE_ROW_5MS,
 #endif
 #ifdef TP_USE_10MS_PROFILES
-  TP_PROFILE_10MS,
+  TP_PROFILE_ROW_10MS,
 #endif
 #ifdef TP_USE_20MS_PROFILES
-  TP_PROFILE_20MS,
+  TP_PROFILE_ROW_20MS,
 #endif
-  TP_PROFILE_TIME_COUNT,
-  TP_PROFILE_TIME_FIRST = 1
+  TP_PROFILE_ROW_COUNT,
+  TP_PROFILE_ROW_FIRST = 1
+};
+
+/**
+ * Dynamic profiles supported by the configuration.
+ *
+ * In the matrix of tracking loop parameters dynamics is identified by column
+ * number.
+ */
+enum
+{
+  TP_PROFILE_DYN_LOW = 0,  /**< Low dynamics. Most stable parameters. */
+  TP_PROFILE_DYN_MED,      /**< Medium dynamics. Averaged parameters. */
+  TP_PROFILE_DYN_HIGH,     /**< High dynamics. Most relaxed parameters. */
+  TP_PROFILE_DYN_COUNT,    /**< Total dynamic profile count */
+  TP_PROFILE_DYN_INI = TP_PROFILE_DYN_MED /**< Initial dynamic profile */
 };
 
 /**
@@ -247,19 +338,25 @@ enum
 static const tp_loop_params_t *loop_params[] = {
   &loop_params_initial,
 #ifdef TP_USE_1MS_PROFILES
-  &loop_params_1ms,
+  &loop_params_1ms_s,
+  &loop_params_1ms_n,
+  &loop_params_1ms_u,
 #endif /* TP_USE_1MS_PROFILES */
 #ifdef TP_USE_2MS_PROFILES
   &loop_params_2ms,
 #endif /* TP_USE_2MS_PROFILES */
 #ifdef TP_USE_5MS_PROFILES
-  &loop_params_5ms,
+  &loop_params_5ms_s,
+  &loop_params_5ms_n,
+  &loop_params_5ms_n,
 #endif /* TP_USE_5MS_PROFILES */
 #ifdef TP_USE_10MS_PROFILES
   &loop_params_10ms,
 #endif /* TP_USE_10MS_PROFILES */
 #ifdef TP_USE_20MS_PROFILES
-  &loop_params_20ms,
+  &loop_params_20ms_s,
+  &loop_params_20ms_n,
+  &loop_params_20ms_n,
 #endif /* TP_USE_20MS_PROFILES */
 };
 
@@ -274,7 +371,9 @@ enum
   TP_LP_IDX_INI,     /**< Initial state: very high noise bandwidth, high
                       * dynamics. */
 #ifdef TP_USE_1MS_PROFILES
-  TP_LP_IDX_1MS,     /**< 1MS pipelining integration. */
+  TP_LP_IDX_1MS_S, /**< 1MS pipelining integration; stable */
+  TP_LP_IDX_1MS_N, /**< 1MS pipelining integration; normal */
+  TP_LP_IDX_1MS_U, /**< 1MS pipelining integration; unstable */
 #endif /* TP_USE_1MS_PROFILES */
 
 #ifdef TP_USE_2MS_PROFILES
@@ -282,7 +381,9 @@ enum
 #endif /* TP_USE_2MS_PROFILES */
 
 #ifdef TP_USE_5MS_PROFILES
-  TP_LP_IDX_5MS,     /**< 5MS 1+N integration. */
+  TP_LP_IDX_5MS_S,   /**< 5MS 1+N integration; stable. */
+  TP_LP_IDX_5MS_N,   /**< 5MS 1+N integration; normal. */
+  TP_LP_IDX_5MS_U,   /**< 5MS 1+N integration; unstable. */
 #endif /* TP_USE_5MS_PROFILES */
 
 #ifdef TP_USE_10MS_PROFILES
@@ -290,7 +391,9 @@ enum
 #endif /* TP_USE_10MS_PROFILES */
 
 #ifdef TP_USE_20MS_PROFILES
-  TP_LP_IDX_20MS,    /**< 20MS 1+N integration. */
+  TP_LP_IDX_20MS_S, /**< 20MS 1+N integration; stable. */
+  TP_LP_IDX_20MS_N, /**< 20MS 1+N integration; normal. */
+  TP_LP_IDX_20MS_U  /**< 20MS 1+N integration; unstable. */
 #endif /* TP_USE_20MS_PROFILES */
 };
 
@@ -299,29 +402,28 @@ enum
  *
  * Matrix is two-dimensional: first dimension enumerates integration times,
  * second dimension is the dynamics profile.
- *
  */
-static const u8 profile_matrix[][1] = {
-  {TP_LP_IDX_INI},
+static const u8 profile_matrix[][TP_PROFILE_DYN_COUNT] = {
+  {TP_LP_IDX_INI,  TP_LP_IDX_INI,  TP_LP_IDX_INI},
 
 #ifdef TP_USE_1MS_PROFILES
-  {TP_LP_IDX_1MS},
-#endif /* TP_USE_1MS_PROFILES */
+  {TP_LP_IDX_1MS_S,  TP_LP_IDX_1MS_N,  TP_LP_IDX_1MS_U},
+#endif
 
 #ifdef TP_USE_2MS_PROFILES
-  {TP_LP_IDX_2MS},
+  {TP_LP_IDX_2MS, TP_LP_IDX_2MS, TP_LP_IDX_2MS},
 #endif /* TP_USE_2MS_PROFILES */
 
 #ifdef TP_USE_5MS_PROFILES
-  {TP_LP_IDX_5MS},
+  {TP_LP_IDX_5MS_S, TP_LP_IDX_5MS_N, TP_LP_IDX_5MS_U},
 #endif /* TP_USE_5MS_PROFILES */
 
 #ifdef TP_USE_10MS_PROFILES
-  {TP_LP_IDX_10MS},
+  {TP_LP_IDX_10MS, TP_LP_IDX_10MS, TP_LP_IDX_10MS},
 #endif /* TP_USE_10MS_PROFILES */
 
 #ifdef TP_USE_20MS_PROFILES
-  {TP_LP_IDX_20MS}
+  {TP_LP_IDX_20MS_S, TP_LP_IDX_20MS_N, TP_LP_IDX_20MS_U}
 #endif /* TP_USE_20MS_PROFILES */
 };
 
@@ -362,7 +464,7 @@ static double compute_speed(gnss_signal_t sid, const tp_report_t *data)
  */
 static void init_profile_filters(tp_profile_internal_t *profile)
 {
-  u8 idx = profile_matrix[profile->cur_profile_i][0];
+  u8 idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
   const tp_loop_params_t *lp = loop_params[idx];
   float loop_freq = 1000 / lp->coherent_ms;
   for (size_t i = 0; i< ARR_SIZE(profile->lp_filters); ++i) {
@@ -463,9 +565,9 @@ static void delete_profile(gnss_signal_t sid)
 static void get_profile_params(tp_profile_internal_t *profile,
                                tp_config_t           *config)
 {
-  u8 profile_idx = profile_matrix[profile->cur_profile_i][0];
+  u8 profile_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
   log_debug_sid(profile->sid, "Activating profile %u [%u][%u])",
-                profile_idx, profile->cur_profile_i, 0);
+                profile_idx, profile->cur_profile_i, profile->cur_profile_d);
 
   config->lock_detect_params = ld_params_disable;
   config->loop_params = *loop_params[profile_idx];
@@ -564,7 +666,7 @@ static void print_stats(tp_profile_internal_t *profile)
     float j = sqrtf(profile->mean_acc[2] * div);
     float c = sqrtf(profile->mean_acc[3] * div);
 
-    u8 lp_idx = profile_matrix[profile->cur_profile_i][0];
+    u8 lp_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
 
     log_info_sid(profile->sid,
                  "MRS: T=%dms N=%d CN0=%.2f/%.2f (%.2f) s=%.3f a=%.3f j=%.3f",
@@ -603,12 +705,11 @@ static void print_stats(tp_profile_internal_t *profile)
 static void check_for_profile_change(tp_profile_internal_t *profile)
 {
   /** TODO refactor as needed */
-  /** TODO add C/N0 analyzes */
-  /** TODO add stress detector */
   /** TODO add TCXO drift support */
 
   bool        must_change_profile = false;
   u8          next_profile_i      = 0;
+  u8          next_profile_d      = 0;
   const char *reason              = "cn0 OK";
   const char *reason2             = "dynamics OK";
   float       snr;
@@ -634,7 +735,7 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
       profile->lock_time_ms = TP_CHANGE_LOCK_COUNTDOWN_MS;
     }
     if (!must_change_profile &&
-        profile->cur_profile_i != 0 &&
+        profile->cur_profile_i != TP_LP_IDX_INI &&
         profile->lock_time_ms == 0) {
       /* When running over 1ms integration, there are four transitions
        * possible:
@@ -650,7 +751,7 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
 
       if (snr >= TP_SNR_THRESHOLD_MAX) {
         /* SNR is high - look for relaxing profile */
-        if (profile->cur_profile_i > TP_PROFILE_TIME_FIRST) {
+        if (profile->cur_profile_i > TP_PROFILE_ROW_FIRST) {
           profile->high_cn0_count++;
           profile->low_cn0_count = 0;
 
@@ -660,11 +761,12 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
             profile->lock_time_ms = TP_CHANGE_LOCK_COUNTDOWN_MS;
             must_change_profile = true;
             next_profile_i = profile->cur_profile_i - 1;
+            next_profile_d = profile->cur_profile_d;
           }
         }
       } else if (snr < TP_SNR_THRESHOLD_MIN) {
         /* SNR is low - look for more restricting profile */
-        if (profile->cur_profile_i < TP_PROFILE_TIME_COUNT - 1) {
+        if (profile->cur_profile_i < TP_PROFILE_ROW_COUNT - 1) {
           profile->high_cn0_count = 0;
           profile->low_cn0_count++;
           if (profile->low_cn0_count == TP_SNR_STATE_COUNT_LOCK) {
@@ -673,10 +775,66 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
             profile->lock_time_ms = TP_CHANGE_LOCK_COUNTDOWN_MS;
             must_change_profile = true;
             next_profile_i = profile->cur_profile_i + 1;
+            next_profile_d = profile->cur_profile_d;
           }
         }
       }
     }
+  }
+  /* Compute dynamics state.
+   * Dynamics is evaluated as a delayed locked-in state as a function of
+   * averaged acceleration.
+   * At the moment three dynamic states are supported: low, medium and high
+   * dynamics. They are separated by an acceleration trigger.
+   */
+  if (profile->lock_time_ms == 0) {
+    const char *dyn_reason = "";
+    u8 dyn_idx = TP_PROFILE_DYN_INI;
+    if (acc < TP_ACCEL_THRESHOLD_LOW) {
+      dyn_idx = TP_PROFILE_DYN_LOW;
+      dyn_reason = "Lower dynamics";
+    } else if (acc > TP_ACCEL_THRESHOLD_HIGH) {
+      dyn_idx = TP_PROFILE_DYN_HIGH;
+      dyn_reason = "High dynamics";
+    } else {
+      dyn_idx = TP_PROFILE_DYN_MED;
+      dyn_reason = "Normal dynamics";
+    }
+    if (profile->accel_count_idx == dyn_idx) {
+      /* When the computed state matches last state, check if the state is
+       * already active or will be active in next stage */
+      if (!must_change_profile && profile->cur_profile_d == dyn_idx) {
+        /* State is already active */
+      } else if (must_change_profile && profile->next_profile_d == dyn_idx) {
+        /* Next state is already selected */
+      } else {
+        profile->accel_count++;
+        if (profile->accel_count == TP_ACCEL_THRESHOLD_LOCK) {
+          /* State lock achieved. Reset counters. */
+          profile->accel_count = 0;
+          reason2 = dyn_reason;
+          if (must_change_profile) {
+            /* Profile change is already pending, just update the state */
+            next_profile_d = dyn_idx;
+          } else {
+            /* Profile change due to dynamics state change only */
+            next_profile_i = profile->cur_profile_i;
+            next_profile_d = dyn_idx;
+            must_change_profile = true;
+            profile->lock_time_ms = TP_CHANGE_LOCK_COUNTDOWN_MS;
+          }
+        }
+      }
+    } else {
+      /* Dynamics state change reset: the previous dynamics state lock
+       * to be reset*/
+      profile->accel_count = 0;
+      profile->accel_count_idx = dyn_idx;
+    }
+  } else {
+    /* Dynamics state change is not permitted due to the lock */
+    profile->accel_count = 0;
+    profile->accel_count_idx = profile->cur_profile_d;
   }
 
   if (!must_change_profile) {
@@ -695,16 +853,17 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
      */
     profile->profile_update = true;
     profile->next_profile_i = next_profile_i;
+    profile->next_profile_d = next_profile_d;
 
-    u8 lp1_idx = profile_matrix[profile->cur_profile_i][0];
-    u8 lp2_idx = profile_matrix[profile->next_profile_i][0];
+    u8 lp1_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
+    u8 lp2_idx = profile_matrix[profile->next_profile_i][profile->next_profile_d];
 
     log_info_sid(profile->sid,
                  "Profile change: %dms [%d][%d]->%dms [%d][%d] r=%s (%.2f)/%s (%.2f)",
                  (int)loop_params[lp1_idx]->coherent_ms,
-                 profile->cur_profile_i, 0,
+                 profile->cur_profile_i, profile->cur_profile_d,
                  (int)loop_params[lp2_idx]->coherent_ms,
-                 profile->next_profile_i, 0,
+                 profile->next_profile_i, profile->next_profile_d,
                  reason, snr,
                  reason2, acc
                  );
@@ -723,7 +882,7 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
  */
 static float compute_cn0_offset(const tp_profile_internal_t *profile)
 {
-  u8 profile_idx = profile_matrix[profile->cur_profile_i][0];
+  u8 profile_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
   const tp_loop_params_t *lp = loop_params[profile_idx];
   float cn0_offset = 0;
 
@@ -809,8 +968,10 @@ tp_result_e tp_tracking_start(gnss_signal_t sid,
       profile->mean_acc[3] = 0;
       profile->mean_cnt = 0;
 
-      profile->cur_profile_i = TP_PROFILE_INI;
-      profile->next_profile_i = TP_PROFILE_INI;
+      profile->cur_profile_i = TP_PROFILE_ROW_INI;
+      profile->next_profile_i = TP_PROFILE_ROW_INI;
+      profile->cur_profile_d = TP_PROFILE_DYN_INI;
+      profile->next_profile_d = TP_PROFILE_DYN_INI;
 
       init_profile_filters(profile);
 
@@ -867,6 +1028,7 @@ tp_result_e tp_get_profile(gnss_signal_t sid, tp_config_t *config)
       /* Do transition of current profile */
       profile->profile_update = 0;
       profile->cur_profile_i = profile->next_profile_i;
+      profile->cur_profile_d = profile->next_profile_d;
       profile->cn0_offset = compute_cn0_offset(profile);
       init_profile_filters(profile);
 
