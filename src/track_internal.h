@@ -21,7 +21,7 @@
 /** \addtogroup tracking
  * \{ */
 
-#define NAV_BIT_FIFO_SIZE 32 /**< Size of nav bit FIFO. Must be a power of 2 */
+#define NAV_BIT_FIFO_SIZE 64 /**< Size of nav bit FIFO. Must be a power of 2 */
 
 #define NAV_BIT_FIFO_INDEX_MASK ((NAV_BIT_FIFO_SIZE) - 1)
 #define NAV_BIT_FIFO_INDEX_DIFF(write_index, read_index) \

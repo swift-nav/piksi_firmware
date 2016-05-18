@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Copyright (C) 2011-2014,2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *          Colin Beighley <colin@swift-nav.com>
  *
@@ -27,10 +27,10 @@ extern u8 nap_track_n_channels;
 /** \} */
 
 void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
-                    float carrier_freq, float code_phase);
+                    float carrier_freq, float code_phase, u32 chips_to_correlate);
 
 void nap_track_update(u8 channel, double carrier_freq,
-                      double code_phase_rate, u8 rollover_count,
+                      double code_phase_rate, u32 chips_to_correlate,
                       u8 corr_spacing);
 void nap_track_read_results(u8 channel,
                             u32* count_snapshot, corr_t corrs[],
