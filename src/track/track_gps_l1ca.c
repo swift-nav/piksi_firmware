@@ -347,8 +347,9 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
     do_l1ca_to_l2cm_handover(common_data->sample_count,
                              channel_info->sid.sat,
-                             channel_info->nap_channel,
-                             common_data->code_phase_early);
+                             common_data->code_phase_early,
+                             common_data->carrier_freq,
+                             common_data->cn0);
   }
 
   u32 chips_to_correlate = (1 == data->int_ms) ?
