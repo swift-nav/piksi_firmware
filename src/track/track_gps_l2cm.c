@@ -408,10 +408,22 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
 
   /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
   if (data->short_cycle) {
+    /* The throw away data. Not needed for the short cycle.
+       And we also do not want to clobber common_data content by
+       by writing these data to it as it contains valid data for
+       the previous full 20 ms cycle. */
+    u32 sample_count;            /**< Total num samples channel has tracked for. */
+    double code_phase_early;     /**< Early code phase. */
+    double carrier_phase;        /**< Carrier phase in NAP register units. */
+
     tracker_correlations_read(channel_info->context, data->cs,
-                              &common_data->sample_count,
-                              &common_data->code_phase_early,
-                              &common_data->carrier_phase);
+                              &sample_count,
+                              &code_phase_early,
+                              &carrier_phase);
+    (void) sample_count;
+    (void) code_phase_early;
+    (void) carrier_phase;
+
     alias_detect_first(&data->alias_detect, data->cs[1].I, data->cs[1].Q);
   } else {
     /* This is the end of the long cycle's correlations. */
