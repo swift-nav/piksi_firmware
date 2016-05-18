@@ -177,8 +177,8 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
  
   double frac_s  = fmod(gps_t->tow, 1.0);
   
-  double lat     = fabs( round( R2D * pos_llh[0] * 1e8 ) / 1e8 );
-  double lon     = fabs( round( R2D * pos_llh[1] * 1e8 ) / 1e8 );
+  double lat     = fabs(round(R2D * pos_llh[0] * 1e8) /1e8);
+  double lon     = fabs(round(R2D * pos_llh[1] * 1e8) /1e8);
 
   char   lat_dir = pos_llh[0] < 0.0 ? 'S' : 'N';
   u16    lat_deg = (u16)lat;
@@ -188,7 +188,7 @@ void nmea_gpgga(const double pos_llh[3], const gps_time_t *gps_t, u8 n_used,
   u16    lon_deg = (u16)lon;
   double lon_min = (lon - (double)lon_deg) * 60.0;
   
-  NMEA_SENTENCE_START( 120 );
+  NMEA_SENTENCE_START(120);
   NMEA_SENTENCE_PRINTF("$GPGGA,%02d%02d%06.3f,"
                        "%02u%010.7f,%c,%03u%010.7f,%c,"
                        "%01d,%02d,%.1f,%.2f,M,0.0,M,",
@@ -290,8 +290,8 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
   
   double frac_s  = fmod(gps_t->tow, 1.0);
 
-  double lat     = fabs( round( R2D * soln->pos_llh[0] * 1e8 ) / 1e8 );
-  double lon     = fabs( round( R2D * soln->pos_llh[1] * 1e8 ) / 1e8 );
+  double lat     = fabs(round(R2D * soln->pos_llh[0] * 1e8) / 1e8);
+  double lon     = fabs(round(R2D * soln->pos_llh[1] * 1e8) / 1e8);
 
   char   lat_dir = soln->pos_llh[0] < 0.0 ? 'S' : 'N';
   u16    lat_deg = (u16)lat;
@@ -306,7 +306,7 @@ void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t)
   y = soln->vel_ned[1];
   z = soln->vel_ned[2];
   float course = R2D * atan2(y,x);
-  if ( course < 0.0 ) { 
+  if (course < 0.0) { 
     course += 360.0;
   }
   /* Conversion to magnitue knots */
@@ -338,7 +338,7 @@ void nmea_gpvtg(const gnss_solution *soln)
   y = soln->vel_ned[1];
   z = soln->vel_ned[2];
   float course = R2D * atan2(y,x);
-  if ( course < 0.0 ) {
+  if (course < 0.0) {
     course += 360.0;
   }
   /* Conversion to magnitue knots */
@@ -372,8 +372,8 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
 
   double frac_s  = fmod(gps_t->tow, 1.0);
   
-  double lat     = fabs( round( R2D * soln->pos_llh[0] * 1e8 ) / 1e8 );
-  double lon     = fabs( round( R2D * soln->pos_llh[1] * 1e8 ) / 1e8 );
+  double lat     = fabs(round(R2D * soln->pos_llh[0] * 1e8) / 1e8);
+  double lon     = fabs(round(R2D * soln->pos_llh[1] * 1e8) / 1e8);
 
   char   lat_dir = soln->pos_llh[0] < 0.0 ? 'S' : 'N';
   u16    lat_deg = (u16)lat;
@@ -397,14 +397,14 @@ void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t)
  *
  * \param gps_t Pointer to the current GPS Time.
  */
-void nmea_gpzda( const gps_time_t *gps_t )
+void nmea_gpzda(const gps_time_t *gps_t)
 {
   time_t unix_t;
   struct tm t;
 
-  unix_t = gps2time( gps_t );
-  gmtime_r( &unix_t, &t );
-  double frac_s = fmod( gps_t->tow, 1.0 );
+  unix_t = gps2time(gps_t);
+  gmtime_r(&unix_t, &t);
+  double frac_s = fmod(gps_t->tow, 1.0);
 
   NMEA_SENTENCE_START(40); 
   NMEA_SENTENCE_PRINTF(
@@ -412,7 +412,7 @@ void nmea_gpzda( const gps_time_t *gps_t )
                 "%02d,%02d,%d,"          /* Date Stamp */
                 ",",                     /* Time zone */
                 t.tm_hour, t.tm_min, t.tm_sec + frac_s,
-                t.tm_mday, t.tm_mon + 1, 1900 + t.tm_year );
+                t.tm_mday, t.tm_mon + 1, 1900 + t.tm_year);
   NMEA_SENTENCE_DONE();
 
 } // nmea_gpzda()
