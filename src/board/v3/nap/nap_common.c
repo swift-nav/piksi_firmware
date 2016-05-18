@@ -47,7 +47,7 @@ void nap_setup(void)
   axi_dma_init();
   axi_dma_start(&AXIDMADriver1);
 
-  NAP->FE_PINC[0] = NAP_FE_BASEBAND_MIXER_PINC;
+  NAP_FE->BB_PINC[0] = NAP_FE_BASEBAND_MIXER_PINC;
 
   /* Enable NAP interrupt */
   chThdCreateStatic(wa_nap_exti, sizeof(wa_nap_exti), HIGHPRIO-1, nap_exti_thread, NULL);
