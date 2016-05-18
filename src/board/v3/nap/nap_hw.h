@@ -72,17 +72,6 @@ typedef struct {
   nap_trk_regs_t TRK_CH[NAP_MAX_N_TRACK_CHANNELS];
 } nap_t;
 
-typedef struct {
-  volatile uint32_t STATUS;
-  volatile uint32_t CONTROL;
-  volatile uint32_t VERSION;
-  volatile uint32_t IRQ;
-  volatile uint32_t IRQ_ERROR;
-  volatile uint32_t ACQ_STATUS;
-  volatile uint32_t TRK_STATUS[4];
-  volatile uint32_t BB_PINC[4];
-} frontend_t;
-
 /* Bitfields */
 #define NAP_STATUS_TRACKING_CH_Pos (1U)
 #define NAP_STATUS_TRACKING_CH_Msk (0x3FU << NAP_STATUS_TRACKING_CH_Pos)
@@ -144,6 +133,5 @@ typedef struct {
 
 /* Instances */
 #define NAP ((nap_t *)0x43C00000)
-#define FE ((frontend_t *)0x43C10000)
 
 #endif /* SWIFTNAV_NAP_REGS_H */

@@ -15,6 +15,7 @@
 #include "../../sbp.h"
 
 #include "nap_hw.h"
+#include "nap_fe_hw.h"
 #include "nap_constants.h"
 #include "axi_dma.h"
 
@@ -47,7 +48,7 @@ void nap_setup(void)
   axi_dma_init();
   axi_dma_start(&AXIDMADriver1);
 
-  FE->BB_PINC[0] = (u32)round(14.58e6 * pow(2.0, 32.0)
+  NAP_FE->BB_PINC[0] = (u32)round(14.58e6 * pow(2.0, 32.0)
                                    / NAP_FRONTEND_SAMPLE_RATE_Hz);
 
   /* Enable NAP interrupt */
