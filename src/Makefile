@@ -149,6 +149,7 @@ INCDIR = $(STARTUPINC) $(PORTINC) $(KERNINC) \
          $(SWIFTNAV_ROOT)/libswiftnav/include \
          $(SWIFTNAV_ROOT)/src \
          $(SWIFTNAV_ROOT)/src/board \
+         $(SWIFTNAV_ROOT)/libswiftnav/libfec/include \
 
 #
 # Project, sources and paths
@@ -206,12 +207,13 @@ DLIBDIR = $(SWIFTNAV_ROOT)/libsbp/c/build/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/BLAS/SRC \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/SRC \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/F2CLIBS/libf2c \
+          $(SWIFTNAV_ROOT)/libswiftnav/build/libfec/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src
 
 # List all default libraries here
 DLIBS = -lsbp-static -lswiftnav-static \
         -llapack -lcblas -lblas \
-        -lf2c -lm -lc -lnosys
+        -lf2c -lm -lc -lnosys -lfec
 
 #
 # End of default section

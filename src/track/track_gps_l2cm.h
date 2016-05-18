@@ -15,6 +15,8 @@
 
 #include <libswiftnav/common.h>
 
+#undef L2C_WEAK
+
 #ifdef FEATURE_TRACK_GPS_L2CM
 # define L2C_WEAK
 #else

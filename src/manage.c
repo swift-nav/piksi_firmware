@@ -448,9 +448,7 @@ static u8 manage_track_new_acq(gnss_signal_t sid)
    */
   for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracker_channel_available(i, sid) &&
-        /** \todo: the (sid.code == 1) part is to be removed once L2C
-                   data decoding channel support is added */
-        (decoder_channel_available(i, sid) || (sid.code == 1))) {
+        decoder_channel_available(i, sid)) {
       return i;
     }
   }
