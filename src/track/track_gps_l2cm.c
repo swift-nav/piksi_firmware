@@ -19,9 +19,9 @@
 
 #include "track.h"
 
-#define FEATURE_L2C  /* skip weak attributes for L2C API implementation */
+/* skip weak attributes for L2C API implementation */
+#define FEATURE_TRACK_GPS_L2CM
 #include "track_gps_l2cm.h"
-#undef FEATURE_L2C
 
 #include "track_api.h"
 #include "decode.h"
@@ -38,8 +38,6 @@
 
 #include "settings.h"
 #include "signal.h"
-
-#define NUM_GPS_L2CM_TRACKERS   32
 
 /** L2C coherent integration time [ms] */
 #define L2C_COHERENT_INTEGRATION_TIME_MS 20
@@ -116,7 +114,6 @@ typedef struct {
                                     not necessarily) use longer integration. */
   alias_detect_t alias_detect; /**< Alias lock detector. */
   lock_detect_t lock_detect;   /**< Phase-lock detector state. */
-  u16 sat;                     /**< Satellite ID */
 } gps_l2cm_tracker_data_t;
 
 static tracker_t gps_l2cm_trackers[NUM_GPS_L2CM_TRACKERS];
@@ -186,13 +183,15 @@ void track_gps_l2cm_register(void)
  *
  * \param sample_count NAP sample count
  * \param sat L1C/A Satellite ID
- * \param nap_channel Associated NAP channel
  * \param code_phase L1CA code phase [chips]
+ * \param carrier_freq The current Doppler frequency for the L1 C/A channel
+ * \param cn0 CN0 estimate for the L1 C/A channel
  */
 void do_l1ca_to_l2cm_handover(u32 sample_count,
                               u16 sat,
-                              u8 nap_channel,
-                              float code_phase)
+                              float code_phase,
+                              double carrier_freq,
+                              float cn0_init)
 {
   /* First, get L2C capability for the SV from NDB */
   u32 l2c_cpbl;
@@ -246,13 +245,6 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
     code_phase = 2 * GPS_L2CM_CHIPS_NUM - (GPS_L1CA_CHIPS_NUM - code_phase);
   }
 
-  /* recalculate doppler freq for L2 from L1*/
-  double carrier_freq = tracking_channel_carrier_freq_get(nap_channel) *
-                        GPS_L2_HZ / GPS_L1_HZ;
-
-  /* get initial cn0 from parent L1 channel */
-  float cn0_init = tracking_channel_cn0_get(nap_channel);
-
   /* The best elevation estimation could be retrieved by calling
      tracking_channel_evelation_degrees_get(nap_channel) here.
      However, we assume it is done where tracker_channel_init()
@@ -261,9 +253,11 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
   tracking_startup_params_t startup_params = {
     .sid                = sid,
     .sample_count       = sample_count,
-    .carrier_freq       = carrier_freq,
+    /* recalculate doppler freq for L2 from L1*/
+    .carrier_freq       = carrier_freq * GPS_L2_HZ / GPS_L1_HZ,
     .code_phase         = code_phase,
     .chips_to_correlate = L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS,
+    /* get initial cn0 from parent L1 channel */
     .cn0_init           = cn0_init,
     .elevation          = TRACKING_ELEVATION_UNKNOWN
   };
@@ -271,7 +265,7 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
   if (tracking_startup_request(&startup_params)) {
     log_info_sid(sid, "L2 CM handover done");
   } else {
-    log_error_sid(sid, "Failed to start L2C tracking");
+    log_warn_sid(sid, "Failed to start L2C tracking");
   }
 }
 
@@ -316,8 +310,11 @@ static void tracker_gps_l2cm_init(const tracker_channel_info_t *channel_info,
                     L2C_ALIAS_DETECT_INTERVAL_MS / alias_detect_ms,
                     (alias_detect_ms - 1) * 1e-3);
 
-  /* Let's remember SV ID to avoid double tracking of L2C from it. */
-  data->sat = channel_info->sid.sat;
+  /* L2C bit sync is known once we start tracking it since
+     the L2C ranging code length matches the bit length (20ms).
+     This is the end of 20ms integration period and the edge
+     of a data bit. */
+  tracker_bit_sync_set(channel_info->context, 0);
 }
 
 static void tracker_gps_l2cm_disable(const tracker_channel_info_t *channel_info,
@@ -398,10 +395,10 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
     /* Handle start-up case, when we have 1+1+18 integration cycles */
     handle_tracker_startup(channel_info, common_data, data);
     if (1 == data->startup) {
-      // The start-up phase is over. Continue with the normal
-      // sequence of short & long cycles. The next cycle
-      // is going to be long.
-      data->short_cycle = false; // start-up phase is over
+      /* The start-up phase is over. Continue with the normal
+         sequence of short & long cycles. The next cycle
+         is going to be long. */
+      data->short_cycle = false;
     }
     if (data->startup) {
       data->startup--;
@@ -454,12 +451,6 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
   }
 
   common_data->update_count += data->int_ms;
-
-  /* L2C bit sync is known once we start tracking it since
-     the L2C ranging code length matches the bit length (20ms).
-     This is the end of 20ms integration period and the edge
-     of a data bit. */
-  tracker_bit_sync_set(channel_info->context, 0);
 
   /* Call the bit sync update API to do data decoding */
   tracker_bit_sync_update(channel_info->context, data->int_ms, data->cs[1].I);

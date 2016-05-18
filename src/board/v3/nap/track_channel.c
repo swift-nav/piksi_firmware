@@ -22,6 +22,7 @@
 #include <libswiftnav/common.h>
 #include <libswiftnav/signal.h>
 #include <libswiftnav/track.h>
+#include <libswiftnav/prns.h>   /* to expose sid_to_init_g1() declaration */
 
 #include <assert.h>
 #include <string.h>
@@ -62,72 +63,6 @@ static u32 calc_length_samples(u32 chips_to_correlate, s32 cp_start, u32 cp_rate
                  chips_to_correlate - cp_start;
   u32 samples = cp_units / cp_rate;
   return samples;
-}
-
-/** Return the init value of NAP G1 pseudorandom generator.
- * \param sid Signal ID
- * \return NAP G1 initial value
- */
-u32 sid_to_init_g1(gnss_signal_t sid)
-{
-  u32 ret = ~0;
-  /* The L2C G1 init values are taken from IS-GPS-200H Table 3-IIa
-     "Code phase assignments (IIR-M, IIF, and subsequent blocks only)"
-     For example, PRN 1 has G1 init value 0742417664.
-   */
-  u32 gps_l2cm_prns_init_values[] = {
-    /* 0  */ 0742417664,
-    /* 1  */ 0756014035,
-    /* 2  */ 0002747144,
-    /* 3  */ 0066265724,
-    /* 4  */ 0601403471,
-    /* 5  */ 0703232733,
-    /* 6  */ 0124510070,
-    /* 7  */ 0617316361,
-    /* 8  */ 0047541621,
-    /* 9  */ 0733031046,
-    /* 10 */ 0713512145,
-    /* 11 */ 0024437606,
-    /* 12 */ 0021264003,
-    /* 13 */ 0230655351,
-    /* 14 */ 0001314400,
-    /* 15 */ 0222021506,
-    /* 16 */ 0540264026,
-    /* 17 */ 0205521705,
-    /* 18 */ 0064022144,
-    /* 19 */ 0120161274,
-    /* 20 */ 0044023533,
-    /* 21 */ 0724744327,
-    /* 22 */ 0045743577,
-    /* 23 */ 0741201660,
-    /* 24 */ 0700274134,
-    /* 25 */ 0010247261,
-    /* 26 */ 0713433445,
-    /* 27 */ 0737324162,
-    /* 28 */ 0311627434,
-    /* 29 */ 0710452007,
-    /* 30 */ 0722462133,
-    /* 31 */ 0050172213,
-    /* 32 */ 0500653703,
-    /* 33 */ 0755077436,
-    /* 34 */ 0136717361,
-    /* 35 */ 0756675453,
-    /* 36 */ 0435506112
-  };
-
-  switch (sid.code) {
-  case CODE_GPS_L2CM:
-    ret = gps_l2cm_prns_init_values[sid.sat - 1] & 0x7FFFFFF;
-    break;
-  case CODE_GPS_L1CA:
-    ret = 0x3ff;
-    break;
-  default:
-    assert(0);
-    break;
-  }
-
-  return ret;
 }
 
 /** Looks-up RF frontend channel for the given signal ID.
@@ -186,7 +121,7 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   /* Contrive for the timing strobe to occur at or close to a
    * PRN edge (code phase = 0) */
   track_count += (SAMPLE_FREQ / code_to_chip_rate(sid.code)) *
-                 (code_to_chip_num(sid.code) - cp) *
+                 (code_to_chip_count(sid.code) - cp) *
                  (1.0 + carrier_freq / code_to_carr_freq(sid.code));
 
   u8 prn = sid.sat - 1;

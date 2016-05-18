@@ -293,7 +293,7 @@ double propagate_code_phase(double code_phase, double carrier_freq,
                            code_to_chip_rate(code);
   code_phase += n_samples * code_phase_rate / SAMPLE_FREQ;
   u32 cp_int = floor(code_phase);
-  code_phase -= cp_int - (cp_int % code_to_chip_num(code));
+  code_phase -= cp_int - (cp_int % code_to_chip_count(code));
   return code_phase;
 }
 
