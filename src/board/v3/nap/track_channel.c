@@ -123,7 +123,7 @@ void nap_track_read_results(u8 channel,
                             double *carrier_phase)
 {
   corr_t lc[5];
-  if (NAP->TRK_CH[channel].STATUS & 0x3F)
+  if (NAP->TRK_CH[channel].STATUS & NAP_TRK_STATUS_CORR_OVF_Msk)
     log_warn("Track correlator overflow 0x%08X on channel %d",
               NAP->TRK_CH[channel].STATUS, channel);
   for (u8 i = 0; i < 5; i++) {
@@ -143,8 +143,6 @@ void nap_track_read_results(u8 channel,
   nap_ch_state[channel].code_phase +=
     NAP->TRK_CH[channel].LENGTH * NAP->TRK_CH[channel].CODE_PINC;
   nap_ch_state[channel].len = NAP->TRK_CH[channel].LENGTH;
-  if (!(NAP->STATUS & 1))
-    asm("bkpt");
 }
 
 void nap_track_disable(u8 channel)
