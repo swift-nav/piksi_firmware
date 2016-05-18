@@ -15,6 +15,7 @@
 #include "../../sbp.h"
 
 #include "nap_hw.h"
+#include "nap_fe_hw.h"
 #include "nap_constants.h"
 #include "axi_dma.h"
 
