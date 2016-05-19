@@ -23,6 +23,7 @@
 #include <libswiftnav/dgnss_management.h>
 #include <libswiftnav/baseline.h>
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/set.h>
 
 #define memory_pool_t MemoryPool
 #include <ch.h>
@@ -214,11 +215,18 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
   chMtxUnlock(&base_pos_lock);
 }
 
+int cmp_sid_nm(const void *a, const void *b)
+{
+  return sid_compare(*(gnss_signal_t*)a, ((navigation_measurement_t *)b)->sid);
+}
+
 static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
-                            const gps_time_t *t, double hdop, double diff_time, u16 base_id)
+                            u8 num_meas, const navigation_measurement_t *nav_meas,
+                            const gps_time_t *t, double diff_time, u16 base_id)
 {
   double b[3];
   u8 num_used, flags;
+  gnss_signal_t used_sids[MAX_CHANNELS];
   s8 ret;
 
   switch (dgnss_filter) {
@@ -226,7 +234,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
   case FILTER_FIXED:
     chMtxLock(&amb_state_lock);
     ret = dgnss_baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
-                         &amb_state, &num_used, b,
+                         &amb_state, &num_used, used_sids, b,
                          disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock(&amb_state_lock);
     if (ret > 0) {
@@ -242,7 +250,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     flags = 0;
     chMtxLock(&amb_state_lock);
     ret = baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
-                   &amb_state.float_ambs, &num_used, b,
+                   &amb_state.float_ambs, &num_used, used_sids, b,
                    disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock(&amb_state_lock);
     if (ret == 1)
@@ -254,7 +262,30 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     break;
   }
 
-  solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags, hdop, diff_time, base_id);
+  /* Calculate the DOPs from the sids used in the baseline solution. */
+  gnss_solution soln;
+  dops_t dops;
+  navigation_measurement_t intersection_nm[MAX_CHANNELS];
+  /* Reusing nav_meas for the output. Should be safe as output will be same
+     length or shorter than the input. */
+  s32 intersection_size = intersection(num_used, sizeof(gnss_signal_t), used_sids, NULL,
+                          num_meas, sizeof(navigation_measurement_t), nav_meas, intersection_nm,
+                          cmp_sid_nm);
+  if (intersection_size > 0) {
+    /* The DOPs are always valid even if calc_PVT fails. */
+    calc_PVT(intersection_size, intersection_nm, TRUE, &soln, &dops);
+    log_debug("RTK DOPs: H %.2f V %.2f P %.2f T %.2f G %.2f",
+              dops.hdop, dops.vdop, dops.pdop, dops.tdop, dops.gdop);
+
+    /* Ensure PDOP is not too high. */
+    if (dops.pdop <= 20.0f) {
+      solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags, dops.hdop, diff_time, base_id);
+    } else {
+      log_error("output_baseline: RTK PDOP %.2f > 20", dops.pdop);
+    }
+  } else {
+    log_error("output_baseline: intersection of sids failed");
+  }
 }
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
@@ -396,7 +427,7 @@ static void sol_thd_sleep(systime_t *deadline, systime_t interval)
   chSysUnlock();
 }
 
-static WORKING_AREA_CCM(wa_solution_thread, 8000);
+static WORKING_AREA_CCM(wa_solution_thread, 9000);
 static void solution_thread(void *arg)
 {
   (void)arg;
@@ -502,6 +533,8 @@ static void solution_thread(void *arg)
       );
 
       /* Send just the DOPs and exit the loop */
+      log_debug("SPP DOPs: H %.2f V %.2f P %.2f T %.2f G %.2f",
+                dops.hdop, dops.vdop, dops.pdop, dops.tdop, dops.gdop);
       solution_send_sbp(0, &dops, clock_jump);
       continue;
     }
@@ -659,8 +692,8 @@ static void solution_thread(void *arg)
                                     base_obss.sat_dists, base_obss.pos_ecef,
                                     sdiffs);
             if (num_sdiffs >= 4) {
-              output_baseline(num_sdiffs, sdiffs, &new_obs_time, pdt,
-                              dops.hdop, base_obss.sender_id);
+              output_baseline(num_sdiffs, sdiffs, n_ready_tdcp, nav_meas_tdcp,
+                              &new_obs_time, pdt, base_obss.sender_id);
             }
           }
         }
@@ -715,7 +748,9 @@ static bool init_done = false;
 static bool init_known_base = false;
 static bool reset_iar = false;
 
-void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, u16 base_id)
+void process_matched_obs(u8 n_sds, sdiff_t *sds,
+                         u8 n_nms, navigation_measurement_t* nms,
+                         gps_time_t *t, u16 base_id)
 {
   if (init_known_base) {
     if (n_sds > 4) {
@@ -757,7 +792,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, u16 base_id)
      * for this observation. */
     if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED &&
         !simulation_enabled() && n_sds >= 4) {
-      output_baseline(n_sds, sds, t, 0, 0, base_id);
+      output_baseline(n_sds, sds, n_nms, nms, t, 0, base_id);
     }
   }
 }
@@ -808,7 +843,7 @@ static void time_matched_obs_thread(void *arg)
            * our filters. */
           n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
         }
-        process_matched_obs(n_sds, &obss->tor, sds, base_obss.sender_id);
+        process_matched_obs(n_sds, sds, obss->n, obss->nm, &obss->tor, base_obss.sender_id);
         chPoolFree(&obs_buff_pool, obss);
         break;
       } else {
