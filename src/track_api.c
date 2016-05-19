@@ -53,10 +53,12 @@ void tracker_interface_register(tracker_interface_list_element_t *element)
  * \param context         Tracker context.
  * \param cs              Output array of correlations.
  * \param sample_count    Output sample count.
+ * \param code_phase      Output code phase (chips).
+ * \param carrier_phase   Output carrier phase (cycles).
  */
 void tracker_correlations_read(tracker_context_t *context, corr_t *cs,
-                               u32 *sample_count,
-                               double *code_phase, double *carrier_phase)
+                               u32 *sample_count, double *code_phase,
+                               double *carrier_phase)
 {
   const tracker_channel_info_t *channel_info;
   tracker_internal_data_t *internal_data;
@@ -70,8 +72,8 @@ void tracker_correlations_read(tracker_context_t *context, corr_t *cs,
 /** Write the NAP update register for a tracker channel.
  *
  * \param context             Tracker context.
- * \param carrier_freq_fp     Carrier frequency in NAP register units.
- * \param code_phase_rate_fp  Code phase rate in NAP register units.
+ * \param carrier_freq        Carrier frequency (Hz).
+ * \param code_phase_rate     Code phase rate (chips/s).
  * \param rollover_count      Number of code cycles to integrate over.
  */
 void tracker_retune(tracker_context_t *context, double carrier_freq,
