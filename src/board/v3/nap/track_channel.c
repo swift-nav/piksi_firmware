@@ -11,6 +11,7 @@
  */
 
 #include "board.h"
+#include "nap_hw.h"
 #include "nap/nap_common.h"
 #include "nap/track_channel.h"
 #include "track.h"
@@ -27,6 +28,9 @@
 #include <string.h>
 
 #define TRACK_SAMPLE_FREQ (SAMPLE_FREQ / 4)
+
+#define TIMING_COMPARE_DELTA_MIN (  1e-3 * TRACK_SAMPLE_FREQ) /*   1ms */
+#define TIMING_COMPARE_DELTA_MAX (100e-3 * TRACK_SAMPLE_FREQ) /* 100ms */
 
 /* NAP track channel parameters. */
 #define NAP_TRACK_CARRIER_FREQ_WIDTH              32
@@ -60,18 +64,8 @@ static u32 calc_length_samples(u8 codes, s32 cp_start, u32 cp_rate)
 }
 
 void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
-                   float carrier_freq, float code_phase)
+                    float carrier_freq, float code_phase)
 {
-  u32 now = NAP->TIMING_COUNT;
-  u32 track_count = now + 200000;
-  double cp = propagate_code_phase(code_phase, carrier_freq,
-                                  track_count - ref_timing_count);
-
-  /* Contrive for the timing strobe to occur at or close to a
-   * PRN edge (code phase = 0) */
-  track_count += (SAMPLE_FREQ/GPS_CA_CHIPPING_RATE) * (1023.0-cp) *
-                 (1.0 + carrier_freq / GPS_L1_HZ);
-
   u8 prn = sid.sat - 1;
   NAP->TRK_CH[channel].CONTROL = prn << NAP_TRK_CONTROL_SAT_Pos;
   /* We always start at zero code phase */
@@ -94,8 +88,34 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
 
   COMPILER_BARRIER();
 
-  NAP->TRK_TIMING_COMPARE = track_count - SAMPLE_FREQ / GPS_CA_CHIPPING_RATE;
-  chThdSleep(CH_CFG_ST_FREQUENCY * ceil((float)(track_count - now)/SAMPLE_FREQ));
+  /* Set up timing compare */
+  u32 tc_req;
+  while (1) {
+    chSysLock();
+    tc_req = NAP->TIMING_COUNT + TIMING_COMPARE_DELTA_MIN;
+    double cp = propagate_code_phase(code_phase, carrier_freq,
+                                     tc_req - ref_timing_count);
+    /* Contrive for the timing strobe to occur at or close to a
+     * PRN edge (code phase = 0) */
+    tc_req += (SAMPLE_FREQ / GPS_CA_CHIPPING_RATE) * (1023.0 - cp) *
+              (1.0 + carrier_freq / GPS_L1_HZ);
+
+    NAP->TRK_TIMING_COMPARE = tc_req;
+    chSysUnlock();
+
+    if (tc_req - NAP->TRK_TIMING_SNAPSHOT <= (u32)TIMING_COMPARE_DELTA_MAX) {
+      break;
+    }
+  }
+
+  /* Sleep until compare match */
+  s32 tc_delta;
+  while ((tc_delta = tc_req - NAP->TIMING_COUNT) >= 0) {
+    systime_t sleep_time = ceil(CH_CFG_ST_FREQUENCY * tc_delta / SAMPLE_FREQ);
+    /* The next system tick will always occur less than the nominal tick period
+     * in the future, so sleep for an extra tick. */
+    chThdSleep(1 + sleep_time);
+  }
 }
 
 void nap_track_update(u8 channel, double carrier_freq,
