@@ -13,6 +13,7 @@
 #include <hal.h>
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <libsbp/sbp.h>
 
@@ -21,12 +22,19 @@
 #include "main.h"
 #include "peripherals/leds.h"
 #include "board/nap/nap_common.h"
-#include "board/nap/nap_conf.h"
+#include "nap/nap_conf.h"
 #include "sbp.h"
 #include "error.h"
 
+#define REQUIRED_NAP_VERSION_MASK (0xFFFF0000U)
+#define REQUIRED_NAP_VERSION_VAL  (0x03000000U)
+
 #define SLCR_PSS_RST_CTRL (*(volatile u32 *)0xf8000200)
 #define SLCR_PSS_RST_CTRL_SOFT_RST 1
+
+static bool nap_version_ok(u32 version);
+static void nap_version_check(void);
+static void nap_auth_check(void);
 
 /** Resets the device back into the bootloader. */
 static void reset_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -55,27 +63,38 @@ static void reset_callback_register(void)
   );
 }
 
-void init(void)
+void pre_init(void)
 {
   led_setup();
+}
 
-  nap_setup();
-
-  srand(0);
-
-  usarts_setup();
-  s32 serial_number = -1;//nap_conf_rd_serial_number();
-  if (serial_number < 0) {
-    /* TODO: Handle this properly! */
-    serial_number = 0x2222;
-  }
-  sbp_setup(serial_number);
-
+void init(void)
+{
   fault_handling_setup();
+  reset_callback_register();
 
+  nap_version_check();
+  nap_setup();
+  nap_auth_check();
   nap_callbacks_setup();
 
-  reset_callback_register();
+  srand(0);
+}
+
+static bool nap_version_ok(u32 version)
+{
+  return ((version & REQUIRED_NAP_VERSION_MASK) == REQUIRED_NAP_VERSION_VAL);
+}
+
+static void nap_version_check(void)
+{
+  u32 nap_version = nap_conf_rd_version();
+  if (!nap_version_ok(nap_version)) {
+    while (1) {
+      log_error("Unsupported NAP version: 0x%08x", nap_version);
+      chThdSleepSeconds(2);
+    }
+  }
 }
 
 /* Check NAP authentication status. Block and print error message
@@ -83,10 +102,29 @@ void init(void)
  * USARTs, and SBP subsystems are set up, so that SBP messages and
  * be sent and received (it can't go in init() or nap_setup()).
  */
-void check_nap_auth(void)
+static void nap_auth_check(void)
 {
+
 }
 
+s32 serial_number_get(void)
+{
+  /* TODO: read from NVM */
+  return -1;
+}
+
+u8 hw_revision_string_get(char *hw_revision_string)
+{
+  /* TODO: read from NVM */
+  const char *s = "alpha";
+  strcpy(hw_revision_string, s);
+  return strlen(hw_revision_string);
+}
+
+u8 nap_version_string_get(char *nap_version_string)
+{
+  return nap_conf_rd_version_string(nap_version_string);
+}
 
 /** Our own basic implementation of sbrk().
  * This overrides the version provided by newlib/libnosys which now checks that

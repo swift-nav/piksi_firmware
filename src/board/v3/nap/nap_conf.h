@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2013-2014 Swift Navigation Inc.
+ * Copyright (C) 2011-2014 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
+ *          Colin Beighley <colin@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,15 +11,20 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SWIFTNAV_INIT_H
-#define SWIFTNAV_INIT_H
+#ifndef SWIFTNAV_NAP_CONF_H
+#define SWIFTNAV_NAP_CONF_H
 
-void pre_init(void);
-void init(void);
+#include <libswiftnav/common.h>
 
-s32 serial_number_get(void);
-u8 hw_revision_string_get(char *hw_revision_string);
-u8 nap_version_string_get(char *nap_version_string);
+/** \addtogroup conf
+ * \{ */
 
-#endif
+/** \} */
+
+u32 nap_conf_rd_version(void);
+u8 nap_conf_rd_version_string(char version_string[]);
+void nap_rd_dna(u8 dna[]);
+void nap_unlock(const u8 key[]);
+
+#endif /* SWIFTNAV_NAP_CONF_H */
 
