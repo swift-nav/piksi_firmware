@@ -115,7 +115,7 @@ static MUTEX_DECL(tracking_startup_mutex);
 
 static almanac_t almanac[PLATFORM_SIGNAL_COUNT];
 
-static float elevation_mask = 0.0; /* degrees */
+static float elevation_mask = 10.0; /* degrees */
 static bool sbas_enabled = false;
 
 static void acq_result_send(gnss_signal_t sid, float snr, float cp, float cf);
