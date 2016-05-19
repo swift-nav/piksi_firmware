@@ -64,6 +64,8 @@ typedef struct {
   u16 lock_counter;
   /** Set if this channel should output I/Q samples on SBP. */
   bool output_iq;
+  /** Carrier phase integer offset in cycles. */
+  double carrier_phase_offset;
 } tracker_internal_data_t;
 
 /** \} */

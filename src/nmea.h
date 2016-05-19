@@ -46,8 +46,10 @@ void nmea_gpgsv(u8 n_used, const navigation_measurement_t *nav_meas,
 void nmea_gprmc(const gnss_solution *soln, const gps_time_t *gps_t);
 void nmea_gpvtg(const gnss_solution *soln);
 void nmea_gpgll(const gnss_solution *soln, const gps_time_t *gps_t);
-void nmea_send_msgs(gnss_solution *soln, u8 n, 
-                    navigation_measurement_t *nm, const dops_t *dops);
+void nmea_send_msgs(gnss_solution *soln, u8 n,
+                    navigation_measurement_t *nm,
+                    const dops_t *dops,
+                    bool skip_velocity);
 
 /** Register a new dispatcher for NMEA messages
  *
@@ -71,4 +73,3 @@ void _nmea_dispatcher_register(struct nmea_dispatcher *);
 /** \} */
 
 #endif  /* SWIFTNAV_NMEA_H */
-

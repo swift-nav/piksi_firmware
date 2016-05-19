@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <stdio.h>
 #include <string.h>
 
 #include <libsbp/sbp.h>
@@ -22,6 +23,7 @@
 #include <libswiftnav/dgnss_management.h>
 #include <libswiftnav/baseline.h>
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/set.h>
 
 #define memory_pool_t MemoryPool
 #include <ch.h>
@@ -77,7 +79,7 @@ static u16 lock_counters[PLATFORM_SIGNAL_COUNT];
 bool disable_raim = false;
 bool send_heading = false;
 
-void solution_send_sbp(gnss_solution *soln, dops_t *dops)
+void solution_send_sbp(gnss_solution *soln, dops_t *dops, bool clock_jump)
 {
   if (soln) {
     /* Send GPS_TIME message first. */
@@ -96,14 +98,17 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
       sbp_send_msg(SBP_MSG_POS_ECEF, sizeof(pos_ecef), (u8 *) &pos_ecef);
     }
     /* Velocity in NED. */
-    msg_vel_ned_t vel_ned;
-    sbp_make_vel_ned(&vel_ned, soln, 0);
-    sbp_send_msg(SBP_MSG_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
+    /* Do not send if there has been a clock jump. Velocity may be unreliable.*/
+    if (!clock_jump) {
+      msg_vel_ned_t vel_ned;
+      sbp_make_vel_ned(&vel_ned, soln, 0);
+      sbp_send_msg(SBP_MSG_VEL_NED, sizeof(vel_ned), (u8 *) &vel_ned);
 
-    /* Velocity in ECEF. */
-    msg_vel_ecef_t vel_ecef;
-    sbp_make_vel_ecef(&vel_ecef, soln, 0);
-    sbp_send_msg(SBP_MSG_VEL_ECEF, sizeof(vel_ecef), (u8 *) &vel_ecef);
+      /* Velocity in ECEF. */
+      msg_vel_ecef_t vel_ecef;
+      sbp_make_vel_ecef(&vel_ecef, soln, 0);
+      sbp_send_msg(SBP_MSG_VEL_ECEF, sizeof(vel_ecef), (u8 *) &vel_ecef);
+    }
   }
 
   if (dops) {
@@ -116,13 +121,13 @@ void solution_send_sbp(gnss_solution *soln, dops_t *dops)
 }
 void solution_send_nmea(gnss_solution *soln, dops_t *dops,
                         u8 n, navigation_measurement_t *nm,
-                        u8 fix_mode)
+                        u8 fix_mode, bool clock_jump)
 {
   if (chVTTimeElapsedSinceX(last_dgnss) > DGNSS_TIMEOUT(soln_freq)) {
     nmea_gpgga(soln->pos_llh, &soln->time, soln->n_used,
                fix_mode, dops->hdop, 0, 0);
   }
-  nmea_send_msgs(soln, n, nm, dops);
+  nmea_send_msgs(soln, n, nm, dops, clock_jump);
 
 }
 
@@ -153,7 +158,7 @@ double calc_heading(const double b_ned[3])
  * \param flags u8 RTK solution flags. 1 if float, 0 if fixed
  */
 void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
-                            double ref_ecef[3], u8 flags, double hdop, 
+                            double ref_ecef[3], u8 flags, double hdop,
                             double corrections_age, u16 sender_id)
 {
   double* base_station_pos;
@@ -210,11 +215,18 @@ void solution_send_baseline(const gps_time_t *t, u8 n_sats, double b_ecef[3],
   chMtxUnlock(&base_pos_lock);
 }
 
+int cmp_sid_nm(const void *a, const void *b)
+{
+  return sid_compare(*(gnss_signal_t*)a, ((navigation_measurement_t *)b)->sid);
+}
+
 static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
-                            const gps_time_t *t, double hdop, double diff_time, u16 base_id)
+                            u8 num_meas, const navigation_measurement_t *nav_meas,
+                            const gps_time_t *t, double diff_time, u16 base_id)
 {
   double b[3];
   u8 num_used, flags;
+  gnss_signal_t used_sids[MAX_CHANNELS];
   s8 ret;
 
   switch (dgnss_filter) {
@@ -222,7 +234,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
   case FILTER_FIXED:
     chMtxLock(&amb_state_lock);
     ret = dgnss_baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
-                         &amb_state, &num_used, b,
+                         &amb_state, &num_used, used_sids, b,
                          disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock(&amb_state_lock);
     if (ret > 0) {
@@ -238,7 +250,7 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     flags = 0;
     chMtxLock(&amb_state_lock);
     ret = baseline(num_sdiffs, sdiffs, position_solution.pos_ecef,
-                   &amb_state.float_ambs, &num_used, b,
+                   &amb_state.float_ambs, &num_used, used_sids, b,
                    disable_raim, DEFAULT_RAIM_THRESHOLD);
     chMtxUnlock(&amb_state_lock);
     if (ret == 1)
@@ -250,7 +262,30 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
     break;
   }
 
-  solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags, hdop, diff_time, base_id);
+  /* Calculate the DOPs from the sids used in the baseline solution. */
+  gnss_solution soln;
+  dops_t dops;
+  navigation_measurement_t intersection_nm[MAX_CHANNELS];
+  /* Reusing nav_meas for the output. Should be safe as output will be same
+     length or shorter than the input. */
+  s32 intersection_size = intersection(num_used, sizeof(gnss_signal_t), used_sids, NULL,
+                          num_meas, sizeof(navigation_measurement_t), nav_meas, intersection_nm,
+                          cmp_sid_nm);
+  if (intersection_size > 0) {
+    /* The DOPs are always valid even if calc_PVT fails. */
+    calc_PVT(intersection_size, intersection_nm, TRUE, &soln, &dops);
+    log_debug("RTK DOPs: H %.2f V %.2f P %.2f T %.2f G %.2f",
+              dops.hdop, dops.vdop, dops.pdop, dops.tdop, dops.gdop);
+
+    /* Ensure PDOP is not too high. */
+    if (dops.pdop <= 20.0f) {
+      solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags, dops.hdop, diff_time, base_id);
+    } else {
+      log_error("output_baseline: RTK PDOP %.2f > 20", dops.pdop);
+    }
+  } else {
+    log_error("output_baseline: intersection of sids failed");
+  }
 }
 
 void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
@@ -281,7 +316,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
 
     for (u8 i = 0; i < curr_n; i++, obs_i++) {
       if (pack_obs_content(m[obs_i].raw_pseudorange,
-            m[obs_i].carrier_phase,
+            m[obs_i].raw_carrier_phase,
             m[obs_i].snr,
             m[obs_i].lock_counter,
             m[obs_i].sid,
@@ -314,11 +349,11 @@ static void solution_simulation()
 
   if (simulation_enabled_for(SIMULATION_MODE_PVT)) {
     /* Then we send fake messages. */
-    solution_send_sbp(soln, simulation_current_dops_solution());
+    solution_send_sbp(soln, simulation_current_dops_solution(), FALSE);
     solution_send_nmea(soln, simulation_current_dops_solution(),
                        simulation_current_num_sats(),
                        simulation_current_navigation_measurements(),
-                       NMEA_GGA_FIX_GPS);
+                       NMEA_GGA_FIX_GPS, FALSE);
 
   }
 
@@ -392,14 +427,15 @@ static void sol_thd_sleep(systime_t *deadline, systime_t interval)
   chSysUnlock();
 }
 
-static WORKING_AREA_CCM(wa_solution_thread, 8000);
+static WORKING_AREA_CCM(wa_solution_thread, 9000);
 static void solution_thread(void *arg)
 {
   (void)arg;
   chRegSetThreadName("solution");
 
   systime_t deadline = chVTGetSystemTimeX();
-  static navigation_measurement_t nav_meas_old[MAX_CHANNELS];
+
+  bool clock_jump = FALSE;
 
   while (TRUE) {
 
@@ -411,12 +447,14 @@ static void solution_thread(void *arg)
       solution_simulation();
     }
 
+    u64 rec_tc = nap_timing_count();
+    gps_time_t rec_time = rx2gpstime(rec_tc);
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
       tracking_channel_lock(i);
       if (use_tracking_channel(i)) {
-        tracking_channel_measurement_get(i, &meas[n_ready]);
+        tracking_channel_measurement_get(i, rec_tc, &meas[n_ready]);
         n_ready++;
       }
       tracking_channel_unlock(i);
@@ -431,37 +469,49 @@ static void solution_thread(void *arg)
     /* TODO: Instead of passing 32 LSBs of nap_timing_count do something
      * more intelligent with the solution time.
      */
-    static u8 n_ready_old = 0;
-    u64 nav_tc = nap_timing_count();
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
-
     const channel_measurement_t *p_meas[n_ready];
     navigation_measurement_t *p_nav_meas[n_ready];
     const ephemeris_t *p_e_meas[n_ready];
-    for (u8 i=0; i<n_ready; i++) {
+
+    /* Create arrays of pointers for use in calc_navigation_measurement */
+    for (u8 i = 0; i < n_ready; i++) {
       p_meas[i] = &meas[i];
       p_nav_meas[i] = &nav_meas[i];
       p_e_meas[i] = ephemeris_get(meas[i].sid);
     }
 
+    /* Create navigation measurements from the channel measurements */
     ephemeris_lock();
+    /* If we have timing then we can calculate the relationship between
+     * receiver time and GPS time and hence provide the pseudorange
+     * calculation with the local GPS time of reception. */
+    /* If a FINE quality time solution is not available then don't pass in a
+     * `nav_time`. This will result in valid pseudoranges but with a large
+     * and arbitrary receiver clock error. We may want to discard these
+     * observations after doing a PVT solution. */
+    gps_time_t *p_rec_time = (time_quality == TIME_FINE) ? &rec_time : NULL;
     if (calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                    (double)((u32)nav_tc)/SAMPLE_FREQ, p_e_meas)
-        != 0) {
+								                   p_rec_time, p_e_meas) != 0) {
       log_error("calc_navigation_measurement() returned an error");
       ephemeris_unlock();
       continue;
     }
     ephemeris_unlock();
 
+    static u64 rec_tc_old = 0;
+    static u8 n_ready_old = 0;
+    static navigation_measurement_t nav_meas_old[MAX_CHANNELS];
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
     u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
-                                   nav_meas_old, nav_meas_tdcp);
+                                   nav_meas_old, nav_meas_tdcp,
+                                   (double)(rec_tc - rec_tc_old) / SAMPLE_FREQ);
 
     /* Store current observations for next time for
      * TDCP Doppler calculation. */
     memcpy(nav_meas_old, nav_meas, sizeof(nav_meas));
     n_ready_old = n_ready;
+    rec_tc_old = rec_tc;
 
     if (n_ready_tdcp < 4) {
       /* Not enough sats to compute PVT */
@@ -469,29 +519,156 @@ static void solution_thread(void *arg)
     }
 
     dops_t dops;
-    s8 ret;
-    /* disable_raim controlled by external setting. Defaults to false. */
-    if ((ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp, disable_raim,
-                        &position_solution, &dops)) >= 0) {
-
-      if (ret == 1)
-        log_warn("calc_PVT: RAIM repair");
-
-      /* Update global position solution state. */
-      position_updated();
-      set_time_fine(nav_tc, position_solution.time);
-
-      /* Save elevation angles every so often */
+    /* Calculate the SPP position
+     * disable_raim controlled by external setting. Defaults to false. */
+    s8 ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp, disable_raim,
+                      &position_solution, &dops);
+    if (ret < 0) {
+      /* An error occurred with calc_PVT! */
+      /* TODO: Make this based on time since last error instead of a simple
+       * count. */
+      /* pvt_err_msg defined in libswiftnav/pvt.c */
       DO_EVERY((u32)soln_freq,
-               update_sat_elevations(nav_meas_tdcp, n_ready_tdcp,
-                                     position_solution.pos_ecef));
+        log_warn("PVT solver: %s (code %d)", pvt_err_msg[-ret-1], ret);
+      );
 
-      if (!simulation_enabled()) {
-        /* Output solution. */
-        solution_send_sbp(&position_solution, &dops);
-        solution_send_nmea(&position_solution, &dops,
-                           n_ready_tdcp, nav_meas_tdcp,
-                           NMEA_GGA_FIX_GPS);
+      /* Send just the DOPs and exit the loop */
+      log_debug("SPP DOPs: H %.2f V %.2f P %.2f T %.2f G %.2f",
+                dops.hdop, dops.vdop, dops.pdop, dops.tdop, dops.gdop);
+      solution_send_sbp(0, &dops, clock_jump);
+      continue;
+    }
+
+    if (ret == 1)
+	  log_warn("calc_PVT: RAIM repair");
+
+    if (time_quality < TIME_FINE) {
+      /* If the time quality is not FINE then our receiver clock bias isn't
+       * known. We should only use this PVT solution to update our time
+       * estimate and then skip all other processing.
+       *
+       * Note that the lack of knowledge of the receiver clock bias does NOT
+       * degrade the quality of the position solution but the rapid change in
+       * bias after the time estimate is first improved may cause issues for
+       * e.g. carrier smoothing. Easier just to discard this first solution.
+       */
+      set_time_fine(rec_tc, position_solution.time);
+      continue;
+    }
+
+    /* Calculate the receiver clock error and if >1ms perform a clock jump */
+    double rx_err = gpsdifftime(&rec_time, &position_solution.time);
+    log_debug("RX clock error = %f", rx_err);
+    clock_jump = FALSE;
+    if (fabs(rx_err) >= 1e-3) {
+    log_info("RX clock error %f > 1ms, resetting!", rx_err);
+      set_time_fine(rec_tc, position_solution.time);
+      clock_jump = TRUE;
+    }
+
+    /* Update global position solution state. */
+    position_updated();
+
+    /* Save elevation angles every so often */
+    DO_EVERY((u32)soln_freq,
+             update_sat_elevations(nav_meas_tdcp, n_ready_tdcp,
+                                   position_solution.pos_ecef));
+
+    if (!simulation_enabled()) {
+      /* Output solution. */
+      solution_send_sbp(&position_solution, &dops, clock_jump);
+      solution_send_nmea(&position_solution, &dops,
+                         n_ready_tdcp, nav_meas_tdcp,
+                         NMEA_GGA_FIX_GPS, clock_jump);
+    }
+
+    /* There are two corrections that are applied to the pseudorange,
+     * the first is done to remove receiver clock error which we now know
+     * (since we've performed a PVT solve).  To remove the receiver
+     * clock error from the pseudorange we need to add the PVT time
+     * correction term into the pseudorange.  To be more explicit, we
+     * start with the pseudorange using Leick's notation:
+     *
+     *      P(t) = c * [t - TOT(t) + dt_k(t) - dt^p(t)]
+     *
+     * Where dt_k is the receiver clock error and dt^p is the satellite clock error,
+     * and TOT(t) is the time of transmission for a signal that arrived at time t.
+     *
+     * When we first compute the raw_pseudorange (in calc_navigation_measurements)
+     * dt_k(t) and dt^p(t) are unknown, so we ignore them and set:
+     *
+     *      P_uncorrected(tor) = P(tor) - c dt_k(tor) + c dt^p(t)
+     *                         = c (tor - TOT(tor))
+     *
+     * Now that we know the receiver error we can get a more accurate pseudorange
+     * by accounting for the receiver error (dt_k(t))
+     *
+     *      P_corrected(t_pvt) = P_uncorrected(tor) + c dt_k(t_pvt)
+     *                         = P_uncorrected(tor) + c (t_pvt - tor)
+     *                         = c (t_pvt - TOT(tor))
+     *                         = c (t_pvt - TOT(t_pvt)).
+     *
+     *  The last bit comes from TOT(tor) == TOT(t_pvt), which simply stems from
+     *  the fact that uncorrected and corrected pseudoranges correspond to the
+     *  exact same observations.
+     */
+    for (u8 i = 0; i < n_ready_tdcp; i++) {
+      nav_meas_tdcp[i].raw_pseudorange += GPS_C * gpsdifftime(&position_solution.time, &rec_time);
+      nav_meas_tdcp[i].pseudorange += GPS_C * gpsdifftime(&position_solution.time, &rec_time);
+    }
+    /*
+     * The next correction is done to create a new pseudorange that is valid for
+     * a different time of arrival.  In particular we'd like to propagate all the
+     * observations such that they represent what we would have observed had
+     * the observations all arrived at the current epoch (t').
+     */
+
+    /* Calculate the time of the nearest solution epoch, where we expected
+     * to be, and calculate how far we were away from it. */
+    double expected_tow = round(position_solution.time.tow * soln_freq)
+                          / soln_freq;
+    double t_err = expected_tow - position_solution.time.tow;
+
+    /* Update observation time. */
+    gps_time_t new_obs_time;
+    new_obs_time.wn = position_solution.time.wn;
+    new_obs_time.tow = expected_tow;
+
+    /* Only send observations that are closely aligned with the desired
+     * solution epochs to ensure they haven't been propagated too far. */
+    if (fabs(t_err) < OBS_PROPAGATION_LIMIT) {
+
+      /* Propagate observation to desired time. */
+      /* We have to use the tdcp_doppler result to account for TCXO drift. */
+      for (u8 i = 0; i < n_ready_tdcp; i++) {
+        nav_meas_tdcp[i].raw_pseudorange -= t_err;
+        nav_meas_tdcp[i].raw_carrier_phase += t_err * nav_meas_tdcp[i].raw_doppler;
+
+        nav_meas_tdcp[i].tot = new_obs_time;
+        nav_meas_tdcp[i].tot.tow -= nav_meas_tdcp[i].raw_pseudorange / GPS_C;
+        normalize_gps_time(&nav_meas_tdcp[i].tot);
+
+        double clock_err;
+        double clock_rate_err;
+        ephemeris_lock();
+        ephemeris_t *e = ephemeris_get(nav_meas_tdcp[i].sid);
+        calc_sat_state(e, &nav_meas_tdcp[i].tot,
+                       nav_meas_tdcp[i].sat_pos,
+                       nav_meas_tdcp[i].sat_vel,
+                       &clock_err, &clock_rate_err);
+        ephemeris_unlock();
+      }
+
+      /* Output obervations only every obs_output_divisor times, taking
+       * care to ensure that the observations are aligned. */
+      /* Also only output observations once our receiver clock is
+       * correctly set. */
+      double t_check = expected_tow * (soln_freq / obs_output_divisor);
+      if (!simulation_enabled() &&
+          time_quality == TIME_FINE &&
+          fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+        /* Send the observations. */
+        send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
       }
 
       /* If we have a recent set of observations from the base station, do a
@@ -499,7 +676,7 @@ static void solution_thread(void *arg)
       double pdt;
       chMtxLock(&base_obs_lock);
       if (base_obss.n > 0 && !simulation_enabled()) {
-        if ((pdt = gpsdifftime(&position_solution.time, &base_obss.t))
+        if ((pdt = gpsdifftime(&new_obs_time, &base_obss.tor))
               < MAX_AGE_OF_DIFFERENTIAL) {
 
           /* Propagate base station observations to the current time and
@@ -509,111 +686,61 @@ static void solution_thread(void *arg)
           if (dgnss_soln_mode == SOLN_MODE_LOW_LATENCY &&
               base_obss.has_pos) {
 
-            ephemeris_lock();
-            const ephemeris_t *e_nav_meas_tdcp[n_ready_tdcp];
-            for (u32 i=0; i<n_ready_tdcp; i++)
-              e_nav_meas_tdcp[i] = ephemeris_get(nav_meas_tdcp[i].sid);
-
             sdiff_t sdiffs[MAX(base_obss.n, n_ready_tdcp)];
             u8 num_sdiffs = make_propagated_sdiffs(n_ready_tdcp, nav_meas_tdcp,
                                     base_obss.n, base_obss.nm,
                                     base_obss.sat_dists, base_obss.pos_ecef,
-                                    e_nav_meas_tdcp, &position_solution.time,
                                     sdiffs);
-            ephemeris_unlock();
             if (num_sdiffs >= 4) {
-              output_baseline(num_sdiffs, sdiffs, &position_solution.time, pdt, 
-                              dops.hdop, base_obss.sender_id);
+              output_baseline(num_sdiffs, sdiffs, n_ready_tdcp, nav_meas_tdcp,
+                              &new_obs_time, pdt, base_obss.sender_id);
             }
           }
-
         }
       }
       chMtxUnlock(&base_obs_lock);
 
-      /* Calculate the time of the nearest solution epoch, were we expected
-       * to be and calculate how far we were away from it. */
-      double expected_tow = round(position_solution.time.tow*soln_freq)
-                              / soln_freq;
-      double t_err = expected_tow - position_solution.time.tow;
+      /* TODO: use a buffer from the pool from the start instead of
+       * allocating nav_meas_tdcp as well. Downside, if we don't end up
+       * pushing the message into the mailbox then we just wasted an
+       * observation from the mailbox for no good reason. */
 
-      /* Only send observations that are closely aligned with the desired
-       * solution epochs to ensure they haven't been propagated too far. */
-      /* Output obervations only every obs_output_divisor times, taking
-       * care to ensure that the observations are aligned. */
-      double t_check = expected_tow * (soln_freq / obs_output_divisor);
-      if (fabs(t_err) < OBS_PROPAGATION_LIMIT &&
-          fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
-        /* Propagate observation to desired time. */
-        for (u8 i=0; i<n_ready_tdcp; i++) {
-          nav_meas_tdcp[i].pseudorange -= t_err * nav_meas_tdcp[i].doppler *
-            (GPS_C / GPS_L1_HZ);
-          nav_meas_tdcp[i].carrier_phase += t_err * nav_meas_tdcp[i].doppler;
-        }
-
-        /* Update observation time. */
-        gps_time_t new_obs_time;
-        new_obs_time.wn = position_solution.time.wn;
-        new_obs_time.tow = expected_tow;
-
-        if (!simulation_enabled()) {
-          send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
-        }
-
-        /* TODO: use a buffer from the pool from the start instead of
-         * allocating nav_meas_tdcp as well. Downside, if we don't end up
-         * pushing the message into the mailbox then we just wasted an
-         * observation from the mailbox for no good reason. */
-
-        obss_t *obs = chPoolAlloc(&obs_buff_pool);
-        msg_t ret;
-        if (obs == NULL) {
-          /* Pool is empty, grab a buffer from the mailbox instead, i.e.
-           * overwrite the oldest item in the queue. */
-          ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
-          if (ret != MSG_OK) {
-            log_error("Pool full and mailbox empty!");
-          }
-        }
-        obs->t = new_obs_time;
-        obs->n = n_ready_tdcp;
-        memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
-        ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
+      obss_t *obs = chPoolAlloc(&obs_buff_pool);
+      msg_t ret;
+      if (obs == NULL) {
+        /* Pool is empty, grab a buffer from the mailbox instead, i.e.
+         * overwrite the oldest item in the queue. */
+        ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
         if (ret != MSG_OK) {
-          /* We could grab another item from the mailbox, discard it and then
-           * post our obs again but if the size of the mailbox and the pool
-           * are equal then we should have already handled the case where the
-           * mailbox is full when we handled the case that the pool was full.
-           * */
-          log_error("Mailbox should have space!");
+          log_error("Pool full and mailbox empty!");
         }
       }
-
-      /* Calculate time till the next desired solution epoch. */
-      double dt = expected_tow - position_solution.time.tow;
-
-      /* Limit dt to 1 second maximum to prevent hang if dt calculated
-       * incorrectly. */
-      if (fabs(dt) > 1.0) {
-        dt = (dt > 0.0) ? 1.0 : -1.0;
+      obs->tor = new_obs_time;
+      obs->n = n_ready_tdcp;
+      memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
+      ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
+      if (ret != MSG_OK) {
+        /* We could grab another item from the mailbox, discard it and then
+         * post our obs again but if the size of the mailbox and the pool
+         * are equal then we should have already handled the case where the
+         * mailbox is full when we handled the case that the pool was full.
+         * */
+        log_error("Mailbox should have space!");
       }
-
-      /* Reset timer period with the count that we will estimate will being
-       * us up to the next solution time. */
-      deadline += dt * CH_CFG_ST_FREQUENCY;
-
-    } else {
-      /* An error occurred with calc_PVT! */
-      /* TODO: Make this based on time since last error instead of a simple
-       * count. */
-      /* pvt_err_msg defined in libswiftnav/pvt.c */
-      DO_EVERY((u32)soln_freq,
-        log_warn("PVT solver: %s (code %d)", pvt_err_msg[-ret-1], ret);
-      );
-
-      /* Send just the DOPs */
-      solution_send_sbp(0, &dops);
     }
+
+    /* Calculate time till the next desired solution epoch. */
+    double dt = expected_tow - position_solution.time.tow;
+
+    /* Limit dt to 1 second maximum to prevent hang if dt calculated
+     * incorrectly. */
+    if (fabs(dt) > 1.0) {
+      dt = (dt > 0.0) ? 1.0 : -1.0;
+    }
+
+    /* Reset timer period with the count that we will estimate will being
+     * us up to the next solution time. */
+    deadline += dt * CH_CFG_ST_FREQUENCY;
   }
 }
 
@@ -621,7 +748,9 @@ static bool init_done = false;
 static bool init_known_base = false;
 static bool reset_iar = false;
 
-void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, u16 base_id)
+void process_matched_obs(u8 n_sds, sdiff_t *sds,
+                         u8 n_nms, navigation_measurement_t* nms,
+                         gps_time_t *t, u16 base_id)
 {
   if (init_known_base) {
     if (n_sds > 4) {
@@ -663,7 +792,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, u16 base_id)
      * for this observation. */
     if (dgnss_soln_mode == SOLN_MODE_TIME_MATCHED &&
         !simulation_enabled() && n_sds >= 4) {
-      output_baseline(n_sds, sds, t, 0, 0, base_id);
+      output_baseline(n_sds, sds, n_nms, nms, t, 0, base_id);
     }
   }
 }
@@ -688,7 +817,7 @@ static void time_matched_obs_thread(void *arg)
             == MSG_OK) {
 
       chMtxLock(&base_obs_lock);
-      double dt = gpsdifftime(&obss->t, &base_obss.t);
+      double dt = gpsdifftime(&obss->tor, &base_obss.tor);
 
       if (fabs(dt) < TIME_MATCH_THRESHOLD) {
         /* Times match! Process obs and base_obss */
@@ -701,8 +830,9 @@ static void time_matched_obs_thread(void *arg)
         chMtxUnlock(&base_obs_lock);
 
         u16 *sds_lock_counters[n_sds];
-        for (u32 i=0; i<n_sds; i++)
+        for (u32 i = 0; i < n_sds; i++) {
           sds_lock_counters[i] = &lock_counters[sid_to_global_index(sds[i].sid)];
+        }
 
         gnss_signal_t sats_to_drop[n_sds];
         u8 num_sats_to_drop = check_lock_counters(n_sds, sds, sds_lock_counters,
@@ -713,7 +843,7 @@ static void time_matched_obs_thread(void *arg)
            * our filters. */
           n_sds = filter_sdiffs(n_sds, sds, num_sats_to_drop, sats_to_drop);
         }
-        process_matched_obs(n_sds, &obss->t, sds, base_obss.sender_id);
+        process_matched_obs(n_sds, sds, obss->n, obss->nm, &obss->tor, base_obss.sender_id);
         chPoolFree(&obs_buff_pool, obss);
         break;
       } else {
@@ -727,8 +857,8 @@ static void time_matched_obs_thread(void *arg)
            * if it does. */
           log_warn("Obs Matching: t_base < t_rover "
                    "(dt=%f obss.t={%d,%f} base_obss.t={%d,%f})", dt,
-                   obss->t.wn, obss->t.tow,
-                   base_obss.t.wn, base_obss.t.tow
+                   obss->tor.wn, obss->tor.tow,
+                   base_obss.tor.wn, base_obss.tor.tow
           );
           /* Return the buffer to the mailbox so we can try it again later. */
           msg_t ret = chMBPost(&obs_mailbox, (msg_t)obss, TIME_IMMEDIATE);

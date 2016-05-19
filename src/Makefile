@@ -244,4 +244,3 @@ ULIBS =
 include $(SWIFTNAV_ROOT)/ext/Makefile.include
 
 include $(RULESPATH)/rules.mk
-
