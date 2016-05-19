@@ -36,6 +36,10 @@
 #define WATCHDOG_THREAD_PERIOD_MS 15000
 extern const WDGConfig board_wdg_config;
 
+#define WATCHDOG_NOTIFY_FLAG(id) (1UL << (id))
+#define WATCHDOG_NOTIFY_FLAG_ALL \
+            ((WATCHDOG_NOTIFY_FLAG(WD_NOTIFY_NUM_THREADS)) - 1)
+
 /* Maximum distance between calculated and surveyed base station single point
  * position for error checking.
  */
@@ -46,11 +50,7 @@ static uint32_t heartbeat_period_milliseconds = 1000;
 /* Use watchdog timer or not */
 static bool use_wdt = true;
 
-/* Build up the event mask for the thread activity watchdog.  Equivalent to
-   EVENT_MASK(0) | EVENT_MASK(1) | ... | EVENT_MASK(WD_NOTIFY_NUM_THREADS) */
-static eventmask_t thread_activity_mask = ((1UL << WD_NOTIFY_NUM_THREADS) - 1);
-
-static thread_t *watchdog_thread_handle;
+static u32 watchdog_notify_flags = 0;
 
 /* Base station mode settings. */
 /* TODO: Relocate to a different file? */
@@ -234,8 +234,12 @@ static void watchdog_thread(void *arg)
     /* Wait for all threads to set a flag indicating they are still
        alive and performing their function */
     chThdSleepMilliseconds(WATCHDOG_THREAD_PERIOD_MS);
-    eventmask_t threads_dead = thread_activity_mask
-                             ^ chEvtGetAndClearEvents(thread_activity_mask);
+
+    chSysLock();
+    u32 threads_dead = watchdog_notify_flags ^ WATCHDOG_NOTIFY_FLAG_ALL;
+    watchdog_notify_flags = 0;
+    chSysUnlock();
+
     if (threads_dead) {
       /* TODO: ChibiOS thread state dump */
       log_error("One or more threads appear to be dead: 0x%08X. "
@@ -274,7 +278,7 @@ void system_monitor_setup()
       LOWPRIO+9,
       track_status_thread, NULL
   );
-  watchdog_thread_handle = chThdCreateStatic(
+  chThdCreateStatic(
       wa_watchdog_thread,
       sizeof(wa_watchdog_thread),
       HIGHPRIO,
@@ -289,7 +293,9 @@ void system_monitor_setup()
  **/
 void watchdog_notify(watchdog_notify_t thread_id)
 {
-  chEvtSignal(watchdog_thread_handle, EVENT_MASK(thread_id));
+  chSysLock();
+  watchdog_notify_flags |= WATCHDOG_NOTIFY_FLAG(thread_id);
+  chSysUnlock();
 }
 
 /** \} */
