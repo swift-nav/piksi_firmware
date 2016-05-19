@@ -42,7 +42,7 @@ void sbp_make_heading(msg_baseline_heading_t *baseline_heading, const gps_time_t
 #define MSG_OBS_HEADER_MAX_SIZE MSG_OBS_HEADER_SEQ_MASK
 #define MSG_OBS_TOW_MULTIPLIER ((double)1000.0)
 
-#define MSG_OBS_P_MULTIPLIER ((double)1e2)
+#define MSG_OBS_P_MULTIPLIER ((double)5e1)
 #define MSG_OBS_SNR_MULTIPLIER ((float)4)
 #define MSG_OSB_LF_MULTIPLIER ((double)(1<<8))
 
