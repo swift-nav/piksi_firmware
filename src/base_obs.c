@@ -116,44 +116,6 @@ static void update_obss(obss_t *new_obss)
    * is the only thread that writes to base_obss. */
   chMtxLock(&base_obs_lock);
 
-  for (u8 i = 0; i < new_obss->n; i++) {
-    /* Set the time */
-    new_obss->nm[i].tot = new_obss->tor;
-    new_obss->nm[i].tot.tow -=
-          new_obss->nm[i].raw_pseudorange / GPS_C;
-    normalize_gps_time(&new_obss->nm[i].tot);
-
-    double clock_err;
-    double clock_rate_err;
-    /* Calculate satellite parameters using the ephemeris. */
-    ephemeris_lock();
-    ephemeris_t *e = ephemeris_get(new_obss->nm[i].sid);
-    if (calc_sat_state(e, &new_obss->nm[i].tot,
-                   new_obss->nm[i].sat_pos,
-                   new_obss->nm[i].sat_vel,
-                   &clock_err, &clock_rate_err) != 0) {
-      continue;
-    }
-    ephemeris_unlock();
-
-    /* Apply corrections to the raw pseudorange, carrier phase and Doppler. */
-    /* TODO Make a function to apply some of these corrections.
-     *      They are used in a couple places. */
-    new_obss->nm[i].pseudorange =
-          new_obss->nm[i].raw_pseudorange
-          + clock_err * GPS_C;
-    new_obss->nm[i].carrier_phase =
-          new_obss->nm[i].raw_carrier_phase
-          - clock_err * GPS_L1_HZ;
-
-    /* Used in tdcp_doppler */
-    new_obss->nm[i].doppler = clock_rate_err * GPS_L1_HZ;
-
-    /* We also apply the clock correction to the time of transmit. */
-    new_obss->nm[i].tot.tow -= clock_err;
-    normalize_gps_time(&new_obss->nm[i].tot);
-  }
-
   /* Create a set of navigation measurements to store the previous
    * observations. */
   static u8 n_old = 0;
@@ -345,23 +307,50 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
     /* Flag this as visible/viable to acquisition/search */
     manage_set_obs_hint(sid);
 
-    /* Check if we have an ephemeris for this satellite, we will need this to
-     * fill in satellite position etc. parameters. */
+    navigation_measurement_t *nm = &base_obss_rx.nm[base_obss_rx.n];
+
+    /* Unpack the observation into a navigation_measurement_t. */
+    unpack_obs_content(&obs[i], &nm->raw_pseudorange, &nm->raw_carrier_phase,
+                       &nm->snr, &nm->lock_counter, &nm->sid);
+
+    /* Set the time */
+    nm->tot = tor;
+    nm->tot.tow -= nm->raw_pseudorange / GPS_C;
+    normalize_gps_time(&nm->tot);
+
+    /* Calculate satellite parameters using the ephemeris. */
+    const ephemeris_t *e = ephemeris_get(nm->sid);
+    u8 eph_valid;
+    s8 ss_ret;
+    double clock_err;
+    double clock_rate_err;
+
     ephemeris_lock();
-    ephemeris_t *e = ephemeris_get(sid);
-    if (ephemeris_valid(e, &tor)) {
-      /* Unpack the observation into a navigation_measurement_t. */
-      unpack_obs_content(
-        &obs[i],
-        &base_obss_rx.nm[base_obss_rx.n].raw_pseudorange,
-        &base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase,
-        &base_obss_rx.nm[base_obss_rx.n].snr,
-        &base_obss_rx.nm[base_obss_rx.n].lock_counter,
-        &base_obss_rx.nm[base_obss_rx.n].sid
-      );
-      base_obss_rx.n++;
+    eph_valid = ephemeris_valid(e, &nm->tot);
+    if (eph_valid) {
+      ss_ret = calc_sat_state(e, &nm->tot, nm->sat_pos, nm->sat_vel,
+                              &clock_err, &clock_rate_err);
     }
     ephemeris_unlock();
+
+    if (!eph_valid || (ss_ret != 0)) {
+      continue;
+    }
+
+    /* Apply corrections to the raw pseudorange, carrier phase and Doppler. */
+    /* TODO Make a function to apply some of these corrections.
+     *      They are used in a couple places. */
+    nm->pseudorange = nm->raw_pseudorange + clock_err * GPS_C;
+    nm->carrier_phase = nm->raw_carrier_phase - clock_err * GPS_L1_HZ;
+
+    /* Used in tdcp_doppler */
+    nm->doppler = clock_rate_err * GPS_L1_HZ;
+
+    /* We also apply the clock correction to the time of transmit. */
+    nm->tot.tow -= clock_err;
+    normalize_gps_time(&nm->tot);
+
+    base_obss_rx.n++;
   }
 
   /* If we can, and all the obs have been received, update to using the new
