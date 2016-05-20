@@ -104,6 +104,7 @@ static void handle_nap_exti(void)
 
   u32 err = NAP->TRK_IRQ_ERROR;
   if (err) {
+    NAP->TRK_IRQ_ERROR = err;
     log_error("SwiftNAP Error: 0x%08X", (unsigned int)err);
     tracking_channels_missed_update_error(err);
   }
