@@ -256,20 +256,21 @@ u8 lock_time_encode(double lock_time) {
 s8 pack_obs_content(double P, double L, double snr, double lock_time,
                     gnss_signal_t sid, packed_obs_content_t *msg)
 {
-
+  
   s64 P_fp = llround(P * MSG_OBS_P_MULTIPLIER);
   if (P < 0 || P_fp > UINT32_MAX) {
     log_error("observation message packing: P integer overflow (%f)", P);
     return -1;
   }
 
-  msg->P = (u32)P_fp;
+  msg->P = (u32) P_fp;
 
-  double cp_pr = L - msg->P;
+  double cp_pr = L * GPS_C / GPS_L1_HZ - msg->P/MSG_OBS_P_MULTIPLIER;
+  printf("cp_pr is %f", cp_pr); 
   s64 cp_pr_int = cp_pr * MSG_OBS_L_MULTIPLIER;
   if (cp_pr_int < INT32_MIN || cp_pr_int > INT32_MAX)
     {
-      log_error("observation message packing: L integer overflow (%f)", P);
+      log_error("observation message packing: L integer overflow (%f)", L);
       return -1;
     }
   msg->L = (s32) cp_pr_int;
