@@ -233,13 +233,15 @@ void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
  */
 
 /* returns minimum possible value for lock_time */
-
 u8 lock_time_encode(double lock_time) {
   if (lock_time < 32)
     return 0;
   else {
-      for(u8 i = 1; i < 16; i++) {
-        if (lock_time >= (u32) (1<<(i+4)))
+      for(u8 i = 0; i < 16; i++) {
+        if ((int)lock_time > (1<<(i+5))) {
+          continue
+        }
+        else 
           return i;
        }
     }
