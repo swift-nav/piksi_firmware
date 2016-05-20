@@ -14,6 +14,7 @@
 
 #include <ch.h>
 #include <hal.h>
+#include <libswiftnav/logging.h>
 
 #include "nap_exti.h"
 
@@ -25,7 +26,6 @@
 #include "../../ext_events.h"
 #include "../../system_monitor.h"
 #include "peripherals/spi_wrapper.h"
-
 /** \addtogroup nap
  * \{ */
 

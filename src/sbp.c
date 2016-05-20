@@ -45,10 +45,14 @@ u16 my_sender_id;
 msg_uart_state_t uart_state_msg;
 
 #define LATENCY_SMOOTHING 0.5
-#define LOG_OBS_LATENCY_WINDOW_DURATION 3.0
+#define PERIOD_SMOOTHING 0.5
+#define LOG_OBS_WINDOW_DURATION 3.0
 
 double latency_count;
 double latency_accum_ms;
+double period_count;
+double period_accum_ms;
+
 systime_t last_obs_msg_ticks = 0;
 
 sbp_state_t uarta_sbp_state;
@@ -70,6 +74,10 @@ static void sbp_thread(void *arg)
   uart_state_msg.latency.lmin = 0;
   uart_state_msg.latency.lmax = 0;
   uart_state_msg.latency.current = -1;
+  uart_state_msg.obs_period.avg = -1;
+  uart_state_msg.obs_period.pmin = 0;
+  uart_state_msg.obs_period.pmax = 0;
+  uart_state_msg.obs_period.current = -1;
 
   while (TRUE) {
     chThdSleepMilliseconds(10);
@@ -88,6 +96,7 @@ static void sbp_thread(void *arg)
 
       if (latency_count > 0) {
         uart_state_msg.latency.avg = (s32) (latency_accum_ms / latency_count);
+        uart_state_msg.obs_period.avg = (s32) (period_accum_ms / latency_count);
       }
 
       sbp_send_msg(SBP_MSG_UART_STATE, sizeof(msg_uart_state_t),
@@ -145,7 +154,7 @@ void sbp_disable()
 }
 
 /** Checks if the message should be sent from a particular USART. */
-static inline u32 use_usart(usart_settings_t *us, u16 msg_type)
+static inline u32 use_usart(usart_settings_t *us, u16 msg_type, u16 sender_id)
 {
   if (us->mode != SBP)
     /* This USART is not in SBP mode. */
@@ -153,6 +162,10 @@ static inline u32 use_usart(usart_settings_t *us, u16 msg_type)
 
   if (!(us->sbp_message_mask & msg_type))
     /* This message type is masked out on this USART. */
+    return 0;
+ 
+  if(!us->sbp_fwd && sender_id == 0)
+    /* This USART is set up to not forward any messages (sender ID of 0).*/ 
     return 0;
 
   return 1;
@@ -198,9 +211,8 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
                           len, buff, &sbp_buffer_write);
 
   /* Don't relayed messages (sender_id 0) on the A and B UARTs. (Only FTDI USB) */
-  if (sender_id != 0) {
 
-    if (use_usart(&uarta_usart, msg_type) && usart_claim(&uarta_state, SBP_MODULE)) {
+    if (use_usart(&uarta_usart, msg_type, sender_id) && usart_claim(&uarta_state, SBP_MODULE)) {
       usart_write(&uarta_state, sbp_buffer, sbp_buffer_length);
       usart_release(&uarta_state);
     }
@@ -209,7 +221,7 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
       MAX(uart_state_msg.uart_a.tx_buffer_level,
         255 - (255 * usart_tx_n_free(&uarta_state)) / (SERIAL_BUFFERS_SIZE-1));
 
-    if (use_usart(&uartb_usart, msg_type) && usart_claim(&uartb_state, SBP_MODULE)) {
+    if (use_usart(&uartb_usart, msg_type, sender_id) && usart_claim(&uartb_state, SBP_MODULE)) {
       usart_write(&uartb_state, sbp_buffer, sbp_buffer_length);
       usart_release(&uartb_state);
     }
@@ -218,9 +230,7 @@ u32 sbp_send_msg_(u16 msg_type, u8 len, u8 buff[], u16 sender_id)
       MAX(uart_state_msg.uart_b.tx_buffer_level,
         255 - (255 * usart_tx_n_free(&uartb_state)) / (SERIAL_BUFFERS_SIZE-1));
 
-  }
-
-  if (use_usart(&ftdi_usart, msg_type) && usart_claim(&ftdi_state, SBP_MODULE)) {
+  if (use_usart(&ftdi_usart, msg_type, sender_id) && usart_claim(&ftdi_state, SBP_MODULE)) {
     usart_write(&ftdi_state, sbp_buffer, sbp_buffer_length);
     usart_release(&ftdi_state);
   }
@@ -347,19 +357,29 @@ void log_(u8 level, const char *msg, ...)
 
 void log_obs_latency(float latency_ms)
 {
-  last_obs_msg_ticks = chVTGetSystemTime();
-
+  systime_t now = chVTGetSystemTime();
+  float obs_period_ms = 0;
+  if (last_obs_msg_ticks != 0) {
+    obs_period_ms = (now - last_obs_msg_ticks) / (double)CH_CFG_ST_FREQUENCY * 1000;
+    }
+  
+  last_obs_msg_ticks = now;
   latency_accum_ms += (double) latency_ms;
+  period_accum_ms += (double) obs_period_ms;
   latency_count += 1;
 
   uart_state_msg.latency.current = (s32) ((LATENCY_SMOOTHING * ((float)latency_ms)) +
     ((1 - LATENCY_SMOOTHING) * (float) (uart_state_msg.latency.current)));
 
+  uart_state_msg.obs_period.current = (s32) ((PERIOD_SMOOTHING * ((float) (obs_period_ms)) +
+    (1 - PERIOD_SMOOTHING) * (float) (uart_state_msg.obs_period.current)));
+
   /* Don't change the min and max latencies if we appear to have a zero latency
    * speed. */
-  if (latency_ms <= 0)
+  if (latency_ms <= 0 || obs_period_ms == 0) {
+    log_warn("Incoherent observation reception: latency:%f, period: %f", latency_ms, obs_period_ms);
     return;
-
+  }
   if (uart_state_msg.latency.lmin > latency_ms ||
       uart_state_msg.latency.lmin == 0) {
     uart_state_msg.latency.lmin = latency_ms;
@@ -367,18 +387,26 @@ void log_obs_latency(float latency_ms)
   if (uart_state_msg.latency.lmax < latency_ms) {
     uart_state_msg.latency.lmax = latency_ms;
   }
+  if (uart_state_msg.obs_period.pmin > obs_period_ms ||
+      uart_state_msg.obs_period.pmin == 0) {
+    uart_state_msg.obs_period.pmin = obs_period_ms;
+  }
+  if (obs_period_ms > uart_state_msg.obs_period.pmax) {
+    uart_state_msg.obs_period.pmax = obs_period_ms;
+  }
 }
 
 void log_obs_latency_tick()
 {
   double elapsed = chVTTimeElapsedSinceX(last_obs_msg_ticks) / (double)CH_CFG_ST_FREQUENCY;
 
-  if (last_obs_msg_ticks == 0 || elapsed > LOG_OBS_LATENCY_WINDOW_DURATION) {
+  if (last_obs_msg_ticks == 0 || elapsed > LOG_OBS_WINDOW_DURATION) {
     uart_state_msg.latency.current = -1;
+    uart_state_msg.obs_period.current = -1;
   }
+
 }
 
 /** \} */
 
 /** \} */
-
