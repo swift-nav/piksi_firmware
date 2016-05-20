@@ -199,6 +199,17 @@ static void update_obss(obss_t *new_obss)
   chBSemSignal(&base_obs_received);
 }
 
+bool calculate_loss_of_lock(u32 dt, u32 prev_lock_time, u32 curr_lock_time) {
+  if (prev_lock_time > curr_lock_time) return true;
+  else if ((prev_lock_time == curr_lock_time) && (dt >= prev_lock_time)) return true;
+  else if ((prev_lock_time == curr_lock_time) && (dt < prev_lock_time)) return false;
+  else if ((prev_lock_time < curr_lock_time) && \
+      (dt >= (2 * curr_lock_time - prev_lock_time))) return true;
+  else if ((prev_lock_time < curr_lock_time) && \
+     (curr_lock_time < dt && dt < (2 * curr_lock_time - prev_lock_time))) return true;
+  else if ((prev_lock_time < curr_lock_time) && (dt <= curr_lock_time)) return false;
+  else return true;
+}
 /** SBP callback for observation messages.
  * SBP observation sets are potentially split across multiple SBP messages to
  * keep the payload within the size limit.
@@ -309,7 +320,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_rx.nm[base_obss_rx.n].raw_pseudorange,
         &base_obss_rx.nm[base_obss_rx.n].carrier_phase,
         &base_obss_rx.nm[base_obss_rx.n].snr,
-        &base_obss_rx.nm[base_obss_rx.n].lock_counter,
+        &base_obss_rx.nm[base_obss_rx.n].lock_time,
         &base_obss_rx.nm[base_obss_rx.n].sid
       );
       double clock_err;
@@ -351,7 +362,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 static void deprecated_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context; (void) len; (void) msg; (void) sender_id;
-  log_error("Receiving an old deprecated observation message.");
+  log_warn("Received deprecated obs msg. Verify firmware version on remote Piksi.");
 }
 
 /** Setup the base station observation handling subsystem. */
@@ -385,6 +396,13 @@ void base_obs_setup()
     SBP_MSG_OBS_DEP_A,
     &deprecated_callback,
     &deprecated_node
+  );
+  
+  static sbp_msg_callbacks_node_t deprecated_node_2;
+  sbp_register_cbk(
+    SBP_MSG_OBS_DEP_B,
+    &deprecated_callback,
+    &deprecated_node_2
   );
 }
 

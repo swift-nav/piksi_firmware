@@ -42,9 +42,9 @@ void sbp_make_heading(msg_baseline_heading_t *baseline_heading, const gps_time_t
 #define MSG_OBS_HEADER_MAX_SIZE MSG_OBS_HEADER_SEQ_MASK
 #define MSG_OBS_TOW_MULTIPLIER ((double)1000.0)
 
-#define MSG_OBS_P_MULTIPLIER ((double)1e2)
+#define MSG_OBS_P_MULTIPLIER ((double)5e1)
 #define MSG_OBS_SNR_MULTIPLIER ((float)4)
-#define MSG_OSB_LF_MULTIPLIER ((double)(1<<8))
+#define MSG_OBS_L_MULTIPLIER ((double)(5e4))
 
 void unpack_obs_header(const observation_header_t *msg, gps_time_t* t,
                        u8* total, u8* count);
@@ -53,9 +53,9 @@ void pack_obs_header(const gps_time_t *t, u8 total, u8 count,
                      observation_header_t *msg);
 
 void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
-                        double *snr, u16 *lock_counter, gnss_signal_t *sid);
+                        double *snr, double* lock_time, gnss_signal_t *sid);
 
-s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
+s8 pack_obs_content(double P, double L, double snr, double lock_time,
                     gnss_signal_t sid, packed_obs_content_t *msg);
 
 void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e);

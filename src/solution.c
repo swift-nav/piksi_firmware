@@ -283,7 +283,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
       if (pack_obs_content(m[obs_i].raw_pseudorange,
             m[obs_i].carrier_phase,
             m[obs_i].snr,
-            m[obs_i].lock_counter,
+            m[obs_i].lock_time,
             m[obs_i].sid,
             &obs[i]) < 0) {
         /* Error packing this observation, skip it. */
