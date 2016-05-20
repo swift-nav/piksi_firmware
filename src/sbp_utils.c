@@ -205,7 +205,12 @@ void pack_obs_header(const gps_time_t *t, u8 total, u8 count, observation_header
 }
 
 u32 min_lock_time_decode(u8 lock_time_packed) {
-  return 2 << (lock_time_packed + 4);
+  if (lock_time_packed == 0) {
+    return 0;
+  }
+  else {
+  return 1 << (lock_time_packed + 4);
+  }
 }
 
 
@@ -239,7 +244,7 @@ u8 lock_time_encode(double lock_time) {
   else {
       for(u8 i = 0; i < 16; i++) {
         if ((int)lock_time > (1<<(i+5))) {
-          continue
+          continue;
         }
         else 
           return i;
