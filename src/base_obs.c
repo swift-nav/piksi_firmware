@@ -199,6 +199,17 @@ static void update_obss(obss_t *new_obss)
   chBSemSignal(&base_obs_received);
 }
 
+bool calculate_loss_of_lock(u32 dt, u32 prev_lock_time, u32 curr_lock_time) {
+  if (prev_lock_time > curr_lock_time) return true;
+  else if ((prev_lock_time == curr_lock_time) && (dt >= prev_lock_time)) return true;
+  else if ((prev_lock_time == curr_lock_time) && (dt < prev_lock_time)) return false;
+  else if ((prev_lock_time < curr_lock_time) && \
+      (dt >= (2 * curr_lock_time - prev_lock_time))) return true;
+  else if ((prev_lock_time < curr_lock_time) && \
+     (curr_lock_time < dt && dt < (2 * curr_lock_time - prev_lock_time))) return true;
+  else if ((prev_lock_time < curr_lock_time) && (dt <= curr_lock_time)) return false;
+  else return true;
+}
 /** SBP callback for observation messages.
  * SBP observation sets are potentially split across multiple SBP messages to
  * keep the payload within the size limit.
