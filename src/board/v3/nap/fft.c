@@ -17,11 +17,12 @@
 
 #include "axi_dma.h"
 #include "nap_hw.h"
+#include "nap_constants.h"
 
 #define DATA_MEMORY_BARRIER() asm volatile ("dmb" : : : "memory")
 
 #define FFT_TIMEOUT_ms (100)
-#define TIMING_COMPARE_DELTA (99375) /* 1ms */
+#define TIMING_COMPARE_DELTA (NAP_FRONTEND_SAMPLE_RATE_Hz * 1e-3) /* 1ms */
 
 static BSEMAPHORE_DECL(axi_dma_rx_bsem, 0);
 
@@ -31,9 +32,10 @@ static u32 length_points_get(u32 len_log2);
 static void control_set_dma(void);
 static void control_set_samples(fft_samples_input_t samples_input,
                                 u32 len_points);
+static void sample_stream_start(void);
 static void config_set(fft_dir_t dir, u32 scale_schedule);
-static void start(const fft_cplx_t *in, fft_cplx_t *out, u32 len_log2);
-static bool wait(void);
+static void dma_start(const fft_cplx_t *in, fft_cplx_t *out, u32 len_log2);
+static bool dma_wait(void);
 
 /** Callback for AXI DMA TX.
  */
@@ -94,7 +96,12 @@ static void control_set_samples(fft_samples_input_t samples_input,
       ((samples_input >> 1)               << NAP_ACQ_CONTROL_RF_FE_Pos) |
       ((samples_input & 1)                << NAP_ACQ_CONTROL_RF_FE_CH_Pos) |
       (len_points                         << NAP_ACQ_CONTROL_LENGTH_Pos);
+}
 
+/** Start streaming samples from the frontend samples input.
+ */
+static void sample_stream_start(void)
+{
   /* Set up timing compare */
   while (1) {
     chSysLock();
@@ -115,7 +122,7 @@ static void config_set(fft_dir_t dir, u32 scale_schedule)
                         (dir            << NAP_ACQ_FFT_CONFIG_DIR_Pos);
 }
 
-/** Start an FFT.
+/** Start an FFT DMA transfer.
  *
  * \param in              Input buffer, NULL if not used.
  * \param out             Output buffer.
@@ -125,7 +132,7 @@ static void config_set(fft_dir_t dir, u32 scale_schedule)
  *                        be applied at each stage. Two bits per stage, Lsb
  *                        first.
  */
-static void start(const fft_cplx_t *in, fft_cplx_t *out, u32 len_log2)
+static void dma_start(const fft_cplx_t *in, fft_cplx_t *out, u32 len_log2)
 {
   u32 len_bytes = length_points_get(len_log2) * sizeof(fft_cplx_t);
 
@@ -146,11 +153,11 @@ static void start(const fft_cplx_t *in, fft_cplx_t *out, u32 len_log2)
                      axi_dma_rx_callback);
 }
 
-/** Wait for an FFT result transfer to complete.
+/** Wait for an FFT result DMA transfer to complete.
  *
  * \return True if a transfer was completed in time, false otherwise.
  */
-static bool wait(void)
+static bool dma_wait(void)
 {
   /* Wait for RX semaphore */
   if (chBSemWaitTimeout(&axi_dma_rx_bsem, MS2ST(FFT_TIMEOUT_ms)) != MSG_OK) {
@@ -178,10 +185,10 @@ static bool wait(void)
 bool fft(const fft_cplx_t *in, fft_cplx_t *out, u32 len_log2,
          fft_dir_t dir, u32 scale_schedule)
 {
-  control_set_dma();
   config_set(dir, scale_schedule);
-  start(in, out, len_log2);
-  return wait();
+  control_set_dma();
+  dma_start(in, out, len_log2);
+  return dma_wait();
 }
 
 /** Compute the FFT of a buffer of samples.
@@ -202,10 +209,11 @@ bool fft_samples(fft_samples_input_t samples_input, fft_cplx_t *out,
                  u32 *sample_count)
 {
   u32 len_points = length_points_get(len_log2);
-  control_set_samples(samples_input, len_points);
   config_set(dir, scale_schedule);
-  start(0, out, len_log2);
-  bool result = wait();
+  control_set_samples(samples_input, len_points);
+  sample_stream_start();
+  dma_start(0, out, len_log2);
+  bool result = dma_wait();
   *sample_count = NAP->ACQ_START_SNAPSHOT;
   return result;
 }
