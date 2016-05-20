@@ -578,6 +578,8 @@ void tracking_channel_measurement_get(tracker_channel_id_t id, u32 ref_tc,
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = internal_data->lock_counter;
+  meas->lock_time = MIN(tracking_channel_ld_pess_locked_ms_get(id),
+                        tracking_channel_cn0_useable_ms_get(id));
 }
 
 /** Set the elevation angle for a tracker channel by sid.
