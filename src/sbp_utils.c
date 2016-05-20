@@ -204,13 +204,18 @@ void pack_obs_header(const gps_time_t *t, u8 total, u8 count, observation_header
                  (count & MSG_OBS_HEADER_SEQ_MASK));
 }
 
+u32 min_lock_time_decode(u8 lock_time_packed) {
+  return 2 << (lock_time_packed + 4);
+}
+
+
 void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
-                        double *snr, u16 *lock_counter, gnss_signal_t *sid)
+                        double *snr, double *lock_time, gnss_signal_t *sid)
 {
   *P   = ((double)msg->P) / MSG_OBS_P_MULTIPLIER;
-  *L   = ((double)msg->L.i) + (((double)msg->L.f) / MSG_OSB_LF_MULTIPLIER);
+  *L   = *P + ((double)msg->L / MSG_OBS_L_MULTIPLIER);
   *snr = ((double)msg->cn0) / MSG_OBS_SNR_MULTIPLIER;
-  *lock_counter = ((u16)msg->lock);
+  *lock_time = (double) min_lock_time_decode(msg->lock);
   *sid = sid_from_sbp(msg->sid);
 }
 
@@ -226,7 +231,22 @@ void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
  * \param msg Pointer to a `msg_obs_content_t` struct to fill out
  * \return `0` on success or `-1` on an overflow error
  */
-s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
+
+/* returns minimum possible value for lock_time */
+
+u8 lock_time_encode(double lock_time) {
+  if (lock_time < 32)
+    return 0;
+  else {
+      for(u8 i = 1; i < 16; i++) {
+        if (lock_time >= (u32) (1<<(i+4)))
+          return i;
+       }
+    }
+    return 15;
+}
+
+s8 pack_obs_content(double P, double L, double snr, double lock_time,
                     gnss_signal_t sid, packed_obs_content_t *msg)
 {
 
@@ -238,16 +258,14 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
 
   msg->P = (u32)P_fp;
 
-  double Li = floor(L);
-  if (Li < INT32_MIN || Li > INT32_MAX) {
-    log_error("observation message packing: L integer overflow (%f)", L);
-    return -1;
-  }
-
-  double Lf = L - Li;
-
-  msg->L.i = (s32) Li;
-  msg->L.f = (u8) (Lf * MSG_OSB_LF_MULTIPLIER);
+  double cp_pr = L - msg->P;
+  s64 cp_pr_int = cp_pr * MSG_OBS_L_MULTIPLIER;
+  if (cp_pr_int < INT32_MIN || cp_pr_int > INT32_MAX)
+    {
+      log_error("observation message packing: L integer overflow (%f)", P);
+      return -1;
+    }
+  msg->L = (s32) cp_pr_int;
 
   s32 snr_fp = lround(snr * MSG_OBS_SNR_MULTIPLIER);
   if (snr < 0 || snr_fp > UINT8_MAX) {
@@ -256,8 +274,8 @@ s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
   }
 
   msg->cn0 = (u8)snr_fp;
-
-  msg->lock = lock_counter;
+ 
+  msg->lock = lock_time_encode(lock_time);
 
   msg->sid = sid_to_sbp(sid);
 
