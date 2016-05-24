@@ -43,6 +43,7 @@
 #include "signal.h"
 #include "system_monitor.h"
 #include "main.h"
+#include "sid_set.h"
 
 /* Maximum CPU time the solution thread is allowed to use. */
 #define SOLN_THD_CPU_MAX (0.60f)
@@ -429,7 +430,12 @@ static void solution_thread(void *arg)
       tracking_channel_unlock(i);
     }
 
-    if (n_ready < 4) {
+    gnss_sid_set_t codes_in_track;
+    sid_set_init(&codes_in_track);
+    for (u8 i=0; i<n_ready; i++)
+      sid_set_add(&codes_in_track, meas[i].sid);
+
+    if (sid_set_get_sat_count(&codes_in_track) < 4) {
       /* Not enough sats, keep on looping. */
       continue;
     }
@@ -482,7 +488,13 @@ static void solution_thread(void *arg)
     n_ready_old = n_ready;
     rec_tc_old = rec_tc;
 
-    if (n_ready_tdcp < 4) {
+    gnss_sid_set_t codes_tdcp;
+    sid_set_init(&codes_tdcp);
+    for (u8 i=0; i<n_ready_tdcp; i++) {
+      sid_set_add(&codes_tdcp, nav_meas_tdcp[i].sid);
+    }
+
+    if (sid_set_get_sat_count(&codes_tdcp) < 4) {
       /* Not enough sats to compute PVT */
       continue;
     }
