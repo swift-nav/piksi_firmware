@@ -29,6 +29,7 @@
 #include "simulator.h"
 #include "settings.h"
 #include "signal.h"
+#include "timing.h"
 
 /** \defgroup tracking Tracking
  * Track satellites via interrupt driven updates to SwiftNAP tracking channels.
@@ -556,11 +557,11 @@ bool tracking_channel_bit_polarity_resolved(tracker_channel_id_t id)
  * \param ref_tc  Reference timing count.
  * \param meas    Pointer to output channel_measurement_t.
  */
-void tracking_channel_measurement_get(tracker_channel_id_t id, u32 ref_tc,
+void tracking_channel_measurement_get(tracker_channel_id_t id, u64 ref_tc,
                                       channel_measurement_t *meas)
 {
   tracker_channel_t *tracker_channel = tracker_channel_get(id);
-  const tracker_internal_data_t *internal_data =
+  tracker_internal_data_t *internal_data =
       &tracker_channel->internal_data;
   const tracker_common_data_t *common_data = &tracker_channel->common_data;
 
@@ -571,13 +572,27 @@ void tracking_channel_measurement_get(tracker_channel_id_t id, u32 ref_tc,
   meas->carrier_phase = common_data->carrier_phase;
   meas->carrier_freq = common_data->carrier_freq;
   meas->time_of_week_ms = common_data->TOW_ms;
-  meas->rec_time_delta = (double)((s32)(common_data->sample_count - ref_tc))
+  meas->rec_time_delta = (double)((s32)(common_data->sample_count - (u32)ref_tc))
                              / SAMPLE_FREQ;
   meas->snr = common_data->cn0;
   if (internal_data->bit_polarity == BIT_POLARITY_INVERTED) {
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = internal_data->lock_counter;
+
+  /* Adjust carrier phase initial integer offset to be approximately equal to
+     pseudorange. */
+  if ((time_quality == TIME_FINE)
+      && (internal_data->carrier_phase_offset == 0.0)) {
+      gps_time_t tor = rx2gpstime(ref_tc + meas->rec_time_delta);
+      gps_time_t tot;
+      tot.tow = 1e-3 * meas->time_of_week_ms;
+      tot.tow += meas->code_phase_chips / GPS_CA_CHIPPING_RATE;
+      gps_time_match_weeks(&tot, &tor);
+      internal_data->carrier_phase_offset = round(GPS_L1_HZ
+                                                  * gpsdifftime(&tor, &tot));
+  }
+  meas->carrier_phase -= internal_data->carrier_phase_offset;
 }
 
 /** Set the elevation angle for a tracker channel by sid.
