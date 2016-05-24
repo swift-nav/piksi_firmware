@@ -140,7 +140,6 @@ static void tracker_gps_l1ca_init(const tracker_channel_info_t *channel_info,
 
   memset(data, 0, sizeof(gps_l1ca_tracker_data_t));
   tracker_ambiguity_unknown(channel_info->context);
-
   const struct loop_params *l = &loop_params_stage[0];
 
   /* Note: The only coherent integration interval currently supported

@@ -428,6 +428,19 @@ u32 tracking_channel_running_time_ms_get(tracker_channel_id_t id)
   return common_data->update_count;
 }
 
+/** Return the minimum time that all signs point to a locked channel **/
+
+u32 tracking_channel_locked_ms_get(tracker_channel_id_t id) {
+  const tracker_channel_t *tracker_channel = tracker_channel_get(id);
+  const tracker_common_data_t *common_data = &tracker_channel->common_data;
+  u32 max_update_count = MAX(common_data->cn0_above_drop_thres_count,
+                             common_data->ld_pess_unlocked_count);
+  max_update_count = MAX(max_update_count, common_data->ld_opti_locked_count);
+  max_update_count = MAX(max_update_count, common_data->mode_change_count);
+  max_update_count = MAX(max_update_count, common_data->update_count);
+  return update_count_diff(tracker_channel, &max_update_count);
+}
+
 /** Return the time in ms for which C/N0 has been above the use threshold for
  * a tracker channel.
  *
@@ -579,7 +592,7 @@ void tracking_channel_measurement_get(tracker_channel_id_t id, u64 ref_tc,
     meas->carrier_phase += 0.5;
   }
   meas->lock_counter = internal_data->lock_counter;
-
+  meas->lock_time = tracking_channel_locked_ms_get(id);
   /* Adjust carrier phase initial integer offset to be approximately equal to
      pseudorange. */
   if ((time_quality == TIME_FINE)
