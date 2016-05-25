@@ -55,7 +55,7 @@ void pack_obs_header(const gps_time_t *t, u8 total, u8 count,
 void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
                         double *snr, u32 *lock_time, gnss_signal_t *sid);
 
-s8 pack_obs_content(double P, double L, double snr, u16 lock_counter,
+s8 pack_obs_content(double P, double L, double snr, u32 lock_time_ms,
                     gnss_signal_t sid, packed_obs_content_t *msg);
 
 void unpack_ephemeris(const msg_ephemeris_t *msg, ephemeris_t *e);

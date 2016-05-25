@@ -287,7 +287,7 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
       if (pack_obs_content(m[obs_i].raw_pseudorange,
             m[obs_i].raw_carrier_phase,
             m[obs_i].snr,
-            m[obs_i].lock_counter,
+            m[obs_i].lock_time,
             m[obs_i].sid,
             &obs[i]) < 0) {
         /* Error packing this observation, skip it. */
@@ -762,7 +762,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, u16 base_id)
   }
 }
 
-static THD_WORKING_AREA(wa_time_matched_obs_thread, 20000);
+static THD_WORKING_AREA(wa_time_matched_obs_thread, 18000);
 static void time_matched_obs_thread(void *arg)
 {
   (void)arg;

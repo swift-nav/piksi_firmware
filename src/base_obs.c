@@ -125,6 +125,9 @@ static void update_obss(obss_t *new_obss)
 
     double clock_err;
     double clock_rate_err;
+
+    /* Set the lock counter TODO: deprecate in favor of lock time */
+    new_obss->nm[i].lock_counter = 0; 
     /* Calculate satellite parameters using the ephemeris. */
     ephemeris_lock();
     ephemeris_t *e = ephemeris_get(new_obss->nm[i].sid);
