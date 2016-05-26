@@ -220,6 +220,7 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
 
   if (0 == (l2c_cpbl & ((u32)1 << (sat - 1)))) {
     log_info_sid(sid, "SV does not support L2C signal");
+    return;
   }
 
   /* Prevent tracking_startup_fifo from being flooded with same satellite.
