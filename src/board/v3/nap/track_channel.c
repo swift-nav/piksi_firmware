@@ -10,7 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "board.h"
+#include "nap_constants.h"
 #include "nap/nap_common.h"
 #include "nap/track_channel.h"
 #include "track.h"
@@ -26,7 +26,7 @@
 #include <assert.h>
 #include <string.h>
 
-#define TRACK_SAMPLE_FREQ (SAMPLE_FREQ / 1)
+#define TRACK_SAMPLE_FREQ (NAP_FRONTEND_SAMPLE_RATE_Hz / NAP_TRACK_DECIMATION_RATE)
 
 /* NAP track channel parameters. */
 #define NAP_TRACK_CARRIER_FREQ_WIDTH              32
@@ -69,7 +69,7 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
 
   /* Contrive for the timing strobe to occur at or close to a
    * PRN edge (code phase = 0) */
-  track_count += (SAMPLE_FREQ/GPS_CA_CHIPPING_RATE) * (1023.0-cp) *
+  track_count += (NAP_FRONTEND_SAMPLE_RATE_Hz/GPS_CA_CHIPPING_RATE) * (1023.0-cp) *
                  (1.0 + carrier_freq / GPS_L1_HZ);
 
   u8 prn = sid.sat - 1;
@@ -94,8 +94,8 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
 
   COMPILER_BARRIER();
 
-  NAP->TRK_TIMING_COMPARE = track_count - SAMPLE_FREQ / GPS_CA_CHIPPING_RATE;
-  chThdSleep(CH_CFG_ST_FREQUENCY * ceil((float)(track_count - now)/SAMPLE_FREQ));
+  NAP->TRK_TIMING_COMPARE = track_count - NAP_FRONTEND_SAMPLE_RATE_Hz / GPS_CA_CHIPPING_RATE;
+  chThdSleep(CH_CFG_ST_FREQUENCY * ceil((float)(track_count - now)/NAP_FRONTEND_SAMPLE_RATE_Hz));
 }
 
 void nap_track_update(u8 channel, double carrier_freq,

@@ -13,11 +13,26 @@
 #ifndef SWIFTNAV_NAP_CONSTANTS_H
 #define SWIFTNAV_NAP_CONSTANTS_H
 
-#define NAP_FRONTEND_SAMPLE_RATE_Hz                                (16.368e6)
+#if USE_PIKSI_V2_FE
+	#define NAP_FRONTEND_SAMPLE_RATE_Hz	(16.368e6)
+	#define NAP_ACQ_DECIMATION_RATE		(2)
+	#define NAP_TRACK_DECIMATION_RATE	(1)
+	//NAP_FE_BASEBAND_MIXER_PINC = 0xffffffff - (u32)round(4.092e6 * pow(2.0, 32.0) 
+	//						/ NAP_FRONTEND_SAMPLE_RATE_Hz)
+	#define NAP_FE_BASEBAND_MIXER_PINC	0xffffffff - (u32)(4.092e6 * 4294967296 \
+		    		                	/ NAP_FRONTEND_SAMPLE_RATE_Hz + 0.5)
+#else
+	#define NAP_FRONTEND_SAMPLE_RATE_Hz     (99.375e6)
+	#define NAP_ACQ_DECIMATION_RATE         (12)
+	#define NAP_TRACK_DECIMATION_RATE       (4)
+	//NAP_FE_BASEBAND_MIXER_PINC = (u32)round(14.58e6 * pow(2.0, 32.0) 
+	//						/ NAP_FRONTEND_SAMPLE_RATE_Hz)
+	#define NAP_FE_BASEBAND_MIXER_PINC	(u32)(14.58e6 * 4294967296 \
+		                         		/ NAP_FRONTEND_SAMPLE_RATE_Hz + 0.5)
+#endif
 
-#define NAP_ACQ_DECIMATION_RATE                                          (2)
 #define NAP_ACQ_SAMPLE_RATE_Hz                  (NAP_FRONTEND_SAMPLE_RATE_Hz  \
-                                                   / NAP_ACQ_DECIMATION_RATE)
+		                                           / NAP_ACQ_DECIMATION_RATE)
 
 #define NAP_KEY_LENGTH                                                   (16)
 

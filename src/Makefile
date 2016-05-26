@@ -193,6 +193,10 @@ CPPWARN = -Wall -Wextra -Werror
 GIT_VERSION := $(shell git describe --dirty)
 DDEFS = -DGIT_VERSION="\"$(GIT_VERSION)\""
 
+ifneq ($(USE_PIKSI_V2_FE),)
+  DDEFS +=  -DUSE_PIKSI_V2_FE=$(USE_PIKSI_V2_FE)
+endif
+
 # List all default ASM defines here, like -D_DEBUG=1
 DADEFS =
 
