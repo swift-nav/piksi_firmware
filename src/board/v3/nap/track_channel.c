@@ -97,10 +97,10 @@ u8 sid_to_nap_code(gnss_signal_t sid)
   switch (sid.code) {
   case CODE_GPS_L1CA:
   case CODE_SBAS_L1CA:
-    ret = NAP_CONSTELLATION_BAND_1;
+    ret = NAP_CODE_GPS_L1CA_SBAS_L1CA;
     break;
   case CODE_GPS_L2CM:
-    ret = NAP_CONSTELLATION_BAND_2;
+    ret = NAP_CODE_GPS_L2CM;
     break;
   default:
     assert(0);
@@ -128,10 +128,10 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   /* PRN code */
   control = (prn << NAP_TRK_CONTROL_SAT_Pos) & NAP_TRK_CONTROL_SAT_Msk;
   /* RF frontend channel */
-  control |= (sid_to_rf_frontend_channel(sid) << NAP_TRK_CONTROL_RF_FE_Pos) & \
+  control |= (sid_to_rf_frontend_channel(sid) << NAP_TRK_CONTROL_RF_FE_Pos) &
              NAP_TRK_CONTROL_RF_FE_Msk;
   /* Constellation and band for tracking */
-  control |= (sid_to_nap_code(sid) << NAP_TRK_CONTROL_CODE_Pos) & \
+  control |= (sid_to_nap_code(sid) << NAP_TRK_CONTROL_CODE_Pos) &
              NAP_TRK_CONTROL_CODE_Msk;
   /* We are not utilizing multiple signals within one RF channel at the moment.
      Therefore, RF_FE_CH is 0 and below statement in a NOP. */

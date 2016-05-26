@@ -128,8 +128,8 @@ enum {
 
 /* The values of NAP_TRKx_CONTROL::CODE field */
 enum {
-  NAP_CONSTELLATION_BAND_1 = 0, /* GPS L1C/A, SBAS L1CA */
-  NAP_CONSTELLATION_BAND_2      /* GPS L2CM */
+  NAP_CODE_GPS_L1CA_SBAS_L1CA = 0, /* GPS L1C/A, SBAS L1CA */
+  NAP_CODE_GPS_L2CM                /* GPS L2CM */
 };
 
 /* Instances */
