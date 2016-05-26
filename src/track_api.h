@@ -39,9 +39,6 @@ typedef struct {
   update_count_t ld_pess_unlocked_count;
                                /**< update_count value when pessimistic
                                     phase detector last "unlocked". */
-  update_count_t amb_update_unlocked_count;
-                               /**< update_count value when pessimistic
-                                    phase detector last "unlocked". */
   s32 TOW_ms;                  /**< TOW in ms. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
   double code_phase_early;     /**< Early code phase. */

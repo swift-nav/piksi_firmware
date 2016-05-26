@@ -232,7 +232,7 @@ void unpack_obs_content(const packed_obs_content_t *msg, double *P, double *L,
                         double *snr, u32 *lock_time, gnss_signal_t *sid)
 {
   *P   = ((double)msg->P) / MSG_OBS_P_MULTIPLIER;
-  *L   = -(((double)msg->L / MSG_OBS_L_MULTIPLIER ) + *P) * (double) GPS_L1_HZ / GPS_C;
+  *L   = (((double)msg->L) / MSG_OBS_L_MULTIPLIER  + *P) * -GPS_L1_HZ / GPS_C;
   *snr = ((double)msg->cn0) / MSG_OBS_SNR_MULTIPLIER;
   *lock_time = min_lock_time_decode(msg->lock);
   *sid = sid_from_sbp(msg->sid);
