@@ -26,7 +26,7 @@
 #include <assert.h>
 #include <string.h>
 
-#define TRACK_SAMPLE_FREQ (SAMPLE_FREQ / 4)
+#define TRACK_SAMPLE_FREQ (SAMPLE_FREQ / 1)
 
 /* NAP track channel parameters. */
 #define NAP_TRACK_CARRIER_FREQ_WIDTH              32

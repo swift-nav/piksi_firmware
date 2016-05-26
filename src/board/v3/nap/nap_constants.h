@@ -13,9 +13,9 @@
 #ifndef SWIFTNAV_NAP_CONSTANTS_H
 #define SWIFTNAV_NAP_CONSTANTS_H
 
-#define NAP_FRONTEND_SAMPLE_RATE_Hz                                (99.375e6)
+#define NAP_FRONTEND_SAMPLE_RATE_Hz                                (16.368e6)
 
-#define NAP_ACQ_DECIMATION_RATE                                          (12)
+#define NAP_ACQ_DECIMATION_RATE                                          (2)
 #define NAP_ACQ_SAMPLE_RATE_Hz                  (NAP_FRONTEND_SAMPLE_RATE_Hz  \
                                                    / NAP_ACQ_DECIMATION_RATE)
 

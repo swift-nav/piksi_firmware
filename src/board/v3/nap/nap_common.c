@@ -47,7 +47,7 @@ void nap_setup(void)
   axi_dma_init();
   axi_dma_start(&AXIDMADriver1);
 
-  NAP->FE_PINC[0] = (u32)round(14.58e6 * pow(2.0, 32.0)
+  NAP->FE_PINC[0] = 0xffffffff - (u32)round(4.092e6 * pow(2.0, 32.0)
                                    / NAP_FRONTEND_SAMPLE_RATE_Hz);
 
   /* Enable NAP interrupt */
