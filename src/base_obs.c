@@ -382,7 +382,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 static void deprecated_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context; (void) len; (void) msg; (void) sender_id;
-  log_error("Received a deprecated observation message. Verify firmware version on local and remote Piksi.");
+  log_warn("Received a deprecated obs msg. Verify firmware version on remote Piksi.");
 }
 
 /** Setup the base station observation handling subsystem. */
