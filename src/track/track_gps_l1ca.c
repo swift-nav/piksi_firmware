@@ -13,8 +13,6 @@
 #include "track_gps_l1ca.h"
 #include "track_gps_l2cm.h" /* for L1C/A to L2 CM tracking handover */
 #include "track_api.h"
-#include "track.h"
-#include "decode.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>

@@ -11,21 +11,10 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "board.h"
-#include "nap/nap_common.h"
-#include "nap/track_channel.h"
-#include "track.h"
-#include "main.h"
-
-#include "track.h"
-
 /* skip weak attributes for L2C API implementation */
-#define FEATURE_TRACK_GPS_L2CM
+#define TRACK_GPS_L2CM_INTERNAL
 #include "track_gps_l2cm.h"
-
 #include "track_api.h"
-#include "decode.h"
-#include "manage.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
@@ -51,25 +40,14 @@
  */
 #define L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS 300
 
-/* Number of chips to integrate over in the short cycle interval [ms] */
-#define L2CM_TRACK_SHORT_CYCLE_INTERVAL_MS \
-  (1e3 * L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS / GPS_CA_CHIPPING_RATE)
-
 /* Number of chips to integrate over in the long cycle interval [chips] */
 #define L2CM_TRACK_LONG_CYCLE_INTERVAL_CHIPS \
   (2 * GPS_L2CM_CHIPS_NUM - L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
 
-/* Number of chips to integrate over in the long cycle interval [ms] */
-#define L2CM_TRACK_LONG_CYCLE_INTERVAL_MS \
-  (L2C_COHERENT_INTEGRATION_TIME_MS - L2CM_TRACK_SHORT_CYCLE_INTERVAL_MS)
-
-/* Number of chips to integrate over in the long cycle interval [chips] */
+/* Number of chips to integrate over in the long cycle interval
+   at start-up [chips] */
 #define L2CM_TRACK_LONG_STARTUP_CYCLE_INTERVAL_CHIPS \
   (2 * GPS_L2CM_CHIPS_NUM - 2 * L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
-
-/* Number of chips to integrate over in the startup long cycle interval [ms] */
-#define L2CM_TRACK_LONG_STARTUP_CYCLE_INTERVAL_MS \
-  (L2C_COHERENT_INTEGRATION_TIME_MS - 2 * L2CM_TRACK_SHORT_CYCLE_INTERVAL_MS)
 
 #define L2CM_TRACK_SETTING_SECTION "l2cm_track"
 
@@ -408,21 +386,17 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
 
   /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
   if (data->short_cycle) {
-    /* The throw away data. Not needed for the short cycle.
-       And we also do not want to clobber common_data content by
-       by writing these data to it as it contains valid data for
-       the previous full 20 ms cycle. */
-    u32 sample_count;            /**< Total num samples channel has tracked for. */
-    double code_phase_early;     /**< Early code phase. */
-    double carrier_phase;        /**< Carrier phase in NAP register units. */
+    /* The throw away data. They are not needed for the short cycle.
+       And we also do not want to clobber common_data content
+       as it contains valid data for the previous full 20 ms cycle. */
+    u32 sample_count;        /* Total num samples channel has tracked for. */
+    double code_phase_early; /* Early code phase. */
+    double carrier_phase;    /* Carrier phase in NAP register units. */
 
     tracker_correlations_read(channel_info->context, data->cs,
                               &sample_count,
                               &code_phase_early,
                               &carrier_phase);
-    (void) sample_count;
-    (void) code_phase_early;
-    (void) carrier_phase;
 
     alias_detect_first(&data->alias_detect, data->cs[1].I, data->cs[1].Q);
   } else {
@@ -438,13 +412,6 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
       data->cs[i].Q += cs[i].Q;
     }
   }
-
-  u8 int_ms = data->short_cycle ?
-              L2CM_TRACK_SHORT_CYCLE_INTERVAL_MS :
-              L2CM_TRACK_LONG_CYCLE_INTERVAL_MS;
-  common_data->TOW_ms = tracker_tow_update(channel_info->context,
-                                           common_data->TOW_ms,
-                                           int_ms);
 
   /* We're doing long integrations, alternate between short and long
    * cycles. This is because of FPGA pipelining and latency.
@@ -463,6 +430,10 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
   }
 
   common_data->update_count += data->int_ms;
+
+  common_data->TOW_ms = tracker_tow_update(channel_info->context,
+                                           common_data->TOW_ms,
+                                           data->int_ms);
 
   /* Call the bit sync update API to do data decoding */
   tracker_bit_sync_update(channel_info->context, data->int_ms, data->cs[1].I);

@@ -307,9 +307,7 @@ static acq_status_t * choose_acq_sat(void)
   gps_time_t t = get_current_time();
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
-    if (CODE_GPS_L2CM == acq_status[i].sid.code) {
-      /* Do not acquire GPS L2C.
-       * Do GPS L1 C/A to L2C handover at the tracking stage instead. */
+    if (!code_requires_direct_acq(acq_status[i].sid.code)) {
       continue;
     }
 
@@ -335,6 +333,10 @@ static acq_status_t * choose_acq_sat(void)
   u32 pick = rand() % total_score;
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
+    if (!code_requires_direct_acq(acq_status[i].sid.code)) {
+      continue;
+    }
+
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
         acq_status[i].masked)
       continue;
@@ -415,7 +417,7 @@ static void manage_acq()
       .sample_count = acq_result.sample_count,
       .carrier_freq = acq_result.cf,
       .code_phase = acq_result.cp,
-      .chips_to_correlate = GPS_L1CA_CHIPS_NUM,
+      .chips_to_correlate = code_to_chip_count(acq->sid.code),
       .cn0_init = acq_result.cn0,
       .elevation = TRACKING_ELEVATION_UNKNOWN
     };
