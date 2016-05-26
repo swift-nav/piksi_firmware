@@ -41,6 +41,9 @@
 #define NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ       \
   ((1 << NAP_TRACK_CARRIER_FREQ_WIDTH) / (double)SAMPLE_FREQ)
 
+#define NAP_TRACK_CARRIER_PHASE_UNITS_PER_CYCLE   \
+  (1 << NAP_TRACK_CARRIER_FREQ_WIDTH);
+
 #define NAP_TRACK_NOMINAL_CODE_PHASE_RATE         \
   (1 << (NAP_TRACK_CODE_PHASE_WIDTH - 1))
 
@@ -90,17 +93,17 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
 
   /* Contrive for the timing strobe to occur at or close to a
    * PRN edge (code phase = 0) */
-  track_count += (SAMPLE_FREQ/GPS_CA_CHIPPING_RATE) * (1023.0-cp) *
+  track_count += (SAMPLE_FREQ / GPS_CA_CHIPPING_RATE) * (1023.0 - cp) *
                  (1.0 + carrier_freq / GPS_L1_HZ);
 
   nap_track_code_wr_blocking(channel, sid);
   nap_track_init_wr_blocking(channel, 0, 0, 0);
 
-  double cp_rate = (1 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
+  double cp_rate = (1.0 + carrier_freq / GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
   nap_track_update(channel, carrier_freq, cp_rate, 0, 0);
 
   /* Schedule the timing strobe for start_sample_count. */
-  track_count -= SAMPLE_FREQ / (2*GPS_CA_CHIPPING_RATE);
+  track_count -= SAMPLE_FREQ / (2 * GPS_CA_CHIPPING_RATE);
   
   s->count_snapshot = track_count;
   s->carrier_phase = -s->carr_pinc;
@@ -112,7 +115,6 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   nap_timing_strobe(track_count);
   nap_timing_strobe_wait(100);
 }
-
 
 /** Write to a NAP track channel's UPDATE register.
  * Write new carrier frequency and code phase rate to a NAP track channel's
@@ -137,7 +139,7 @@ void nap_track_update(u8 channel, double carrier_freq,
 {
   struct nap_ch_state *s = &nap_ch_state[channel];
   s->carr_pinc_prev = s->carr_pinc;
-  s->carr_pinc = (s32)(carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ);
+  s->carr_pinc = carrier_freq * NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
   s->code_pinc_prev = s->code_pinc;
   s->code_pinc = code_phase_rate * NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
@@ -165,11 +167,12 @@ void nap_track_read_results(u8 channel,
   s->code_phase += (u64)sample_count * s->code_pinc_prev;
   s->carrier_phase += (s64)sample_count * s->carr_pinc_prev;
   s->carr_pinc_prev = s->carr_pinc;
-  s->code_pinc_prev = s->code_pinc_prev;
 
   *count_snapshot = s->count_snapshot;
-  *code_phase_early = (double)s->code_phase / NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
-  *carrier_phase = (double)s->carrier_phase / (1 << NAP_TRACK_CARRIER_FREQ_WIDTH);
+  *code_phase_early = (double)s->code_phase /
+                          NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
+  *carrier_phase = (double)s->carrier_phase /
+                       NAP_TRACK_CARRIER_PHASE_UNITS_PER_CYCLE;
 }
 
 void nap_track_disable(u8 channel)
