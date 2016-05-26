@@ -20,7 +20,7 @@
 #include "track.h"
 
 /* skip weak attributes for L2C API implementation */
-#define FEATURE_TRACK_GPS_L2CM
+#define TRACK_GPS_L2CM_INTERNAL
 #include "track_gps_l2cm.h"
 
 #include "track_api.h"
@@ -412,17 +412,14 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
        And we also do not want to clobber common_data content by
        by writing these data to it as it contains valid data for
        the previous full 20 ms cycle. */
-    u32 sample_count;            /**< Total num samples channel has tracked for. */
-    double code_phase_early;     /**< Early code phase. */
-    double carrier_phase;        /**< Carrier phase in NAP register units. */
+    u32 sample_count;            /* Total num samples channel has tracked for. */
+    double code_phase_early;     /* Early code phase. */
+    double carrier_phase;        /* Carrier phase in NAP register units. */
 
     tracker_correlations_read(channel_info->context, data->cs,
                               &sample_count,
                               &code_phase_early,
                               &carrier_phase);
-    (void) sample_count;
-    (void) code_phase_early;
-    (void) carrier_phase;
 
     alias_detect_first(&data->alias_detect, data->cs[1].I, data->cs[1].Q);
   } else {
