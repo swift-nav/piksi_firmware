@@ -3,10 +3,10 @@
 
 - name: Add ARM GCC repo toolchain repository
   sudo: True
-  command: add-apt-repository -y ppa:terry.guo/gcc-arm-embedded
+  command: add-apt-repository -y ppa:team-gcc-arm-embedded/ppa
 
 - name: Updating apt-cache
-  sudo: Yes
+  sudo: True
   apt: update_cache=yes
 
 - name: Install ARM GCC toolchain (Trusty)
@@ -25,7 +25,7 @@
   ignore_errors: True
   when: not (ansible_distribution_version == '14.04' or ansible_distribution_version == '14.10')
   with_items:
-    - gcc-arm-none-eabi
+    - gcc-arm-embedded
 
 # If arm-gcc installation does not succeed, register failture and
 # install manually with next role.
