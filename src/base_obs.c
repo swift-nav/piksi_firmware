@@ -125,6 +125,7 @@ static void update_obss(obss_t *new_obss)
 
     double clock_err;
     double clock_rate_err;
+
     /* Calculate satellite parameters using the ephemeris. */
     ephemeris_lock();
     ephemeris_t *e = ephemeris_get(new_obss->nm[i].sid);
@@ -356,7 +357,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
         &base_obss_rx.nm[base_obss_rx.n].raw_pseudorange,
         &base_obss_rx.nm[base_obss_rx.n].raw_carrier_phase,
         &base_obss_rx.nm[base_obss_rx.n].snr,
-        &base_obss_rx.nm[base_obss_rx.n].lock_counter,
+        &base_obss_rx.nm[base_obss_rx.n].lock_time,
         &base_obss_rx.nm[base_obss_rx.n].sid
       );
       base_obss_rx.n++;
@@ -382,7 +383,7 @@ static void obs_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 static void deprecated_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void) context; (void) len; (void) msg; (void) sender_id;
-  log_error("Receiving an old deprecated observation message.");
+  log_warn("Received a deprecated observation message. Verify firmware version on local and remote Piksi.");
 }
 
 /** Setup the base station observation handling subsystem. */
@@ -416,6 +417,13 @@ void base_obs_setup()
     SBP_MSG_OBS_DEP_A,
     &deprecated_callback,
     &deprecated_node
+  );
+  
+  static sbp_msg_callbacks_node_t deprecated_node_2;
+  sbp_register_cbk(
+    SBP_MSG_OBS_DEP_B,
+    &deprecated_callback,
+    &deprecated_node_2
   );
 }
 
