@@ -260,7 +260,7 @@ s8 pack_obs_content(double P, double L, double snr, u32 lock_time_ms,
   }
 
   msg->P = (u32)P_fp;
-  s64 cp_pr_int = llround((-L * GPS_C / GPS_L1_HZ - msg->P/MSG_OBS_P_MULTIPLIER) * MSG_OBS_L_MULTIPLIER);
+  s64 cp_pr_int = (-L * GPS_C / GPS_L1_HZ - msg->P/MSG_OBS_P_MULTIPLIER) * MSG_OBS_L_MULTIPLIER;
   if (cp_pr_int < INT_MIN || cp_pr_int > INT_MAX ) {
      log_error("observation message packing: L integer overflow %f, %f", L, P);
      return -1;
