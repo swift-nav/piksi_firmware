@@ -593,9 +593,9 @@ void tracking_channel_measurement_get(tracker_channel_id_t id, u64 ref_tc,
       gps_time_t tor = rx2gpstime(ref_tc + meas->rec_time_delta);
       gps_time_t tot;
       tot.tow = 1e-3 * meas->time_of_week_ms;
-      tot.tow += meas->code_phase_chips / GPS_CA_CHIPPING_RATE;
+      tot.tow += meas->code_phase_chips / code_to_chip_rate(meas->sid.code);
       gps_time_match_weeks(&tot, &tor);
-      internal_data->carrier_phase_offset = round(GPS_L1_HZ
+      internal_data->carrier_phase_offset = round(code_to_carr_freq(meas->sid.code)
                                                   * gpsdifftime(&tor, &tot));
   }
   meas->carrier_phase -= internal_data->carrier_phase_offset;
