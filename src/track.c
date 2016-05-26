@@ -433,11 +433,9 @@ u32 tracking_channel_running_time_ms_get(tracker_channel_id_t id)
 u32 tracking_channel_locked_ms_get(tracker_channel_id_t id) {
   const tracker_channel_t *tracker_channel = tracker_channel_get(id);
   const tracker_common_data_t *common_data = &tracker_channel->common_data;
-  u32 max_update_count = MAX(common_data->cn0_above_drop_thres_count,
+  u32 max_update_count = MAX(common_data->cn0_below_use_thres_count,
                              common_data->ld_pess_unlocked_count);
-  max_update_count = MAX(max_update_count, common_data->ld_opti_locked_count);
   max_update_count = MAX(max_update_count, common_data->mode_change_count);
-  max_update_count = MAX(max_update_count, common_data->update_count);
   return update_count_diff(tracker_channel, &max_update_count);
 }
 
