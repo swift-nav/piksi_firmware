@@ -266,6 +266,7 @@ s8 pack_obs_content(double P, double L, double snr, u32 lock_time_ms,
      return -1;
   }
   msg->L = (s32) cp_pr_int;
+  log_info("%f :", L); // (((double)msg->L) / MSG_OBS_L_MULTIPLIER  + ((double) msg->P/MSG_OBS_P_MULTIPLIER) * -GPS_L1_HZ / GPS_C));
 
   s32 snr_fp = lround(snr * MSG_OBS_SNR_MULTIPLIER);
   if (snr < 0 || snr_fp > UINT8_MAX) {
