@@ -608,7 +608,10 @@ static void solution_thread(void *arg)
       /* Propagate observation to desired time. */
       /* We have to use the tdcp_doppler result to account for TCXO drift. */
       for (u8 i = 0; i < n_ready_tdcp; i++) {
-        nav_meas_tdcp[i].raw_pseudorange -= t_err;
+        /* This is effectively adding the pseudorange rate (PRR) */
+        nav_meas_tdcp[i].raw_pseudorange += t_err * nav_meas_tdcp[i].raw_doppler
+                                              * GPS_L1_LAMBDA;
+        /* This is effecitvely adding the carrier phase range rate */
         nav_meas_tdcp[i].raw_carrier_phase += t_err * nav_meas_tdcp[i].raw_doppler;
 
         nav_meas_tdcp[i].tot = new_obs_time;
