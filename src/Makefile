@@ -190,7 +190,18 @@ CPPWARN = -Wall -Wextra -Werror
 #
 
 # List all default C defines here, like -D_DEBUG=1
-GIT_VERSION := $(shell git describe --dirty)
+# Form version number to include last tag, build time (month, day, hours, minutes)
+# and commit ids of piksi_firmware and libswiftnav repositories.
+# Example: v0.21-05271044-4293c57-f82b1f4
+GIT_VERSION := $(shell git describe --abbrev=0)
+GIT_VERSION += $(shell date +%m%d%H%M)
+GIT_VERSION += $(shell git rev-parse --short=7 HEAD)
+GIT_VERSION += $(shell git -C ../libswiftnav rev-parse --short=7 HEAD)
+dash := -
+empty :=
+space := $(empty) $(empty)
+GIT_VERSION := $(subst $(space),$(dash),$(GIT_VERSION))
+
 DDEFS = -DGIT_VERSION="\"$(GIT_VERSION)\""
 
 # List all default ASM defines here, like -D_DEBUG=1
