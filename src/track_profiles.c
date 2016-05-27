@@ -71,26 +71,29 @@
  * TODO Make entry to support multiple bands.
  */
 typedef struct {
-  bool          used;              /**< Flag if the profile entry is in use */
   gnss_signal_t sid;               /**< Signal identifier. */
-  tp_report_t   last_report;       /**< Last data from tracker */
+  // tp_report_t   last_report;       /**< Last data from tracker */
+  u32           used: 1;           /**< Flag if the profile entry is in use */
+  u32           olock: 1;          /**<  */
+  u32           plock: 1;          /**<  */
+  u32           bsync: 1;          /**<  */
   u32           profile_update:1;  /**< Flag if the profile update is required */
   u32           cur_profile_i:3;   /**< Index of the currently active profile (integration) */
   u32           cur_profile_d:3;   /**< Index of the currently active profile (dynamics) */
   u32           next_profile_i:3;  /**< Index of the next selected profile (integration) */
   u32           next_profile_d:3;  /**< Index of the next selected profile (dynamics)  */
-  float         cn0_offset;        /**< C/N0 offset in dB to tune thresholds */
   u32           low_cn0_count:5;   /**< State lock counter for C/N0 threshold */
   u32           high_cn0_count:5;  /**< State lock counter for C/N0 threshold */
   u32           accel_count:5;     /**< State lock counter for dynamics threshold */
   u32           accel_count_idx:2; /**< State lock value for dynamics threshold */
   u32           lock_time_ms:16;   /**< Profile lock count down timer */
+  float         cn0_offset;        /**< C/N0 offset in dB to tune thresholds */
   float         prev_val[4];       /**< Filtered counters: v,a,l,C/N0 */
   float         filt_val[4];       /**< Filtered counters: v,a,l,C/N0 */
   float         mean_acc[4];       /**< Mean accumulators: v,a,l,C/N0 */
   u32           mean_cnt;          /**< Mean value divider */
   lp1_filter_t  lp_filters[4];     /**< Moving average filters: v,a,l,C/N0 */
-  u32           time;              /**< Tracking time */
+  u32           time_ms;              /**< Tracking time */
   u32           last_print_time;   /**< Last debug print time */
 } tp_profile_internal_t;
 
@@ -620,6 +623,18 @@ static void update_stats(tp_profile_internal_t *profile,
   float loop_freq = 1000 / data->time_ms;
   float speed, accel, cn0, lock;
 
+  profile->time_ms += data->time_ms;
+  /* Profile lock time count down */
+  if (profile->lock_time_ms > data->time_ms) {
+    profile->lock_time_ms -= data->time_ms;
+  } else {
+    profile->lock_time_ms = 0;
+  }
+
+  profile->olock = data->olock;
+  profile->plock = data->plock;
+  profile->bsync = data->bsync;
+
   /* Compute products */
   speed = compute_speed(profile->sid, data);
   accel = (profile->prev_val[0] - speed) * loop_freq;
@@ -674,8 +689,8 @@ static void update_stats(tp_profile_internal_t *profile,
  */
 static void print_stats(tp_profile_internal_t *profile)
 {
-  if (profile->time - profile->last_print_time >= 20000) {
-    profile->last_print_time = profile->time;
+  if (profile->time_ms - profile->last_print_time >= 20000) {
+    profile->last_print_time = profile->time_ms;
 
     float div = 1.f;
     if (profile->mean_cnt > 0)
@@ -738,7 +753,7 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
   acc = profile->filt_val[1];
 
   /* When we have a lock, and lock ratio is good, do not change the mode */
-  must_keep_profile = profile->last_report.olock && profile->filt_val[2] > 4.f;
+  must_keep_profile = profile->olock && profile->filt_val[2] > 4.f;
 
   /* First, check if the profile change is required:
    * - There must be no scheduled profile change.
@@ -746,8 +761,8 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
    */
   if (!profile->profile_update) {
     if (profile->cur_profile_i == 0 &&
-        profile->last_report.bsync &&
-        profile->last_report.olock) {
+        profile->bsync &&
+        profile->olock) {
       /* Transition from 1ms integration into 2 to 20 ms integration */
       must_change_profile = true;
       next_profile_i = 1;
@@ -860,14 +875,7 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
     profile->accel_count_idx = profile->cur_profile_d;
   }
 
-  if (!must_change_profile) {
-    /* Profile lock time count down */
-    if (profile->lock_time_ms > profile->last_report.time_ms) {
-      profile->lock_time_ms -= profile->last_report.time_ms;
-    } else {
-      profile->lock_time_ms = 0;
-    }
-  } else {
+  if (must_change_profile) {
     /* Perform profile change */
     /* Profile update scheduling:
      * - Mark profile as pending for change
@@ -980,7 +988,7 @@ tp_result_e tp_tracking_start(gnss_signal_t sid,
     if (NULL != profile) {
       log_debug_sid(sid, "New tracking profile");
 
-      profile->last_report = *data;
+      // profile->last_report = *data;
       profile->filt_val[0] = compute_speed(sid, data);
       profile->filt_val[1] = 0.;
       profile->filt_val[2] = 0.;
@@ -1109,8 +1117,7 @@ tp_result_e tp_report_data(gnss_signal_t sid, const tp_report_t *data)
      *
      * TODO schedule a message to own thread.
      */
-    profile->last_report = *data;
-    profile->time += data->time_ms;
+    // profile->last_report = *data;
 
     update_stats(profile, data);
     print_stats(profile);
