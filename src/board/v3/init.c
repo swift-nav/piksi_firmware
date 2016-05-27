@@ -104,7 +104,12 @@ static void nap_version_check(void)
  */
 static void nap_auth_check(void)
 {
-
+  if (nap_hash_status() != 0) {
+    while (1) {
+      log_error("NAP Authentication Locked");
+      chThdSleepSeconds(2);
+    }
+  }
 }
 
 s32 serial_number_get(void)

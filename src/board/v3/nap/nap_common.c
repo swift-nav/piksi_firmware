@@ -12,6 +12,7 @@
 
 #include "board.h"
 #include "nap/nap_common.h"
+#include "nap_conf.h"
 #include "../../sbp.h"
 
 #include "nap_hw.h"
@@ -38,7 +39,9 @@ u8 nap_track_n_channels = 0;
 void nap_setup(void)
 {
   nap_rd_dna(nap_dna);
-  /* TODO: Call nap_unlock with valid key */
+
+  const u8 key[] = NAP_KEY_ARRAY;
+  nap_unlock(key);
 
   nap_track_n_channels = (NAP->STATUS & NAP_STATUS_TRACKING_CH_Msk) >>
                           NAP_STATUS_TRACKING_CH_Pos;
@@ -123,6 +126,11 @@ static void nap_exti_thread(void *arg)
     handle_nap_exti();
     tracking_channels_process();
   }
+}
+
+u8 nap_hash_status(void)
+{
+  return (NAP->STATUS&(1<<31))?1:0;
 }
 
 static void nap_rd_dna_callback(u16 sender_id, u8 len, u8 msg[], void* context)

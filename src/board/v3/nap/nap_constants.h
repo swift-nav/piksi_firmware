@@ -34,12 +34,15 @@
 #define NAP_ACQ_SAMPLE_RATE_Hz                  (NAP_FRONTEND_SAMPLE_RATE_Hz  \
 		                                           / NAP_ACQ_DECIMATION_RATE)
 
-#define NAP_KEY_LENGTH                                                   (16)
+#define NAP_KEY_LENGTH				(16)
+#warning Must set NAP_KEY_ARRAY based on Device DNA of target FPGA
+#define NAP_KEY_ARRAY				{0x83,0xde,0x90,0x6d,0x12,0x60,0xf0,0xaa,0x63, \
+							0x9b,0x24,0x4a,0xfb,0x58,0x31,0x77}
 
-#define NAP_VERSION_STRING_OFFSET                                         (4)
-#define NAP_VERSION_STRING_LENGTH                                        (52)
+#define NAP_VERSION_STRING_OFFSET		(4)
+#define NAP_VERSION_STRING_LENGTH		(52)
 
-#define NAP_DNA_OFFSET                                                   (56)
-#define NAP_DNA_LENGTH                                                    (8)
+#define NAP_DNA_OFFSET				(56)
+#define NAP_DNA_LENGTH				(8)
 
 #endif /* SWIFTNAV_NAP_CONSTANTS_H */
