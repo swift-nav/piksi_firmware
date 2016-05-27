@@ -186,7 +186,7 @@ static void tracker_gps_l1ca_init(const tracker_channel_info_t *channel_info,
     report.bsync = false;
     report.carr_freq = common_data->carrier_freq;
     report.code_phase_rate = common_data->code_phase_rate;
-    report.cn0 = common_data->cn0;
+    report.cn0 = report.cn0_raw = common_data->cn0;
     report.olock = false;
     report.plock = false;
     report.sample_count = common_data->sample_count;
@@ -461,9 +461,12 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     report.bsync = tracker_has_bit_sync(channel_info->context);
     report.carr_freq = common_data->carrier_freq;
     report.code_phase_rate = common_data->code_phase_rate;
-    report.cn0 = cn0_raw;
+    report.cn0_raw = cn0_raw;
+    report.cn0 = common_data->cn0;
     report.olock = data->lock_detect.outo;
     report.plock = data->lock_detect.outp;
+    report.lock_i = data->lock_detect.lpfi.y;
+    report.lock_q = data->lock_detect.lpfq.y;
     report.sample_count = common_data->sample_count;
     report.time_ms = data->params.loop_params.coherent_ms;
 

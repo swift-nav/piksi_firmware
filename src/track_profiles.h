@@ -90,12 +90,15 @@ typedef struct
 {
   double code_phase_rate; /**< Code frequency in Hz */
   double carr_freq;       /**< Carrier frequency in Hz */
-  float  cn0;             /**< Computed C/N0 (raw) in dB/Hz */
+  float  cn0;             /**< Computed C/N0 (filtered) in dB/Hz */
+  float  cn0_raw;         /**< Computed C/N0 (raw) in dB/Hz */
   u32    plock:1;         /**< Pessimistic lock flag */
   u32    olock:1;         /**< Optimistic lock flag */
   u32    bsync:1;         /**< Bit sync flag */
   u32    time_ms:8;       /**< Time in milliseconds */
   u32    sample_count;    /**< Channel sample count */
+  float  lock_i;          /**< Filtered I value from the lock detector */
+  float  lock_q;          /**< Filtered Q value from the lock detector */
 } tp_report_t;
 
 /**
