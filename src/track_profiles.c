@@ -135,176 +135,6 @@ static const tp_lock_detect_params_t ld_params[] = {
 };
 
 /**
- * Initial tracking parameters for GPS L1 C/A
- */
-static const tp_loop_params_t loop_params_initial = {
-  /* "(1 ms, (1, 0.7, 1, 1540), (40, 0.7, 1, 5))" */
-  .coherent_ms = 1,
-  .carr_bw = 40,
-  .carr_zeta = .7f,
-  .carr_k = 1,
-  .carr_to_code = 1540,
-  .code_bw = 1,
-  .code_zeta = 0.7f,
-  .code_k = 1,
-  .carr_fll_aid_gain = 5,
-  .mode = TP_TM_PIPELINING
-};
-
-#ifdef TP_USE_1MS_PROFILES
-/** Tracking profile for stable/1ms/pipelining */
-static const tp_loop_params_t loop_params_1ms_s = {
-  .coherent_ms = 1,
-  .carr_bw = 12,
-  .carr_zeta = 1.f,
-  .carr_k = 1,
-  .carr_to_code = 1540,
-  .code_bw = 1,
-  .code_zeta = 1.f,
-  .code_k = 1,
-  .carr_fll_aid_gain = 0,
-  .mode = TP_TM_PIPELINING
-};
-/** Tracking profile for normal/1ms/pipelining */
-static const tp_loop_params_t loop_params_1ms_n = {
-  .coherent_ms = 1,
-  .carr_bw = 20,
-  .carr_zeta = 1.f,
-  .carr_k = 1,
-  .carr_to_code = 1540,
-  .code_bw = 1,
-  .code_zeta = 1.f,
-  .code_k = 1,
-  .carr_fll_aid_gain = 0,
-  .mode = TP_TM_PIPELINING
-};
-/** Tracking profile for unstable/1ms/pipelining */
-static const tp_loop_params_t loop_params_1ms_u = {
-  /* The configration is taken from previous 1ms profile:
-   * "(1 ms, (1, 0.7, 1, 1540), (40, 0.7, 1, 5))"
-   */
-  .coherent_ms = 1,
-  .carr_bw = 40,
-  .carr_zeta = .7f,
-  .carr_k = 1,
-  .carr_to_code = 1540,
-  .code_bw = 1,
-  .code_zeta = .7f,
-  .code_k = 1,
-  .carr_fll_aid_gain = 0,
-  .mode = TP_TM_PIPELINING
-};
-#endif /* TP_USE_1MS_PROFILES */
-
-#ifdef TP_USE_2MS_PROFILES
-/**
- * 2 ms tracking parameters for GPS L1 C/A
- */
-static const tp_loop_params_t loop_params_2ms = {
-  /* "(2 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
-
-  .coherent_ms = 2,
-  .carr_bw = 14,
-  .carr_zeta = 1.f,
-  .carr_k = 1,
-  .carr_to_code = 1540,
-  .code_bw = 1,
-  .code_zeta = 1.f,
-  .code_k = 1,
-  .carr_fll_aid_gain = 0,
-  .mode = TP_TM_PIPELINING
-};
-#endif /* TP_USE_2MS_PROFILES */
-#ifdef TP_USE_5MS_PROFILES
-/**
- * 5 ms tracking parameters for GPS L1 C/A
- */
-static const tp_loop_params_t loop_params_5ms_s = {
-  /* "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
-
-  .coherent_ms = 5,
-  .carr_bw = 15,
-  .carr_zeta = 1.f,
-  .carr_k = 1,
-  .carr_to_code = 1540,
-  .code_bw = 1,
-  .code_zeta = 0.7f,
-  .code_k = 1,
-  .carr_fll_aid_gain = 0,
-  .mode = TP_TM_ONE_PLUS_N
-};
-/**
- * 5 ms tracking parameters for GPS L1 C/A
- */
-static const tp_loop_params_t loop_params_5ms_n = {
-  /* "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
-
-  .coherent_ms = 5,
-  .carr_bw = 25,
-  .carr_zeta = .7f,
-  .carr_k = 1,
-  .carr_to_code = 1540,
-  .code_bw = 1,
-  .code_zeta = 0.7f,
-  .code_k = 1,
-  .carr_fll_aid_gain = 0,
-  .mode = TP_TM_ONE_PLUS_N
-};
-#endif /* TP_USE_5MS_PROFILES */
-#ifdef TP_USE_10MS_PROFILES
-/**
- * 20 ms tracking parameters for GPS L1 C/A
- */
-static const tp_loop_params_t loop_params_10ms = {
-  /*  "(10 ms, (1, 0.7, 1, 1540), (30, 0.7, 1, 0))" */
-
-  .coherent_ms = 10,
-  .carr_bw = 16,
-  .carr_zeta = .7f,
-  .carr_k = 1.,
-  .carr_to_code = 1540,
-  .code_bw = 1,
-  .code_zeta = .7f,
-  .code_k = 1,
-  .carr_fll_aid_gain = 0,
-  .mode = TP_TM_ONE_PLUS_N
-};
-#endif /* TP_USE_10MS_PROFILES */
-#ifdef TP_USE_20MS_PROFILES
-/**
- * 20 ms tracking parameters for GPS L1 C/A
- */
-static const tp_loop_params_t loop_params_20ms_s = {
-  /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
-
-  .coherent_ms = 20,
-  .carr_bw = 8, // 10/.9 is good; 5(1. is better
-  .carr_zeta = .7f,
-  .carr_k = 1.f,
-  .carr_to_code = 1540,
-  .code_bw = 1,
-  .code_zeta = .7f,
-  .code_k = 1,
-  .carr_fll_aid_gain = 0,
-  .mode = TP_TM_ONE_PLUS_N
-};
-static const tp_loop_params_t loop_params_20ms_n = {
-  /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
-
-  .coherent_ms = 20,
-  .carr_bw = 12, // 10/.9 is good; 5(1. is better
-  .carr_zeta = .9f,
-  .carr_k = 1.f,
-  .carr_to_code = 1540,
-  .code_bw = 1,
-  .code_zeta = .9f,
-  .code_k = 1,
-  .carr_fll_aid_gain = 0,
-  .mode = TP_TM_ONE_PLUS_N
-};
-#endif /* TP_USE_20MS_PROFILES */
-
-/**
  * Enumeration for the vertical dimension of profile matrix.
  *
  * Each entry here shall correspond to appropriate line in #profile_matrix.
@@ -352,22 +182,43 @@ enum
  * Entries do not have to have particular order, but the entry index shall
  * match the TP_LP_IDX_XYZ enumeration value.
  */
-static const tp_loop_params_t *loop_params[] = {
-  &loop_params_initial,
+static const tp_loop_params_t loop_params[] = {
+  /* "(1 ms, (1, 0.7, 1, 1540), (40, 0.7, 1, 5))" */
+  { 1, 0.7f, 1, 1540, 40, .7f, 1, 5, 1, TP_TM_PIPELINING }, /*TP_LP_IDX_INI*/
+
 #ifdef TP_USE_1MS_PROFILES
-  &loop_params_1ms_s, &loop_params_1ms_n, &loop_params_1ms_u,
+  { 1, 1.f, 1, 1540, 12, 1.f, 1, 0, 1, TP_TM_PIPELINING }, /*TP_LP_IDX_1MS_S*/
+  { 1, 1.f, 1, 1540, 20, 1.f, 1, 0, 1, TP_TM_PIPELINING }, /*TP_LP_IDX_1MS_N*/
+  /* (1 ms, (1, 0.7, 1, 1540), (40, 0.7, 1, 5)) */
+  { 1, .7f, 1, 1540, 40, .7f, 1, 0, 1, TP_TM_PIPELINING }, /*TP_LP_IDX_1MS_U*/
 #endif /* TP_USE_1MS_PROFILES */
+
 #ifdef TP_USE_2MS_PROFILES
-  &loop_params_2ms,
+  /* (2 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0)) */
+  { 1, 1.f, 1, 1540, 14, 1.f, 1, 0, 2, TP_TM_PIPELINING }, /* TP_LP_IDX_2MS*/
 #endif /* TP_USE_2MS_PROFILES */
+
 #ifdef TP_USE_5MS_PROFILES
-  &loop_params_5ms_s, &loop_params_5ms_n, &loop_params_5ms_n,
+  /* "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
+  { 1, 0.7f, 1, 1540, 15, 1.f, 1, 0, 5, TP_TM_ONE_PLUS_N }, /*TP_LP_IDX_5MS_S*/
+  /* "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
+  { 1, 0.7f, 1, 1540, 25, .7f, 1, 0, 5, TP_TM_ONE_PLUS_N }, /*TP_LP_IDX_5MS_N*/
+  /* "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
+  { 1, 0.7f, 1, 1540, 25, .7f, 1, 0, 5, TP_TM_ONE_PLUS_N }, /*TP_LP_IDX_5MS_U*/
 #endif /* TP_USE_5MS_PROFILES */
+
 #ifdef TP_USE_10MS_PROFILES
-  &loop_params_10ms,
+  /*  "(10 ms, (1, 0.7, 1, 1540), (30, 0.7, 1, 0))" */
+  { 1, .7f, 1, 1540, 16, .7f, 1., 0, 10, TP_TM_ONE_PLUS_N }, /*TP_LP_IDX_10MS*/
 #endif /* TP_USE_10MS_PROFILES */
+
 #ifdef TP_USE_20MS_PROFILES
-  &loop_params_20ms_s, &loop_params_20ms_n, &loop_params_20ms_n,
+  /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
+  { 1, .7f, 1, 1540, 8, .7f, 1.f, 0, 20, TP_TM_ONE_PLUS_N}, /*TP_LP_IDX_20MS_S*/
+  /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
+  { 1, .9f, 1, 1540, 12, .9f, 1.f, 0, 20, TP_TM_ONE_PLUS_N },/*TP_LP_IDX_20MS_N*/
+  /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
+  { 1, .9f, 1, 1540, 12, .9f, 1.f, 0, 20, TP_TM_ONE_PLUS_N },/*TP_LP_IDX_20MS_U*/
 #endif /* TP_USE_20MS_PROFILES */
 };
 
@@ -476,7 +327,7 @@ static double compute_speed(gnss_signal_t sid, const tp_report_t *data)
 static void init_profile_filters(tp_profile_internal_t *profile)
 {
   u8 idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
-  const tp_loop_params_t *lp = loop_params[idx];
+  const tp_loop_params_t *lp = &loop_params[idx];
   float loop_freq = 1000 / lp->coherent_ms;
   for (size_t i = 0; i< ARR_SIZE(profile->lp_filters); ++i) {
     lp1_filter_init(&profile->lp_filters[i],
@@ -588,7 +439,7 @@ static void get_profile_params(tp_profile_internal_t *profile,
   }
 
   config->lock_detect_params = *p_ld_params;
-  config->loop_params = *loop_params[profile_idx];
+  config->loop_params = loop_params[profile_idx];
   config->use_alias_detection = false;
 
   tp_get_cn0_params(profile->sid, &config->cn0_params);
@@ -690,13 +541,13 @@ static void print_stats(tp_profile_internal_t *profile)
 
     log_info_sid(profile->sid,
                  "MRS: %dms CN0=%.2f (%.2f) VA=%.3f/%.3f l=%.3f",
-                 (int)loop_params[lp_idx]->coherent_ms,
+                 (int)loop_params[lp_idx].coherent_ms,
                  c, c + TP_SNR_OFFSET,
                  s, a, j
                 );
     log_info_sid(profile->sid,
                  "AVG: %dms CN0=%.2f (%.2f) VA=%.3f/%.3f l=%.3f",
-                 (int)loop_params[lp_idx]->coherent_ms,
+                 (int)loop_params[lp_idx].coherent_ms,
                  profile->filt_val[3],
                  profile->filt_val[3] + TP_SNR_OFFSET,
                  profile->filt_val[0],
@@ -876,9 +727,9 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
 
     log_info_sid(profile->sid,
                  "Profile change: %dms [%d][%d]->%dms [%d][%d] r=%s (%.2f)/%s (%.2f) l=%.2f",
-                 (int)loop_params[lp1_idx]->coherent_ms,
+                 (int)loop_params[lp1_idx].coherent_ms,
                  profile->cur_profile_i, profile->cur_profile_d,
-                 (int)loop_params[lp2_idx]->coherent_ms,
+                 (int)loop_params[lp2_idx].coherent_ms,
                  profile->next_profile_i, profile->next_profile_d,
                  reason, snr,
                  reason2, acc,
@@ -900,7 +751,7 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
 static float compute_cn0_offset(const tp_profile_internal_t *profile)
 {
   u8 profile_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
-  const tp_loop_params_t *lp = loop_params[profile_idx];
+  const tp_loop_params_t *lp = &loop_params[profile_idx];
   float cn0_offset = 0;
 
   if (lp->coherent_ms > 1) {
