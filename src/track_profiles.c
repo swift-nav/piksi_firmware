@@ -19,6 +19,7 @@
 
 #include <board.h>
 #include <platform_signal.h>
+#include <nap/nap_common.h>
 #include <nap/nap_hw.h>
 
 #include <string.h>
@@ -589,25 +590,8 @@ static void get_profile_params(tp_profile_internal_t *profile,
   config->lock_detect_params = *p_ld_params;
   config->loop_params = *loop_params[profile_idx];
   config->use_alias_detection = false;
-  config->cn0_params = cn0_params_default;
 
-  /* Correction: higher integration time lowers thresholds linearly. For
-   * example, 20ms integration has threshold by 13 dB lower, than for 1ms
-   * integration. */
-  config->cn0_params.track_cn0_drop_thres -= profile->cn0_offset;
-  config->cn0_params.track_cn0_use_thres -= profile->cn0_offset;
-
-  /* Currently, we don't have an algorithm that can differentiate tracked
-   * signal from noise at C/N0 in range [21..23). This corresponds to SNR
-   * of -145 dB/Hz and lower */
-  /* TODO add heuristics to estimate that signal is tracked with SNR below
-   * -145. */
-  if (config->cn0_params.track_cn0_drop_thres < TP_HARD_CN0_DROP_THRESHOLD) {
-    config->cn0_params.track_cn0_drop_thres = TP_HARD_CN0_DROP_THRESHOLD;
-  }
-  if (config->cn0_params.track_cn0_use_thres < TP_HARD_CN0_DROP_THRESHOLD) {
-    config->cn0_params.track_cn0_use_thres = TP_HARD_CN0_DROP_THRESHOLD;
-  }
+  tp_get_cn0_params(profile->sid, &config->cn0_params);
 }
 
 /**
@@ -1044,6 +1028,7 @@ tp_result_e tp_tracking_stop(gnss_signal_t sid)
  * \param[in]  sid    GNSS signal identifier. This identifier must be registered
  *                    with a call to #tp_tracking_start().
  * \param[out] config Container for new tracking parameters.
+ * \param[in]  commit Commit the mode change happened.
  *
  * \retval TP_RESULT_SUCCESS New tracking profile has been retrieved. The
  *                           tracking loop shall reconfigure it's components
@@ -1052,18 +1037,20 @@ tp_result_e tp_tracking_stop(gnss_signal_t sid)
  *                           actions are needed.
  * \retval TP_RESULT_ERROR   On error.
  */
-tp_result_e tp_get_profile(gnss_signal_t sid, tp_config_t *config)
+tp_result_e tp_get_profile(gnss_signal_t sid, tp_config_t *config, bool commit)
 {
   tp_result_e res = TP_RESULT_ERROR;
   tp_profile_internal_t *profile = find_profile(sid);
   if (NULL != config && NULL != profile) {
     if (profile->profile_update) {
       /* Do transition of current profile */
-      profile->profile_update = 0;
-      profile->cur_profile_i = profile->next_profile_i;
-      profile->cur_profile_d = profile->next_profile_d;
-      profile->cn0_offset = compute_cn0_offset(profile);
-      init_profile_filters(profile);
+      if (commit) {
+        profile->profile_update = 0;
+        profile->cur_profile_i = profile->next_profile_i;
+        profile->cur_profile_d = profile->next_profile_d;
+        profile->cn0_offset = compute_cn0_offset(profile);
+        init_profile_filters(profile);
+      }
 
       /* Return data */
       get_profile_params(profile, config);
@@ -1075,6 +1062,45 @@ tp_result_e tp_get_profile(gnss_signal_t sid, tp_config_t *config)
   }
   return res;
 }
+
+/**
+ * Method for obtaining current C/N0 thresholds.
+ *
+ * \param[in]  sid    GNSS signal identifier. This identifier must be registered
+ *                    with a call to #tp_tracking_start().
+ * \param[out] cn0_params Container for C/N0 limits.
+ *
+ * \retval TP_RESULT_SUCCESS C/N0 thresholds have been retrieved.
+ * \retval TP_RESULT_ERROR   On error.
+ */
+tp_result_e tp_get_cn0_params(gnss_signal_t sid, tp_cn0_params_t *cn0_params)
+{
+  tp_result_e res = TP_RESULT_ERROR;
+  tp_profile_internal_t *profile = find_profile(sid);
+  if (NULL != cn0_params && NULL != profile) {
+    *cn0_params = cn0_params_default;
+
+    /* Correction: higher integration time lowers thresholds linearly. For
+     * example, 20ms integration has threshold by 13 dB lower, than for 1ms
+     * integration. */
+    cn0_params->track_cn0_drop_thres -= profile->cn0_offset;
+    cn0_params->track_cn0_use_thres -= profile->cn0_offset;
+
+    /* Currently, we don't have an algorithm that can differentiate tracked
+     * signal from noise at C/N0 in range [21..23). This corresponds to SNR
+     * of -145 dB/Hz and lower */
+    /* TODO add heuristics to estimate that signal is tracked with SNR below
+     * -145. */
+    if (cn0_params->track_cn0_drop_thres < TP_HARD_CN0_DROP_THRESHOLD) {
+      cn0_params->track_cn0_drop_thres = TP_HARD_CN0_DROP_THRESHOLD;
+    }
+    if (cn0_params->track_cn0_use_thres < TP_HARD_CN0_DROP_THRESHOLD) {
+      cn0_params->track_cn0_use_thres = TP_HARD_CN0_DROP_THRESHOLD;
+    }
+  }
+  return res;
+}
+
 
 /**
  * Method to check if there is a pending profile change.
