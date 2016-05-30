@@ -19,6 +19,7 @@
 
 #include <board.h>
 #include <platform_signal.h>
+#include <nap/nap_hw.h>
 
 #include <string.h>
 
@@ -276,12 +277,12 @@ static const tp_loop_params_t loop_params_20ms_s = {
   /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
 
   .coherent_ms = 20,
-  .carr_bw = 6, // 10/.9 is good; 5(1. is better
-  .carr_zeta = 1.f,
+  .carr_bw = 8, // 10/.9 is good; 5(1. is better
+  .carr_zeta = .7f,
   .carr_k = 1.f,
   .carr_to_code = 1540,
   .code_bw = 1,
-  .code_zeta = .9f,
+  .code_zeta = .7f,
   .code_k = 1,
   .carr_fll_aid_gain = 0,
   .mode = TP_TM_ONE_PLUS_N
@@ -753,7 +754,7 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
   acc = profile->filt_val[1];
 
   /* When we have a lock, and lock ratio is good, do not change the mode */
-  must_keep_profile = profile->olock && profile->filt_val[2] > 4.f;
+  // must_keep_profile = profile->olock && profile->filt_val[2] > 4.f;
 
   /* First, check if the profile change is required:
    * - There must be no scheduled profile change.

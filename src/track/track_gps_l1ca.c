@@ -52,20 +52,22 @@
 #endif
 
 typedef struct {
-  aided_tl_state_t tl_state;   /**< Tracking loop filter state. */
-  corr_t cs[3];                /**< EPL correlation results in correlation period. */
-  cn0_est_state_t cn0_est;     /**< C/N0 Estimator. */
-  cn0_filter_t    cn0_filt;    /**< C/N0 Filter */
-  u8              int_ms;      /**< Integration length. */
-  u8              short_cycle: 1; /**< Set to true when a short 1ms integration is requested. */
-  u8              use_alias_detection: 1;
-  u8              has_next_params: 1; /**< Flag if stage transition is in progress */
-  u8              tracking_mode: 2;
-  alias_detect_t alias_detect; /**< Alias lock detector. */
-  lock_detect_t lock_detect;   /**< Phase-lock detector state. */
-  //tp_config_t params;          /**< Current stage parameters */
-  tp_cn0_params_t cn0_params;
-  tp_config_t next_params;     /**< Next stage parameters */
+  aided_tl_state_t tl_state;               /**< Tracking loop filter state. */
+  corr_t           cs[3];                  /**< EPL correlation results in
+                                            *   correlation period. */
+  cn0_est_state_t  cn0_est;                /**< C/N0 Estimator. */
+  cn0_filter_t     cn0_filt;               /**< C/N0 Filter */
+  alias_detect_t   alias_detect;           /**< Alias lock detector. */
+  lock_detect_t    lock_detect;            /**< Phase-lock detector state. */
+  tp_cn0_params_t  cn0_params;             /**< Current C/N0 thresholds */
+  u8               int_ms;                 /**< Current integration length. */
+  u8               short_cycle: 1;         /**< Set to true when a short 1ms
+                                            *   integration is requested. */
+  u8               use_alias_detection: 1; /**< Flag for alias detection control */
+  u8               tracking_mode: 2;       /**< Tracking mode */
+  u8               has_next_params: 1;     /**< Flag if stage transition is in
+                                            *   progress */
+  tp_config_t      next_params;            /**< Next stage parameters */
 } gps_l1ca_tracker_data_t;
 
 static tracker_t gps_l1ca_trackers[NUM_GPS_L1CA_TRACKERS];
@@ -118,6 +120,7 @@ static void tracker_gps_l1ca_update_parameters(
   data->int_ms = MIN(l->coherent_ms,
                      tracker_bit_length_get(channel_info->context));
   data->tracking_mode = data->next_params.loop_params.mode;
+  bool use_alias_detection = data->use_alias_detection;
   data->use_alias_detection = data->next_params.use_alias_detection;
   data->int_ms = data->next_params.loop_params.coherent_ms;
   data->cn0_params = data->next_params.cn0_params;
@@ -136,6 +139,13 @@ static void tracker_gps_l1ca_update_parameters(
                   common_data->carrier_freq,
                   l->carr_bw, l->carr_zeta, l->carr_k,
                   l->carr_fll_aid_gain);
+
+    lock_detect_init(&data->lock_detect,
+                     ld->k1 * data->int_ms,
+                     ld->k2,
+                     ld->lp,
+                     ld->lo);
+
   } else {
     log_debug_sid(channel_info->sid, "Re-tuning TL");
 
@@ -145,14 +155,12 @@ static void tracker_gps_l1ca_update_parameters(
                     l->carr_to_code,
                     l->carr_bw, l->carr_zeta, l->carr_k,
                     l->carr_fll_aid_gain);
+    lock_detect_reinit(&data->lock_detect,
+                       ld->k1 * data->int_ms,
+                       ld->k2,
+                       ld->lp,
+                       ld->lo);
   }
-//  log_info_sid(channel_info->sid,
-//               "TL: LF=%f, CODE(BW=%f Z=%f K=%f C2C=%f) CARR(BW=%f Z=%f K=%f G=%f)",
-//               loop_freq,
-//               l->code_bw, l->code_zeta, l->code_k,
-//               l->carr_to_code,
-//               l->carr_bw, l->carr_zeta, l->carr_k,
-//               l->carr_fll_aid_gain);
 
   /* Initialize C/N0 estimator and filter */
   cn0_est_init(&data->cn0_est,       /* C/N0 estimator object */
@@ -165,19 +173,20 @@ static void tracker_gps_l1ca_update_parameters(
                   CN0_EST_LPF_CUTOFF_HZ, /* Cut-off filter frequency */
                   loop_freq);            /* Loop filter frequency */
 
-  lock_detect_init(&data->lock_detect,
-                   ld->k1 * data->int_ms,
-                   ld->k2,
-                   ld->lp,
-                   ld->lo);
 
   if (data->use_alias_detection) {
     u8 alias_detect_ms = data->int_ms;
     if (l->mode == TP_TM_ONE_PLUS_N)
       alias_detect_ms--;
-    alias_detect_init(&data->alias_detect, 500 / alias_detect_ms,
-                      alias_detect_ms * 1e-3f);
+
+    if (use_alias_detection)
+      alias_detect_reinit(&data->alias_detect, 500 / alias_detect_ms,
+                          alias_detect_ms * 1e-3f);
+    else
+      alias_detect_init(&data->alias_detect, 500 / alias_detect_ms,
+                        alias_detect_ms * 1e-3f);
   }
+
 }
 
 static void tracker_gps_l1ca_init(const tracker_channel_info_t *channel_info,
@@ -413,9 +422,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
   /* Reset carrier phase ambiguity if there's doubt as to our phase lock */
   if (last_outp && !data->lock_detect.outp) {
-    if (data->int_ms > 1) {
-      log_info_sid(channel_info->sid, "PLL stress");
-    }
+    log_info_sid(channel_info->sid, "PLL stress");
     tracker_ambiguity_unknown(channel_info->context);
   }
 
