@@ -43,6 +43,7 @@
 #include "signal.h"
 #include "system_monitor.h"
 #include "main.h"
+#include "sid_set.h"
 
 /* Maximum CPU time the solution thread is allowed to use. */
 #define SOLN_THD_CPU_MAX (0.60f)
@@ -429,7 +430,12 @@ static void solution_thread(void *arg)
       tracking_channel_unlock(i);
     }
 
-    if (n_ready < 4) {
+    gnss_sid_set_t codes_in_track;
+    sid_set_init(&codes_in_track);
+    for (u8 i=0; i<n_ready; i++)
+      sid_set_add(&codes_in_track, meas[i].sid);
+
+    if (sid_set_get_sat_count(&codes_in_track) < 4) {
       /* Not enough sats, keep on looping. */
       continue;
     }
@@ -470,8 +476,10 @@ static void solution_thread(void *arg)
 
     static u64 rec_tc_old = 0;
     static u8 n_ready_old = 0;
+    u8 n_ready_l1ca_only = 0;
     static navigation_measurement_t nav_meas_old[MAX_CHANNELS];
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
+    static navigation_measurement_t nav_meas_tdcp_l1ca_only[MAX_CHANNELS];
     u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
                                    nav_meas_old, nav_meas_tdcp,
                                    (double)(rec_tc - rec_tc_old) / SAMPLE_FREQ);
@@ -482,15 +490,33 @@ static void solution_thread(void *arg)
     n_ready_old = n_ready;
     rec_tc_old = rec_tc;
 
-    if (n_ready_tdcp < 4) {
+    gnss_sid_set_t codes_tdcp;
+    sid_set_init(&codes_tdcp);
+    for (u8 i=0; i<n_ready_tdcp; i++) {
+      sid_set_add(&codes_tdcp, nav_meas_tdcp[i].sid);
+    }
+
+    if (sid_set_get_sat_count(&codes_tdcp) < 4) {
       /* Not enough sats to compute PVT */
+      continue;
+    }
+
+    /* calc_PVT can't handle l2cm yet so... */
+    for (u8 i = 0; i < n_ready; i++) {
+      if (0 == nav_meas_tdcp[i].sid.code) {
+        nav_meas_tdcp_l1ca_only[n_ready_l1ca_only++] = nav_meas_tdcp[i];
+      }
+    }
+
+    if (n_ready_l1ca_only < 4) {
+      /* Not enough l1ca sats to compute PVT */
       continue;
     }
 
     dops_t dops;
     /* Calculate the SPP position
      * disable_raim controlled by external setting. Defaults to false. */
-    s8 ret = calc_PVT(n_ready_tdcp, nav_meas_tdcp, disable_raim,
+    s8 ret = calc_PVT(n_ready_l1ca_only, nav_meas_tdcp_l1ca_only, disable_raim,
                       &position_solution, &dops);
     if (ret < 0) {
       /* An error occurred with calc_PVT! */

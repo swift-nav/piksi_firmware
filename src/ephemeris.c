@@ -150,5 +150,10 @@ void ephemeris_unlock(void)
 ephemeris_t *ephemeris_get(gnss_signal_t sid)
 {
   assert(sid_supported(sid));
+
+  /* L2CM uses L1CA ephes */
+  if (CODE_GPS_L2CM == sid.code)
+    sid.code = CODE_GPS_L1CA;
+
   return &es[sid_to_global_index(sid)];
 }

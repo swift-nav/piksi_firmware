@@ -22,6 +22,7 @@
 #include <libswiftnav/common.h>
 #include <libswiftnav/signal.h>
 #include <libswiftnav/track.h>
+#include <libswiftnav/prns.h>   /* to expose sid_to_init_g1() declaration */
 
 #include <assert.h>
 #include <string.h>
@@ -50,45 +51,111 @@ static struct {
   u32 len;
 } nap_ch_state[NAP_MAX_N_TRACK_CHANNELS];
 
-static u32 calc_length_samples(u8 codes, s32 cp_start, u32 cp_rate)
+/** Compute the correlation length in the units of sampling frequency samples.
+ * \param chips_to_correlate The number of chips to correlate over.
+ * \param cp_start Initial code phase in NAP units.
+ * \param cp_rate Code phase rate.
+ * \return The correlation length in NAP units
+ */
+static u32 calc_length_samples(u32 chips_to_correlate, s32 cp_start, u32 cp_rate)
 {
-  u16 chips = codes * 1023;
-  u64 cp_units = (1ULL << NAP_TRACK_CODE_PHASE_FRACTIONAL_WIDTH) * chips
-                 - cp_start;
+  u64 cp_units = (1ULL << NAP_TRACK_CODE_PHASE_FRACTIONAL_WIDTH) *
+                 chips_to_correlate - cp_start;
   u32 samples = cp_units / cp_rate;
   return samples;
 }
 
-void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
-                   float carrier_freq, float code_phase)
+/** Looks-up RF frontend channel for the given signal ID.
+ * \param sid Signal ID.
+ * \return RF front-end channel number.
+ */
+u8 sid_to_rf_frontend_channel(gnss_signal_t sid)
 {
+  u8 ret = ~0;
+  switch (sid.code) {
+  case CODE_GPS_L1CA:
+  case CODE_SBAS_L1CA:
+    ret = NAP_RF_FRONTEND_CHANNEL_1;
+    break;
+  case CODE_GPS_L2CM:
+    ret = NAP_RF_FRONTEND_CHANNEL_4;
+    break;
+  default:
+    assert(0);
+    break;
+  }
+  return ret;
+}
+
+/** Looks-up NAP constellation and band code for the given signal ID.
+ * \param sid Signal ID.
+ * \return NAP constallation and band code.
+ */
+u8 sid_to_nap_code(gnss_signal_t sid)
+{
+  u8 ret = ~0;
+  switch (sid.code) {
+  case CODE_GPS_L1CA:
+  case CODE_SBAS_L1CA:
+    ret = NAP_CODE_GPS_L1CA_SBAS_L1CA;
+    break;
+  case CODE_GPS_L2CM:
+    ret = NAP_CODE_GPS_L2CM;
+    break;
+  default:
+    assert(0);
+    break;
+  }
+  return ret;
+}
+
+void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
+                   float carrier_freq, float code_phase, u32 chips_to_correlate)
+{
+  u16 control;
   u32 now = NAP->TIMING_COUNT;
   u32 track_count = now + 200000;
   double cp = propagate_code_phase(code_phase, carrier_freq,
-                                  track_count - ref_timing_count);
+                                  track_count - ref_timing_count, sid.code);
 
   /* Contrive for the timing strobe to occur at or close to a
    * PRN edge (code phase = 0) */
-  track_count += (SAMPLE_FREQ/GPS_CA_CHIPPING_RATE) * (1023.0-cp) *
-                 (1.0 + carrier_freq / GPS_L1_HZ);
+  track_count += (SAMPLE_FREQ / code_to_chip_rate(sid.code)) *
+                 (code_to_chip_count(sid.code) - cp) *
+                 (1.0 + carrier_freq / code_to_carr_freq(sid.code));
 
   u8 prn = sid.sat - 1;
-  NAP->TRK_CH[channel].CONTROL = prn << NAP_TRK_CONTROL_SAT_Pos;
+  /* PRN code */
+  control = (prn << NAP_TRK_CONTROL_SAT_Pos) & NAP_TRK_CONTROL_SAT_Msk;
+  /* RF frontend channel */
+  control |= (sid_to_rf_frontend_channel(sid) << NAP_TRK_CONTROL_RF_FE_Pos) &
+             NAP_TRK_CONTROL_RF_FE_Msk;
+  /* Constellation and band for tracking */
+  control |= (sid_to_nap_code(sid) << NAP_TRK_CONTROL_CODE_Pos) &
+             NAP_TRK_CONTROL_CODE_Msk;
+  /* We are not utilizing multiple signals within one RF channel at the moment.
+     Therefore, RF_FE_CH is 0 and below statement in a NOP. */
+  control |= (0 << NAP_TRK_CONTROL_RF_FE_CH_Pos) & NAP_TRK_CONTROL_RF_FE_CH_Msk;
+
+  NAP->TRK_CH[channel].CONTROL = control;
   /* We always start at zero code phase */
   NAP->TRK_CH[channel].CODE_INIT_INT = 0;
   NAP->TRK_CH[channel].CODE_INIT_FRAC = 0;
-  NAP->TRK_CH[channel].CODE_INIT_G1 = 0x3ff;
+  NAP->TRK_CH[channel].CODE_INIT_G1 = sid_to_init_g1(sid);
   NAP->TRK_CH[channel].CODE_INIT_G2 = 0x3ff;
 
   NAP->TRK_CH[channel].SPACING = (SPACING_HALF_CHIP << 16) | SPACING_HALF_CHIP;
 
-  u32 cp_rate = (1.0 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE *
+  u32 cp_rate = (1.0 + carrier_freq / code_to_carr_freq(sid.code)) *
+                code_to_chip_rate(sid.code) *
                 NAP_TRACK_CODE_PHASE_RATE_UNITS_PER_HZ;
 
   NAP->TRK_CH[channel].CARR_PINC = -carrier_freq *
                                    NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
   NAP->TRK_CH[channel].CODE_PINC = cp_rate;
-  nap_ch_state[channel].len = NAP->TRK_CH[channel].LENGTH = calc_length_samples(1, 0, cp_rate)+1;
+
+  u32 length = calc_length_samples(chips_to_correlate, 0, cp_rate) + 1;
+  nap_ch_state[channel].len = NAP->TRK_CH[channel].LENGTH = length;
   nap_ch_state[channel].code_phase = (NAP->TRK_CH[channel].LENGTH) * cp_rate;
   NAP->TRK_CONTROL |= (1 << channel); /* Set to start on the timing strobe */
 
@@ -99,7 +166,7 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
 }
 
 void nap_track_update(u8 channel, double carrier_freq,
-                      double code_phase_rate, u8 rollover_count,
+                      double code_phase_rate, u32 chips_to_correlate,
                       u8 corr_spacing)
 {
   (void)corr_spacing; /* This is always written as 0 now... */
@@ -108,9 +175,10 @@ void nap_track_update(u8 channel, double carrier_freq,
   NAP->TRK_CH[channel].CARR_PINC = -carrier_freq *
                                    NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ;
   NAP->TRK_CH[channel].CODE_PINC = cp_rate_fp;
-  NAP->TRK_CH[channel].LENGTH = calc_length_samples(rollover_count + 1,
-                                    nap_ch_state[channel].code_phase,
-                                    cp_rate_fp);
+  u32 length = calc_length_samples(chips_to_correlate,
+                                   nap_ch_state[channel].code_phase,
+                                   cp_rate_fp);
+  NAP->TRK_CH[channel].LENGTH = length;
 
   volatile u16 cp_int = NAP->TRK_CH[channel].CODE_PHASE_INT;
   if ((cp_int != 0x3fe)) /* Sanity check, we should be just before rollover */
