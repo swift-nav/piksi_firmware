@@ -10,7 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "board.h"
+#include "nap_constants.h"
 #include "nap_hw.h"
 #include "nap/nap_common.h"
 #include "nap/track_channel.h"
@@ -27,7 +27,6 @@
 #include <assert.h>
 #include <string.h>
 
-#define TRACK_SAMPLE_FREQ (SAMPLE_FREQ / 4)
 
 #define TIMING_COMPARE_DELTA_MIN (  1e-3 * TRACK_SAMPLE_FREQ) /*   1ms */
 #define TIMING_COMPARE_DELTA_MAX (100e-3 * TRACK_SAMPLE_FREQ) /* 100ms */
@@ -109,7 +108,7 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
                                      tc_req - ref_timing_count);
     /* Contrive for the timing strobe to occur at or close to a
      * PRN edge (code phase = 0) */
-    tc_req += (SAMPLE_FREQ / GPS_CA_CHIPPING_RATE) * (1023.0 - cp) *
+    tc_req += (NAP_FRONTEND_SAMPLE_RATE_Hz / GPS_CA_CHIPPING_RATE) * (1023.0 - cp) *
               (1.0 + carrier_freq / GPS_L1_HZ);
 
     NAP->TRK_TIMING_COMPARE = tc_req;
@@ -123,7 +122,7 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   /* Sleep until compare match */
   s32 tc_delta;
   while ((tc_delta = tc_req - NAP->TIMING_COUNT) >= 0) {
-    systime_t sleep_time = ceil(CH_CFG_ST_FREQUENCY * tc_delta / SAMPLE_FREQ);
+    systime_t sleep_time = ceil(CH_CFG_ST_FREQUENCY * tc_delta / NAP_FRONTEND_SAMPLE_RATE_Hz);
     /* The next system tick will always occur less than the nominal tick period
      * in the future, so sleep for an extra tick. */
     chThdSleep(1 + sleep_time);

@@ -21,6 +21,7 @@
 #include <libswiftnav/logging.h>
 
 #include "board/nap/track_channel.h"
+#include "nap/nap_constants.h"
 #include "sbp.h"
 #include "sbp_utils.h"
 #include "track.h"
@@ -288,7 +289,7 @@ double propagate_code_phase(double code_phase, double carrier_freq, u32 n_sample
 {
   /* Calculate the code phase rate with carrier aiding. */
   double code_phase_rate = (1.0 + carrier_freq/GPS_L1_HZ) * GPS_CA_CHIPPING_RATE;
-  code_phase += n_samples * code_phase_rate / SAMPLE_FREQ;
+  code_phase += n_samples * code_phase_rate / NAP_FRONTEND_SAMPLE_RATE_Hz;
   u32 cp_int = floor(code_phase);
   code_phase -= cp_int - (cp_int % 1023);
   return code_phase;
@@ -573,7 +574,7 @@ void tracking_channel_measurement_get(tracker_channel_id_t id, u64 ref_tc,
   meas->carrier_freq = common_data->carrier_freq;
   meas->time_of_week_ms = common_data->TOW_ms;
   meas->rec_time_delta = (double)((s32)(common_data->sample_count - (u32)ref_tc))
-                             / SAMPLE_FREQ;
+                             / NAP_FRONTEND_SAMPLE_RATE_Hz;
   meas->snr = common_data->cn0;
   if (internal_data->bit_polarity == BIT_POLARITY_INVERTED) {
     meas->carrier_phase += 0.5;
