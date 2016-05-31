@@ -13,6 +13,7 @@
 
 #include "nap_conf.h"
 #include "nap_common.h"
+#include "nap_constants.h"
 #include "track_channel.h"
 #include "track.h"
 #include "main.h"
@@ -39,7 +40,7 @@
 #define NAP_TRACK_CODE_PHASE_FRACTIONAL_WIDTH     32
 
 #define NAP_TRACK_CARRIER_FREQ_UNITS_PER_HZ       \
-  ((1 << NAP_TRACK_CARRIER_FREQ_WIDTH) / (double)SAMPLE_FREQ)
+  ((1 << NAP_TRACK_CARRIER_FREQ_WIDTH) / (double)NAP_FRONTEND_SAMPLE_RATE_Hz)
 
 #define NAP_TRACK_CARRIER_PHASE_UNITS_PER_CYCLE   \
   (1 << NAP_TRACK_CARRIER_FREQ_WIDTH);
@@ -93,7 +94,7 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
 
   /* Contrive for the timing strobe to occur at or close to a
    * PRN edge (code phase = 0) */
-  track_count += (SAMPLE_FREQ / GPS_CA_CHIPPING_RATE) * (1023.0 - cp) *
+  track_count += (NAP_FRONTEND_SAMPLE_RATE_Hz / GPS_CA_CHIPPING_RATE) * (1023.0-cp) *
                  (1.0 + carrier_freq / GPS_L1_HZ);
 
   nap_track_code_wr_blocking(channel, sid);
@@ -103,7 +104,7 @@ void nap_track_init(u8 channel, gnss_signal_t sid, u32 ref_timing_count,
   nap_track_update(channel, carrier_freq, cp_rate, 0, 0);
 
   /* Schedule the timing strobe for start_sample_count. */
-  track_count -= SAMPLE_FREQ / (2 * GPS_CA_CHIPPING_RATE);
+  track_count -= NAP_FRONTEND_SAMPLE_RATE_Hz / (2 * GPS_CA_CHIPPING_RATE);
   
   s->count_snapshot = track_count;
   s->carrier_phase = -s->carr_pinc;

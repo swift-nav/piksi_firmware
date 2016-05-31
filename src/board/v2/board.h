@@ -40,8 +40,6 @@
 #define STM32_HSECLK                16368000
 #endif
 
-#define SAMPLE_FREQ                 16368000
-
 /*
  * Board voltages.
  * Required for performance limits calculation.
