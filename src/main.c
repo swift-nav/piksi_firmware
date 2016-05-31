@@ -38,6 +38,7 @@
 #include "pps.h"
 #include "decode.h"
 #include "signal.h"
+#include "version.h"
 
 extern void ext_setup(void);
 
