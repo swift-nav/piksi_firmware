@@ -32,6 +32,20 @@
 #define SLCR_PSS_RST_CTRL (*(volatile u32 *)0xf8000200)
 #define SLCR_PSS_RST_CTRL_SOFT_RST 1
 
+#define REG_TEST_THD_COUNT    4
+#define REG_TEST_STACK_SIZE   2048
+#define REG_TEST_PRIO_N(n)    (reg_test_prios[(n)])
+#define REG_TEST_WA_SIZE_B    THD_WORKING_AREA_SIZE(REG_TEST_STACK_SIZE)
+#define REG_TEST_WA_SIZE_SA   (REG_TEST_WA_SIZE_B / sizeof(stkalign_t))
+#define REG_TEST_WA_N(n)      (&reg_test_was[(n) * REG_TEST_WA_SIZE_SA])
+
+static const u8 reg_test_prios[REG_TEST_THD_COUNT] = {
+  LOWPRIO, NORMALPRIO-3, HIGHPRIO-2, HIGHPRIO-1
+};
+static stkalign_t reg_test_was[REG_TEST_THD_COUNT * REG_TEST_WA_SIZE_SA];
+extern THD_FUNCTION(reg_test_thread, arg);
+static void reg_test_setup(void);
+
 static bool nap_version_ok(u32 version);
 static void nap_version_check(void);
 static void nap_auth_check(void);
@@ -79,6 +93,18 @@ void init(void)
   nap_callbacks_setup();
 
   srand(0);
+
+  reg_test_setup();
+}
+
+static void reg_test_setup(void)
+{
+  for (u32 i=0; i<REG_TEST_THD_COUNT; i++) {
+    thread_t *thd =
+        chThdCreateStatic(REG_TEST_WA_N(i), REG_TEST_WA_SIZE_B,
+                          REG_TEST_PRIO_N(i), reg_test_thread, NULL);
+    chRegSetThreadNameX(thd, "reg test");
+  }
 }
 
 static bool nap_version_ok(u32 version)

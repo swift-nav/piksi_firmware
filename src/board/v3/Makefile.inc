@@ -82,6 +82,7 @@ BOARDSRC := \
 BOARDASM := \
         $(BOARDDIR)/cpu_init.s \
         $(BOARDDIR)/mmu_table.s \
+        $(BOARDDIR)/reg_test.s \
 
 # Define linker script file here
 LDSCRIPT= $(BOARDDIR)/ZYNQ7000.ld
