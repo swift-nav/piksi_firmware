@@ -654,7 +654,8 @@ static void solution_thread(void *arg)
           memcpy(nm, &nav_meas_tdcp[i], sizeof(*nm));
         }
 
-        nm->raw_pseudorange += t_err * nm->raw_doppler * GPS_L1_LAMBDA;
+        nm->raw_pseudorange += t_err * nm->raw_doppler *
+                               code_to_lambda(nm->sid.code);
         nm->raw_carrier_phase += t_err * nm->raw_doppler;
 
         nm->tot = new_obs_time;
