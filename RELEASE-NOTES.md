@@ -3,6 +3,7 @@ Piksi Firmware Release Notes
 
 Contents
 --------
+ * [v0.22](#v0.22)
  * [v0.21](#v0.21)
  * [v0.20](#v0.20)
  * [v0.19](#v0.19)
@@ -16,6 +17,23 @@ Contents
  * [v0.11](#v0.11)
  * [v0.10](#v0.10)
  * [v0.8](#v0.8)
+
+v0.22 <a name="v0.22"></a>
+-----
+#### Core
+  * Remove concept of "nominal pseudorange" found in all prior versions of piski_firmware. Now Piksi observations are compatible with other receivers and CORS stations.  This change required a LibSBP update and deprecation of MsgOBS in favor of new MsgObs. The new MsgObs uses typical convention that phase range has the same sign as coderange
+  * Initialize phaserange to a value close to coderange.  This should help with RTCM flavored message packing schemes and computing "carrier minus code"
+  * Fix bug where MsgExtEvent could have a 262 second offset from actual GPS time
+  * Supress single point position messages when a pseudo-absolute RTK position is available
+  * Improvements to NMEA interface, add ZDA message, add age of corrections
+  * Add reporting of the period between base observation messages in MSG_UART_STATE as a rough quality check of differential link
+  * Add setting to determine whether to forward base station information on a per UART basis
+  * bug fixes, stability enhancements, and reduced power
+
+#### libswiftnav
+
+  * Support for standardized observations
+  * Improved stability and error checking
 
 v0.21 <a name="v0.21"></a>
 -----
