@@ -222,7 +222,7 @@ DLIBS = -lsbp-static -lswiftnav-static \
 #
 
 # List all user C define here, like -D_DEBUG=1
-UDEFS =
+UDEFS = -DMAX_CHANNELS=$(MAX_CHANNELS)
 
 # Define ASM defines here
 UADEFS =

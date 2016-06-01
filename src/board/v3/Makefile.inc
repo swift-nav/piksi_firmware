@@ -46,6 +46,11 @@ ifeq ($(USE_FPU),)
   USE_FPU = hard
 endif
 
+# Max tracking channels.
+ifeq ($(MAX_CHANNELS),)
+  MAX_CHANNELS = 31
+endif
+
 #
 # Architecture or project specific options
 ##############################################################################

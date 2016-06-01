@@ -11,6 +11,11 @@ ifeq ($(USE_PROCESS_STACKSIZE),)
   USE_PROCESS_STACKSIZE = 0x738
 endif
 
+# Max tracking channels.
+ifeq ($(MAX_CHANNELS),)
+  MAX_CHANNELS = 11
+endif
+
 #
 # Architecture or project specific options
 ##############################################################################
