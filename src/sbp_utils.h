@@ -44,7 +44,7 @@ void sbp_make_heading(msg_baseline_heading_t *baseline_heading, const gps_time_t
 
 #define MSG_OBS_P_MULTIPLIER ((double)5e1)
 #define MSG_OBS_SNR_MULTIPLIER ((float)4)
-#define MSG_OSB_LF_MULTIPLIER ((double)(1<<8))
+#define MSG_OSB_LF_MULTIPLIER ((double) (1<<8))
 
 void unpack_obs_header(const observation_header_t *msg, gps_time_t* t,
                        u8* total, u8* count);
