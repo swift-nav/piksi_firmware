@@ -13,10 +13,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <errno.h>
 
 #include <ch.h>
 
 #include <libswiftnav/common.h>
+#include <libswiftnav/logging.h>
 
 #include "error.h"
 
@@ -124,3 +126,16 @@ WRAP(int, __ssvfscanf_r(struct _reent *r, FILE *f, const char *fmt, va_list va),
 /* wrap svfiscanf() functions exported by svfiscanf.o */
 WRAP(int, __ssvfiscanf_r(struct _reent *r, FILE *f, const char *fmt, va_list va),
           __ssvfiscanf_r(r, f, fmt, va))
+
+/* Implement sbrk() */
+void * _sbrk(int incr)
+{
+  chDbgCheck(incr >= 0);
+  void *p = chCoreAlloc(incr);
+  if (p == NULL) {
+    log_error("sbrk() failed");
+    errno = ENOMEM;
+    p = (void *)-1;
+  }
+  return p;
+}
