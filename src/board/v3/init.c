@@ -125,30 +125,3 @@ u8 nap_version_string_get(char *nap_version_string)
 {
   return nap_conf_rd_version_string(nap_version_string);
 }
-
-/** Our own basic implementation of sbrk().
- * This overrides the version provided by newlib/libnosys which now checks that
- * the heap_end pointer doesn't grow pass the stack pointer. Thats great except
- * on the STM32F4 we are putting our stack in the CCM memory region which has
- * an address lower than the main RAM region (where the heap is) causing the
- * default sbrk() to always return ENOMEM.
- *
- * \todo Re-implement stack pointer checking taking into account our memory
- *       layout.
- */
-void *_sbrk (int incr)
-{
-  extern char   end; /* Set by linker.  */
-  static char * heap_end;
-  char *        prev_heap_end;
-
-  if (heap_end == 0)
-    heap_end = & end;
-
-  prev_heap_end = heap_end;
-
-  heap_end += incr;
-
-  return (void *)prev_heap_end;
-}
-

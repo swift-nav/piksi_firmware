@@ -84,6 +84,8 @@ CSRC := $(STARTUPSRC) \
         $(OSALSRC) \
         $(PLATFORMSRC) \
         $(BOARDSRC) \
+        $(CHIBIOS)/os/hal/lib/streams/chprintf.c \
+        $(CHIBIOS)/os/hal/lib/streams/memstreams.c \
         $(SWIFTNAV_ROOT)/src/peripherals/3drradio.o \
         $(SWIFTNAV_ROOT)/src/peripherals/leds.o \
         $(SWIFTNAV_ROOT)/src/peripherals/usart.o \
@@ -106,6 +108,7 @@ CSRC := $(STARTUPSRC) \
         $(SWIFTNAV_ROOT)/src/base_obs.o \
         $(SWIFTNAV_ROOT)/src/simulator.o \
         $(SWIFTNAV_ROOT)/src/simulator_data.o \
+        $(SWIFTNAV_ROOT)/src/syscalls.o \
         $(SWIFTNAV_ROOT)/src/nmea.o \
         $(SWIFTNAV_ROOT)/src/system_monitor.o \
         $(SWIFTNAV_ROOT)/src/ephemeris.o \
@@ -145,6 +148,7 @@ ASMSRC = $(STARTUPASM) $(PORTASM) $(OSALASM) $(BOARDASM)
 INCDIR = $(STARTUPINC) $(PORTINC) $(KERNINC) \
          $(HALINC) $(OSALINC) $(PLATFORMINC) $(BOARDINC) \
          $(CHIBIOS)/os/various \
+         $(CHIBIOS)/os/hal/lib/streams \
          $(SWIFTNAV_ROOT)/libsbp/c/include \
          $(SWIFTNAV_ROOT)/libswiftnav/include \
          $(SWIFTNAV_ROOT)/src \

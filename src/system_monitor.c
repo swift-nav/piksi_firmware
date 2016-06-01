@@ -205,7 +205,7 @@ static void debug_threads()
   };
   thread_t *tp = chRegFirstThread();
   while (tp) {
-  log_info("%s (%u: %s): prio: %lu, flags: %u, wtobjp: %p",
+  log_info("%s (%u: %s): prio: %lu, flags: %u, wtobjp: %u",
            tp->p_name, tp->p_state, state[tp->p_state], tp->p_prio,
            tp->p_flags, tp->p_u.wtobjp);
     tp = chRegNextThread(tp);
