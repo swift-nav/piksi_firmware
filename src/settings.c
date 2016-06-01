@@ -34,13 +34,20 @@ static int float_to_string(const void *priv, char *str, int slen, const void *bl
 {
   (void)priv;
 
+  double d;
+
   switch (blen) {
   case 4:
-    return snprintf(str, slen, "%.12g", (double)*(float*)blob);
+    d = (double)*(float *)blob;
+    break;
   case 8:
-    return snprintf(str, slen, "%.12g", *(double*)blob);
+    d = *(double *)blob;
+    break;
+  default:
+    return -1;
   }
-  return -1;
+
+  return snprintf(str, slen, "%.5f", d);
 }
 
 static bool float_from_string(const void *priv, void *blob, int blen, const char *str)
@@ -60,15 +67,23 @@ static int int_to_string(const void *priv, char *str, int slen, const void *blob
 {
   (void)priv;
 
+  int n;
+
   switch (blen) {
   case 1:
-    return snprintf(str, slen, "%hhd", *(s8*)blob);
+    n = *(s8 *)blob;
+    break;
   case 2:
-    return snprintf(str, slen, "%hd", *(s16*)blob);
+    n = *(s16 *)blob;
+    break;
   case 4:
-    return snprintf(str, slen, "%ld", *(s32*)blob);
+    n = *(s32 *)blob;
+    break;
+  default:
+    return -1;
   }
-  return -1;
+
+  return snprintf(str, slen, "%d", n);
 }
 
 static bool int_from_string(const void *priv, void *blob, int blen, const char *str)
