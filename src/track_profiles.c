@@ -33,13 +33,15 @@
 #define TP_USE_10MS_PROFILES
 #define TP_USE_20MS_PROFILES
 
+// #define TP_USE_MEAN_VALUES
+
 /** Maximum number of supported satellite vehicles */
 #define TP_MAX_SUPPORTED_SVS NUM_GPS_L1CA_TRACKERS
 /** Helper macro for array size computation */
 #define ARR_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 
 /** Default C/N0 threshold in dB/Hz for keeping track (for 1 ms integration) */
-#define TP_DEFAULT_CN0_USE_THRESHOLD  (31.f)
+#define TP_DEFAULT_CN0_USE_THRESHOLD  (35.f)
 /** Default C/N0 threshold in dB/Hz for dropping track (for 1 ms integration) */
 #define TP_DEFAULT_CN0_DROP_THRESHOLD (31.f)
 
@@ -53,7 +55,8 @@
 #define TP_SNR_THRESHOLD_MAX (40.f + TP_SNR_OFFSET)
 /** C/N0 threshold state lock counter */
 #define TP_SNR_STATE_COUNT_LOCK (31)
-
+/** PLL lock threshold for state freeze */
+#define TP_LOCK_THRESHOLD (4.f)
 /** Dynamics threshold for acceleration (stable) */
 #define TP_ACCEL_THRESHOLD_LOW  (2.f)
 /** Dynamics threshold for acceleration (unstable) */
@@ -63,6 +66,14 @@
 
 /** Profile lock time duration in ms. */
 #define TP_CHANGE_LOCK_COUNTDOWN_MS (1250)
+/** Profile change evaluation interval duration in ms. */
+#define TP_CHANGE_LOCK_COUNTDOWN2_MS (500)
+
+enum {
+  TP_LP_FILTER_SPEED,
+  TP_LP_FILTER_LOCK,
+  TP_LP_FILTER_COUNT
+};
 
 /**
  * Per-satellite entry.
@@ -90,11 +101,13 @@ typedef struct {
   u32           accel_count_idx:2; /**< State lock value for dynamics threshold */
   u32           lock_time_ms:16;   /**< Profile lock count down timer */
   float         cn0_offset;        /**< C/N0 offset in dB to tune thresholds */
-  float         prev_val[4];       /**< Filtered counters: v,a,l,C/N0 */
   float         filt_val[4];       /**< Filtered counters: v,a,l,C/N0 */
+#if defined(TP_USE_MEAN_VALUES)
+  float         prev_val[4];       /**< Filtered counters: v,a,l,C/N0 */
   float         mean_acc[4];       /**< Mean accumulators: v,a,l,C/N0 */
   u32           mean_cnt;          /**< Mean value divider */
-  lp1_filter_t  lp_filters[4];     /**< Moving average filters: v,a,l,C/N0 */
+#endif /* TP_USE_MEAN_VALUES */
+  lp1_filter_t  lp_filters[TP_LP_FILTER_COUNT]; /**< Moving average filters: v,l */
   u32           time_ms;              /**< Tracking time */
   u32           last_print_time;   /**< Last debug print time */
 } tp_profile_internal_t;
@@ -329,7 +342,7 @@ static void init_profile_filters(tp_profile_internal_t *profile)
   u8 idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
   const tp_loop_params_t *lp = &loop_params[idx];
   float loop_freq = 1000 / lp->coherent_ms;
-  for (size_t i = 0; i< ARR_SIZE(profile->lp_filters); ++i) {
+  for (size_t i = 0; i < TP_LP_FILTER_COUNT; ++i) {
     lp1_filter_init(&profile->lp_filters[i],
                     profile->filt_val[i],
                     0.6f,
@@ -473,8 +486,7 @@ static void update_stats(tp_profile_internal_t *profile,
 
   /* Compute products */
   speed = compute_speed(profile->sid, data);
-  accel = (profile->prev_val[0] - speed) * loop_freq;
-  cn0 = data->cn0_raw;
+  /* Compute PLL lock */
   if (data->lock_q != 0.f) {
     lock = data->lock_i / data->lock_q;
     if (lock > 100.f) {
@@ -483,6 +495,10 @@ static void update_stats(tp_profile_internal_t *profile,
   } else {
     lock = 100.f;
   }
+
+#if defined(TP_USE_MEAN_VALUES)
+  accel = (profile->prev_val[0] - speed) * loop_freq;
+  cn0 = data->cn0_raw;
 
   /* Store new unfiltered values */
   profile->prev_val[0] = speed;
@@ -496,22 +512,24 @@ static void update_stats(tp_profile_internal_t *profile,
   profile->mean_acc[2] += lock * lock;
   profile->mean_acc[3] += cn0 * cn0;
   profile->mean_cnt += 1;
+#endif /* TP_USE_MEAN_VALUES */
 
   /* Update moving average counters */
-  speed = lp1_filter_update(&profile->lp_filters[0], speed);
+  speed = lp1_filter_update(&profile->lp_filters[TP_LP_FILTER_SPEED], speed);
   accel = (profile->filt_val[0] - speed) * loop_freq;
+  cn0   = data->cn0;
   /* Currently we don't additionally filter acceleration and jitter:
    *
    * accel = lp1_filter_update(&profile->lp_filters[1], accel);
    * jitter = lp1_filter_update(&profile->lp_filters[2], jitter);
    * cn0 = lp1_filter_update(&profile->lp_filters[3], data->cn0);
    */
-  lock = lp1_filter_update(&profile->lp_filters[2], lock);
+  lock = lp1_filter_update(&profile->lp_filters[TP_LP_FILTER_LOCK], lock);
 
   profile->filt_val[0] = speed;
   profile->filt_val[1] = accel;
   profile->filt_val[2] = lock;
-  profile->filt_val[3] = data->cn0;
+  profile->filt_val[3] = cn0;
 }
 
 /**
@@ -526,8 +544,12 @@ static void update_stats(tp_profile_internal_t *profile,
 static void print_stats(tp_profile_internal_t *profile)
 {
   if (profile->time_ms - profile->last_print_time >= 20000) {
+
     profile->last_print_time = profile->time_ms;
 
+    u8 lp_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
+
+#if defined(TP_USE_MEAN_VALUES)
     float div = 1.f;
     if (profile->mean_cnt > 0)
       div = 1.f / profile->mean_cnt;
@@ -537,7 +559,11 @@ static void print_stats(tp_profile_internal_t *profile)
     float j = sqrtf(profile->mean_acc[2] * div);
     float c = sqrtf(profile->mean_acc[3] * div);
 
-    u8 lp_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
+    profile->mean_acc[0] = profile->prev_val[0] * profile->prev_val[0];
+    profile->mean_acc[1] = profile->prev_val[1] * profile->prev_val[1];
+    profile->mean_acc[2] = profile->prev_val[2] * profile->prev_val[2];
+    profile->mean_acc[3] = profile->prev_val[3] * profile->prev_val[3];
+    profile->mean_cnt = 1;
 
     log_info_sid(profile->sid,
                  "MRS: %dms CN0=%.2f (%.2f) VA=%.3f/%.3f l=%.3f",
@@ -545,6 +571,7 @@ static void print_stats(tp_profile_internal_t *profile)
                  c, c + TP_SNR_OFFSET,
                  s, a, j
                 );
+#endif
     log_info_sid(profile->sid,
                  "AVG: %dms CN0=%.2f (%.2f) VA=%.3f/%.3f l=%.3f",
                  (int)loop_params[lp_idx].coherent_ms,
@@ -554,12 +581,6 @@ static void print_stats(tp_profile_internal_t *profile)
                  profile->filt_val[1],
                  profile->filt_val[2]
                 );
-
-    profile->mean_acc[0] = profile->prev_val[0] * profile->prev_val[0];
-    profile->mean_acc[1] = profile->prev_val[1] * profile->prev_val[1];
-    profile->mean_acc[2] = profile->prev_val[2] * profile->prev_val[2];
-    profile->mean_acc[3] = profile->prev_val[3] * profile->prev_val[3];
-    profile->mean_cnt = 1;
   }
 }
 
@@ -582,11 +603,13 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
   u8          next_profile_d      = 0;
   const char *reason              = "cn0 OK";
   const char *reason2             = "dynamics OK";
-  float       snr;
-  float       acc;
+  float       snr = 0.;
+  float       acc = 0.;
+  float       loc = 0.;
 
   snr = profile->filt_val[3] + profile->cn0_offset + TP_SNR_OFFSET;
   acc = profile->filt_val[1];
+  loc = profile->filt_val[2];
 
   /* When we have a lock, and lock ratio is good, do not change the mode */
   // must_keep_profile = profile->olock && profile->filt_val[2] > 4.f;
@@ -623,7 +646,7 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
        * increasing/decreasing integration times.
        */
 
-      if (snr >= TP_SNR_THRESHOLD_MAX) {
+      if (snr >= TP_SNR_THRESHOLD_MAX && loc < TP_LOCK_THRESHOLD) {
         /* SNR is high - look for relaxing profile */
         if (profile->cur_profile_i > TP_PROFILE_ROW_FIRST) {
           profile->high_cn0_count++;
@@ -692,10 +715,14 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
             next_profile_d = dyn_idx;
           } else {
             /* Profile change due to dynamics state change only */
-            next_profile_i = profile->cur_profile_i;
-            next_profile_d = dyn_idx;
-            must_change_profile = true;
-            profile->lock_time_ms = TP_CHANGE_LOCK_COUNTDOWN_MS;
+            /* Good PLL lock protection: no switch if lock is high */
+            // if (loc < TP_LOCK_THRESHOLD)
+            {
+              next_profile_i = profile->cur_profile_i;
+              next_profile_d = dyn_idx;
+              must_change_profile = true;
+              profile->lock_time_ms = TP_CHANGE_LOCK_COUNTDOWN_MS;
+            }
           }
         }
       }
@@ -735,6 +762,8 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
                  reason2, acc,
                  profile->filt_val[2]
                  );
+  } else if (profile->lock_time_ms == 0) {
+    profile->lock_time_ms = TP_CHANGE_LOCK_COUNTDOWN2_MS;
   }
 }
 
@@ -830,11 +859,14 @@ tp_result_e tp_tracking_start(gnss_signal_t sid,
       profile->filt_val[2] = 0.;
       profile->filt_val[3] = data->cn0;
 
+
+#if defined(TP_USE_MEAN_VALUES)
       profile->mean_acc[0] = 0;
       profile->mean_acc[1] = 0;
       profile->mean_acc[2] = 0;
       profile->mean_acc[3] = 0;
       profile->mean_cnt = 0;
+#endif /* TP_USE_MEAN_VALUES */
 
       profile->cur_profile_i = TP_PROFILE_ROW_INI;
       profile->next_profile_i = TP_PROFILE_ROW_INI;
