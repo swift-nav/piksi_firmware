@@ -61,7 +61,7 @@ static struct lock_detect_params {
   u16 lp, lo;
 } lock_detect_params;
 
-static float track_cn0_use_thres = 31.0; /* dBHz */
+static float track_cn0_use_thres = 37.0; /* dBHz */
 static float track_cn0_drop_thres = 31.0;
 
 static char loop_params_string[120] = LOOP_PARAMS_MED;
