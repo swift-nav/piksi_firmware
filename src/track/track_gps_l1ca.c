@@ -470,7 +470,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   tp_cn0_params_t cn0_params;
   tp_get_cn0_params(channel_info->sid, &cn0_params);
 
-  if (common_data->cn0 > cn0_params.track_cn0_drop_thres)
+  if (common_data->cn0 > cn0_params.track_cn0_drop_thres || data->lock_detect.outp)
     common_data->cn0_above_drop_thres_count = common_data->update_count;
 
   if (common_data->cn0 < cn0_params.track_cn0_use_thres) {
