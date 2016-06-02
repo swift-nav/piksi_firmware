@@ -87,6 +87,10 @@ function piksi_splash_osx () {
     "
 }
 
+function atest22 () {
+    log_info "THIS IS A CI ETEST!"
+}
+
 function homebrew_install () {
     # Provides homebrew for OS X and fixes permissions for brew
     # access. Run this if you need to install brew by:
