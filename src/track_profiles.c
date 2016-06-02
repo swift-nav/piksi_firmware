@@ -35,6 +35,23 @@
 
 // #define TP_USE_MEAN_VALUES
 
+/*
+ * Configure default PLL mode for longer integration periods:
+ * - Simple pipelining
+ * - One plus N (TP_USE_ONE_PLUS_N_MODE)
+ * - 1 millisecond integrations (TP_USE_SPLIT_MODE)
+ */
+#define TP_USE_SPLIT_MODE
+// #define TP_USE_ONE_PLUS_N_MODE
+
+#if defined(TP_USE_SPLIT_MODE)
+#define TP_TM_LONG_MODE TP_TM_SPLIT
+#elif defined(TP_USE_ONE_PLUS_N_MODE)
+#define TP_TM_LONG_MODE TP_TM_ONE_PLUS_N
+#else
+#define TP_TM_LONG_MODE TP_TM_PIPELINING
+#endif
+
 /** Maximum number of supported satellite vehicles */
 #define TP_MAX_SUPPORTED_SVS NUM_GPS_L1CA_TRACKERS
 /** Helper macro for array size computation */
@@ -213,25 +230,25 @@ static const tp_loop_params_t loop_params[] = {
 
 #ifdef TP_USE_5MS_PROFILES
   /* "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
-  { 1, 0.7f, 1, 1540, 15, 1.f, 1, 0, 5, TP_TM_ONE_PLUS_N }, /*TP_LP_IDX_5MS_S*/
+  { 1, 0.7f, 1, 1540, 15, 1.f, 1, 0, 5, TP_TM_LONG_MODE }, /*TP_LP_IDX_5MS_S*/
   /* "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
-  { 1, 0.7f, 1, 1540, 25, .7f, 1, 0, 5, TP_TM_ONE_PLUS_N }, /*TP_LP_IDX_5MS_N*/
+  { 1, 0.7f, 1, 1540, 25, .7f, 1, 0, 5, TP_TM_LONG_MODE }, /*TP_LP_IDX_5MS_N*/
   /* "(5 ms, (1, 0.7, 1, 1540), (50, 0.7, 1, 0))" */
-  { 1, 0.7f, 1, 1540, 25, .7f, 1, 0, 5, TP_TM_ONE_PLUS_N }, /*TP_LP_IDX_5MS_U*/
+  { 1, 0.7f, 1, 1540, 25, .7f, 1, 0, 5, TP_TM_LONG_MODE }, /*TP_LP_IDX_5MS_U*/
 #endif /* TP_USE_5MS_PROFILES */
 
 #ifdef TP_USE_10MS_PROFILES
   /*  "(10 ms, (1, 0.7, 1, 1540), (30, 0.7, 1, 0))" */
-  { 1, .7f, 1, 1540, 16, .7f, 1., 0, 10, TP_TM_ONE_PLUS_N }, /*TP_LP_IDX_10MS*/
+  { 1, .7f, 1, 1540, 16, .7f, 1., 0, 10, TP_TM_LONG_MODE }, /*TP_LP_IDX_10MS*/
 #endif /* TP_USE_10MS_PROFILES */
 
 #ifdef TP_USE_20MS_PROFILES
   /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
-  { 1, .7f, 1, 1540, 8, .7f, 1.f, 0, 20, TP_TM_ONE_PLUS_N}, /*TP_LP_IDX_20MS_S*/
+  { 1, .7f, 1, 1540, 8, .7f, 1.f, 0, 20, TP_TM_LONG_MODE }, /*TP_LP_IDX_20MS_S*/
   /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
-  { 1, .9f, 1, 1540, 12, .9f, 1.f, 0, 20, TP_TM_ONE_PLUS_N },/*TP_LP_IDX_20MS_N*/
+  { 1, .9f, 1, 1540, 12, .9f, 1.f, 0, 20, TP_TM_LONG_MODE },/*TP_LP_IDX_20MS_N*/
   /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
-  { 1, .9f, 1, 1540, 12, .9f, 1.f, 0, 20, TP_TM_ONE_PLUS_N },/*TP_LP_IDX_20MS_U*/
+  { 1, .9f, 1, 1540, 12, .9f, 1.f, 0, 20, TP_TM_LONG_MODE },/*TP_LP_IDX_20MS_U*/
 #endif /* TP_USE_20MS_PROFILES */
 };
 
@@ -794,6 +811,7 @@ static float compute_cn0_offset(const tp_profile_internal_t *profile)
      */
     switch (lp->mode) {
     case TP_TM_ONE_PLUS_N:
+    case TP_TM_SPLIT:
       /* Very unfortunate, but the integrator handles N-1 milliseconds */
       cn0_offset = 10.f * log10f(lp->coherent_ms - 1);
       break;

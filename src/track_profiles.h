@@ -29,6 +29,7 @@ typedef enum
 {
   TP_TM_PIPELINING, /**< Default tracking mode */
   TP_TM_ONE_PLUS_N, /**< Integration period split */
+  TP_TM_SPLIT,
   TP_TM_IMMEDIATE   /**< Immediate feedback */
 } tp_tm_e;
 
