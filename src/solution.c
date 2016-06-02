@@ -396,7 +396,7 @@ static void sol_thd_sleep(systime_t *deadline, systime_t interval)
   chSysUnlock();
 }
 
-static WORKING_AREA_CCM(wa_solution_thread, 8000);
+static THD_WORKING_AREA(wa_solution_thread, 8000);
 static void solution_thread(void *arg)
 {
   (void)arg;
@@ -788,7 +788,7 @@ void process_matched_obs(u8 n_sds, gps_time_t *t, sdiff_t *sds, u16 base_id)
   }
 }
 
-static THD_WORKING_AREA(wa_time_matched_obs_thread, 20000);
+static WORKING_AREA_CCM(wa_time_matched_obs_thread, 20000);
 static void time_matched_obs_thread(void *arg)
 {
   (void)arg;

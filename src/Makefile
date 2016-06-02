@@ -33,7 +33,16 @@ endif
 
 # Linker extra options here.
 ifeq ($(USE_LDOPT),)
-  USE_LDOPT =
+  USE_LDOPT := --wrap=_vfprintf,--wrap=_vfprintf_r
+  USE_LDOPT := $(USE_LDOPT),--wrap=vfiprintf,--wrap=_vfiprintf_r
+  USE_LDOPT := $(USE_LDOPT),--wrap=_svfprintf_r
+  USE_LDOPT := $(USE_LDOPT),--wrap=_svfiprintf_r
+  USE_LDOPT := $(USE_LDOPT),--wrap=vfscanf,--wrap=_vfscanf_r
+  USE_LDOPT := $(USE_LDOPT),--wrap=__svfscanf,--wrap=__svfscanf_r
+  USE_LDOPT := $(USE_LDOPT),--wrap=vfiscanf,--wrap=_vfiscanf_r
+  USE_LDOPT := $(USE_LDOPT),--wrap=__svfiscanf,--wrap=__svfiscanf_r
+  USE_LDOPT := $(USE_LDOPT),--wrap=__ssvfscanf_r
+  USE_LDOPT := $(USE_LDOPT),--wrap=__ssvfiscanf_r
 endif
 
 # Enable this if you want link time optimizations (LTO)
@@ -106,6 +115,7 @@ CSRC := $(STARTUPSRC) \
         $(SWIFTNAV_ROOT)/src/base_obs.o \
         $(SWIFTNAV_ROOT)/src/simulator.o \
         $(SWIFTNAV_ROOT)/src/simulator_data.o \
+        $(SWIFTNAV_ROOT)/src/syscalls.o \
         $(SWIFTNAV_ROOT)/src/nmea.o \
         $(SWIFTNAV_ROOT)/src/system_monitor.o \
         $(SWIFTNAV_ROOT)/src/ephemeris.o \
