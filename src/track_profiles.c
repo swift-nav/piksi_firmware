@@ -58,7 +58,7 @@
 #define ARR_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 
 /** Default C/N0 threshold in dB/Hz for keeping track (for 1 ms integration) */
-#define TP_DEFAULT_CN0_USE_THRESHOLD  (35.f)
+#define TP_DEFAULT_CN0_USE_THRESHOLD  (37.f)
 /** Default C/N0 threshold in dB/Hz for dropping track (for 1 ms integration) */
 #define TP_DEFAULT_CN0_DROP_THRESHOLD (31.f)
 
