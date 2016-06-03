@@ -23,6 +23,7 @@
 #include <nap/nap_hw.h>
 
 #include <string.h>
+#include <assert.h>
 
 /*
  * Configuration section: select which features are enabled here.
@@ -63,15 +64,19 @@
 #define TP_DEFAULT_CN0_DROP_THRESHOLD (31.f)
 
 /** C/N0 threshold when we can't say if we are still tracking */
-#define TP_HARD_CN0_DROP_THRESHOLD (23.f)
+#define TP_HARD_CN0_DROP_THRESHOLD (26.5f)
 /** Fixed SNR offset for converting 1ms C/N0 to SNR */
 #define TP_SNR_OFFSET  (-160.f)
 /** C/N0 threshold for increasing integration time */
+#if defined(TP_USE_SPLIT_MODE)
+#define TP_SNR_THRESHOLD_MIN (37.f + TP_SNR_OFFSET)
+#else
 #define TP_SNR_THRESHOLD_MIN (35.f + TP_SNR_OFFSET)
+#endif
 /** C/N0 threshold for decreasing integration time */
 #define TP_SNR_THRESHOLD_MAX (40.f + TP_SNR_OFFSET)
 /** C/N0 threshold state lock counter */
-#define TP_SNR_STATE_COUNT_LOCK (31)
+#define TP_SNR_STATE_COUNT_LOCK (/*31*/3)
 /** PLL lock threshold for state freeze */
 #define TP_LOCK_THRESHOLD (4.f)
 /** Dynamics threshold for acceleration (stable) */
@@ -319,6 +324,9 @@ static const u8 profile_matrix[][TP_PROFILE_DYN_COUNT] = {
 #endif /* TP_USE_20MS_PROFILES */
 };
 
+static float compute_cn0_profile_offset(u8 profile_i, u8 profile_d);
+
+
 /**
  * Helper method for computing GNSS satellite speed from doppler.
  *
@@ -458,8 +466,6 @@ static void get_profile_params(tp_profile_internal_t *profile,
                                tp_config_t           *config)
 {
   u8 profile_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
-  log_debug_sid(profile->sid, "Activating profile %u [%u][%u])",
-                profile_idx, profile->cur_profile_i, profile->cur_profile_d);
 
   const tp_lock_detect_params_t *p_ld_params = NULL;
   if (profile->cur_profile_i !=  TP_PROFILE_ROW_INI) {
@@ -780,8 +786,99 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
                  profile->filt_val[2]
                  );
   } else if (profile->lock_time_ms == 0) {
-    profile->lock_time_ms = TP_CHANGE_LOCK_COUNTDOWN2_MS;
+    // profile->lock_time_ms = TP_CHANGE_LOCK_COUNTDOWN2_MS;
   }
+}
+
+/**
+ * Helper method for computing C/N0 offset.
+ *
+ * The method computes C/N0 offset for tracking loop in accordance to
+ * integration period and tracking parameters.
+ *
+ * \param[in] profile_i SNR index for profile
+ * \param[in] profile_d Dynamics index for profile
+ *
+ * \return Computed C/N0 offset in dB/Hz.
+ */
+static float compute_cn0_profile_offset(u8 profile_i, u8 profile_d)
+{
+  u8 profile_idx = profile_matrix[profile_i][profile_d];
+  const tp_loop_params_t *lp = &loop_params[profile_idx];
+  float cn0_offset = 0;
+
+  /** Pre-computed C/N0 offset for all possible integration times above 1ms:
+   * - 2 ms (2 ms TP_TM_PIPELINING)
+   * - 3 ms (4 ms TP_TM_ONE_PLUS_N/TP_TM_SPLIT)
+   * - 4 ms (4 ms TP_TM_PIPELINING, 5 ms TP_TM_ONE_PLUS_N/TP_TM_SPLIT)
+   * - 5 ms (5 ms TP_TM_PIPELINING)
+   * - 9 ms (10 ms TP_TM_ONE_PLUS_N/TP_TM_SPLIT)
+   * - 10 ms (10 ms TP_TM_PIPELINING)
+   * - 19 ms (20 ms TP_TM_ONE_PLUS_N/TP_TM_SPLIT)
+   * - 20 ms (20 ms TP_TM_PIPELINING)
+   *
+   * The values match expressions: 10*log_10(coherent_ms)
+   */
+  static const float cn0_offsets[] = {
+    0.0000f,  /* 1ms */
+    3.0103f,  /* 2ms */
+    4.7712f,  /* 3ms */
+    6.0206f,  /* 4ms */
+    6.9897f,  /* 5ms */
+    9.5424f,  /* 9ms */
+    10.0000f, /* 10ms */
+    12.7875f, /* 19ms */
+    13.0103f, /* 20ms */
+  };
+
+  if (lp->coherent_ms > 1) {
+    /* Denormalize C/N0.
+     *
+     * When integration time is higher, the tracking loop can keep tracking at
+     * a much lower C/N0 values.
+     *
+     * TODO convert C/N0 to SNR to avoid confusion.
+     */
+
+    size_t cn0_offset_index = 0;
+
+    switch (lp->coherent_ms) {
+    case 2:
+      cn0_offset_index = 1;
+      break;
+    case 4:
+      cn0_offset_index = 3;
+      break;
+    case 5:
+      cn0_offset_index = 4;
+      break;
+    case 10:
+      cn0_offset_index = 6;
+      break;
+    case 20:
+      cn0_offset_index = 8;
+      break;
+    default:
+      assert(false);
+    }
+
+    switch (lp->mode) {
+    case TP_TM_ONE_PLUS_N:
+    case TP_TM_SPLIT:
+      /* Very unfortunate, but the integrator handles N-1 milliseconds */
+      cn0_offset_index--;
+      break;
+    case TP_TM_PIPELINING:
+    case TP_TM_IMMEDIATE:
+      break;
+    default:
+      assert(false);
+    }
+
+    cn0_offset = cn0_offsets[cn0_offset_index];
+  }
+
+  return cn0_offset;
 }
 
 /**
@@ -796,37 +893,8 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
  */
 static float compute_cn0_offset(const tp_profile_internal_t *profile)
 {
-  u8 profile_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
-  const tp_loop_params_t *lp = &loop_params[profile_idx];
-  float cn0_offset = 0;
-
-  if (lp->coherent_ms > 1) {
-
-    /* Denormalize C/N0.
-     *
-     * When integration time is higher, the tracking loop can keep tracking at
-     * a much lower C/N0 values.
-     *
-     * TODO convert C/N0 to SNR to avoid confusion.
-     */
-    switch (lp->mode) {
-    case TP_TM_ONE_PLUS_N:
-    case TP_TM_SPLIT:
-      /* Very unfortunate, but the integrator handles N-1 milliseconds */
-      cn0_offset = 10.f * log10f(lp->coherent_ms - 1);
-      break;
-    case TP_TM_PIPELINING:
-    case TP_TM_IMMEDIATE:
-    default:
-      cn0_offset = 10.f * log10f(lp->coherent_ms);
-      break;
-    }
-    log_debug_sid(profile->sid,
-                  "CN0 offset %f @ %d", cn0_offset,
-                  lp->coherent_ms);
-  }
-
-  return cn0_offset;
+  return compute_cn0_profile_offset(profile->cur_profile_i,
+                                    profile->cur_profile_d);
 }
 
 /**
@@ -869,9 +937,7 @@ tp_result_e tp_tracking_start(gnss_signal_t sid,
   if (NULL != config) {
     tp_profile_internal_t *profile = allocate_profile(sid);
     if (NULL != profile) {
-      log_debug_sid(sid, "New tracking profile");
 
-      // profile->last_report = *data;
       profile->filt_val[0] = compute_speed(sid, data);
       profile->filt_val[1] = 0.;
       profile->filt_val[2] = 0.;
@@ -917,7 +983,6 @@ tp_result_e tp_tracking_start(gnss_signal_t sid,
 tp_result_e tp_tracking_stop(gnss_signal_t sid)
 {
   tp_result_e res = TP_RESULT_ERROR;
-  log_debug_sid(sid, "Removing tracking profile");
   delete_profile(sid);
   res = TP_RESULT_SUCCESS;
   return res;
@@ -943,6 +1008,7 @@ tp_result_e tp_get_profile(gnss_signal_t sid, tp_config_t *config, bool commit)
   tp_result_e res = TP_RESULT_ERROR;
   tp_profile_internal_t *profile = find_profile(sid);
   if (NULL != config && NULL != profile) {
+
     if (profile->profile_update) {
       /* Do transition of current profile */
       if (commit) {
@@ -1002,7 +1068,6 @@ tp_result_e tp_get_cn0_params(gnss_signal_t sid, tp_cn0_params_t *cn0_params)
   return res;
 }
 
-
 /**
  * Method to check if there is a pending profile change.
  *
@@ -1016,6 +1081,7 @@ bool tp_has_new_profile(gnss_signal_t sid)
   bool res = false;
   tp_profile_internal_t *profile = find_profile(sid);
   if (NULL != profile) {
+    check_for_profile_change(profile);
     res = profile->profile_update != 0;
   }
   return res;
@@ -1045,11 +1111,9 @@ tp_result_e tp_report_data(gnss_signal_t sid, const tp_report_t *data)
      *
      * TODO schedule a message to own thread.
      */
-    // profile->last_report = *data;
 
     update_stats(profile, data);
     print_stats(profile);
-    check_for_profile_change(profile);
 
     res = TP_RESULT_SUCCESS;
   }

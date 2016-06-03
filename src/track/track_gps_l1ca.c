@@ -122,7 +122,18 @@ static void tracker_gps_l1ca_update_parameters(
   data->use_alias_detection = next_params->use_alias_detection;
   data->int_ms = next_params->loop_params.coherent_ms;
   data->has_next_params = false;
-  data->cycle_cnt = 1;
+  switch (l->mode) {
+  case TP_TM_SPLIT:
+    data->cycle_cnt = data->int_ms - 1;
+    break;
+  case TP_TM_ONE_PLUS_N:
+    data->cycle_cnt = 1;
+    break;
+  case TP_TM_PIPELINING:
+  case TP_TM_IMMEDIATE:
+  default:
+    data->cycle_cnt = 0;
+  }
 
   float loop_freq = 1000 / data->int_ms;
 
@@ -301,31 +312,27 @@ static void mode_change_init(const tracker_channel_info_t *channel_info,
 
   if (0 != next_ms &&
       tracker_next_bit_aligned(channel_info->context, next_ms)) {
-    tp_config_t next_params;
 
     /* When the bit sync is available and the next integration interval is the
      * last one in the bit, check if the profile switch is required. */
-    if (TP_RESULT_SUCCESS == tp_get_profile(channel_info->sid,
-                                            &next_params, false)) {
-      log_debug_sid(channel_info->sid,
-                   "Changing tracking profile: current mode=%d ms=%d; "
-                   "new mode=%d ms=%d",
-                   data->tracking_mode,
-                   (int)data->int_ms,
-                   next_params.loop_params.mode,
-                   (int)next_params.loop_params.coherent_ms);
-
+    if (tp_has_new_profile(channel_info->sid)) {
       /* Initiate profile change */
       data->has_next_params = true;
-    }
-  } else {
-    if (tp_has_new_profile(channel_info->sid)) {
-        log_debug_sid(channel_info->sid,
-                     "New profile is ready, but no bit sync");
     }
   }
 }
 
+/**
+ * Finish profile switching operation.
+ *
+ * Method fetches new profile parameters and reconfigures as necessary.
+ *
+ * \param[in]     hannel_info Tracker channel data
+ * \param[in,out] common_data Common data
+ * \param[in,out] data        L1 C/A data
+ *
+ * \return None
+ */
 static void mode_change_complete(const tracker_channel_info_t *channel_info,
                                  tracker_common_data_t *common_data,
                                  gps_l1ca_tracker_data_t *data)
@@ -337,7 +344,7 @@ static void mode_change_complete(const tracker_channel_info_t *channel_info,
 
     /* If there is a stage transition in progress, update parameters for the
      * next iteration. */
-    log_debug_sid(channel_info->sid,
+    log_info_sid(channel_info->sid,
                   "Reconfiguring tracking profile: new mode=%d, ms=%d",
                   next_params.loop_params.mode,
                   (int)next_params.loop_params.coherent_ms);
@@ -352,6 +359,15 @@ static void mode_change_complete(const tracker_channel_info_t *channel_info,
   }
 }
 
+/**
+ * Controls TL operation steps.
+ *
+ * The method updates the TL step according to tracking mode.
+ *
+ * \param[in,out] data Tracker data
+ *
+ * \return None
+ */
 static void update_cycle_counter(gps_l1ca_tracker_data_t *data)
 {
   u8 cycles_cnt_limit;
@@ -384,6 +400,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   u8 int_ms; /* Integration time for the currently reported value */
   bool sum_up = false;
 
+  /* Determine, if the tracking channel EPL data shall be added or not. */
   switch (data->tracking_mode)
   {
   case TP_TM_SPLIT:
@@ -399,6 +416,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   default:
     int_ms = data->int_ms;
   }
+  /* Prompt correlations for C/N0 estimator */
   corr_t pcorr;
 
   /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
