@@ -13,10 +13,11 @@
 #ifndef SWIFTNAV_NAP_REGS_H
 #define SWIFTNAV_NAP_REGS_H
 
+#include <libswiftnav/config.h>
 #include <stdint.h>
 
 /** Max number of tracking channels NAP configuration will be built with. */
-#define NAP_MAX_N_TRACK_CHANNELS     32
+#define NAP_MAX_N_TRACK_CHANNELS     (MAX_CHANNELS + 1)
 
 typedef struct {
   volatile uint32_t STATUS;
