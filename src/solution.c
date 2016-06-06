@@ -257,7 +257,8 @@ static void output_baseline(u8 num_sdiffs, const sdiff_t *sdiffs,
   solution_send_baseline(t, num_used, b, position_solution.pos_ecef, flags, hdop, diff_time, base_id);
 }
 
-void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
+static void send_observations(u8 n, const navigation_measurement_t *m,
+                              const gps_time_t *t)
 {
   static u8 buff[256];
 
@@ -303,6 +304,38 @@ void send_observations(u8 n, gps_time_t *t, navigation_measurement_t *m)
   }
 }
 
+static void post_observations(u8 n, const navigation_measurement_t *m,
+                              const gps_time_t *t)
+{
+  /* TODO: use a buffer from the pool from the start instead of
+   * allocating nav_meas_tdcp as well. Downside, if we don't end up
+   * pushing the message into the mailbox then we just wasted an
+   * observation from the mailbox for no good reason. */
+
+  obss_t *obs = chPoolAlloc(&obs_buff_pool);
+  msg_t ret;
+  if (obs == NULL) {
+    /* Pool is empty, grab a buffer from the mailbox instead, i.e.
+     * overwrite the oldest item in the queue. */
+    ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
+    if (ret != MSG_OK) {
+      log_error("Pool full and mailbox empty!");
+    }
+  }
+  obs->tor = *t;
+  obs->n = n;
+  memcpy(obs->nm, m, obs->n * sizeof(obs->nm[0]));
+  ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
+  if (ret != MSG_OK) {
+    /* We could grab another item from the mailbox, discard it and then
+     * post our obs again but if the size of the mailbox and the pool
+     * are equal then we should have already handled the case where the
+     * mailbox is full when we handled the case that the pool was full.
+     * */
+    log_error("Mailbox should have space!");
+  }
+}
+
 static void solution_simulation()
 {
   simulation_step();
@@ -339,7 +372,7 @@ static void solution_simulation()
     double t_check = expected_tow * (soln_freq / obs_output_divisor);
     if (fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
       send_observations(simulation_current_num_sats(),
-        &(soln->time), simulation_current_navigation_measurements());
+          simulation_current_navigation_measurements(), &(soln->time));
     }
   }
 }
@@ -652,18 +685,6 @@ static void solution_thread(void *arg)
       /* Update n_ready_tdcp. */
       n_ready_tdcp = n_ready_tdcp_new;
 
-      /* Output observations only every obs_output_divisor times, taking
-       * care to ensure that the observations are aligned. */
-      /* Also only output observations once our receiver clock is
-       * correctly set. */
-      double t_check = expected_tow * (soln_freq / obs_output_divisor);
-      if (!simulation_enabled() &&
-          time_quality == TIME_FINE &&
-          fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
-        /* Send the observations. */
-        send_observations(n_ready_tdcp, &new_obs_time, nav_meas_tdcp);
-      }
-
       /* If we have a recent set of observations from the base station, do a
        * differential solution. */
       double pdt;
@@ -693,32 +714,18 @@ static void solution_thread(void *arg)
       }
       chMtxUnlock(&base_obs_lock);
 
-      /* TODO: use a buffer from the pool from the start instead of
-       * allocating nav_meas_tdcp as well. Downside, if we don't end up
-       * pushing the message into the mailbox then we just wasted an
-       * observation from the mailbox for no good reason. */
-
-      obss_t *obs = chPoolAlloc(&obs_buff_pool);
-      msg_t mb_ret;
-      if (obs == NULL) {
-        /* Pool is empty, grab a buffer from the mailbox instead, i.e.
-         * overwrite the oldest item in the queue. */
-        mb_ret = chMBFetch(&obs_mailbox, (msg_t *)&obs, TIME_IMMEDIATE);
-        if (mb_ret != MSG_OK) {
-          log_error("Pool full and mailbox empty!");
-        }
-      }
-      obs->tor = new_obs_time;
-      obs->n = n_ready_tdcp;
-      memcpy(obs->nm, nav_meas_tdcp, obs->n * sizeof(navigation_measurement_t));
-      mb_ret = chMBPost(&obs_mailbox, (msg_t)obs, TIME_IMMEDIATE);
-      if (mb_ret != MSG_OK) {
-        /* We could grab another item from the mailbox, discard it and then
-         * post our obs again but if the size of the mailbox and the pool
-         * are equal then we should have already handled the case where the
-         * mailbox is full when we handled the case that the pool was full.
-         * */
-        log_error("Mailbox should have space!");
+      /* Output observations only every obs_output_divisor times, taking
+       * care to ensure that the observations are aligned. */
+      /* Also only output observations once our receiver clock is
+       * correctly set. */
+      double t_check = expected_tow * (soln_freq / obs_output_divisor);
+      if (!simulation_enabled() &&
+          time_quality == TIME_FINE &&
+          fabs(t_check - (u32)t_check) < TIME_MATCH_THRESHOLD) {
+        /* Post the observations to the mailbox. */
+        post_observations(n_ready_tdcp, nav_meas_tdcp, &new_obs_time);
+        /* Send the observations. */
+        send_observations(n_ready_tdcp, nav_meas_tdcp, &new_obs_time);
       }
     }
 
