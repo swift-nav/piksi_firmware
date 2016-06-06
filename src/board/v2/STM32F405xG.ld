@@ -55,7 +55,6 @@ REGION_ALIAS("HEAP_RAM", ram0);
 SECTIONS {
     .ccmram (NOLOAD) : {
       *(.ccmram*)
-      *(.bss.nkf)
     } > ram4
 }
 
