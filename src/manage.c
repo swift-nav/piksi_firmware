@@ -242,30 +242,38 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
       return SCORE_COLDSTART;
 
     float el = 0;
-    double el_d, _, dopp_hint = 0, dopp_uncertainty = DOPP_UNCERT_ALMANAC;
+    double _, dopp_hint = 0, dopp_uncertainty = DOPP_UNCERT_ALMANAC;
     bool ready = false;
     /* Do we have a suitable ephemeris for this sat?  If so, use
        that in preference to the almanac. */
     const ephemeris_t *e = ephemeris_get(sid);
-    if (ephemeris_valid(e, t)) {
-      double sat_pos[3], sat_vel[3], el_d;
-      if (calc_sat_state(e, t, sat_pos, sat_vel, &_, &_) == 0) {
-        wgsecef2azel(sat_pos, position_solution.pos_ecef, &_, &el_d);
-        el = (float)(el_d) * R2D;
-        if (el < elevation_mask)
-          return SCORE_BELOWMASK;
-        vector_subtract(3, sat_pos, position_solution.pos_ecef, sat_pos);
-        vector_normalize(3, sat_pos);
-        /* sat_pos now holds unit vector from us to satellite */
-        vector_subtract(3, sat_vel, position_solution.vel_ecef, sat_vel);
-        /* sat_vel now holds velocity of sat relative to us */
-        dopp_hint = -GPS_L1_HZ * (vector_dot(3, sat_pos, sat_vel) / GPS_C
-                                  + position_solution.clock_bias);
-        /* TODO: Check sign of receiver frequency offset correction */
-        if (time_quality >= TIME_FINE)
-          dopp_uncertainty = DOPP_UNCERT_EPHEM;
-        ready = true;
-      }
+    u8 eph_valid;
+    s8 ss_ret;
+    double sat_pos[3], sat_vel[3], el_d;
+
+    ephemeris_lock();
+    eph_valid = ephemeris_valid(e, t);
+    if (eph_valid) {
+      ss_ret = calc_sat_state(e, t, sat_pos, sat_vel, &_, &_);
+    }
+    ephemeris_unlock();
+
+    if (eph_valid && (ss_ret == 0)) {
+      wgsecef2azel(sat_pos, position_solution.pos_ecef, &_, &el_d);
+      el = (float)(el_d) * R2D;
+      if (el < elevation_mask)
+        return SCORE_BELOWMASK;
+      vector_subtract(3, sat_pos, position_solution.pos_ecef, sat_pos);
+      vector_normalize(3, sat_pos);
+      /* sat_pos now holds unit vector from us to satellite */
+      vector_subtract(3, sat_vel, position_solution.vel_ecef, sat_vel);
+      /* sat_vel now holds velocity of sat relative to us */
+      dopp_hint = -GPS_L1_HZ * (vector_dot(3, sat_pos, sat_vel) / GPS_C
+                                + position_solution.clock_bias);
+      /* TODO: Check sign of receiver frequency offset correction */
+      if (time_quality >= TIME_FINE)
+        dopp_uncertainty = DOPP_UNCERT_EPHEM;
+      ready = true;
     }
 
     if(!ready) {
