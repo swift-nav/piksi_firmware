@@ -19,21 +19,21 @@
 #define NAP_MAX_N_TRACK_CHANNELS     32
 
 typedef struct {
-  volatile uint32_t STATUS;
+  const volatile uint32_t STATUS;
   volatile uint32_t CONTROL;
   const volatile uint32_t START_SNAPSHOT;
   volatile uint32_t LENGTH;
   volatile uint32_t SPACING;
-  const volatile int32_t CARR_PHASE_INT;
-  const volatile uint32_t CARR_PHASE_FRAC;
-  volatile int32_t CARR_PINC;
   volatile uint32_t CODE_INIT_INT;
   volatile uint32_t CODE_INIT_FRAC;
-  const volatile uint32_t CODE_PHASE_INT;
-  const volatile uint32_t CODE_PHASE_FRAC;
-  volatile uint32_t CODE_PINC;
   volatile uint32_t CODE_INIT_G1;
   volatile uint32_t CODE_INIT_G2;
+  volatile int32_t CARR_PINC;
+  volatile uint32_t CODE_PINC;
+  const volatile int32_t  CARR_PHASE_INT;
+  const volatile uint32_t CARR_PHASE_FRAC;
+  const volatile uint32_t CODE_PHASE_INT;
+  const volatile uint32_t CODE_PHASE_FRAC;
   struct {
     const volatile int32_t I;
     const volatile int32_t Q;
@@ -42,27 +42,29 @@ typedef struct {
 
 /* Registers */
 typedef struct {
-  volatile uint32_t STATUS;
+  const volatile uint32_t STATUS;
   volatile uint32_t CONTROL;
-  volatile uint32_t VERSION;
+  const volatile uint32_t VERSION;
   volatile uint32_t IRQ;
   volatile uint32_t IRQ_ERROR;
-  volatile uint32_t TIMING_COUNT;
-  volatile uint32_t ACQ_STATUS;
+  const volatile uint32_t TIMING_COUNT;
+  const volatile uint32_t ACQ_STATUS;
   volatile uint32_t ACQ_CONTROL;
   volatile uint32_t ACQ_TIMING_COMPARE;
-  volatile uint32_t ACQ_TIMING_SNAPSHOT;
-  volatile uint32_t ACQ_START_SNAPSHOT;
+  const volatile uint32_t ACQ_TIMING_SNAPSHOT;
+  const volatile uint32_t ACQ_START_SNAPSHOT;
   volatile uint32_t ACQ_FFT_CONFIG;
+  volatile int32_t ACQ_PINC;
+  const volatile uint32_t ACQ_PEAK_MAGSQ;
+  const volatile uint32_t ACQ_SUM_MAGSQ;
   volatile uint32_t TRK_CONTROL;
   volatile uint32_t TRK_IRQ;
   volatile uint32_t TRK_IRQ_ERROR;
   volatile uint32_t TRK_TIMING_COMPARE;
-  volatile uint32_t TRK_TIMING_SNAPSHOT;
+  const volatile uint32_t TRK_TIMING_SNAPSHOT;
   volatile uint32_t PPS_CONTROL;
   volatile uint32_t PPS_TIMING_COMPARE;
-  volatile uint32_t EVENT_TIMING_SNAPSHOT;
-  volatile uint32_t FE_PINC[8];
+  const volatile uint32_t EVENT_TIMING_SNAPSHOT;
   nap_trk_regs_t TRK_CH[NAP_MAX_N_TRACK_CHANNELS];
 } nap_t;
 
@@ -79,23 +81,35 @@ typedef struct {
 #define NAP_CONTROL_KEY_BYTE_Pos (24U)
 #define NAP_CONTROL_KEY_BYTE_Msk (0xFFU << NAP_CONTROL_KEY_BYTE_Pos)
 
-#define NAP_ACQ_CONTROL_DMA_INPUT_Pos (0U)
+#define NAP_ACQ_STATUS_PEAK_INDEX_Pos (4U)
+#define NAP_ACQ_STATUS_PEAK_INDEX_Msk (0x7FFFU << NAP_ACQ_STATUS_PEAK_INDEX_Pos)
+
+#define NAP_ACQ_STATUS_PEAK_MAGSQ_OVF_Pos (2U)
+#define NAP_ACQ_STATUS_PEAK_MAGSQ_OVF_Msk (0x1U << NAP_ACQ_STATUS_PEAK_MAGSQ_OVF_Pos)
+
+#define NAP_ACQ_STATUS_SUM_MAGSQ_OVF_Pos (3U)
+#define NAP_ACQ_STATUS_SUM_MAGSQ_OVF_Msk (0x1U << NAP_ACQ_STATUS_SUM_MAGSQ_OVF_Pos)
+
+#define NAP_ACQ_CONTROL_FRONTEND_Pos (0U)
+#define NAP_ACQ_CONTROL_FRONTEND_Msk (0x7U << NAP_ACQ_CONTROL_FRONTEND_Pos)
+
+#define NAP_ACQ_CONTROL_DMA_INPUT_Pos (3U)
 #define NAP_ACQ_CONTROL_DMA_INPUT_Msk (0x1U << NAP_ACQ_CONTROL_DMA_INPUT_Pos)
 #define NAP_ACQ_CONTROL_DMA_INPUT_FFT (0U)
 #define NAP_ACQ_CONTROL_DMA_INPUT_SAMPLE_GRABBER (1U)
 
-#define NAP_ACQ_CONTROL_FFT_INPUT_Pos (1U)
+#define NAP_ACQ_CONTROL_FFT_INPUT_Pos (4U)
 #define NAP_ACQ_CONTROL_FFT_INPUT_Msk (0x1U << NAP_ACQ_CONTROL_FFT_INPUT_Pos)
 #define NAP_ACQ_CONTROL_FFT_INPUT_DMA (0U)
 #define NAP_ACQ_CONTROL_FFT_INPUT_FRONTEND (1U)
 
-#define NAP_ACQ_CONTROL_RF_FE_Pos (2U)
-#define NAP_ACQ_CONTROL_RF_FE_Msk (0x3U << NAP_ACQ_CONTROL_RF_FE_Pos)
+#define NAP_ACQ_CONTROL_PEAK_SEARCH_Pos (5U)
+#define NAP_ACQ_CONTROL_PEAK_SEARCH_Msk (0x1U << NAP_ACQ_CONTROL_PEAK_SEARCH_Pos)
+#define NAP_ACQ_CONTROL_PEAK_SEARCH (1U)
 
-#define NAP_ACQ_CONTROL_RF_FE_CH_Pos (4U)
-#define NAP_ACQ_CONTROL_RF_FE_CH_Msk (0x1U << NAP_ACQ_CONTROL_RF_FE_CH_Pos)
-
-#define NAP_ACQ_CONTROL_LENGTH_Pos (5U)
+#define NAP_ACQ_CONTROL_MIXER_Pos (6U)
+#define NAP_ACQ_CONTROL_MIXER_Msk (0x1U << NAP_ACQ_CONTROL_MIXER_Pos)
+#define NAP_ACQ_CONTROL_LENGTH_Pos (7U)
 #define NAP_ACQ_CONTROL_LENGTH_Msk (0xFFFFFU << NAP_ACQ_CONTROL_LENGTH_Pos)
 
 #define NAP_ACQ_FFT_CONFIG_DIR_Pos (0U)
@@ -104,10 +118,14 @@ typedef struct {
 #define NAP_ACQ_FFT_CONFIG_SCALE_Pos (1U)
 #define NAP_ACQ_FFT_CONFIG_SCALE_Msk (0x3FFFFFFFU << NAP_ACQ_FFT_CONFIG_SCALE_Pos)
 
-#define NAP_TRK_CONTROL_SAT_Pos (3u)
+#define NAP_TRK_CONTROL_SAT_Pos (3U)
 #define NAP_TRK_CONTROL_SAT_Msk (0x1FU << NAP_TRK_CONTROL_SAT_Pos)
 
-#define NAP_TRK_STATUS_RUNNING (1 << 31)
+#define NAP_TRK_STATUS_RUNNING_Pos (0U)
+#define NAP_TRK_STATUS_RUNNING_Msk (0x1U << NAP_TRK_STATUS_RUNNING_Pos)
+
+#define NAP_TRK_STATUS_CORR_OVF_Pos (1U)
+#define NAP_TRK_STATUS_CORR_OVF_Msk (0x3FFU << NAP_TRK_STATUS_CORR_OVF_Pos)
 
 /* Instances */
 #define NAP ((nap_t *)0x43C00000)
