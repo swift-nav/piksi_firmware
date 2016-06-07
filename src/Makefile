@@ -125,6 +125,7 @@ CSRC := $(STARTUPSRC) \
         $(SWIFTNAV_ROOT)/src/l2c_capb.o \
         $(SWIFTNAV_ROOT)/src/iono.o \
         $(SWIFTNAV_ROOT)/src/sid_set.o \
+        $(SWIFTNAV_ROOT)/src/cnav_msg_storage.o \
         main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
