@@ -156,7 +156,7 @@ void fault_handling_setup(void) {
 
 /* The following CamelCase functions each override a 'weak' definition
    in ChibiOS-RT/os/ports/GCC/ARMCMx/STM32F4xx/vectors.c */
-void NMIVector(void)
+void NMI_Handler(void)
 {
   /* We don't expect to ever end up here - On the STM32F4 the NMI can
      only be triggered by the RCC Clock Security System, which we
@@ -165,8 +165,8 @@ void NMIVector(void)
 };
 
 
-void HardFaultVector(void) __attribute__((noreturn));
-void HardFaultVector(void)
+void HardFault_Handler(void) __attribute__((noreturn));
+void HardFault_Handler(void)
 {
   /* TODO: ChibiOS thread status dump
      TODO: Use MSG_PANIC to avoid sprintf
