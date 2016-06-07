@@ -30,10 +30,6 @@ typedef struct {
   volatile uint32_t CODE_INIT_G2;
   volatile int32_t CARR_PINC;
   volatile uint32_t CODE_PINC;
-  volatile uint32_t CODE_INIT_G1;
-  volatile uint32_t CODE_INIT_G2;
-  volatile int32_t  CARR_PINC;
-  volatile uint32_t CODE_PINC;
   const volatile int32_t  CARR_PHASE_INT;
   const volatile uint32_t CARR_PHASE_FRAC;
   const volatile uint32_t CODE_PHASE_INT;
