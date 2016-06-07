@@ -104,6 +104,17 @@ static void decoder_gps_l2c_process(const decoder_channel_info_t *channel_info,
     if (!decoded) {
       continue;
     }
+    else if (CNAV_MSG_TYPE_30 == data->cnav_msg.msg_id) {
+      if (data->cnav_msg.data.type_30.tgd_valid)
+        log_debug_sid(channel_info->sid, "TGD %d",
+          data->cnav_msg.data.type_30.tgd);
+      if (data->cnav_msg.data.type_30.isc_l1ca_valid)
+        log_debug_sid(channel_info->sid, "isc_l1ca %d",
+          data->cnav_msg.data.type_30.isc_l1ca);
+      if (data->cnav_msg.data.type_30.isc_l2c_valid)
+        log_debug_sid(channel_info->sid, "isc_l2c %d",
+          data->cnav_msg.data.type_30.isc_l2c);
+    }
 
     tow_ms = data->cnav_msg.tow * GPS_CNAV_MSG_LENGTH * GPS_L2C_SYMBOL_LENGTH;
     tow_ms += delay * GPS_L2C_SYMBOL_LENGTH;
