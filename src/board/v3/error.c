@@ -71,7 +71,7 @@ void _screaming_death(const char *pos, const char *msg)
   sbp_state_init(&sbp_state);
 
   /* Continuously send error message */
-  #define APPROX_ONE_SEC 33000000
+  #define APPROX_ONE_SEC 200000000
   while (1) {
     led_toggle(LED_RED);
     for (u32 d = 0; d < APPROX_ONE_SEC; d++) {
@@ -118,34 +118,12 @@ void _exit(int status)
 void fault_handling_setup(void) {
 }
 
-__attribute__((interrupt("UNDEF")))
-void Und_Handler(void)
+/* Called by fault handlers in error_asm.s */
+void fault_handler_screaming_death(const char *msg_str, u32 lr)
 {
-  screaming_death("Undefined instruction!");
-}
-
-__attribute__((interrupt("ABORT")))
-void Prefetch_Handler(void)
-{
-  screaming_death("Prefetch Abort!");
-}
-
-__attribute__((interrupt("ABORT")))
-void Abort_Handler(void)
-{
-  screaming_death("Data Abort!");
-}
-
-__attribute__((interrupt("SWI")))
-void Swi_Handler(void)
-{
-  screaming_death("Software Interrupt!");
-}
-
-__attribute__((interrupt("FIQ")))
-void Fiq_Handler(void)
-{
-  screaming_death("Unused FIQ!");
+  char msg[128];
+  sprintf(msg, "%s lr=%08X", msg_str, (unsigned int)lr);
+  screaming_death(msg);
 }
 
 /** \} */
