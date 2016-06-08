@@ -113,6 +113,7 @@ CSRC := $(STARTUPSRC) \
         $(SWIFTNAV_ROOT)/src/decode.o \
         $(SWIFTNAV_ROOT)/src/signal.o \
         $(SWIFTNAV_ROOT)/src/l2c_capb.o \
+        $(SWIFTNAV_ROOT)/src/sid_set.o \
         main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
