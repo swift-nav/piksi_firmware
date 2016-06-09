@@ -28,8 +28,8 @@
 /*
  * Configuration section: select which features are enabled here.
  */
-#define TP_USE_1MS_PROFILES
-#define TP_USE_2MS_PROFILES
+//#define TP_USE_1MS_PROFILES
+//#define TP_USE_2MS_PROFILES
 #define TP_USE_5MS_PROFILES
 #define TP_USE_10MS_PROFILES
 #define TP_USE_20MS_PROFILES
@@ -42,13 +42,13 @@
  * - One plus N (TP_USE_ONE_PLUS_N_MODE)
  * - 1 millisecond integrations (TP_USE_SPLIT_MODE)
  */
-#define TP_USE_SPLIT_MODE
-// #define TP_USE_ONE_PLUS_N_MODE
+// #define TP_USE_SPLIT_MODE
+#define TP_USE_ONE_PLUS_N_MODE
 
 #if defined(TP_USE_SPLIT_MODE)
 #define TP_TM_LONG_MODE TP_TM_SPLIT
 #elif defined(TP_USE_ONE_PLUS_N_MODE)
-#define TP_TM_LONG_MODE TP_TM_ONE_PLUS_N
+#define TP_TM_LONG_MODE TP_TM_ONE_PLUS_N1
 #else
 #define TP_TM_LONG_MODE TP_TM_PIPELINING
 #endif
@@ -162,11 +162,12 @@ enum {
  * Lock detector profiles
  */
 static const tp_lock_detect_params_t ld_params[] = {
-  { 0.02f, 1e-6f,   1,  1, }, /* TP_LD_PARAMS_DISABLE */
-  { 0.02,   0.8f, 150, 50, }, /* LD_PARAMS_EXTRAOPT */
-  { 0.02,   1.1f, 150, 50, }, /* LD_PARAMS_OPT */
-  { 0.05,   1.4f, 150, 50, }, /* LD_PARAMS_NORMAL */
-  { 0.10f,  1.4f, 200, 50, }  /* TP_LD_PARAMS_PESS */
+  /*   k1,    k2,  lp,  lo */
+  { 0.02f, 1e-6f,   1,   1,}, /* TP_LD_PARAMS_DISABLE */
+  { 0.02f,  0.8f,  50, 150,}, /* LD_PARAMS_EXTRAOPT */
+  { 0.02f,  1.1f,  50, 150,}, /* LD_PARAMS_OPT */
+  { 0.05f,  1.4f,  50, 150,}, /* LD_PARAMS_NORMAL */
+  { 0.10f,  1.4f,  50, 200,}  /* TP_LD_PARAMS_PESS */
 };
 
 /**
@@ -219,7 +220,7 @@ enum
  */
 static const tp_loop_params_t loop_params[] = {
   /* "(1 ms, (1, 0.7, 1, 1540), (40, 0.7, 1, 5))" */
-  { 1, 0.7f, 1, 1540, 40, .7f, 1, 5, 1, TP_TM_PIPELINING }, /*TP_LP_IDX_INI*/
+  { 1, 0.7f, 1, 1540, 40, .7f, 1, 5, 1, TP_TM_INITIAL }, /*TP_LP_IDX_INI*/
 
 #ifdef TP_USE_1MS_PROFILES
   { 1, 1.f, 1, 1540, 12, 1.f, 1, 0, 1, TP_TM_PIPELINING }, /*TP_LP_IDX_1MS_S*/
@@ -294,33 +295,39 @@ enum
 #endif /* TP_USE_20MS_PROFILES */
 };
 
+typedef struct
+{
+  u8 ld_params;
+  u8 loop_params[TP_PROFILE_DYN_COUNT];
+} tp_loop_params_row_t;
+
 /**
  * State transition matrix.
  *
  * Matrix is two-dimensional: first dimension enumerates integration times,
  * second dimension is the dynamics profile.
  */
-static const u8 profile_matrix[][TP_PROFILE_DYN_COUNT] = {
-  {TP_LP_IDX_INI,  TP_LP_IDX_INI,  TP_LP_IDX_INI},
+static const tp_loop_params_row_t profile_matrix[] = {
+  {TP_LD_PARAMS_DISABLE, {TP_LP_IDX_INI,  TP_LP_IDX_INI,  TP_LP_IDX_INI}},
 
 #ifdef TP_USE_1MS_PROFILES
-  {TP_LP_IDX_1MS_S,  TP_LP_IDX_1MS_N,  TP_LP_IDX_1MS_U},
+  {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_1MS_S,  TP_LP_IDX_1MS_N,  TP_LP_IDX_1MS_U}},
 #endif
 
 #ifdef TP_USE_2MS_PROFILES
-  {TP_LP_IDX_2MS, TP_LP_IDX_2MS, TP_LP_IDX_2MS},
+  {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_2MS, TP_LP_IDX_2MS, TP_LP_IDX_2MS}},
 #endif /* TP_USE_2MS_PROFILES */
 
 #ifdef TP_USE_5MS_PROFILES
-  {TP_LP_IDX_5MS_S, TP_LP_IDX_5MS_N, TP_LP_IDX_5MS_U},
+  {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_5MS_S, TP_LP_IDX_5MS_N, TP_LP_IDX_5MS_U}},
 #endif /* TP_USE_5MS_PROFILES */
 
 #ifdef TP_USE_10MS_PROFILES
-  {TP_LP_IDX_10MS, TP_LP_IDX_10MS, TP_LP_IDX_10MS},
+  {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_10MS, TP_LP_IDX_10MS, TP_LP_IDX_10MS}},
 #endif /* TP_USE_10MS_PROFILES */
 
 #ifdef TP_USE_20MS_PROFILES
-  {TP_LP_IDX_20MS_S, TP_LP_IDX_20MS_N, TP_LP_IDX_20MS_U}
+  {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_20MS_S, TP_LP_IDX_20MS_N, TP_LP_IDX_20MS_U}}
 #endif /* TP_USE_20MS_PROFILES */
 };
 
@@ -364,7 +371,7 @@ static double compute_speed(gnss_signal_t sid, const tp_report_t *data)
  */
 static void init_profile_filters(tp_profile_internal_t *profile)
 {
-  u8 idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
+  u8 idx = profile_matrix[profile->cur_profile_i].loop_params[profile->cur_profile_d];
   const tp_loop_params_t *lp = &loop_params[idx];
   float loop_freq = 1000 / lp->coherent_ms;
   for (size_t i = 0; i < TP_LP_FILTER_COUNT; ++i) {
@@ -465,17 +472,11 @@ static void delete_profile(gnss_signal_t sid)
 static void get_profile_params(tp_profile_internal_t *profile,
                                tp_config_t           *config)
 {
-  u8 profile_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
+  u8 loop_profile_idx = profile_matrix[profile->cur_profile_i].loop_params[profile->cur_profile_d];
+  u8 ld_params_idx = profile_matrix[profile->cur_profile_i].ld_params;
 
-  const tp_lock_detect_params_t *p_ld_params = NULL;
-  if (profile->cur_profile_i !=  TP_PROFILE_ROW_INI) {
-    p_ld_params = &ld_params[TP_LD_PARAMS_NORMAL];
-  } else {
-    p_ld_params = &ld_params[TP_LD_PARAMS_DISABLE];
-  }
-
-  config->lock_detect_params = *p_ld_params;
-  config->loop_params = loop_params[profile_idx];
+  config->lock_detect_params = ld_params[ld_params_idx];
+  config->loop_params = loop_params[loop_profile_idx];
   config->use_alias_detection = false;
 
   tp_get_cn0_params(profile->sid, &config->cn0_params);
@@ -570,7 +571,7 @@ static void print_stats(tp_profile_internal_t *profile)
 
     profile->last_print_time = profile->time_ms;
 
-    u8 lp_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
+    u8 lp_idx = profile_matrix[profile->cur_profile_i].loop_params[profile->cur_profile_d];
 
 #if defined(TP_USE_MEAN_VALUES)
     float div = 1.f;
@@ -628,11 +629,11 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
   const char *reason2             = "dynamics OK";
   float       snr = 0.;
   float       acc = 0.;
-  float       loc = 0.;
+  //float       loc = 0.;
 
   snr = profile->filt_val[3] + profile->cn0_offset + TP_SNR_OFFSET;
   acc = profile->filt_val[1];
-  loc = profile->filt_val[2];
+  // loc = profile->filt_val[2];
 
   /* When we have a lock, and lock ratio is good, do not change the mode */
   // must_keep_profile = profile->olock && profile->filt_val[2] > 4.f;
@@ -669,7 +670,7 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
        * increasing/decreasing integration times.
        */
 
-      if (snr >= TP_SNR_THRESHOLD_MAX && loc < TP_LOCK_THRESHOLD) {
+      if (snr >= TP_SNR_THRESHOLD_MAX /* && loc < TP_LOCK_THRESHOLD */) {
         /* SNR is high - look for relaxing profile */
         if (profile->cur_profile_i > TP_PROFILE_ROW_FIRST) {
           profile->high_cn0_count++;
@@ -772,8 +773,8 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
     profile->next_profile_i = next_profile_i;
     profile->next_profile_d = next_profile_d;
 
-    u8 lp1_idx = profile_matrix[profile->cur_profile_i][profile->cur_profile_d];
-    u8 lp2_idx = profile_matrix[profile->next_profile_i][profile->next_profile_d];
+    u8 lp1_idx = profile_matrix[profile->cur_profile_i].loop_params[profile->cur_profile_d];
+    u8 lp2_idx = profile_matrix[profile->next_profile_i].loop_params[profile->next_profile_d];
 
     log_info_sid(profile->sid,
                  "Profile change: %dms [%d][%d]->%dms [%d][%d] r=%s (%.2f)/%s (%.2f) l=%.2f",
@@ -803,7 +804,7 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
  */
 static float compute_cn0_profile_offset(u8 profile_i, u8 profile_d)
 {
-  u8 profile_idx = profile_matrix[profile_i][profile_d];
+  u8 profile_idx = profile_matrix[profile_i].loop_params[profile_d];
   const tp_loop_params_t *lp = &loop_params[profile_idx];
   float cn0_offset = 0;
 
@@ -829,6 +830,8 @@ static float compute_cn0_profile_offset(u8 profile_i, u8 profile_d)
     10.0000f, /* 10ms */
     12.7875f, /* 19ms */
     13.0103f, /* 20ms */
+    15.9106f, /* 39ms */
+    16.0206f, /* 40ms */
   };
 
   if (lp->coherent_ms > 1) {
@@ -858,16 +861,21 @@ static float compute_cn0_profile_offset(u8 profile_i, u8 profile_d)
     case 20:
       cn0_offset_index = 8;
       break;
+    case 40:
+      cn0_offset_index = 10;
+      break;
     default:
       assert(false);
     }
 
     switch (lp->mode) {
-    case TP_TM_ONE_PLUS_N:
+    case TP_TM_ONE_PLUS_N1:
+    case TP_TM_ONE_PLUS_N2:
     case TP_TM_SPLIT:
       /* Very unfortunate, but the integrator handles N-1 milliseconds */
       cn0_offset_index--;
       break;
+    case TP_TM_INITIAL:
     case TP_TM_PIPELINING:
     case TP_TM_IMMEDIATE:
       break;
