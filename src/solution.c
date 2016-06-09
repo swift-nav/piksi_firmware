@@ -415,12 +415,12 @@ static void sol_thd_sleep(systime_t *deadline, systime_t interval)
       chSysUnlock();
       if (delta <= ((systime_t)-1) / 2) {
         /* Deadline is in the future. Skipping due to high CPU usage. */
-        log_warn("Solution thread skipping deadline, "
-                  "time = %lu, deadline = %lu", systime, *deadline);
+    //    log_warn("Solution thread skipping deadline, "
+    //              "time = %lu, deadline = %lu", systime, *deadline);
       } else {
         /* Deadline is in the past. */
-        log_warn("Solution thread missed deadline, "
-                 "time = %lu, deadline = %lu", systime, *deadline);
+     //   log_warn("Solution thread missed deadline, "
+     //            "time = %lu, deadline = %lu", systime, *deadline);
       }
       *deadline += interval;
       chSysLock();
