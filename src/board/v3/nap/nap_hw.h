@@ -63,7 +63,7 @@ typedef struct {
   volatile uint32_t PPS_CONTROL;
   volatile uint32_t PPS_TIMING_COMPARE;
   volatile uint32_t EVENT_TIMING_SNAPSHOT;
-  volatile uint32_t FE_PINC[8];
+  volatile uint32_t FE_PINC[4];
   nap_trk_regs_t TRK_CH[NAP_MAX_N_TRACK_CHANNELS];
 } nap_t;
 
@@ -100,10 +100,7 @@ typedef struct {
 #define NAP_ACQ_CONTROL_FFT_INPUT_FRONTEND (1U)
 
 #define NAP_ACQ_CONTROL_RF_FE_Pos (2U)
-#define NAP_ACQ_CONTROL_RF_FE_Msk (0x3U << NAP_ACQ_CONTROL_RF_FE_Pos)
-
-#define NAP_ACQ_CONTROL_RF_FE_CH_Pos (4U)
-#define NAP_ACQ_CONTROL_RF_FE_CH_Msk (0x1U << NAP_ACQ_CONTROL_RF_FE_CH_Pos)
+#define NAP_ACQ_CONTROL_RF_FE_Msk (0x7U << NAP_ACQ_CONTROL_RF_FE_Pos)
 
 #define NAP_ACQ_CONTROL_LENGTH_Pos (5U)
 #define NAP_ACQ_CONTROL_LENGTH_Msk (0xFFFFFU << NAP_ACQ_CONTROL_LENGTH_Pos)
