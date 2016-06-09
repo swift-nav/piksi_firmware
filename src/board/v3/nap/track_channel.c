@@ -160,24 +160,19 @@ void nap_track_read_results(u8 channel,
   }
 
   corr_t lc[5];
+  if (NAP->TRK_CH[channel].STATUS & NAP_TRK_STATUS_CORR_OVF_Msk)
+    log_warn("Track correlator overflow 0x%08X on channel %d",
+              NAP->TRK_CH[channel].STATUS, channel);
   for (u8 i = 0; i < 5; i++) {
     lc[i].I = t->CORR[i].I >> 8;
     lc[i].Q = t->CORR[i].Q >> 8;
   }
   memcpy(corrs, &lc[1], sizeof(corr_t)*3);
-
-  u64 nap_code_phase = ((u64)t->CODE_PHASE_INT << 32) |
-                             t->CODE_PHASE_FRAC;
-  s64 nap_carr_phase = ((s64)t->CARR_PHASE_INT << 32) |
-                             t->CARR_PHASE_FRAC;
-
-  s->code_phase += t->LENGTH * t->CODE_PINC;
-
-  *count_snapshot = t->START_SNAPSHOT;
-  *code_phase_early = (double)nap_code_phase /
-                          NAP_TRACK_CODE_PHASE_UNITS_PER_CHIP;
-  *carrier_phase = (double)-nap_carr_phase /
-                       NAP_TRACK_CARRIER_PHASE_UNITS_PER_CYCLE;
+  if (nap_ch_state[channel].code_phase != NAP->TRK_CH[channel].CODE_PHASE_FRAC)
+    asm("nop");
+  nap_ch_state[channel].code_phase +=
+    NAP->TRK_CH[channel].LENGTH * NAP->TRK_CH[channel].CODE_PINC;
+  nap_ch_state[channel].len = NAP->TRK_CH[channel].LENGTH;
 }
 
 void nap_track_disable(u8 channel)
