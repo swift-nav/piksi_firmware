@@ -204,6 +204,7 @@ static void tracker_gps_l1ca_update_parameters(
                     cn0_lf);               /* Loop filter frequency */
   }
 
+  data->alias_detect_first = true;
 
   if (data->use_alias_detection) {
     u8 alias_detect_ms = data->int_ms;
@@ -211,7 +212,6 @@ static void tracker_gps_l1ca_update_parameters(
         l->mode == TP_TM_ONE_PLUS_N2 ||
         l->mode == TP_TM_SPLIT)
       alias_detect_ms--;
-    data->alias_detect_first = true;
 
     if (use_alias_detection)
       alias_detect_reinit(&data->alias_detect, 500 / alias_detect_ms,
@@ -298,23 +298,27 @@ static u8 compute_rollover_count(const tracker_channel_info_t *channel_info,
                        data->int_ms - 2;
       break;
     case TP_TM_ONE_PLUS_N2:
-      if (data->cycle_cnt == 0) {
-        /* First interval is 1ms */
-        rollover_count = 0;
-      } else if (data->cycle_cnt == 1) {
-        /* Second interval is 19ms */
-        rollover_count = 18;
-      } else {
-        /* Other intervals are 20ms */
-        rollover_count = 19;
+      {
+        u8 n_bits = data->int_ms / 20;
+        if (data->cycle_cnt == n_bits - 1) {
+          /* First interval is 1ms */
+          rollover_count = 0;
+        } else if (data->cycle_cnt == n_bits) {
+          /* Second interval is 19ms */
+          rollover_count = 18;
+        } else {
+          /* Other intervals are 20ms */
+          rollover_count = 19;
+        }
       }
       break;
     case TP_TM_IMMEDIATE:
     case TP_TM_PIPELINING:
     case TP_TM_INITIAL:
-    default:
       rollover_count = data->int_ms - 1;
       break;
+    default:
+      assert(false);
     }
   }
   return rollover_count;
@@ -491,9 +495,9 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     } else {
       int_ms = 20;
       sum_up = SUM_UP_FLIP;
-      if (data->cycle_cnt == data->int_ms / 20)
-        use_controller = true;
     }
+    if (data->cycle_cnt == data->int_ms / 20)
+      use_controller = true;
     update_count_ms = 20;
     break;
   case TP_TM_INITIAL:
@@ -529,6 +533,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
       cs_bit[i].I = data->cs[i].I += cs_now[i].I;
       cs_bit[i].Q = data->cs[i].Q += cs_now[i].Q;
     }
+    /* When using multi-bit coherent integration, invert values if needed. */
     if (data->cs[1].I < 0)
       for (int i = 0; i < 3; ++i) {
         data->cs[i].I = -data->cs[i].I;
@@ -536,6 +541,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
       }
     break;
   case SUM_UP_FLIP:
+    /* When using multi-bit coherent integration, invert new values if needed. */
     if (cs_now[1].I > 0)
       for (int i = 0; i < 3; ++i) {
         data->cs[i].I += cs_bit[i].I = cs_now[i].I;
@@ -549,6 +555,13 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     break;
   default:
     assert(false);
+  }
+  if (data->tracking_mode == TP_TM_ONE_PLUS_N2 && data->alias_detect_first) {
+    log_info_sid(channel_info->sid, "Scan: %d: n=%d/%d b=%d/%d s=%d/%d",
+                 data->cycle_cnt,
+                 cs_now[1].I, cs_now[1].Q,
+                 cs_bit[1].I, cs_bit[1].Q,
+                 data->cs[1].I, data->cs[1].Q);
   }
 
   common_data->TOW_ms = tracker_tow_update(channel_info->context,
@@ -701,7 +714,9 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
           data->tl_state.carr_filt.y = data->tl_state.carr_freq;
         }
       }
-    }
+    } else if (data->alias_detect_first)
+      data->alias_detect_first = false;
+
 
     {
       /* Do tracking report to manager */
