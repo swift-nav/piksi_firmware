@@ -151,12 +151,12 @@ void fault_handling_setup(void) {
   /* Enable trapping of integer division by zero - otherwise the
      operation will silently give a zero quotient. */
   SCB->CCR |= (1 << 4);  /* SCB_CCR_DIV_0_TRP */
-}
 #endif
+}
 
 /* The following CamelCase functions each override a 'weak' definition
    in ChibiOS-RT/os/ports/GCC/ARMCMx/STM32F4xx/vectors.c */
-void NMIVector(void)
+void NMI_Handler(void)
 {
   /* We don't expect to ever end up here - On the STM32F4 the NMI can
      only be triggered by the RCC Clock Security System, which we
@@ -165,8 +165,8 @@ void NMIVector(void)
 };
 
 
-void HardFaultVector(void) __attribute__((noreturn));
-void HardFaultVector(void)
+void HardFault_Handler(void) __attribute__((noreturn));
+void HardFault_Handler(void)
 {
   /* TODO: ChibiOS thread status dump
      TODO: Use MSG_PANIC to avoid sprintf
@@ -184,15 +184,18 @@ void HardFaultVector(void)
   asm("mov %0, lr" : "=r"(lr) : : );
   
   static char msg[256];
-  sprintf(msg, "HFSR=%08X CFSR=%08X MMFAR=%08X BFAR=%08X PSP=%08X LR=%08X "
-          "r0=%08X r1=%08X r2=%08X r3=%08X r12=%08X lr=%08X pc=%08X psr=%08X",
-          (unsigned int)SCB->HFSR, (unsigned int)SCB->CFSR,
-          (unsigned int)SCB->MMFAR, (unsigned int)SCB->BFAR,
-          (unsigned int)psp, (unsigned int)lr,
-          (unsigned int)psp[0], (unsigned int)psp[1],
-          (unsigned int)psp[2], (unsigned int)psp[3],
-          (unsigned int)psp[4], (unsigned int)psp[5],
-          (unsigned int)psp[6], (unsigned int)psp[7]);
+  extern int fallback_sprintf(char *str, const char *fmt, ...);
+  fallback_sprintf(msg,
+                  "HFSR=%08X CFSR=%08X MMFAR=%08X BFAR=%08X PSP=%08X LR=%08X "
+                  "r0=%08X r1=%08X r2=%08X r3=%08X r12=%08X "
+                  "lr=%08X pc=%08X psr=%08X",
+                  (unsigned int)SCB->HFSR, (unsigned int)SCB->CFSR,
+                  (unsigned int)SCB->MMFAR, (unsigned int)SCB->BFAR,
+                  (unsigned int)psp, (unsigned int)lr,
+                  (unsigned int)psp[0], (unsigned int)psp[1],
+                  (unsigned int)psp[2], (unsigned int)psp[3],
+                  (unsigned int)psp[4], (unsigned int)psp[5],
+                  (unsigned int)psp[6], (unsigned int)psp[7]);
   _screaming_death(__func__, msg);
 };
 

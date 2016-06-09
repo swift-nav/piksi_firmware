@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <ch.h>
 
@@ -138,4 +139,23 @@ void * _sbrk(int incr)
     p = (void *)-1;
   }
   return p;
+}
+
+/* sprintf() which bypasses REENT mutex */
+int fallback_sprintf(char *str, const char *fmt, ...)
+{
+  int ret;
+  va_list ap;
+  FILE f;
+
+  f._flags = __SWR | __SSTR;
+  f._bf._base = f._p = (unsigned char *) str;
+  f._bf._size = f._w = INT_MAX;
+  f._file = -1;  /* No file. */
+  va_start (ap, fmt);
+  extern int  __real__svfprintf_r(struct _reent *r, FILE *f, const char *fmt, va_list va);
+  ret = __real__svfprintf_r(_REENT, &f, fmt, ap);
+  va_end (ap);
+  *f._p = '\0'; /* terminate the string */
+  return ret;
 }
