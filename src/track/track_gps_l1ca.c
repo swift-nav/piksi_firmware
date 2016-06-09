@@ -137,11 +137,13 @@ static void tracker_gps_l1ca_update_parameters(
   case TP_TM_INITIAL:
   case TP_TM_PIPELINING:
   case TP_TM_IMMEDIATE:
-  default:
     data->cycle_cnt = 0;
+    break;
+  default:
+    assert(false);
   }
 
-  float loop_freq = 1000 / data->int_ms;
+  float loop_freq = 1000.f / data->int_ms;
   float cn0_lf = loop_freq;
   float ld_int_ms = data->int_ms;
   if (data->tracking_mode == TP_TM_SPLIT) {
@@ -591,6 +593,11 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
   tracker_bit_sync_update(channel_info->context, update_count_ms, cs_bit[1].I);
 
+  /* Output I/Q correlations using SBP if enabled for this channel */
+  if (data->tracking_mode != TP_TM_INITIAL) {
+    tracker_correlations_send(channel_info->context, cs_bit);
+  }
+
   /* Correlations should already be in chan->cs thanks to
    * tracking_channel_get_corrs. */
   const corr_t* cs = data->cs;
@@ -616,6 +623,9 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     /* Update the latest time we were below the threshold. */
     common_data->cn0_below_use_thres_count = common_data->update_count;
   }
+
+  if (use_controller) {
+    /* Run the loop filters. */
 
   /* Update PLL lock detector */
   bool last_outp = data->lock_detect.outp;
@@ -651,14 +661,6 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   }
 #else
 #endif
-
-  /* Output I/Q correlations using SBP if enabled for this channel */
-  if (data->tracking_mode != TP_TM_INITIAL) {
-    tracker_correlations_send(channel_info->context, cs_bit);
-  }
-
-  if (use_controller) {
-    /* Run the loop filters. */
 
     /* TODO: Make this more elegant. */
     correlation_t cs2[3];

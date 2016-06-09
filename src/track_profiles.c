@@ -263,7 +263,7 @@ static const tp_loop_params_t loop_params[] = {
 
 #ifdef TP_USE_40MS_PROFILES
   /*  "(40 ms, (1, 0.7, 1, 1540), (8, 0.7, 1, 0))" */
-  { 1, .7f, 1, 1540, 8, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_20MS_S*/
+  { 1, .7f, 1, 1540, 12, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_20MS_S*/
 #endif /* TP_USE_40MS_PROFILES */
 };
 
