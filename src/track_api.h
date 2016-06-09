@@ -41,9 +41,9 @@ typedef struct {
                                     phase detector last "unlocked". */
   s32 TOW_ms;                  /**< TOW in ms. */
   u32 sample_count;            /**< Total num samples channel has tracked for. */
-  double code_phase_early;     /**< Early code phase. */
+  double code_phase_early;     /**< Early code phase in chips. */
   double code_phase_rate;      /**< Code phase rate in chips/s. */
-  double carrier_phase;        /**< Carrier phase in NAP register units. */
+  double carrier_phase;        /**< Carrier phase in cycles. */
   double carrier_freq;         /**< Carrier frequency Hz. */
   float cn0;                   /**< Current estimate of C/N0. */
 } tracker_common_data_t;
@@ -101,8 +101,8 @@ void tracker_interface_register(tracker_interface_list_element_t *element);
 /* Tracker instance API functions. Must be called from within an
  * interface function. */
 void tracker_correlations_read(tracker_context_t *context, corr_t *cs,
-                               u32 *sample_count,
-                               double *code_phase, double *carrier_phase);
+                               u32 *sample_count, double *code_phase,
+                               double *carrier_phase);
 void tracker_retune(tracker_context_t *context, double carrier_freq,
                     double code_phase_rate, u8 rollover_count);
 s32 tracker_tow_update(tracker_context_t *context, s32 current_TOW_ms,

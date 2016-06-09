@@ -131,7 +131,7 @@ static void sample_stream_start(void)
     u32 tc_req = NAP->TIMING_COUNT + TIMING_COMPARE_DELTA;
     NAP->ACQ_TIMING_COMPARE = tc_req;
     chSysUnlock();
-    if (tc_req - NAP->ACQ_TIMING_SNAPSHOT <= TIMING_COMPARE_DELTA) {
+    if (tc_req - NAP->ACQ_TIMING_SNAPSHOT <= (u32)TIMING_COMPARE_DELTA) {
       break;
     }
   }
