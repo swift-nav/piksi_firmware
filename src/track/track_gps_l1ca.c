@@ -413,20 +413,29 @@ static void update_cycle_counter(gps_l1ca_tracker_data_t *data)
   u8 cycles_cnt_limit;
   switch (data->tracking_mode) {
   case TP_TM_SPLIT:
+    /* Special integration mode: each coherent integration is split into a
+     * number of 1ms integrations. */
     cycles_cnt_limit = data->int_ms;
     break;
   case TP_TM_ONE_PLUS_N1:
+    /* One plus N integrations.
+     * Each cycle has two integrations: short (1ms) and long */
     cycles_cnt_limit = 2;
     break;
   case TP_TM_ONE_PLUS_N2:
+    /* One plus N long integrations.
+     * Each cycle has two integrations in the first bit, and one extra
+     * integration per additional bit. */
     cycles_cnt_limit = data->int_ms / 20 + 1;
     break;
   case TP_TM_INITIAL:
   case TP_TM_IMMEDIATE:
   case TP_TM_PIPELINING:
-  default:
+    /* One cycle only. */
     cycles_cnt_limit = 0;
     break;
+  default:
+    assert(false);
   }
   if (cycles_cnt_limit > 0) {
     if (++data->cycle_cnt == cycles_cnt_limit) {
@@ -470,6 +479,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     update_count_ms = data->int_ms;
     break;
   case TP_TM_ONE_PLUS_N2:
+    use_controller = false;
     if (data->cycle_cnt == 0) {
       int_ms = 1;
       sum_up = SUM_UP_NONE;
@@ -479,8 +489,8 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     } else {
       int_ms = 20;
       sum_up = SUM_UP_FLIP;
-      if (data->cycle_cnt != data->int_ms / 20)
-        use_controller = false;
+      if (data->cycle_cnt == data->int_ms / 20)
+        use_controller = true;
     }
     update_count_ms = 20;
     break;

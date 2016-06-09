@@ -30,9 +30,10 @@
  */
 //#define TP_USE_1MS_PROFILES
 //#define TP_USE_2MS_PROFILES
-#define TP_USE_5MS_PROFILES
-#define TP_USE_10MS_PROFILES
-#define TP_USE_20MS_PROFILES
+//#define TP_USE_5MS_PROFILES
+//#define TP_USE_10MS_PROFILES
+// #define TP_USE_20MS_PROFILES
+#define TP_USE_40MS_PROFILES
 
 // #define TP_USE_MEAN_VALUES
 
@@ -193,6 +194,9 @@ enum
 #ifdef TP_USE_20MS_PROFILES
   TP_PROFILE_ROW_20MS,
 #endif
+#ifdef TP_USE_40MS_PROFILES
+  TP_PROFILE_ROW_40MS,
+#endif
   TP_PROFILE_ROW_COUNT,
   TP_PROFILE_ROW_FIRST = 1
 };
@@ -256,6 +260,11 @@ static const tp_loop_params_t loop_params[] = {
   /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
   { 1, .9f, 1, 1540, 12, .9f, 1.f, 0, 20, TP_TM_LONG_MODE },/*TP_LP_IDX_20MS_U*/
 #endif /* TP_USE_20MS_PROFILES */
+
+#ifdef TP_USE_40MS_PROFILES
+  /*  "(40 ms, (1, 0.7, 1, 1540), (8, 0.7, 1, 0))" */
+  { 1, .7f, 1, 1540, 8, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_20MS_S*/
+#endif /* TP_USE_40MS_PROFILES */
 };
 
 /**
@@ -293,6 +302,10 @@ enum
   TP_LP_IDX_20MS_N, /**< 20MS 1+N integration; normal. */
   TP_LP_IDX_20MS_U  /**< 20MS 1+N integration; unstable. */
 #endif /* TP_USE_20MS_PROFILES */
+
+#ifdef TP_USE_40MS_PROFILES
+  TP_LP_IDX_40MS,   /**< 40MS 1+N2 integration; stable. */
+#endif /* TP_USE_40MS_PROFILES */
 };
 
 typedef struct
@@ -328,6 +341,10 @@ static const tp_loop_params_row_t profile_matrix[] = {
 
 #ifdef TP_USE_20MS_PROFILES
   {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_20MS_S, TP_LP_IDX_20MS_N, TP_LP_IDX_20MS_U}}
+#endif /* TP_USE_20MS_PROFILES */
+
+#ifdef TP_USE_40MS_PROFILES
+  {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_40MS, TP_LP_IDX_40MS, TP_LP_IDX_40MS}}
 #endif /* TP_USE_20MS_PROFILES */
 };
 
@@ -817,6 +834,7 @@ static float compute_cn0_profile_offset(u8 profile_i, u8 profile_d)
    * - 10 ms (10 ms TP_TM_PIPELINING)
    * - 19 ms (20 ms TP_TM_ONE_PLUS_N/TP_TM_SPLIT)
    * - 20 ms (20 ms TP_TM_PIPELINING)
+   * - 40 ms (40 ms TP_TM_ONE_PLUS_N2)
    *
    * The values match expressions: 10*log_10(coherent_ms)
    */
