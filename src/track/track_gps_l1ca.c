@@ -296,7 +296,8 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     }
     common_data->cn0 = cn0_est(&data->cn0_est,
                                pparams,
-                               cs[1].I/data->int_ms, cs[1].Q/data->int_ms);
+                               (float) cs[1].I/data->int_ms,
+                               (float) cs[1].Q/data->int_ms);
   }
 
   if (common_data->cn0 > track_cn0_drop_thres)
