@@ -42,10 +42,10 @@
   "(2 ms, (1, 0.7, 1, 1540), (100, 0.7, 1, 0))"
 
 /*                          k1,   k2,  lp,  lo */
-#define LD_PARAMS_PESS     "0.10, 1.4, 200, 50"
-#define LD_PARAMS_NORMAL   "0.05, 1.4, 150, 50"
-#define LD_PARAMS_OPT      "0.02, 1.1, 150, 50"
-#define LD_PARAMS_EXTRAOPT "0.02, 0.8, 150, 50"
+#define LD_PARAMS_PESS     "0.10, 1.4, 50, 200"
+#define LD_PARAMS_NORMAL   "0.05, 1.4, 50, 150"
+#define LD_PARAMS_OPT      "0.02, 1.1, 50, 150"
+#define LD_PARAMS_EXTRAOPT "0.02, 0.8, 50, 150"
 #define LD_PARAMS_DISABLE  "0.02, 1e-6, 1, 1"
 
 #define CN0_EST_LPF_CUTOFF 5
