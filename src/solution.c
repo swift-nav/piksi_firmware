@@ -509,7 +509,7 @@ static void solution_thread(void *arg)
     static navigation_measurement_t nav_meas_tdcp[MAX_CHANNELS];
     u8 n_ready_tdcp = tdcp_doppler(n_ready, nav_meas, n_ready_old,
                                    nav_meas_old, nav_meas_tdcp,
-                                   (double)(rec_tc - rec_tc_old) / SAMPLE_FREQ);
+                                   (double)(rec_tc - rec_tc_old) / NAP_FRONTEND_SAMPLE_RATE_Hz);
 
     /* Store current observations for next time for
      * TDCP Doppler calculation. */

@@ -19,8 +19,6 @@
 
 #include <gic.h>
 
-#define SAMPLE_FREQ 99.375e6
-
 #define IRQ_ID_NAP_TRACK IRQ_ID_FPGA3
 #define NAP_IRQ_PRIORITY 4
 
