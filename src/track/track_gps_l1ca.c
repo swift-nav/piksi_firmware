@@ -556,7 +556,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   default:
     assert(false);
   }
-  if (data->tracking_mode == TP_TM_ONE_PLUS_N2 && data->alias_detect_first) {
+  if (data->tracking_mode == TP_TM_ONE_PLUS_N2 ) {
     log_info_sid(channel_info->sid, "Scan: %d: n=%d/%d b=%d/%d s=%d/%d",
                  data->cycle_cnt,
                  cs_now[1].I, cs_now[1].Q,
@@ -682,7 +682,17 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
       cs2[i].Q = cs[2-i].Q;
     }
 
-    aided_tl_update(&data->tl_state, cs2);
+    if (data->has_next_params) {
+      float k1 = 1.f/40.f;
+      float k2 = 1.f/160.f;
+      for (u32 i = 0; i < 3; i++) {
+        cs2[i].I *= k1;
+        cs2[i].Q *= k2;
+      }
+      aided_tl_update(&data->tl_state, cs2);
+    } else {
+      aided_tl_update(&data->tl_state, cs2);
+    }
     common_data->carrier_freq = data->tl_state.carr_freq;
     common_data->code_phase_rate = data->tl_state.code_freq + GPS_CA_CHIPPING_RATE;
 
