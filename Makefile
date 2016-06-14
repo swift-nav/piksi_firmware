@@ -22,14 +22,18 @@ ifeq ($(PIKSI_HW),)
   PIKSI_HW=v2
 endif
 
+# Imported source files and paths
+CHIBIOS = ./ChibiOS
+include $(SWIFTNAV_ROOT)/src/board/$(PIKSI_HW)/Makefile.inc
+
 MAKEFLAGS += PIKSI_HW=$(PIKSI_HW)
 
 ifeq ($(PIKSI_HW),v2)
-	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-m4
+	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-m4 -DMAX_CHANNELS=$(MAX_CHANNELS)
 endif
 
 ifeq ($(PIKSI_HW),v3)
-	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-a9
+	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-a9 -DMAX_CHANNELS=$(MAX_CHANNELS)
 endif
 
 .PHONY: all tests firmware docs hitl_setup hitl hitlv3 .FORCE
