@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Copyright (C) 2011-2014,2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -25,6 +25,7 @@
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
 #include <libswiftnav/signal.h>
+#include <libswiftnav/constants.h>
 
 #include "main.h"
 #include "board/nap/track_channel.h"
@@ -306,6 +307,10 @@ static acq_status_t * choose_acq_sat(void)
   gps_time_t t = get_current_time();
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
+    if (!code_requires_direct_acq(acq_status[i].sid.code)) {
+      continue;
+    }
+
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
         acq_status[i].masked)
       continue;
@@ -328,6 +333,10 @@ static acq_status_t * choose_acq_sat(void)
   u32 pick = rand() % total_score;
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
+    if (!code_requires_direct_acq(acq_status[i].sid.code)) {
+      continue;
+    }
+
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
         acq_status[i].masked)
       continue;
@@ -408,6 +417,7 @@ static void manage_acq()
       .sample_count = acq_result.sample_count,
       .carrier_freq = acq_result.cf,
       .code_phase = acq_result.cp,
+      .chips_to_correlate = GPS_L1CA_CHIPS_NUM,
       .cn0_init = acq_result.cn0,
       .elevation = TRACKING_ELEVATION_UNKNOWN
     };
@@ -448,7 +458,9 @@ static u8 manage_track_new_acq(gnss_signal_t sid)
    */
   for (u8 i=0; i<nap_track_n_channels; i++) {
     if (tracker_channel_available(i, sid) &&
-        decoder_channel_available(i, sid)) {
+        /** \todo: the (sid.code == 1) part is to be removed once L2C
+                   data decoding channel support is added */
+        (decoder_channel_available(i, sid) || (sid.code == 1))) {
       return i;
     }
   }
@@ -643,6 +655,19 @@ u8 tracking_channels_ready()
   return n_ready;
 }
 
+/** Checks if tracking can be started for a given sid.
+ *
+ * \param sid Signal ID to check.
+ * \retval true sid tracking can be started.
+ * \retval false sid tracking cannot be started.
+ */
+bool tracking_startup_ready(gnss_signal_t sid)
+{
+  u16 global_index = sid_to_global_index(sid);
+  acq_status_t *acq = &acq_status[global_index];
+  return (acq->state == ACQ_PRN_ACQUIRING) && (!acq->masked);
+}
+
 /** Queue a request to start up tracking and decoding for the specified sid.
  *
  * \note This function is thread-safe and non-blocking.
@@ -675,6 +700,11 @@ static void manage_tracking_startup(void)
 
     acq_status_t *acq = &acq_status[sid_to_global_index(startup_params.sid)];
 
+    /* Make sure the SID is not already tracked. */
+    if (acq->state == ACQ_PRN_TRACKING) {
+      continue;
+    }
+
     /* Make sure a tracking channel and a decoder channel are available */
     u8 chan = manage_track_new_acq(startup_params.sid);
     if (chan == MANAGE_NO_CHANNELS_FREE) {
@@ -698,6 +728,7 @@ static void manage_tracking_startup(void)
                              startup_params.sample_count,
                              startup_params.code_phase,
                              startup_params.carrier_freq,
+                             startup_params.chips_to_correlate,
                              startup_params.cn0_init,
                              TRACKING_ELEVATION_UNKNOWN)) {
       log_error("tracker channel init failed");
