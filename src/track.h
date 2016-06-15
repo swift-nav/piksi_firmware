@@ -23,6 +23,7 @@
 #include <ch.h>
 
 #include "board/nap/track_channel.h"
+#include "track_api.h"
 
 /** \addtogroup tracking
  * \{ */
@@ -37,7 +38,8 @@ void track_setup(void);
 
 void tracking_send_state(void);
 
-double propagate_code_phase(double code_phase, double carrier_freq, u32 n_samples);
+double propagate_code_phase(double code_phase, double carrier_freq,
+                            u32 n_samples, code_t code);
 
 /* Update interface */
 void tracking_channels_update(u32 channels_mask);
@@ -48,7 +50,8 @@ void tracking_channels_missed_update_error(u32 channels_mask);
 bool tracker_channel_available(tracker_channel_id_t id, gnss_signal_t sid);
 bool tracker_channel_init(tracker_channel_id_t id, gnss_signal_t sid,
                           u32 ref_sample_count, float code_phase,
-                          float carrier_freq, float cn0_init, s8 elevation);
+                          float carrier_freq, u32 chips_to_correlate,
+                          float cn0_init, s8 elevation);
 bool tracker_channel_disable(tracker_channel_id_t id);
 
 /* Tracking parameters interface.
