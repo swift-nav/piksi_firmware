@@ -35,7 +35,7 @@ endif
 .PHONY: all tests firmware docs hitl_setup hitl hitlv3 .FORCE
 
 all: firmware # tests
-	@printf "BUILDING FOR target $(PIKSI_HW)\n
+	@printf "BUILDING FOR target $(PIKSI_HW)\n"
 
 firmware: libsbp/c/build/src/libsbp-static.a libswiftnav/build/src/libswiftnav-static.a
 	@printf "BUILD  src for target $(PIKSI_HW)\n"; \
