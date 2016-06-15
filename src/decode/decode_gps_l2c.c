@@ -18,12 +18,14 @@
 #include <libswiftnav/nav_msg.h> /* For BIT_POLARITY_... constants */
 #include <libswiftnav/cnav_msg.h>
 #include <assert.h>
+#include <string.h>
 
 #include "ephemeris.h"
 #include "track.h"
 #include "sbp.h"
 #include "sbp_utils.h"
 #include "signal.h"
+#include "cnav_msg_storage.h"
 
 typedef struct {
   cnav_msg_t cnav_msg;
@@ -69,6 +71,7 @@ static void decoder_gps_l2c_init(const decoder_channel_info_t *channel_info,
 {
   (void)channel_info;
   gps_l2c_decoder_data_t *data = decoder_data;
+  memset(data, 0, sizeof(gps_l2c_decoder_data_t));
   cnav_msg_decoder_init(&data->cnav_msg_decoder);
 }
 
@@ -114,6 +117,9 @@ static void decoder_gps_l2c_process(const decoder_channel_info_t *channel_info,
       if (data->cnav_msg.data.type_30.isc_l2c_valid)
         log_debug_sid(channel_info->sid, "isc_l2c %d",
           data->cnav_msg.data.type_30.isc_l2c);
+
+      /* Store data */
+      cnav_msg_type30_put(&data->cnav_msg);
     }
 
     tow_ms = data->cnav_msg.tow * GPS_CNAV_MSG_LENGTH * GPS_L2C_SYMBOL_LENGTH;

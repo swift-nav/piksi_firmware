@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <libswiftnav/cnav_msg.h>
 #include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
 #include <libswiftnav/pvt.h>
@@ -44,6 +45,7 @@
 #include "system_monitor.h"
 #include "main.h"
 #include "sid_set.h"
+#include "cnav_msg_storage.h"
 
 /* Maximum CPU time the solution thread is allowed to use. */
 #define SOLN_THD_CPU_MAX (0.60f)
@@ -454,10 +456,12 @@ static void solution_thread(void *arg)
     gps_time_t rec_time = rx2gpstime(rec_tc);
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
+    cnav_msg_type_30_t cnav_30[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
       tracking_channel_lock(i);
       if (use_tracking_channel(i)) {
         tracking_channel_measurement_get(i, rec_tc, &meas[n_ready]);
+        cnav_msg_type30_get(meas[n_ready].sid.sat, &cnav_30[n_ready]);
         n_ready++;
       }
       tracking_channel_unlock(i);
@@ -481,12 +485,14 @@ static void solution_thread(void *arg)
     const channel_measurement_t *p_meas[n_ready];
     navigation_measurement_t *p_nav_meas[n_ready];
     const ephemeris_t *p_e_meas[n_ready];
+    const cnav_msg_type_30_t *p_cnav_30[MAX_CHANNELS];
 
     /* Create arrays of pointers for use in calc_navigation_measurement */
     for (u8 i = 0; i < n_ready; i++) {
       p_meas[i] = &meas[i];
       p_nav_meas[i] = &nav_meas[i];
       p_e_meas[i] = ephemeris_get(meas[i].sid);
+      p_cnav_30[i] = &cnav_30[i];
     }
 
     /* Create navigation measurements from the channel measurements */
@@ -501,7 +507,7 @@ static void solution_thread(void *arg)
 
     ephemeris_lock();
     s8 nm_ret = calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                            p_rec_time, p_e_meas);
+                                            p_rec_time, p_e_meas, p_cnav_30);
     ephemeris_unlock();
 
     if (nm_ret != 0) {
