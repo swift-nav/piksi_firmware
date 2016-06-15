@@ -81,6 +81,9 @@ static acq_status_t acq_status[PLATFORM_SIGNAL_COUNT];
 
 static bool track_mask[PLATFORM_SIGNAL_COUNT];
 
+static u32 l1ca_l2cm_handover_mask = 0;
+static MUTEX_DECL(handover_mask_mutex);
+
 #define SCORE_COLDSTART     100
 #define SCORE_WARMSTART     200
 #define SCORE_BELOWMASK     0
@@ -720,6 +723,10 @@ static void manage_tracking_startup(void)
         acq->dopp_hint_high = startup_params.carrier_freq + ACQ_FULL_CF_STEP;
       }
 
+      /* release handover mask */
+      if (CODE_GPS_L2CM == startup_params.sid.code)
+        l1ca_l2cm_handover_release(startup_params.sid.sat);
+
       continue;
     }
 
@@ -733,6 +740,11 @@ static void manage_tracking_startup(void)
                              TRACKING_ELEVATION_UNKNOWN)) {
       log_error("tracker channel init failed");
     }
+
+    /* release handover mask */
+    if (CODE_GPS_L2CM == startup_params.sid.code)
+      l1ca_l2cm_handover_release(startup_params.sid.sat);
+
     /* TODO: Initialize elevation from ephemeris if we know it precisely */
 
     /* Start the decoder channel */
@@ -801,6 +813,36 @@ static bool tracking_startup_fifo_read(tracking_startup_fifo_t *fifo,
   }
 
   return false;
+}
+
+/** Set satellite as being handed over.
+ *
+ * \param sat        satellite prn.
+ *
+ * \return true if satellite wasn't under handover process, otherwise false.
+ */
+bool l1ca_l2cm_handover_reserve(u8 sat)
+{
+  chMtxLock(&handover_mask_mutex);
+  if (0 != (l1ca_l2cm_handover_mask & ((u32)1 << (sat - 1)))) {
+    chMtxUnlock(&handover_mask_mutex);
+    return false;
+  }
+
+  l1ca_l2cm_handover_mask |= (u32)1 << (sat - 1);
+  chMtxUnlock(&handover_mask_mutex);
+  return true;
+}
+
+/** Release satellite from being handed over.
+ *
+ * \param sat        satellite prn.
+ */
+void l1ca_l2cm_handover_release(u8 sat)
+{
+  chMtxLock(&handover_mask_mutex);
+  l1ca_l2cm_handover_mask &= ~((u32)1 << (sat - 1));
+  chMtxUnlock(&handover_mask_mutex);
 }
 
 /** \} */
