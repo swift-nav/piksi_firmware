@@ -26,10 +26,12 @@ MAKEFLAGS += PIKSI_HW=$(PIKSI_HW)
 
 ifeq ($(PIKSI_HW),v2)
 	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-m4
+	CMAKEFLAGS += -DMAX_CHANNELS=11
 endif
 
 ifeq ($(PIKSI_HW),v3)
 	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-a9
+	CMAKEFLAGS += -DMAX_CHANNELS=31
 endif
 
 .PHONY: all tests firmware docs hitl_setup hitl hitlv3 .FORCE

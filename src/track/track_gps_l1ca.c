@@ -11,7 +11,10 @@
  */
 
 #include "track_gps_l1ca.h"
+#include "track_gps_l2cm.h" /* for L1C/A to L2 CM tracking handover */
 #include "track_api.h"
+#include "track.h"
+#include "decode.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
@@ -48,7 +51,10 @@
 #define LD_PARAMS_EXTRAOPT "0.02, 0.8, 150, 50"
 #define LD_PARAMS_DISABLE  "0.02, 1e-6, 1, 1"
 
-#define CN0_EST_LPF_CUTOFF 5
+#define CN0_EST_LPF_CUTOFF 0.1f
+
+/* Convert milliseconds to L1C/A chips */
+#define L1CA_TRACK_MS_TO_CHIPS(ms) ((ms) * GPS_L1CA_CHIPS_NUM)
 
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
@@ -61,7 +67,7 @@ static struct lock_detect_params {
   u16 lp, lo;
 } lock_detect_params;
 
-static float track_cn0_use_thres = 31.0; /* dBHz */
+static float track_cn0_use_thres = 37.0; /* dBHz */
 static float track_cn0_drop_thres = 31.0;
 
 static char loop_params_string[120] = LOOP_PARAMS_MED;
@@ -224,7 +230,8 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
     if (!data->short_cycle) {
       tracker_retune(channel_info->context, common_data->carrier_freq,
-                     common_data->code_phase_rate, 0);
+                     common_data->code_phase_rate,
+                     L1CA_TRACK_MS_TO_CHIPS(1));
       return;
     }
   }
@@ -238,7 +245,61 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   corr_t* cs = data->cs;
 
   /* Update C/N0 estimate */
-  common_data->cn0 = cn0_est(&data->cn0_est, cs[1].I/data->int_ms, cs[1].Q/data->int_ms);
+  {
+    /* Pre-computed C/N0 estimator and filter parameters. The parameters are
+     * computed using equivalent of cn0_est_compute_params() function for
+     * integration periods of 1, 2, 4, 5, 10 and 20ms and cut-off frequency
+     * of 0.1 Hz.
+     */
+    static const cn0_est_params_t pre_computed[] = {
+      {3.0000000e+01f, 9.8652194e-08f, -1.9991113e+00f, 9.9911177e-01f},
+      {2.6989700e+01f, 3.9443353e-07f, -1.9982228e+00f, 9.9822444e-01f},
+      {2.3979401e+01f, 1.5763328e-06f, -1.9964458e+00f, 9.9645197e-01f},
+      {2.3010300e+01f, 2.4619260e-06f, -1.9955571e+00f, 9.9556691e-01f},
+      {2.0000000e+01f, 9.8258515e-06f, -1.9911141e+00f, 9.9115360e-01f},
+      {1.6989700e+01f, 3.9129183e-05f, -1.9822294e+00f, 9.8238576e-01f}
+    };
+
+    cn0_est_params_t params;
+    const cn0_est_params_t *pparams = NULL;
+
+    switch (data->int_ms) {
+    case 1:
+      pparams = &pre_computed[0];
+      break;
+
+    case 2:
+      pparams = &pre_computed[1];
+      break;
+
+    case 4:
+      pparams = &pre_computed[2];
+      break;
+
+    case 5:
+      pparams = &pre_computed[3];
+      break;
+
+    case 10:
+      pparams = &pre_computed[4];
+      break;
+
+    case 20:
+      pparams = &pre_computed[5];
+      break;
+
+    default:
+      cn0_est_compute_params(&params, 1e3f / data->int_ms, CN0_EST_LPF_CUTOFF,
+                             1e3f / data->int_ms);
+      pparams = &params;
+      break;
+    }
+    common_data->cn0 = cn0_est(&data->cn0_est,
+                               pparams,
+                               (float) cs[1].I/data->int_ms,
+                               (float) cs[1].Q/data->int_ms);
+  }
+
   if (common_data->cn0 > track_cn0_drop_thres)
     common_data->cn0_above_drop_thres_count = common_data->update_count;
 
@@ -339,9 +400,20 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     common_data->mode_change_count = common_data->update_count;
   }
 
+  if (data->lock_detect.outo &&
+      tracker_bit_aligned(channel_info->context))
+    do_l1ca_to_l2cm_handover(common_data->sample_count,
+                             channel_info->sid.sat,
+                             common_data->code_phase_early,
+                             common_data->carrier_freq,
+                             common_data->cn0);
+
+  u32 chips_to_correlate = (1 == data->int_ms) ?
+                           L1CA_TRACK_MS_TO_CHIPS(1) :
+                           L1CA_TRACK_MS_TO_CHIPS(data->int_ms - 1);
+
   tracker_retune(channel_info->context, common_data->carrier_freq,
-                 common_data->code_phase_rate,
-                 data->int_ms == 1 ? 0 : data->int_ms - 2);
+                 common_data->code_phase_rate, chips_to_correlate);
 }
 
 /** Parse a string describing the tracking loop filter parameters into
