@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Contact: Roman Gezikov <rgezikov@exafore.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,22 +10,18 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "platform_signal.h"
+#ifndef SRC_SID_SET_H_
+#define SRC_SID_SET_H_
 
-#include "track/track_gps_l1ca.h"
-#include "track/track_gps_l2cm.h"
+#include <libswiftnav/common.h>
+#include <libswiftnav/signal.h>
 
-#include "decode/decode_gps_l1ca.h"
-#include "decode/decode_gps_l2c.h"
+typedef struct {
+  u64 sats[CODE_COUNT];
+} gnss_sid_set_t;
 
-void platform_track_setup(void)
-{
-  track_gps_l1ca_register();
-  track_gps_l2cm_register();
-}
+void sid_set_init(gnss_sid_set_t *sid_set);
+void sid_set_add(gnss_sid_set_t *sid_set, const gnss_signal_t sid);
+u32 sid_set_get_sat_count(const gnss_sid_set_t *sid_set);
 
-void platform_decode_setup(void)
-{
-  decode_gps_l1ca_register();
-  decode_gps_l2c_register();
-}
+#endif /* SRC_SID_SET_H_ */

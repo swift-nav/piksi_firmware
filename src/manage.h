@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Copyright (C) 2011-2014,2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -67,6 +67,7 @@ typedef struct {
   u32 sample_count;       /**< Reference NAP sample count. */
   float carrier_freq;     /**< Carrier frequency Doppler (Hz). */
   float code_phase;       /**< Code phase (chips). */
+  u32 chips_to_correlate; /**< Chips to integrate over. */
   float cn0_init;         /**< C/N0 estimate (dBHz). */
   s8 elevation;           /**< Elevation (deg). */
 } tracking_startup_params_t;
@@ -81,6 +82,10 @@ void manage_track_setup(void);
 s8 use_tracking_channel(u8 i);
 u8 tracking_channels_ready(void);
 
+bool tracking_startup_ready(gnss_signal_t sid);
 bool tracking_startup_request(const tracking_startup_params_t *startup_params);
+
+bool l1ca_l2cm_handover_reserve(u8 sat);
+void l1ca_l2cm_handover_release(u8 sat);
 
 #endif
