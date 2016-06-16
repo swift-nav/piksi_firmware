@@ -35,6 +35,7 @@
 #include "base_obs.h"
 #include "ephemeris.h"
 #include "signal.h"
+#include "iono.h"
 
 extern bool disable_raim;
 
@@ -145,6 +146,21 @@ static void update_obss(obss_t *new_obss)
   if (base_obss.n >= 4) {
     gnss_solution soln;
     dops_t dops;
+
+    /* check if we have fix, if yes, calculate iono and tropo correction */
+    if(base_obss.has_pos) {
+      double llh[3];
+      wgsecef2llh(base_obss.pos_ecef, llh);
+      log_debug("Base: IONO/TROPO correction");
+      ionosphere_t i_params;
+      ionosphere_t *p_i_params = &i_params;
+      /* get iono parameters if available */
+      if(!gps_iono_params_read(p_i_params)) {
+        p_i_params = NULL;
+      }
+      calc_iono_tropo(base_obss.n, base_obss.nm, base_obss.pos_ecef, llh,
+                      p_i_params);
+    }
 
     /* Calculate a position solution. */
     /* disable_raim controlled by external setting (see solution.c). */

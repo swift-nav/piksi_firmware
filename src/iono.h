@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Contact: Dmitry Tatarinov <dmitry.tatarinov@exafore.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,22 +10,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "platform_signal.h"
+#ifndef SRC_IONO_H_
+#define SRC_IONO_H_
 
-#include "track/track_gps_l1ca.h"
-#include "track/track_gps_l2cm.h"
+#include <libswiftnav/common.h>
+#include <libswiftnav/ionosphere.h>
 
-#include "decode/decode_gps_l1ca.h"
-#include "decode/decode_gps_l2c.h"
+void gps_iono_params_store(ionosphere_t *params);
+u8 gps_iono_params_read(ionosphere_t *params);
 
-void platform_track_setup(void)
-{
-  track_gps_l1ca_register();
-  track_gps_l2cm_register();
-}
-
-void platform_decode_setup(void)
-{
-  decode_gps_l1ca_register();
-  decode_gps_l2c_register();
-}
+#endif /* SRC_IONO_H_ */

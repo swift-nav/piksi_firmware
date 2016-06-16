@@ -9,7 +9,6 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
-
 #include <stdio.h>
 #include <string.h>
 
@@ -23,6 +22,7 @@
 #include <libswiftnav/dgnss_management.h>
 #include <libswiftnav/baseline.h>
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/troposphere.h>
 
 #define memory_pool_t MemoryPool
 #include <ch.h>
@@ -43,6 +43,8 @@
 #include "signal.h"
 #include "system_monitor.h"
 #include "main.h"
+#include "iono.h"
+#include "sid_set.h"
 
 /* Maximum CPU time the solution thread is allowed to use. */
 #define SOLN_THD_CPU_MAX (0.60f)
@@ -432,6 +434,9 @@ static void sol_thd_sleep(systime_t *deadline, systime_t interval)
 static THD_WORKING_AREA(wa_solution_thread, 8000);
 static void solution_thread(void *arg)
 {
+  /* The flag is true when we have a fix */
+  bool soln_flag = false;
+
   (void)arg;
   chRegSetThreadName("solution");
 
@@ -462,7 +467,12 @@ static void solution_thread(void *arg)
       tracking_channel_unlock(i);
     }
 
-    if (n_ready < 4) {
+    gnss_sid_set_t codes_in_track;
+    sid_set_init(&codes_in_track);
+    for (u8 i=0; i<n_ready; i++)
+      sid_set_add(&codes_in_track, meas[i].sid);
+
+    if (sid_set_get_sat_count(&codes_in_track) < 4) {
       /* Not enough sats, keep on looping. */
       continue;
     }
@@ -517,9 +527,29 @@ static void solution_thread(void *arg)
     n_ready_old = n_ready;
     rec_tc_old = rec_tc;
 
-    if (n_ready_tdcp < 4) {
+    gnss_sid_set_t codes_tdcp;
+    sid_set_init(&codes_tdcp);
+    for (u8 i=0; i<n_ready_tdcp; i++) {
+      sid_set_add(&codes_tdcp, nav_meas_tdcp[i].sid);
+    }
+
+    if (sid_set_get_sat_count(&codes_tdcp) < 4) {
       /* Not enough sats to compute PVT */
       continue;
+    }
+
+    /* check if we have a solution, if yes calc iono and tropo correction */
+    if (soln_flag) {
+      ionosphere_t i_params;
+      ionosphere_t *p_i_params = &i_params;
+      /* get iono parameters if available */
+      if(!gps_iono_params_read(p_i_params)) {
+        p_i_params = NULL;
+      }
+      calc_iono_tropo(n_ready_tdcp, nav_meas_tdcp,
+                      position_solution.pos_ecef,
+                      position_solution.pos_llh,
+                      p_i_params);
     }
 
     dops_t dops;
@@ -536,10 +566,14 @@ static void solution_thread(void *arg)
         log_warn("PVT solver: %s (code %d)", pvt_err_msg[-pvt_ret-1], pvt_ret);
       );
 
+      soln_flag = false;
+
       /* Send just the DOPs and exit the loop */
       solution_send_sbp(0, &dops, clock_jump);
       continue;
     }
+
+    soln_flag = true;
 
     if (pvt_ret == 1)
 	  log_warn("calc_PVT: RAIM repair");
@@ -654,7 +688,8 @@ static void solution_thread(void *arg)
           memcpy(nm, &nav_meas_tdcp[i], sizeof(*nm));
         }
 
-        nm->raw_pseudorange += t_err * nm->raw_doppler * GPS_L1_LAMBDA;
+        nm->raw_pseudorange += t_err * nm->raw_doppler *
+                               code_to_lambda(nm->sid.code);
         nm->raw_carrier_phase += t_err * nm->raw_doppler;
 
         nm->tot = new_obs_time;
