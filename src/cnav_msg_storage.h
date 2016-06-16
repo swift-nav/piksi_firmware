@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Jacob McNamee <jacob@swiftnav.com>
+ * Contact: Pasi Miettinen <pasi.miettinen@exafore.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,22 +10,12 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "platform_signal.h"
+#ifndef LIBSWIFTNAV_CNAV_MSG_STORAGE_H
+#define LIBSWIFTNAV_CNAV_MSG_STORAGE_H
 
-#include "track/track_gps_l1ca.h"
-#include "track/track_gps_l2cm.h"
+#include <libswiftnav/cnav_msg.h>
 
-#include "decode/decode_gps_l1ca.h"
-#include "decode/decode_gps_l2c.h"
+void cnav_msg_type30_put(cnav_msg_t *msg);
+void cnav_msg_type30_get(u8 prn, cnav_msg_type_30_t *msg);
 
-void platform_track_setup(void)
-{
-  track_gps_l1ca_register();
-  track_gps_l2cm_register();
-}
-
-void platform_decode_setup(void)
-{
-  decode_gps_l1ca_register();
-  decode_gps_l2c_register();
-}
+#endif /* LIBSWIFTNAV_CNAV_MSG_STORAGE_H */
