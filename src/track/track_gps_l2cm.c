@@ -425,9 +425,20 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
   corr_t* cs = data->cs;
 
   /* Update C/N0 estimate */
+
+  /* Pre-computed C/N0 estimator and filter parameters. The parameters are
+   * computed using equivalent of cn0_est_compute_params() function for
+   * integration period of 20ms and cut-off frequency of 0.1 Hz.
+   */
+  static const cn0_est_params_t pre_computed = {
+    1.6989700e+01f, 3.9130205e-05f, -1.9822289e+00f, 9.8238545e-01f
+  };
+
   common_data->cn0 = cn0_est(&data->cn0_est,
-                            cs[1].I / data->int_ms,
-                            cs[1].Q / data->int_ms);
+                             &pre_computed,
+                             (float) cs[1].I / data->int_ms,
+                             (float) cs[1].Q / data->int_ms);
+
   if (common_data->cn0 > track_cn0_drop_thres) {
     common_data->cn0_above_drop_thres_count = common_data->update_count;
   }
