@@ -116,6 +116,31 @@ typedef struct {
 #define NAP_TRK_SPACING_INNER_Pos (16U)
 #define NAP_TRK_SPACING_INNER_Msk (0xFFFFU << NAP_TRK_SPACING_INNER_Pos)
 
+#define NAP_TRK_CONTROL_CODE_Pos (9U)
+#define NAP_TRK_CONTROL_CODE_Msk (0x3U << NAP_TRK_CONTROL_CODE_Pos)
+
+#define NAP_TRK_CONTROL_RF_FE_Pos (1U)
+#define NAP_TRK_CONTROL_RF_FE_Msk (0x3U << NAP_TRK_CONTROL_RF_FE_Pos)
+
+#define NAP_TRK_CONTROL_RF_FE_CH_Pos (0U)
+#define NAP_TRK_CONTROL_RF_FE_CH_Msk (0x1U << NAP_TRK_CONTROL_RF_FE_CH_Pos)
+
+#define NAP_TRK_STATUS_RUNNING (1 << 31)
+
+/* NAP RF fronend channel ID */
+enum {
+  NAP_RF_FRONTEND_CHANNEL_1 = 0, /* GPS L1 */
+  NAP_RF_FRONTEND_CHANNEL_2,     /* Glonass L1 */
+  NAP_RF_FRONTEND_CHANNEL_3,     /* Glonass L2 */
+  NAP_RF_FRONTEND_CHANNEL_4      /* GPS L2 */
+};
+
+/* The values of NAP_TRKx_CONTROL::CODE field */
+enum {
+  NAP_CODE_GPS_L1CA_SBAS_L1CA = 0, /* GPS L1C/A, SBAS L1CA */
+  NAP_CODE_GPS_L2CM                /* GPS L2CM */
+};
+
 /* Instances */
 #define NAP ((nap_t *)0x43C00000)
 
