@@ -33,7 +33,7 @@
 #define TP_USE_5MS_PROFILES
 #define TP_USE_10MS_PROFILES
 #define TP_USE_20MS_PROFILES
-// #define TP_USE_40MS_PROFILES
+#define TP_USE_40MS_PROFILES
 
 // #define TP_USE_MEAN_VALUES
 
@@ -60,7 +60,7 @@
 #define ARR_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 
 /** Default C/N0 threshold in dB/Hz for keeping track (for 1 ms integration) */
-#define TP_DEFAULT_CN0_USE_THRESHOLD  (37.f)
+#define TP_DEFAULT_CN0_USE_THRESHOLD  (31.f)
 /** Default C/N0 threshold in dB/Hz for dropping track (for 1 ms integration) */
 #define TP_DEFAULT_CN0_DROP_THRESHOLD (31.f)
 
@@ -256,14 +256,16 @@ static const tp_loop_params_t loop_params[] = {
   /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
   { 1, .7f, 1, 1540, 8, .7f, 1.f, 0, 20, TP_TM_LONG_MODE }, /*TP_LP_IDX_20MS_S*/
   /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
-  { 1, .9f, 1, 1540, 12, .9f, 1.f, 0, 20, TP_TM_LONG_MODE },/*TP_LP_IDX_20MS_N*/
+  { 1, .7f, 1, 1540, 10, .7f, 1.f, 0, 20, TP_TM_LONG_MODE },/*TP_LP_IDX_20MS_N*/
   /*  "(20 ms, (1, 0.7, 1, 1540), (12, 0.7, 1, 0))" */
-  { 1, .9f, 1, 1540, 12, .9f, 1.f, 0, 20, TP_TM_LONG_MODE },/*TP_LP_IDX_20MS_U*/
+  { 1, .7f, 1, 1540, 12, .7f, 1.f, 0, 20, TP_TM_LONG_MODE },/*TP_LP_IDX_20MS_U*/
 #endif /* TP_USE_20MS_PROFILES */
 
 #ifdef TP_USE_40MS_PROFILES
   /*  "(40 ms, (1, 0.7, 1, 1540), (8, 0.7, 1, 0))" */
-  { 1, .7f, 1, 1540, 12, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_20MS_S*/
+  { 1, .7f, 1, 1540, 3, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_S*/
+  { 1, .7f, 1, 1540, 4, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_N*/
+  { 1, .7f, 1, 1540, 4, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_U*/
 #endif /* TP_USE_40MS_PROFILES */
 };
 
@@ -300,11 +302,13 @@ enum
 #ifdef TP_USE_20MS_PROFILES
   TP_LP_IDX_20MS_S, /**< 20MS 1+N integration; stable. */
   TP_LP_IDX_20MS_N, /**< 20MS 1+N integration; normal. */
-  TP_LP_IDX_20MS_U  /**< 20MS 1+N integration; unstable. */
+  TP_LP_IDX_20MS_U, /**< 20MS 1+N integration; unstable. */
 #endif /* TP_USE_20MS_PROFILES */
 
 #ifdef TP_USE_40MS_PROFILES
-  TP_LP_IDX_40MS,   /**< 40MS 1+N2 integration; stable. */
+  TP_LP_IDX_40MS_S,   /**< 40MS 1+N2 integration; stable. */
+  TP_LP_IDX_40MS_N,   /**< 40MS 1+N2 integration; normal. */
+  TP_LP_IDX_40MS_U,   /**< 40MS 1+N2 integration; unstable. */
 #endif /* TP_USE_40MS_PROFILES */
 };
 
@@ -340,11 +344,11 @@ static const tp_loop_params_row_t profile_matrix[] = {
 #endif /* TP_USE_10MS_PROFILES */
 
 #ifdef TP_USE_20MS_PROFILES
-  {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_20MS_S, TP_LP_IDX_20MS_N, TP_LP_IDX_20MS_U}}
+  {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_20MS_S, TP_LP_IDX_20MS_N, TP_LP_IDX_20MS_U}},
 #endif /* TP_USE_20MS_PROFILES */
 
 #ifdef TP_USE_40MS_PROFILES
-  {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_40MS, TP_LP_IDX_40MS, TP_LP_IDX_40MS}}
+  {TP_LD_PARAMS_NORMAL, {TP_LP_IDX_40MS_S, TP_LP_IDX_40MS_N, TP_LP_IDX_40MS_U}},
 #endif /* TP_USE_20MS_PROFILES */
 };
 
@@ -1109,6 +1113,23 @@ bool tp_has_new_profile(gnss_signal_t sid)
   if (NULL != profile) {
     check_for_profile_change(profile);
     res = profile->profile_update != 0;
+  }
+  return res;
+}
+
+tp_result_e tp_get_next_coherent_ms(gnss_signal_t sid, u8 *data)
+{
+  tp_result_e res = TP_RESULT_ERROR;
+  tp_profile_internal_t *profile = find_profile(sid);
+  if (NULL != data && NULL != profile) {
+    u8 lp_idx = profile_matrix[profile->next_profile_i].loop_params[profile->next_profile_d];
+    *data = loop_params[lp_idx].coherent_ms;
+
+    if (profile->next_profile_i != profile->cur_profile_i ||
+        profile->next_profile_d != profile->cur_profile_d)
+      res = TP_RESULT_SUCCESS;
+    else
+      res = TP_RESULT_NO_DATA;
   }
   return res;
 }

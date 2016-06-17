@@ -117,8 +117,8 @@ static void tracker_gps_l1ca_update_parameters(
   const tp_loop_params_t *l = &next_params->loop_params;
   const tp_lock_detect_params_t *ld = &next_params->lock_detect_params;
 
-  data->int_ms = MIN(l->coherent_ms,
-                     tracker_bit_length_get(channel_info->context));
+  //data->int_ms = MIN(l->coherent_ms,
+  //                   tracker_bit_length_get(channel_info->context));
   data->tracking_mode = next_params->loop_params.mode;
   bool use_alias_detection = data->use_alias_detection;
   data->use_alias_detection = next_params->use_alias_detection;
@@ -557,11 +557,11 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     assert(false);
   }
   if (data->tracking_mode == TP_TM_ONE_PLUS_N2 ) {
-    log_info_sid(channel_info->sid, "Scan: %d: n=%d/%d b=%d/%d s=%d/%d",
-                 data->cycle_cnt,
-                 cs_now[1].I, cs_now[1].Q,
-                 cs_bit[1].I, cs_bit[1].Q,
-                 data->cs[1].I, data->cs[1].Q);
+//    log_info_sid(channel_info->sid, "Scan: %d: n=%d/%d b=%d/%d s=%d/%d",
+//                 data->cycle_cnt,
+//                 cs_now[1].I, cs_now[1].Q,
+//                 cs_bit[1].I, cs_bit[1].Q,
+//                 data->cs[1].I, data->cs[1].Q);
   }
 
   common_data->TOW_ms = tracker_tow_update(channel_info->context,
@@ -683,8 +683,14 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     }
 
     if (data->has_next_params) {
-      float k1 = 1.f/40.f;
-      float k2 = 1.f/160.f;
+      /* Transitional state: when the next interval has a different integration
+       * period, the controller will give wrong correction. Due to that the
+       * input parameters are scaled to stabilize tracker.
+       */
+      u8 next_ms = 1;
+      tp_get_next_coherent_ms(channel_info->sid, &next_ms);
+      float k1 = (float)data->int_ms / next_ms;
+      float k2 = k1 * k1;
       for (u32 i = 0; i < 3; i++) {
         cs2[i].I *= k1;
         cs2[i].Q *= k2;
