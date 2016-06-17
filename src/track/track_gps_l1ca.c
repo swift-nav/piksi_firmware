@@ -687,18 +687,17 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
        * period, the controller will give wrong correction. Due to that the
        * input parameters are scaled to stabilize tracker.
        */
-      u8 next_ms = 1;
-      tp_get_next_coherent_ms(channel_info->sid, &next_ms);
-      float k1 = (float)data->int_ms / next_ms;
+      const tp_loop_params_t *lp = tp_get_next_loop_params(channel_info->sid);
+      /* TODO utilize noise bandwidth and damping ratio */
+      float k1 = (float)data->int_ms / lp->coherent_ms;
       float k2 = k1 * k1;
       for (u32 i = 0; i < 3; i++) {
         cs2[i].I *= k1;
         cs2[i].Q *= k2;
       }
-      aided_tl_update(&data->tl_state, cs2);
-    } else {
-      aided_tl_update(&data->tl_state, cs2);
     }
+
+    aided_tl_update(&data->tl_state, cs2);
     common_data->carrier_freq = data->tl_state.carr_freq;
     common_data->code_phase_rate = data->tl_state.code_freq + GPS_CA_CHIPPING_RATE;
 

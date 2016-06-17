@@ -28,11 +28,11 @@
 /*
  * Configuration section: select which features are enabled here.
  */
-#define TP_USE_1MS_PROFILES
-#define TP_USE_2MS_PROFILES
-#define TP_USE_5MS_PROFILES
-#define TP_USE_10MS_PROFILES
-#define TP_USE_20MS_PROFILES
+//#define TP_USE_1MS_PROFILES
+//#define TP_USE_2MS_PROFILES
+//#define TP_USE_5MS_PROFILES
+//#define TP_USE_10MS_PROFILES
+//#define TP_USE_20MS_PROFILES
 #define TP_USE_40MS_PROFILES
 
 // #define TP_USE_MEAN_VALUES
@@ -263,8 +263,8 @@ static const tp_loop_params_t loop_params[] = {
 
 #ifdef TP_USE_40MS_PROFILES
   /*  "(40 ms, (1, 0.7, 1, 1540), (8, 0.7, 1, 0))" */
-  { 1, .7f, 1, 1540, 3, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_S*/
-  { 1, .7f, 1, 1540, 4, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_N*/
+  { .5f, .7f, 1, 1540, 3, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_S*/
+  { .7f, .7f, 1, 1540, 4, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_N*/
   { 1, .7f, 1, 1540, 4, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_U*/
 #endif /* TP_USE_40MS_PROFILES */
 };
@@ -871,21 +871,27 @@ static float compute_cn0_profile_offset(u8 profile_i, u8 profile_d)
     case 2:
       cn0_offset_index = 1;
       break;
+
     case 4:
       cn0_offset_index = 3;
       break;
+
     case 5:
       cn0_offset_index = 4;
       break;
+
     case 10:
       cn0_offset_index = 6;
       break;
+
     case 20:
       cn0_offset_index = 8;
       break;
+
     case 40:
       cn0_offset_index = 10;
       break;
+
     default:
       assert(false);
     }
@@ -1117,19 +1123,21 @@ bool tp_has_new_profile(gnss_signal_t sid)
   return res;
 }
 
-tp_result_e tp_get_next_coherent_ms(gnss_signal_t sid, u8 *data)
+/**
+ * Helper to obtain loop parameters for the next integration interval.
+ *
+ * \param[in] sid GNSS satellite id.
+ *
+ * \return Loop parameters for the next integration interval
+ */
+const tp_loop_params_t *tp_get_next_loop_params(gnss_signal_t sid)
 {
-  tp_result_e res = TP_RESULT_ERROR;
+  const tp_loop_params_t *res = &loop_params[0];
   tp_profile_internal_t *profile = find_profile(sid);
-  if (NULL != data && NULL != profile) {
-    u8 lp_idx = profile_matrix[profile->next_profile_i].loop_params[profile->next_profile_d];
-    *data = loop_params[lp_idx].coherent_ms;
-
-    if (profile->next_profile_i != profile->cur_profile_i ||
-        profile->next_profile_d != profile->cur_profile_d)
-      res = TP_RESULT_SUCCESS;
-    else
-      res = TP_RESULT_NO_DATA;
+  if (NULL != profile) {
+    u8 lp_idx = profile_matrix[profile->next_profile_i].
+        loop_params[profile->next_profile_d];
+    res = &loop_params[lp_idx];
   }
   return res;
 }
