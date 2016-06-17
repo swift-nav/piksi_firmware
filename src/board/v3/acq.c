@@ -29,7 +29,7 @@
 #define FFT_SCALE_SCHED_CODE 0x15555555
 #define FFT_SCALE_SCHED_SAMPLES 0x15555555
 #define FFT_SCALE_SCHED_INV 0x15550000
-#define FFT_SAMPLES_INPUT FFT_SAMPLES_INPUT_RF1_CH0
+#define FFT_SAMPLES_INPUT FFT_SAMPLES_INPUT_RF1
 
 static void code_resample(gnss_signal_t sid, float chips_per_sample,
                           fft_cplx_t *resampled, u32 resampled_length);
