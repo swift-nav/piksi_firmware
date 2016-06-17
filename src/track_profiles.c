@@ -28,12 +28,12 @@
 /*
  * Configuration section: select which features are enabled here.
  */
-//#define TP_USE_1MS_PROFILES
-//#define TP_USE_2MS_PROFILES
-//#define TP_USE_5MS_PROFILES
-//#define TP_USE_10MS_PROFILES
-// #define TP_USE_20MS_PROFILES
-#define TP_USE_40MS_PROFILES
+#define TP_USE_1MS_PROFILES
+#define TP_USE_2MS_PROFILES
+#define TP_USE_5MS_PROFILES
+#define TP_USE_10MS_PROFILES
+#define TP_USE_20MS_PROFILES
+// #define TP_USE_40MS_PROFILES
 
 // #define TP_USE_MEAN_VALUES
 
