@@ -14,9 +14,10 @@
 #define SWIFTNAV_NAP_REGS_H
 
 #include <stdint.h>
+#include "nap_constants.h"
 
 /** Max number of tracking channels NAP configuration will be built with. */
-#define NAP_MAX_N_TRACK_CHANNELS     32
+#define NAP_MAX_N_TRACK_CHANNELS     24
 
 typedef struct {
   volatile uint32_t STATUS;
