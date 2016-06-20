@@ -1,9 +1,9 @@
 [submodule "libswiftnav"]
 	path = libswiftnav
-	url = https://github.com/swift-nav/libswiftnav-private.git
+	url = ssh://git@github.com/swift-nav/libswiftnav-private.git
 [submodule "ChibiOS-RT"]
 	path = ChibiOS
-	url = https://github.com/swift-nav/ChibiOS
+	url = ssh://git@github.com/swift-nav/ChibiOS
 [submodule "libsbp"]
 	path = libsbp
-	url = https://github.com/swift-nav/libsbp.git
+	url = ssh://git@github.com/swift-nav/libsbp.git
