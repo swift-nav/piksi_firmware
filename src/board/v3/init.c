@@ -23,8 +23,10 @@
 #include "peripherals/leds.h"
 #include "board/nap/nap_common.h"
 #include "nap/nap_conf.h"
+#include "nap/fft.h"
 #include "sbp.h"
 #include "error.h"
+#include "frontend.h"
 
 #define REQUIRED_NAP_VERSION_MASK (0xFFFF0000U)
 #define REQUIRED_NAP_VERSION_VAL  (0x03000000U)
@@ -68,6 +70,21 @@ void pre_init(void)
   led_setup();
 }
 
+static void random_init(void)
+{
+  u64 sample_data;
+  u32 seed = 0;
+  u32 sample_count;
+
+  if (!raw_samples_get((void*)&sample_data, sizeof(sample_data), &sample_count))
+    log_error("Failed to read sample buffer for RNG seed");
+
+  for (int i = 0; i < 32; i++)
+    seed ^= sample_data >> i;
+
+  srand(seed);
+}
+
 void init(void)
 {
   fault_handling_setup();
@@ -78,7 +95,8 @@ void init(void)
   nap_auth_check();
   nap_callbacks_setup();
 
-  srand(0);
+  frontend_configure();
+  random_init();
 }
 
 static bool nap_version_ok(u32 version)
