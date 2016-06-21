@@ -14,6 +14,7 @@
 #define SWIFTNAV_FFT_H
 
 #include <libswiftnav/common.h>
+#include <libswiftnav/signal.h>
 
 #define FFT_LEN_LOG2_MIN 15
 #define FFT_LEN_LOG2_MAX 15
@@ -39,10 +40,10 @@ typedef enum {
 } fft_samples_input_t;
 
 bool fft(const fft_cplx_t *in, fft_cplx_t *out, u32 len_log2,
-         fft_dir_t dir, u32 scale_schedule);
+         fft_dir_t dir, u32 scale_schedule, constellation_t gnss);
 
 bool fft_samples(fft_samples_input_t samples_input, fft_cplx_t *out,
                  u32 len_log2, fft_dir_t dir, u32 scale_schedule,
-                 u32 *sample_count);
+                 u32 *sample_count, constellation_t gnss);
 
 #endif /* SWIFTNAV_FFT_H */

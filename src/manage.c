@@ -9,7 +9,7 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
-
+#define DEBUG 1
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -118,6 +118,8 @@ static almanac_t almanac[PLATFORM_SIGNAL_COUNT];
 static float elevation_mask = 0.0; /* degrees */
 static bool sbas_enabled = false;
 
+static bool glo_enabled = true;
+
 static void acq_result_send(gnss_signal_t sid, float snr, float cp, float cf);
 
 static u8 manage_track_new_acq(gnss_signal_t sid);
@@ -197,6 +199,15 @@ void manage_acq_setup()
       acq_status[i].masked = true;
       track_mask[i] = true;
     }
+
+    if (!glo_enabled &&
+        (sid_to_constellation(acq_status[i].sid) == CONSTELLATION_GLO)) {
+      acq_status[i].masked = true;
+      track_mask[i] = true;
+    }
+    if (sid_to_constellation(acq_status[i].sid) == CONSTELLATION_GLO)
+      log_debug("GLO SV %u (%u), mask %u, state %u", acq_status[i].sid.sat,
+                acq_status[i].sid.code, acq_status[i].masked, acq_status[i].state);
   }
 
   sbp_register_cbk(
@@ -381,6 +392,8 @@ static void manage_acq()
     acq->dopp_hint_high = ACQ_FULL_CF_MAX;
     acq->dopp_hint_low = ACQ_FULL_CF_MIN;
   }
+
+  log_debug("SV %u (%u) selected", acq->sid.sat, acq->sid.code);
 
   acq_result_t acq_result;
   if (acq_search(acq->sid, acq->dopp_hint_low, acq->dopp_hint_high,

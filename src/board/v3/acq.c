@@ -22,8 +22,6 @@
 #include "nap/nap_hw.h"
 #include "nap/fft.h"
 
-#define CHIP_RATE 1.023e6f
-#define CODE_LENGTH 1023
 #define CODE_MULT 16384
 #define RESULT_DIV 32
 #define FFT_SCALE_SCHED_CODE 0x15555555
@@ -46,13 +44,15 @@ bool acq_search(gnss_signal_t sid, float cf_min, float cf_max,
   u32 fft_len_log2 = FFT_LEN_LOG2_MAX;
   u32 fft_len = 1 << fft_len_log2;
   float fft_bin_width = NAP_ACQ_SAMPLE_RATE_Hz / fft_len;
-  float chips_per_sample = CHIP_RATE / NAP_ACQ_SAMPLE_RATE_Hz;
+  float chips_per_sample = code_to_chip_rate(sid.code) / NAP_ACQ_SAMPLE_RATE_Hz;
+  constellation_t gnss = sid_to_constellation(sid);
 
   /* Generate, resample, and FFT code */
   static fft_cplx_t code_fft[FFT_LEN_MAX];
   code_resample(sid, chips_per_sample, code_fft, fft_len);
   if (!fft(code_fft, code_fft, fft_len_log2,
-           FFT_DIR_FORWARD, FFT_SCALE_SCHED_CODE)) {
+           FFT_DIR_FORWARD, FFT_SCALE_SCHED_CODE,
+           gnss)) {
     return false;
   }
 
@@ -60,7 +60,8 @@ bool acq_search(gnss_signal_t sid, float cf_min, float cf_max,
   u32 sample_count;
   static fft_cplx_t sample_fft[FFT_LEN_MAX];
   if(!fft_samples(FFT_SAMPLES_INPUT, sample_fft, fft_len_log2,
-                  FFT_DIR_FORWARD, FFT_SCALE_SCHED_SAMPLES, &sample_count)) {
+                  FFT_DIR_FORWARD, FFT_SCALE_SCHED_SAMPLES, &sample_count,
+                  gnss)) {
     return false;
   }
 
@@ -98,7 +99,7 @@ bool acq_search(gnss_signal_t sid, float cf_min, float cf_max,
 
     /* Inverse FFT */
     if (!fft(result_fft, result_fft, fft_len_log2,
-             FFT_DIR_BACKWARD, FFT_SCALE_SCHED_INV)) {
+             FFT_DIR_BACKWARD, FFT_SCALE_SCHED_INV, gnss)) {
       return false;
     }
 
@@ -133,7 +134,8 @@ bool acq_search(gnss_signal_t sid, float cf_min, float cf_max,
   /* Compute code phase */
   float cp = chips_per_sample * corrected_sample_offset;
   /* Modulus code length */
-  cp -= CODE_LENGTH * floorf(cp / CODE_LENGTH);
+  cp -= code_to_chip_count(sid.code)
+        * floorf(cp / code_to_chip_count(sid.code));
 
   /* Compute C/N0 */
   float snr = best_mag_sq / (best_mag_sq_sum / fft_len);
@@ -152,7 +154,7 @@ static void code_resample(gnss_signal_t sid, float chips_per_sample,
                           fft_cplx_t *resampled, u32 resampled_length)
 {
   const u8 *code = ca_code(sid);
-  u32 code_length = CODE_LENGTH;
+  u32 code_length = code_to_chip_count(sid.code);
 
   float chip_offset = 0.0f;
   for (u32 i=0; i<resampled_length; i++) {
