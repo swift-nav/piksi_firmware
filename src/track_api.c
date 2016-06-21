@@ -189,10 +189,10 @@ void tracker_bit_sync_update(tracker_context_t *context, u32 int_ms,
 u8 tracker_bit_length_get(tracker_context_t *context)
 {
   const tracker_channel_info_t *channel_info;
-    tracker_internal_data_t *internal_data;
-    tracker_internal_context_resolve(context, &channel_info, &internal_data);
+  tracker_internal_data_t *internal_data;
+  tracker_internal_context_resolve(context, &channel_info, &internal_data);
 
-    return internal_data->bit_sync.bit_length;
+  return internal_data->bit_sync.bit_length;
 }
 
 /** Get the bit alignment state for a tracker channel.
@@ -205,11 +205,51 @@ u8 tracker_bit_length_get(tracker_context_t *context)
 bool tracker_bit_aligned(tracker_context_t *context)
 {
   const tracker_channel_info_t *channel_info;
-    tracker_internal_data_t *internal_data;
-    tracker_internal_context_resolve(context, &channel_info, &internal_data);
+  tracker_internal_data_t *internal_data;
+  tracker_internal_context_resolve(context, &channel_info, &internal_data);
 
   return (internal_data->bit_sync.bit_phase ==
             internal_data->bit_sync.bit_phase_ref);
+}
+
+/**
+ * Tests if the bit sync is established in a tracker channel.
+ *
+ * \param context     Tracker context.
+ *
+ * \retval true  Bit sync has been established
+ * \retval false Bit sync is not established.
+ */
+bool tracker_has_bit_sync(tracker_context_t *context)
+{
+  const tracker_channel_info_t *channel_info;
+  tracker_internal_data_t *internal_data;
+  tracker_internal_context_resolve(context, &channel_info, &internal_data);
+
+  return (BITSYNC_UNSYNCED != internal_data->bit_sync.bit_phase_ref);
+}
+
+/**
+ * Tests if the bit sync is established in a tracker channel.
+ *
+ * \param context     Tracker context.
+ * \param int_ms      Next integration period in milliseconds.
+ *
+ * \retval true  Bit sync has been established and the next integration is bit
+ *               aligned.
+ * \retval false bit sync is not established or the next integration is not bit
+ *               aligned.
+ */
+bool tracker_next_bit_aligned(tracker_context_t *context, u32 int_ms)
+{
+  const tracker_channel_info_t *channel_info;
+  tracker_internal_data_t *internal_data;
+  tracker_internal_context_resolve(context, &channel_info, &internal_data);
+
+  s32 next_bit_phase = internal_data->bit_sync.bit_phase + int_ms;
+  next_bit_phase %= internal_data->bit_sync.bit_length;
+
+  return (next_bit_phase == internal_data->bit_sync.bit_phase_ref);
 }
 
 /** Sets a channel's carrier phase ambiguity to unknown.
