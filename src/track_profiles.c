@@ -30,9 +30,9 @@
  */
 //#define TP_USE_1MS_PROFILES
 //#define TP_USE_2MS_PROFILES
-//#define TP_USE_5MS_PROFILES
-//#define TP_USE_10MS_PROFILES
-//#define TP_USE_20MS_PROFILES
+#define TP_USE_5MS_PROFILES
+#define TP_USE_10MS_PROFILES
+#define TP_USE_20MS_PROFILES
 #define TP_USE_40MS_PROFILES
 
 // #define TP_USE_MEAN_VALUES
@@ -62,10 +62,10 @@
 /** Default C/N0 threshold in dB/Hz for keeping track (for 1 ms integration) */
 #define TP_DEFAULT_CN0_USE_THRESHOLD  (31.f)
 /** Default C/N0 threshold in dB/Hz for dropping track (for 1 ms integration) */
-#define TP_DEFAULT_CN0_DROP_THRESHOLD (31.f)
+#define TP_DEFAULT_CN0_DROP_THRESHOLD (25.5f)
 
 /** C/N0 threshold when we can't say if we are still tracking */
-#define TP_HARD_CN0_DROP_THRESHOLD (26.5f)
+#define TP_HARD_CN0_DROP_THRESHOLD (10.5f)
 /** Fixed SNR offset for converting 1ms C/N0 to SNR */
 #define TP_SNR_OFFSET  (-160.f)
 /** C/N0 threshold for increasing integration time */
@@ -263,7 +263,7 @@ static const tp_loop_params_t loop_params[] = {
 
 #ifdef TP_USE_40MS_PROFILES
   /*  "(40 ms, (1, 0.7, 1, 1540), (8, 0.7, 1, 0))" */
-  { .5f, .7f, 1, 1540, 3, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_S*/
+  { .5f, .7f, 1, 1540, 1, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_S*/
   { .7f, .7f, 1, 1540, 4, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_N*/
   { 1, .7f, 1, 1540, 4, .7f, 1.f, 0, 40, TP_TM_ONE_PLUS_N2 }, /*TP_LP_IDX_40MS_U*/
 #endif /* TP_USE_40MS_PROFILES */
@@ -756,8 +756,11 @@ static void check_for_profile_change(tp_profile_internal_t *profile)
           profile->accel_count = 0;
           reason2 = dyn_reason;
           if (must_change_profile) {
-            /* Profile change is already pending, just update the state */
-            next_profile_d = dyn_idx;
+            /* Profile change is already pending, update the state if the
+             * dynamics is not lower. Switching to longer integration time with
+             * higher dynamics may lead to loosing the track */
+            if (dyn_idx >= profile->cur_profile_d)
+              next_profile_d = dyn_idx;
           } else {
             /* Profile change due to dynamics state change only */
             /* Good PLL lock protection: no switch if lock is high */
@@ -854,6 +857,8 @@ static float compute_cn0_profile_offset(u8 profile_i, u8 profile_d)
     13.0103f, /* 20ms */
     15.9106f, /* 39ms */
     16.0206f, /* 40ms */
+    17.7085f, /* 59ms */
+    17.7815f, /* 60ms */
   };
 
   if (lp->coherent_ms > 1) {
@@ -890,6 +895,10 @@ static float compute_cn0_profile_offset(u8 profile_i, u8 profile_d)
 
     case 40:
       cn0_offset_index = 10;
+      break;
+
+    case 60:
+      cn0_offset_index = 12;
       break;
 
     default:
