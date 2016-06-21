@@ -18,6 +18,8 @@
 #include "hal.h"
 #include "zynq7000.h"
 
+#include <libswiftnav/logging.h>
+
 #define LED_GPIO_LINE PAL_LINE(GPIO1, 15)
 #define BUTTON_GPIO_LINE PAL_LINE(GPIO1, 19)
 
@@ -25,6 +27,16 @@
 #define SPI_MISO_GPIO_LINE PAL_LINE(GPIO0, 11)
 #define SPI_CLK_GPIO_LINE PAL_LINE(GPIO0, 12)
 #define SPI_SS_GPIO_LINE PAL_LINE(GPIO0, 13)
+
+#define REBOOT_STATUS (*(volatile uint32_t *)0xF8000258)
+#define REBOOT_STATUS_POR (1 << 22)
+#define REBOOT_STATUS_SRST (1 << 21)
+#define REBOOT_STATUS_DBG_RST (1 << 20)
+#define REBOOT_STATUS_SLC_RST (1 << 19)
+#define REBOOT_STATUS_AWDT1_RST (1 << 18)
+#define REBOOT_STATUS_AWDT0_RST (1 << 17)
+#define REBOOT_STATUS_SWDT_RST (1 << 16)
+#define REBOOT_STATUS_REASON (0x3F << 16)
 
 const PALConfig pal_default_config;
 const WDGConfig board_wdg_config = {
@@ -93,5 +105,16 @@ void boardInit(void)
 
 void board_preinit_hook(void)
 {
+  uint32_t s = REBOOT_STATUS;
+  if (s & REBOOT_STATUS_REASON) {
+    if (s & (REBOOT_STATUS_SWDT_RST | REBOOT_STATUS_AWDT1_RST |
+                  REBOOT_STATUS_AWDT0_RST))
+      log_error("Piksi has reset due to a watchdog timeout.");
+    if (s & REBOOT_STATUS_SLC_RST)
+      log_info("Software reset detected.");
+    log_info("Reset reason: %02X", s >> 16);
+  }
+  REBOOT_STATUS &= 0xff000000;
+
 }
 
