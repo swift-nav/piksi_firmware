@@ -7,6 +7,3 @@
 [submodule "libsbp"]
 	path = libsbp
 	url = https://github.com/swift-nav/libsbp.git
-[submodule "gdb_chibios"]
-	path = gdb_chibios
-	url = https://github.com/gsmcmullin/gdb_chibios.git
