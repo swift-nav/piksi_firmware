@@ -35,8 +35,9 @@ MMUTable:
 .set    SECT, SECT+0x100000
 .endr
 
-.rept   0x0400              /* 0x80000000 - 0xbfffffff (FPGA slave1) */
-.word   SECT + 0xc02        /* S=b0 TEX=b000 AP=b11, Domain=b0, C=b0, B=b1 */
+.rept   0x0400              /* 0x80000000 - 0xbfffffff (FPGA slave1).
+							 * Generates a translation fault if accessed */
+.word   SECT + 0x0          /* S=b0 TEX=b000 AP=b00, Domain=b0, C=b0, B=b0 */
 .set    SECT, SECT+0x100000
 .endr
 
