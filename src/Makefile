@@ -199,9 +199,11 @@ CPPWARN = -Wall -Wextra -Werror
 # Start of default section
 #
 
-# List all default C defines here, like -D_DEBUG=1
 GIT_VERSION := $(shell git describe --dirty)
-DDEFS = -DGIT_VERSION="\"$(GIT_VERSION)\""
+VERSION_H := $(shell echo "\#define GIT_VERSION \"$(GIT_VERSION)\"" > version.h)
+
+# List all default C defines here, like -D_DEBUG=1
+DDEFS =
 
 # List all default ASM defines here, like -D_DEBUG=1
 DADEFS =

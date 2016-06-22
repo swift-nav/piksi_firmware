@@ -18,6 +18,7 @@
 #include "../settings.h"
 #include "usart.h"
 #include "3drradio.h"
+#include "version.h"
 
 /** \addtogroup io
  * \{ */
