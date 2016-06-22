@@ -160,7 +160,7 @@ static void tracker_gps_l1ca_init(const tracker_channel_info_t *channel_info,
   data->short_cycle = true;
 
   /* Initialise C/N0 estimator */
-  cn0_est_init(&data->cn0_est, 1e3/data->int_ms, common_data->cn0, CN0_EST_LPF_CUTOFF, 1e3/data->int_ms);
+  cn0_est_init(&data->cn0_est, 1e3/data->int_ms, common_data->cn0);
 
   lock_detect_init(&data->lock_detect,
                    lock_detect_params.k1, lock_detect_params.k2,
@@ -319,8 +319,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
                        tracker_bit_length_get(channel_info->context));
     data->short_cycle = true;
 
-    cn0_est_init(&data->cn0_est, 1e3 / data->int_ms, common_data->cn0,
-                 CN0_EST_LPF_CUTOFF, 1e3 / data->int_ms);
+    cn0_est_init(&data->cn0_est, 1e3 / data->int_ms, common_data->cn0);
 
     /* Recalculate filter coefficients */
     aided_tl_retune(&data->tl_state, 1e3 / data->int_ms,
