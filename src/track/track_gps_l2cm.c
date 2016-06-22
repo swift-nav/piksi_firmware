@@ -35,19 +35,19 @@
 #define L2C_ALIAS_DETECT_INTERVAL_MS     500
 
 /* Number of chips to integrate over in the short cycle interval [chips]
- * The value must be within [0..(2 * GPS_L2CM_CHIPS_NUM)].
- * 2 * GPS_L2CM_CHIPS_NUM equals to 20ms
+ * The value must be within [0..GPS_L2C_CHIPS_NUM].
+ * GPS_L2C_CHIPS_NUM equals to 20ms
  */
 #define L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS 300
 
 /* Number of chips to integrate over in the long cycle interval [chips] */
 #define L2CM_TRACK_LONG_CYCLE_INTERVAL_CHIPS \
-  (2 * GPS_L2CM_CHIPS_NUM - L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
+  (GPS_L2C_CHIPS_NUM - L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
 
 /* Number of chips to integrate over in the long cycle interval
    at start-up [chips] */
 #define L2CM_TRACK_LONG_STARTUP_CYCLE_INTERVAL_CHIPS \
-  (2 * GPS_L2CM_CHIPS_NUM - 2 * L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
+  (GPS_L2C_CHIPS_NUM - 2 * L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
 
 #define L2CM_TRACK_SETTING_SECTION "l2cm_track"
 
@@ -199,7 +199,7 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
   }
 
   if (code_phase > (GPS_L1CA_CHIPS_NUM - 0.5)) {
-    code_phase = 2 * GPS_L2CM_CHIPS_NUM - (GPS_L1CA_CHIPS_NUM - code_phase);
+    code_phase = GPS_L2C_CHIPS_NUM - (GPS_L1CA_CHIPS_NUM - code_phase);
   }
 
   /* The best elevation estimation could be retrieved by calling
