@@ -42,23 +42,56 @@
 /** L2C coherent integration time [ms] */
 #define L2C_COHERENT_INTEGRATION_TIME_MS 20
 
-/* Alias detection interval [ms] */
-#define L2C_ALIAS_DETECT_INTERVAL_MS     500
+#define L2CM_ALIAS_LOCK_DETECT_1ST (1 << 0)
+#define L2CM_ALIAS_LOCK_DETECT_2ND (1 << 1)
+#define L2CM_ALIAS_LOCK_DETECT_BOTH \
+  (L2CM_ALIAS_LOCK_DETECT_1ST | L2CM_ALIAS_LOCK_DETECT_2ND)
+#define L2CM_RUN_TL                (1 << 2)
 
-/* Number of chips to integrate over in the short cycle interval [chips]
- * The value must be within [0..GPS_L2C_CHIPS_NUM].
- * GPS_L2C_CHIPS_NUM equals to 20ms
- */
-#define L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS 300
+struct fsm_states {
+  float t_diff_s; /* the time difference used by the alias lock detector [s]*/
+  u32 startup_int_time; /* start-up integration time [chips] */
+  u32 alias_acc_length; /* alias detector accumulation length */
+  struct {
+    u32 int_time;  /* integration time [chips] */
+    u8 next_fsm_state; /* next index in fsm_states::states array */
+    u8 flags;      /* bit-field of L2CM_... flags */
+  } states[23];
+};
 
-/* Number of chips to integrate over in the long cycle interval [chips] */
-#define L2CM_TRACK_LONG_CYCLE_INTERVAL_CHIPS \
-  (GPS_L2C_CHIPS_NUM - L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
+static const struct fsm_states fsm_states = {
+  1023 * 1 / GPS_CA_CHIPPING_RATE, /* alias time delta  */
+  300,  /* first integration time [chips] */
+  500,     /* alias accumulation length [ms] */
+  {
+    /* start-up case */
+    {423, 1, 0},  /* 0 */
+    {1023, 2, 0}, /* 1 */
+    {1023, 4, L2CM_ALIAS_LOCK_DETECT_1ST}, /* 2 */
 
-/* Number of chips to integrate over in the long cycle interval
-   at start-up [chips] */
-#define L2CM_TRACK_LONG_STARTUP_CYCLE_INTERVAL_CHIPS \
-  (GPS_L2C_CHIPS_NUM - 2 * L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS)
+    /* normal case */
+    {723, 2, L2CM_ALIAS_LOCK_DETECT_BOTH | L2CM_RUN_TL},  /* 3 */
+    {1023, 3, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 4 */
+    {1023, 4, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 5 */
+    {1023, 5, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 6 */
+    {1023, 6, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 7 */
+    {1023, 7, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 8 */
+    {1023, 8, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 9 */
+    {1023, 9, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 10 */
+    {1023, 10, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 11 */
+    {1023, 11, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 12 */
+    {1023, 12, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 13 */
+    {1023, 13, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 14 */
+    {1023, 14, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 15 */
+    {1023, 15, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 16 */
+    {1023, 16, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 17 */
+    {1023, 17, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 18 */
+    {1023, 18, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 19 */
+    {1023, 19, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 20 */
+    {1023, 20, L2CM_ALIAS_LOCK_DETECT_BOTH}, /* 21 */
+    {300, 3, L2CM_ALIAS_LOCK_DETECT_BOTH},  /* 22 */
+  }
+};
 
 #define L2CM_TRACK_SETTING_SECTION "l2cm_track"
 
@@ -95,14 +128,9 @@ typedef struct {
   corr_t cs[3];                /**< EPL correlation results in correlation period. */
   cn0_est_state_t cn0_est;     /**< C/N0 Estimator. */
   u8 int_ms;                   /**< Integration length. */
-  bool short_cycle;            /**< Set to true when a short 1ms integration is requested. */
-  u8 startup;                  /**< An indicator of start-up phase. */
-  u8 stage;                    /**< 0 = First-stage. 1 ms integration.
-                                    1 = Second-stage. After nav bit sync,
-                                    retune loop filters and typically (but
-                                    not necessarily) use longer integration. */
   alias_detect_t alias_detect; /**< Alias lock detector. */
   lock_detect_t lock_detect;   /**< Phase-lock detector state. */
+  u8 fsm_state;                /**< The index of fsm_states::states array. */
 } gps_l2cm_tracker_data_t;
 
 static tracker_t gps_l2cm_trackers[NUM_GPS_L2CM_TRACKERS];
@@ -245,7 +273,7 @@ void do_l1ca_to_l2cm_handover(u32 sample_count,
     /* recalculate doppler freq for L2 from L1*/
     .carrier_freq       = carrier_freq * GPS_L2_HZ / GPS_L1_HZ,
     .code_phase         = code_phase,
-    .chips_to_correlate = L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS,
+    .chips_to_correlate = fsm_states.startup_int_time,
     /* get initial cn0 from parent L1 channel */
     .cn0_init           = cn0_init,
     .elevation          = TRACKING_ELEVATION_UNKNOWN
@@ -281,9 +309,6 @@ static void tracker_gps_l2cm_init(const tracker_channel_info_t *channel_info,
                 l->carr_bw, l->carr_zeta, l->carr_k,
                 l->carr_fll_aid_gain);
 
-  data->short_cycle = true;
-  data->startup = 2;
-
   /* Initialise C/N0 estimator */
   cn0_est_init(&data->cn0_est, 1e3 / data->int_ms, common_data->cn0,
                CN0_EST_LPF_CUTOFF, 1e3 / data->int_ms);
@@ -293,17 +318,16 @@ static void tracker_gps_l2cm_init(const tracker_channel_info_t *channel_info,
                    lock_detect_params.k1, lock_detect_params.k2,
                    lock_detect_params.lp, lock_detect_params.lo);
 
-  /* TODO: Reconfigure alias detection between stages */
-  u8 alias_detect_ms = l->coherent_ms;
   alias_detect_init(&data->alias_detect,
-                    L2C_ALIAS_DETECT_INTERVAL_MS / alias_detect_ms,
-                    (alias_detect_ms - 1) * 1e-3);
+                    fsm_states.alias_acc_length, fsm_states.t_diff_s);
 
   /* L2C bit sync is known once we start tracking it since
      the L2C ranging code length matches the bit length (20ms).
      This is the end of 20ms integration period and the edge
      of a data bit. */
   tracker_bit_sync_set(channel_info->context, 0);
+
+  data->fsm_state = 0;
 }
 
 static void tracker_gps_l2cm_disable(const tracker_channel_info_t *channel_info,
@@ -315,63 +339,36 @@ static void tracker_gps_l2cm_disable(const tracker_channel_info_t *channel_info,
   (void)tracker_data;
 }
 
-/** Handle tracker start-up stage.
- * The total length of coherent integrations is always 20 ms.
- * At start-up, the tracker always uses the following integration scheme:
- * 'short + short + start-up long'.
- * Then it continues with 'short + regular long' cycles.
- * The reason behind it is that when tracker gets started in NAP, we always
- * use the short integration cycle first, which is
- * L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS chips long. When the first NAP
- * interrupt arrives, the L2C tracker gets the first chance to change the
- * integration length. It sets it to be
- * L2CM_TRACK_LONG_STARTUP_CYCLE_INTERVAL_CHIPS chips. However, NAP continues
- * doing integration and still uses the previous integration length, which is
- * L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS chips long. At the next interrupt
- * FW sets the integration length to be L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS.
- *
- * \param channel_info INfo associated with a tracker channel
- * \param common_data Common tracking channel data
- * \param data L2C specific tracking channel data
+/** Runs alias detection logic
+ * \param alias_detect Alias detector's state
+ * \param I the value of in-phase arm of the correlator
+ * \param Q the value of quadrature arm of the correlator
+ * \return The frequency error of PLL [Hz]
  */
-static void handle_tracker_startup(const tracker_channel_info_t *channel_info,
-                                   tracker_common_data_t *common_data,
-                                   gps_l2cm_tracker_data_t *data)
+static s8 detect_alias(alias_detect_t *alias_detect, s32 I, s32 Q)
 {
-  corr_t cs[3];
+  float err = alias_detect_second(alias_detect, I, Q);
+  float abs_err = fabs(err);
+  int err_sign = (err > 0) ? 1 : -1;
+  s8 correction;
 
-  switch (data->startup) {
-  case 2:
-    tracker_correlations_read(channel_info->context, data->cs,
-                              &common_data->sample_count,
-                              &common_data->code_phase_early,
-                              &common_data->carrier_phase);
-    alias_detect_first(&data->alias_detect, data->cs[1].I, data->cs[1].Q);
-
-    tracker_retune(channel_info->context, common_data->carrier_freq,
-                   common_data->code_phase_rate,
-                   L2CM_TRACK_LONG_STARTUP_CYCLE_INTERVAL_CHIPS);
-    break;
-
-  case 1:
-    tracker_correlations_read(channel_info->context, cs,
-                              &common_data->sample_count,
-                              &common_data->code_phase_early,
-                              &common_data->carrier_phase);
-    /* Accumulate two short cycle correlations */
-    for(int i = 0; i < 3; i++) {
-      data->cs[i].I += cs[i].I;
-      data->cs[i].Q += cs[i].Q;
+  /* The expected frequency errors are +-(25 + N * 50) Hz
+     For more details, see:
+     https://swiftnav.hackpad.com/Alias-PLL-lock-detector-in-L2C-4fWUJWUNnOE */
+  if (abs_err > 25.) {
+    correction = 25;
+    correction += 50 * (int)((abs_err - 25) / 50);
+    abs_err -= correction;
+    if ((abs_err + 25) > 50) {
+      correction += 50;
     }
-    tracker_retune(channel_info->context, common_data->carrier_freq,
-                   common_data->code_phase_rate,
-                   L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS);
-    break;
-
-  default:
-    assert(0);
-    break;
+  } else if (abs_err > 25 / 2.) {
+    correction = 25;
+  } else {
+    correction = 0;
   }
+
+  return correction * err_sign;
 }
 
 static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
@@ -379,64 +376,57 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
                                     tracker_data_t *tracker_data)
 {
   gps_l2cm_tracker_data_t *data = tracker_data;
+  u8 flags;
+  corr_t cs[3];
+  u32 sample_count;        /* Total num samples channel has tracked for. */
+  double code_phase_early; /* Early code phase. */
+  double carrier_phase;    /* Carrier phase in NAP register units. */
 
-  if (data->startup) {
-    /* Handle start-up case, when we have 1+1+18 integration cycles */
-    handle_tracker_startup(channel_info, common_data, data);
-    if (1 == data->startup) {
-      /* The start-up phase is over. Continue with the normal
-         sequence of short & long cycles. The next cycle
-         is going to be long. */
-      data->short_cycle = false;
-    }
-    if (data->startup) {
-      data->startup--;
-    }
-    return;
+  tracker_correlations_read(channel_info->context, cs,
+                            &sample_count,
+                            &code_phase_early,
+                            &carrier_phase);
+
+  for(int i = 0; i < 3; i++) {
+    data->cs[i].I += cs[i].I;
+    data->cs[i].Q += cs[i].Q;
   }
 
-  /* Read early ([0]), prompt ([1]) and late ([2]) correlations. */
-  if (data->short_cycle) {
-    /* The throw away data. They are not needed for the short cycle.
-       And we also do not want to clobber common_data content
-       as it contains valid data for the previous full 20 ms cycle. */
-    u32 sample_count;        /* Total num samples channel has tracked for. */
-    double code_phase_early; /* Early code phase. */
-    double carrier_phase;    /* Carrier phase in NAP register units. */
+  tracker_retune(channel_info->context, common_data->carrier_freq,
+                 common_data->code_phase_rate,
+                 fsm_states.states[data->fsm_state].int_time);
 
-    tracker_correlations_read(channel_info->context, data->cs,
-                              &sample_count,
-                              &code_phase_early,
-                              &carrier_phase);
+  flags = fsm_states.states[data->fsm_state].flags;
+  data->fsm_state = fsm_states.states[data->fsm_state].next_fsm_state;
 
-    alias_detect_first(&data->alias_detect, data->cs[1].I, data->cs[1].Q);
-  } else {
-    /* This is the end of the long cycle's correlations. */
-    corr_t cs[3];
-    tracker_correlations_read(channel_info->context, cs,
-                              &common_data->sample_count,
-                              &common_data->code_phase_early,
-                              &common_data->carrier_phase);
-    /* Accumulate short cycle correlations with long ones. */
-    for(int i = 0; i < 3; i++) {
-      data->cs[i].I += cs[i].I;
-      data->cs[i].Q += cs[i].Q;
+  if (flags & L2CM_ALIAS_LOCK_DETECT_2ND) {
+    s8 err = 0;
+
+    if (use_alias_detection &&
+        data->lock_detect.outp && data->lock_detect.outo) {
+      err = detect_alias(&data->alias_detect, cs[1].I, cs[1].Q);
+    }
+
+    if (err) {
+      if (data->lock_detect.outp) {
+        log_warn_sid(channel_info->sid,
+                     "False phase lock detected. Err: %dHz", -err);
+      }
+
+      tracker_ambiguity_unknown(channel_info->context);
+      /* Indicate that a mode change has occurred. */
+      common_data->mode_change_count = common_data->update_count;
+
+      data->tl_state.carr_freq += err;
+      data->tl_state.carr_filt.y = data->tl_state.carr_freq;
     }
   }
 
-  /* We're doing long integrations, alternate between short and long
-   * cycles. This is because of FPGA pipelining and latency.
-   * The loop parameters can only be updated at the end of the second
-   * integration interval.
-   */
-  bool short_cycle = data->short_cycle;
+  if (flags & L2CM_ALIAS_LOCK_DETECT_1ST) {
+    alias_detect_first(&data->alias_detect, cs[1].I, cs[1].Q);
+  }
 
-  data->short_cycle = !data->short_cycle;
-
-  if (short_cycle) {
-    tracker_retune(channel_info->context, common_data->carrier_freq,
-                   common_data->code_phase_rate,
-                   L2CM_TRACK_SHORT_CYCLE_INTERVAL_CHIPS);
+  if (0 == (flags & L2CM_RUN_TL)) {
     return;
   }
 
@@ -449,12 +439,10 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
   /* Call the bit sync update API to do data decoding */
   tracker_bit_sync_update(channel_info->context, data->int_ms, data->cs[1].I);
 
-  corr_t* cs = data->cs;
-
   /* Update C/N0 estimate */
   common_data->cn0 = cn0_est(&data->cn0_est,
-                            cs[1].I / data->int_ms,
-                            cs[1].Q / data->int_ms);
+                            data->cs[1].I / data->int_ms,
+                            data->cs[1].Q / data->int_ms);
   if (common_data->cn0 > track_cn0_drop_thres) {
     common_data->cn0_above_drop_thres_count = common_data->update_count;
   }
@@ -469,7 +457,8 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
 
   /* Update PLL lock detector */
   bool last_outp = data->lock_detect.outp;
-  lock_detect_update(&data->lock_detect, cs[1].I, cs[1].Q, data->int_ms);
+  lock_detect_update(&data->lock_detect, data->cs[1].I, data->cs[1].Q,
+                     data->int_ms);
   if (data->lock_detect.outo) {
     common_data->ld_opti_locked_count = common_data->update_count;
   }
@@ -486,12 +475,12 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
   /* Run the loop filters. */
 
   /* Output I/Q correlations using SBP if enabled for this channel */
-  tracker_correlations_send(channel_info->context, cs);
+  tracker_correlations_send(channel_info->context, data->cs);
 
   correlation_t cs2[3];
   for (u32 i = 0; i < 3; i++) {
-    cs2[i].I = cs[2-i].I;
-    cs2[i].Q = cs[2-i].Q;
+    cs2[i].I = data->cs[2-i].I;
+    cs2[i].Q = data->cs[2-i].Q;
   }
 
   aided_tl_update(&data->tl_state, cs2);
@@ -499,30 +488,10 @@ static void tracker_gps_l2cm_update(const tracker_channel_info_t *channel_info,
   common_data->code_phase_rate = data->tl_state.code_freq +
                                  GPS_CA_CHIPPING_RATE;
 
-  /* Attempt alias detection if we have pessimistic phase lock detect OR
-     optimistic phase lock detect */
-  if (use_alias_detection &&
-     (data->lock_detect.outp || data->lock_detect.outo)) {
-    s32 I = (cs[1].I - data->alias_detect.first_I) / (data->int_ms - 1);
-    s32 Q = (cs[1].Q - data->alias_detect.first_Q) / (data->int_ms - 1);
-    float err = alias_detect_second(&data->alias_detect, I, Q);
-    if (fabs(err) > (250 / data->int_ms)) {
-      if (data->lock_detect.outp) {
-        log_warn_sid(channel_info->sid, "False phase lock detected");
-      }
-
-      tracker_ambiguity_unknown(channel_info->context);
-      /* Indicate that a mode change has occurred. */
-      common_data->mode_change_count = common_data->update_count;
-
-      data->tl_state.carr_freq += err;
-      data->tl_state.carr_filt.y = data->tl_state.carr_freq;
-    }
+  for(int i = 0; i < 3; i++) {
+    data->cs[i].I = 0;
+    data->cs[i].Q = 0;
   }
-
-  tracker_retune(channel_info->context, common_data->carrier_freq,
-                 common_data->code_phase_rate,
-                 L2CM_TRACK_LONG_CYCLE_INTERVAL_CHIPS);
 }
 
 /** Parse a string describing the tracking loop filter parameters into
