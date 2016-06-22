@@ -15,6 +15,9 @@
 #define TRACK_GPS_L2CM_INTERNAL
 #include "track_gps_l2cm.h"
 #include "track_api.h"
+#include "manage.h"
+#include "track.h"
+#include "l2c_capb.h"
 
 #include <libswiftnav/constants.h>
 #include <libswiftnav/logging.h>
@@ -253,8 +256,7 @@ static void tracker_gps_l2cm_init(const tracker_channel_info_t *channel_info,
   data->startup = 2;
 
   /* Initialise C/N0 estimator */
-  cn0_est_init(&data->cn0_est, 1e3 / data->int_ms, common_data->cn0,
-               CN0_EST_LPF_CUTOFF, 1e3 / data->int_ms);
+  cn0_est_init(&data->cn0_est, 1e3 / data->int_ms, common_data->cn0);
 
   /* Initialize lock detector */
   lock_detect_init(&data->lock_detect,
