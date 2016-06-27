@@ -615,9 +615,12 @@ static void solution_thread(void *arg)
      *  exact same observations.
      */
     for (u8 i = 0; i < n_ready_tdcp; i++) {
-      double pr_err = GPS_C * gpsdifftime(&position_solution.time, &rec_time);
+      double pr_err = GPS_C * position_solution.clock_offset;
       nav_meas_tdcp[i].raw_pseudorange += pr_err;
       nav_meas_tdcp[i].pseudorange += pr_err;
+
+      nav_meas_tdcp[i].raw_carrier_phase -= pr_err / GPS_L1_LAMBDA;
+      nav_meas_tdcp[i].carrier_phase -= pr_err / GPS_L1_LAMBDA;
     }
     /*
      * The next correction is done to create a new pseudorange that is valid for
