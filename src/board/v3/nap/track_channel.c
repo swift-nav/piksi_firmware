@@ -89,7 +89,7 @@ u8 sid_to_rf_frontend_channel(gnss_signal_t sid)
     ret = NAP_RF_FRONTEND_CHANNEL_4;
     break;
   default:
-    assert(!"useful string");
+    assert(!"Unsupported SID");
     break;
   }
   return ret;
@@ -111,7 +111,7 @@ u8 sid_to_nap_code(gnss_signal_t sid)
     ret = NAP_CODE_GPS_L2CM;
     break;
   default:
-    assert(0);
+    assert(!"Unsupported SID");
     break;
   }
   return ret;
