@@ -81,9 +81,6 @@ static acq_status_t acq_status[PLATFORM_SIGNAL_COUNT];
 
 static bool track_mask[PLATFORM_SIGNAL_COUNT];
 
-static u32 l1ca_l2cm_handover_mask = 0;
-static MUTEX_DECL(handover_mask_mutex);
-
 #define SCORE_COLDSTART     100
 #define SCORE_WARMSTART     200
 #define SCORE_BELOWMASK     0
@@ -141,6 +138,11 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void)context; (void)msg;
 }
+
+static bool tracking_startup_fifo_sid_present(
+                                            const tracking_startup_fifo_t *fifo,
+                                            gnss_signal_t sid);
+
 
 static sbp_msg_callbacks_node_t mask_sat_callback_node;
 static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -671,21 +673,56 @@ bool tracking_startup_ready(gnss_signal_t sid)
   return (acq->state == ACQ_PRN_ACQUIRING) && (!acq->masked);
 }
 
+/** Check if a startup request for an sid is present in a
+ *  tracking startup FIFO.
+ *
+ * \param fifo        tracking_startup_fifo_t struct to use.
+ * \param sid         gnss_signal_t to use.
+ *
+ * \return true if the sid is present, false otherwise.
+ */
+static bool tracking_startup_fifo_sid_present(
+                                            const tracking_startup_fifo_t *fifo,
+                                            gnss_signal_t sid)
+{
+  tracking_startup_fifo_index_t read_index = fifo->read_index;
+  tracking_startup_fifo_index_t write_index = fifo->write_index;
+  COMPILER_BARRIER(); /* Prevent compiler reordering */
+  while(read_index != write_index) {
+    const tracking_startup_params_t *p =
+        &fifo->elements[read_index++ & TRACKING_STARTUP_FIFO_INDEX_MASK];
+    if (sid_is_equal(p->sid, sid)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Queue a request to start up tracking and decoding for the specified sid.
  *
  * \note This function is thread-safe and non-blocking.
  *
  * \param startup_params    Struct containing startup parameters.
  *
- * \return true if the request was successfully submitted, false otherwise.
+ * \retval 0 if the request was successfully submitted
+ * \retval 1 if requested sid is already in the fifo
+ * \retval 2 otherwise
+ *
  */
-bool tracking_startup_request(const tracking_startup_params_t *startup_params)
+u8 tracking_startup_request(const tracking_startup_params_t *startup_params)
 {
-  bool result = false;
+  u8 result = 2;
   if(chMtxTryLock(&tracking_startup_mutex))
   {
-    result = tracking_startup_fifo_write(&tracking_startup_fifo,
-                                         startup_params);
+    if(!tracking_startup_fifo_sid_present(&tracking_startup_fifo,
+                                          startup_params->sid)) {
+      if(tracking_startup_fifo_write(&tracking_startup_fifo,
+                                           startup_params)) {
+        result = 0;
+      }
+    } else {
+      result = 1;
+    }
 
     chMtxUnlock(&tracking_startup_mutex);
   }
@@ -723,10 +760,6 @@ static void manage_tracking_startup(void)
         acq->dopp_hint_high = startup_params.carrier_freq + ACQ_FULL_CF_STEP;
       }
 
-      /* release handover mask */
-      if (CODE_GPS_L2CM == startup_params.sid.code)
-        l1ca_l2cm_handover_release(startup_params.sid.sat);
-
       continue;
     }
 
@@ -740,10 +773,6 @@ static void manage_tracking_startup(void)
                              TRACKING_ELEVATION_UNKNOWN)) {
       log_error("tracker channel init failed");
     }
-
-    /* release handover mask */
-    if (CODE_GPS_L2CM == startup_params.sid.code)
-      l1ca_l2cm_handover_release(startup_params.sid.sat);
 
     /* TODO: Initialize elevation from ephemeris if we know it precisely */
 
@@ -813,36 +842,6 @@ static bool tracking_startup_fifo_read(tracking_startup_fifo_t *fifo,
   }
 
   return false;
-}
-
-/** Set satellite as being handed over.
- *
- * \param sat        satellite prn.
- *
- * \return true if satellite wasn't under handover process, otherwise false.
- */
-bool l1ca_l2cm_handover_reserve(u8 sat)
-{
-  chMtxLock(&handover_mask_mutex);
-  if (0 != (l1ca_l2cm_handover_mask & ((u32)1 << (sat - 1)))) {
-    chMtxUnlock(&handover_mask_mutex);
-    return false;
-  }
-
-  l1ca_l2cm_handover_mask |= (u32)1 << (sat - 1);
-  chMtxUnlock(&handover_mask_mutex);
-  return true;
-}
-
-/** Release satellite from being handed over.
- *
- * \param sat        satellite prn.
- */
-void l1ca_l2cm_handover_release(u8 sat)
-{
-  chMtxLock(&handover_mask_mutex);
-  l1ca_l2cm_handover_mask &= ~((u32)1 << (sat - 1));
-  chMtxUnlock(&handover_mask_mutex);
 }
 
 /** \} */
