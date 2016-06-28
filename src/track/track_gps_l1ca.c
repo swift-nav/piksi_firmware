@@ -271,6 +271,10 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     cn0_est_params_t params;
     const cn0_est_params_t *pparams = NULL;
 
+    /* TODO
+     * Store a pointer to the cn0_est_params_t in the gps_l1ca_tracker_data_t
+     * structure so we don't have to scan through the whole array each time
+     */
     for(u32 i = 0; i < INTEG_PERIODS_NUM; i++) {
       if(data->int_ms == integration_periods[i]) {
         pparams = &cn0_est_pre_computed[i];
