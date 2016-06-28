@@ -50,6 +50,27 @@
 
 #define CN0_EST_LPF_CUTOFF 5
 
+#define INTEG_PERIOD_1_MS  1
+#define INTEG_PERIOD_2_MS  2
+#define INTEG_PERIOD_4_MS  4
+#define INTEG_PERIOD_5_MS  5
+#define INTEG_PERIOD_10_MS 10
+#define INTEG_PERIOD_20_MS 20
+
+static const u8 integration_periods[] = {
+  INTEG_PERIOD_1_MS,
+  INTEG_PERIOD_2_MS,
+  INTEG_PERIOD_4_MS,
+  INTEG_PERIOD_5_MS,
+  INTEG_PERIOD_10_MS,
+  INTEG_PERIOD_20_MS
+};
+
+#define INTEG_PERIODS_NUM (sizeof(integration_periods) / \
+                           sizeof(integration_periods[0]))
+
+static cn0_est_params_t cn0_est_pre_computed[INTEG_PERIODS_NUM];
+
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
   float carr_bw, carr_zeta, carr_k, carr_fll_aid_gain;
@@ -97,6 +118,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
 static bool parse_loop_params(struct setting *s, const char *val);
 static bool parse_lock_detect_params(struct setting *s, const char *val);
+static void precompute_cn0_est_params(void);
 
 static const tracker_interface_t tracker_interface_gps_l1ca = {
   .code =         CODE_GPS_L1CA,
@@ -127,6 +149,8 @@ void track_gps_l1ca_register(void)
     gps_l1ca_trackers[i].active = false;
     gps_l1ca_trackers[i].data = &gps_l1ca_tracker_data[i];
   }
+
+  precompute_cn0_est_params();
 
   tracker_interface_register(&tracker_interface_list_element_gps_l1ca);
 }
@@ -160,7 +184,7 @@ static void tracker_gps_l1ca_init(const tracker_channel_info_t *channel_info,
   data->short_cycle = true;
 
   /* Initialise C/N0 estimator */
-  cn0_est_init(&data->cn0_est, 1e3/data->int_ms, common_data->cn0, CN0_EST_LPF_CUTOFF, 1e3/data->int_ms);
+  cn0_est_init(&data->cn0_est, 1e3/data->int_ms, common_data->cn0);
 
   lock_detect_init(&data->lock_detect,
                    lock_detect_params.k1, lock_detect_params.k2,
@@ -238,7 +262,28 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   corr_t* cs = data->cs;
 
   /* Update C/N0 estimate */
-  common_data->cn0 = cn0_est(&data->cn0_est, cs[1].I/data->int_ms, cs[1].Q/data->int_ms);
+  {
+    cn0_est_params_t params;
+    const cn0_est_params_t *pparams = NULL;
+
+    for(u32 i = 0; i < INTEG_PERIODS_NUM; i++) {
+      if(data->int_ms == integration_periods[i]) {
+        pparams = &cn0_est_pre_computed[i];
+        break;
+      }
+    }
+
+    if(NULL == pparams) {
+      cn0_est_compute_params(&params, 1e3f / data->int_ms, CN0_EST_LPF_CUTOFF,
+                             1e3f / data->int_ms);
+      pparams = &params;
+    }
+
+    common_data->cn0 = cn0_est(&data->cn0_est,
+                               pparams,
+                               cs[1].I/data->int_ms, cs[1].Q/data->int_ms);
+  }
+
   if (common_data->cn0 > track_cn0_drop_thres)
     common_data->cn0_above_drop_thres_count = common_data->update_count;
 
@@ -319,8 +364,7 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
                        tracker_bit_length_get(channel_info->context));
     data->short_cycle = true;
 
-    cn0_est_init(&data->cn0_est, 1e3 / data->int_ms, common_data->cn0,
-                 CN0_EST_LPF_CUTOFF, 1e3 / data->int_ms);
+    cn0_est_init(&data->cn0_est, 1e3 / data->int_ms, common_data->cn0);
 
     /* Recalculate filter coefficients */
     aided_tl_retune(&data->tl_state, 1e3 / data->int_ms,
@@ -403,4 +447,19 @@ static bool parse_lock_detect_params(struct setting *s, const char *val)
   strncpy(s->addr, val, s->len);
   memcpy(&lock_detect_params, &p, sizeof(lock_detect_params));
   return true;
+}
+
+/* Pre-compute C/N0 estimator and filter parameters. The parameters are
+ * computed using equivalent of cn0_est_compute_params() function for
+ * integration periods of 1, 2, 4, 5, 10 and 20ms and cut-off frequency
+ * of 0.1 Hz.
+ */
+static void precompute_cn0_est_params(void)
+{
+  for(u32 i = 0; i < INTEG_PERIODS_NUM; i++) {
+    cn0_est_compute_params(&cn0_est_pre_computed[i],
+                           1e3f / integration_periods[i],
+                           CN0_EST_LPF_CUTOFF,
+                           1e3f / integration_periods[i]);
+  }
 }
