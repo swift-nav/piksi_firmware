@@ -611,8 +611,7 @@ static bool parse_lock_detect_params(struct setting *s, const char *val)
 
 /* Pre-compute C/N0 estimator and filter parameters. The parameters are
  * computed using equivalent of cn0_est_compute_params() function for
- * integration periods of 1, 2, 4, 5, 10 and 20ms and cut-off frequency
- * of 0.1 Hz.
+ * integration periods and cut-off frequency defined in this file.
  */
 static void precompute_cn0_est_params(void)
 {
