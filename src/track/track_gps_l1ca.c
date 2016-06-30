@@ -11,6 +11,7 @@
  */
 
 #include "track_gps_l1ca.h"
+#include "track_gps_l2cm.h" /* for L1C/A to L2 CM tracking handover */
 #include "track_api.h"
 
 #include <libswiftnav/constants.h>
@@ -70,6 +71,9 @@ static const u8 integration_periods[] = {
                            sizeof(integration_periods[0]))
 
 static cn0_est_params_t cn0_est_pre_computed[INTEG_PERIODS_NUM];
+
+/* Convert milliseconds to L1C/A chips */
+#define L1CA_TRACK_MS_TO_CHIPS(ms) ((ms) * GPS_L1CA_CHIPS_NUM)
 
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
@@ -248,7 +252,8 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
 
     if (!data->short_cycle) {
       tracker_retune(channel_info->context, common_data->carrier_freq,
-                     common_data->code_phase_rate, 0);
+                     common_data->code_phase_rate,
+                     L1CA_TRACK_MS_TO_CHIPS(1));
       return;
     }
   }
@@ -266,6 +271,10 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     cn0_est_params_t params;
     const cn0_est_params_t *pparams = NULL;
 
+    /* TODO
+     * Store a pointer to the cn0_est_params_t in the gps_l1ca_tracker_data_t
+     * structure so we don't have to scan through the whole array each time
+     */
     for(u32 i = 0; i < INTEG_PERIODS_NUM; i++) {
       if(data->int_ms == integration_periods[i]) {
         pparams = &cn0_est_pre_computed[i];
@@ -383,9 +392,20 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
     common_data->mode_change_count = common_data->update_count;
   }
 
+  if (data->lock_detect.outo &&
+      tracker_bit_aligned(channel_info->context))
+    do_l1ca_to_l2cm_handover(common_data->sample_count,
+                             channel_info->sid.sat,
+                             common_data->code_phase_early,
+                             common_data->carrier_freq,
+                             common_data->cn0);
+
+  u32 chips_to_correlate = (1 == data->int_ms) ?
+                           L1CA_TRACK_MS_TO_CHIPS(1) :
+                           L1CA_TRACK_MS_TO_CHIPS(data->int_ms - 1);
+
   tracker_retune(channel_info->context, common_data->carrier_freq,
-                 common_data->code_phase_rate,
-                 data->int_ms == 1 ? 0 : data->int_ms - 2);
+                 common_data->code_phase_rate, chips_to_correlate);
 }
 
 /** Parse a string describing the tracking loop filter parameters into
