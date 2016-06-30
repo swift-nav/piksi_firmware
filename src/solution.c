@@ -584,48 +584,6 @@ static void solution_thread(void *arg)
                          NMEA_GGA_FIX_GPS, clock_jump);
     }
 
-    /* There are two corrections that are applied to the pseudorange,
-     * the first is done to remove receiver clock error which we now know
-     * (since we've performed a PVT solve).  To remove the receiver
-     * clock error from the pseudorange we need to add the PVT time
-     * correction term into the pseudorange.  To be more explicit, we
-     * start with the pseudorange using Leick's notation:
-     *
-     *      P(t) = c * [t - TOT(t) + dt_k(t) - dt^p(t)]
-     *
-     * Where dt_k is the receiver clock error and dt^p is the satellite clock error,
-     * and TOT(t) is the time of transmission for a signal that arrived at time t.
-     *
-     * When we first compute the raw_pseudorange (in calc_navigation_measurements)
-     * dt_k(t) and dt^p(t) are unknown, so we ignore them and set:
-     *
-     *      P_uncorrected(tor) = P(tor) - c dt_k(tor) + c dt^p(t)
-     *                         = c (tor - TOT(tor))
-     *
-     * Now that we know the receiver error we can get a more accurate pseudorange
-     * by accounting for the receiver error (dt_k(t))
-     *
-     *      P_corrected(t_pvt) = P_uncorrected(tor) + c dt_k(t_pvt)
-     *                         = P_uncorrected(tor) + c (t_pvt - tor)
-     *                         = c (t_pvt - TOT(tor))
-     *                         = c (t_pvt - TOT(t_pvt)).
-     *
-     *  The last bit comes from TOT(tor) == TOT(t_pvt), which simply stems from
-     *  the fact that uncorrected and corrected pseudoranges correspond to the
-     *  exact same observations.
-     */
-    for (u8 i = 0; i < n_ready_tdcp; i++) {
-      double pr_err = GPS_C * gpsdifftime(&position_solution.time, &rec_time);
-      nav_meas_tdcp[i].raw_pseudorange += pr_err;
-      nav_meas_tdcp[i].pseudorange += pr_err;
-    }
-    /*
-     * The next correction is done to create a new pseudorange that is valid for
-     * a different time of arrival.  In particular we'd like to propagate all the
-     * observations such that they represent what we would have observed had
-     * the observations all arrived at the current epoch (t').
-     */
-
     /* Calculate the time of the nearest solution epoch, where we expected
      * to be, and calculate how far we were away from it. */
     double expected_tow = round(position_solution.time.tow * soln_freq)
