@@ -514,13 +514,15 @@ static void solution_thread(void *arg)
 
     ephemeris_lock();
     s8 nm_ret = calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
-                                            p_rec_time, p_e_meas, p_cnav_30);
+                                            p_rec_time, p_e_meas);
     ephemeris_unlock();
 
     if (nm_ret != 0) {
        log_error("calc_navigation_measurement() returned an error");
        continue;
      }
+
+    calc_isc(n_ready, p_nav_meas, p_cnav_30);
 
     static u64 rec_tc_old = 0;
     static u8 n_ready_old = 0;
