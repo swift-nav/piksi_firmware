@@ -14,6 +14,7 @@
 #ifndef SWIFTNAV_NAP_HW_V2_H
 #define SWIFTNAV_NAP_HW_V2_H
 
+#include <libswiftnav/config.h>
 #include <libswiftnav/signal.h>
 
 /** \addtogroup nap
@@ -39,7 +40,7 @@
 #define NAP_HASH_NOTREADY           2
 
 /** Max number of tracking channels NAP configuration will be built with. */
-#define NAP_MAX_N_TRACK_CHANNELS     12
+#define NAP_MAX_N_TRACK_CHANNELS    (MAX_CHANNELS + 1)
 
 u8 nap_conf_done(void);
 u8 nap_hash_rd_done(void);
