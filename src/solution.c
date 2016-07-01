@@ -470,8 +470,10 @@ static void solution_thread(void *arg)
       tracking_channel_unlock(i);
     }
 
+    const cnav_msg_type_30_t *p_cnav_30[MAX_CHANNELS];
     for (u8 i=0; i<n_ready; i++) {
-      cnav_msg_type30_get(meas[i].sid.sat, &cnav_30[i]);
+      p_cnav_30[i] = cnav_msg_type30_get(meas[i].sid, &cnav_30[i]) ?
+                     &cnav_30[i] : NULL;
     }
 
     gnss_sid_set_t codes_in_track;
@@ -492,14 +494,12 @@ static void solution_thread(void *arg)
     const channel_measurement_t *p_meas[n_ready];
     navigation_measurement_t *p_nav_meas[n_ready];
     const ephemeris_t *p_e_meas[n_ready];
-    const cnav_msg_type_30_t *p_cnav_30[MAX_CHANNELS];
 
     /* Create arrays of pointers for use in calc_navigation_measurement */
     for (u8 i = 0; i < n_ready; i++) {
       p_meas[i] = &meas[i];
       p_nav_meas[i] = &nav_meas[i];
       p_e_meas[i] = ephemeris_get(meas[i].sid);
-      p_cnav_30[i] = &cnav_30[i];
     }
 
     /* Create navigation measurements from the channel measurements */

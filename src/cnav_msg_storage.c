@@ -10,6 +10,7 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <string.h>
 #include <libswiftnav/signal.h>
 #include <ch.h>
 
@@ -22,20 +23,29 @@ void cnav_msg_type30_put(const cnav_msg_t *msg)
 {
   if (CNAV_MSG_TYPE_30 != msg->msg_id)
     return;
+
   if (msg->prn > NUM_SATS_GPS)
     return;
 
+  gnss_signal_t sid = construct_sid(CODE_GPS_L2CM, msg->prn);
+
+  u16 idx = sid_to_code_index(sid);
   chMtxLock(&type30_mutex);
-  type_30_store[msg->prn] = msg->data.type_30;
+  type_30_store[idx] = msg->data.type_30;
   chMtxUnlock(&type30_mutex);
 }
 
-void cnav_msg_type30_get(u8 prn, cnav_msg_type_30_t *msg)
+bool cnav_msg_type30_get(gnss_signal_t sid, cnav_msg_type_30_t *msg)
 {
-  if (prn > NUM_SATS_GPS)
-    return;
+  bool res = false;
 
-  chMtxLock(&type30_mutex);
-  *msg = type_30_store[prn];
-  chMtxUnlock(&type30_mutex);
+  if (sid_valid(sid) && sid_to_constellation(sid) == CONSTELLATION_GPS) {
+    u16 idx = sid_to_code_index(sid);
+    chMtxLock(&type30_mutex);
+    *msg = type_30_store[idx];
+    chMtxUnlock(&type30_mutex);
+    res = true;
+  }
+
+  return res;
 }

@@ -16,6 +16,6 @@
 #include <libswiftnav/cnav_msg.h>
 
 void cnav_msg_type30_put(const cnav_msg_t *msg);
-void cnav_msg_type30_get(u8 prn, cnav_msg_type_30_t *msg);
+bool cnav_msg_type30_get(gnss_signal_t sid, cnav_msg_type_30_t *msg);
 
 #endif /* LIBSWIFTNAV_CNAV_MSG_STORAGE_H */
