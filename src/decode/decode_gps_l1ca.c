@@ -23,6 +23,7 @@
 #include "sbp_utils.h"
 #include "signal.h"
 #include "l2c_capb.h"
+#include "iono.h"
 
 typedef struct {
   nav_msg_t nav_msg;
@@ -113,6 +114,12 @@ static void decoder_gps_l1ca_process(const decoder_channel_info_t *channel_info,
     /* Store new L2C value  */
     log_debug("L2C capabilities received: 0x%x", dd.gps_l2c_sv_capability);
     gps_l2cm_l2c_cap_store(dd.gps_l2c_sv_capability);
+  }
+
+  if (dd.iono_corr_upd_flag) {
+    /* store new iono parameters */
+    log_debug("Iono parameters received");
+    gps_iono_params_store(&dd.iono);
   }
 
   if(dd.ephemeris_upd_flag) {

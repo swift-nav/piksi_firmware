@@ -9,7 +9,6 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
-
 #include <stdio.h>
 #include <string.h>
 
@@ -23,6 +22,7 @@
 #include <libswiftnav/dgnss_management.h>
 #include <libswiftnav/baseline.h>
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/troposphere.h>
 
 #define memory_pool_t MemoryPool
 #include <ch.h>
@@ -43,6 +43,7 @@
 #include "signal.h"
 #include "system_monitor.h"
 #include "main.h"
+#include "iono.h"
 #include "sid_set.h"
 
 /* Maximum CPU time the solution thread is allowed to use. */
@@ -433,6 +434,9 @@ static void sol_thd_sleep(systime_t *deadline, systime_t interval)
 static THD_WORKING_AREA(wa_solution_thread, 8000);
 static void solution_thread(void *arg)
 {
+  /* The flag is true when we have a fix */
+  bool soln_flag = false;
+
   (void)arg;
   chRegSetThreadName("solution");
 
@@ -534,6 +538,20 @@ static void solution_thread(void *arg)
       continue;
     }
 
+    /* check if we have a solution, if yes calc iono and tropo correction */
+    if (soln_flag) {
+      ionosphere_t i_params;
+      ionosphere_t *p_i_params = &i_params;
+      /* get iono parameters if available */
+      if(!gps_iono_params_read(p_i_params)) {
+        p_i_params = NULL;
+      }
+      calc_iono_tropo(n_ready_tdcp, nav_meas_tdcp,
+                      position_solution.pos_ecef,
+                      position_solution.pos_llh,
+                      p_i_params);
+    }
+
     dops_t dops;
     /* Calculate the SPP position
      * disable_raim controlled by external setting. Defaults to false. */
@@ -548,10 +566,14 @@ static void solution_thread(void *arg)
         log_warn("PVT solver: %s (code %d)", pvt_err_msg[-pvt_ret-1], pvt_ret);
       );
 
+      soln_flag = false;
+
       /* Send just the DOPs and exit the loop */
       solution_send_sbp(0, &dops, clock_jump);
       continue;
     }
+
+    soln_flag = true;
 
     if (pvt_ret == 1)
 	  log_warn("calc_PVT: RAIM repair");

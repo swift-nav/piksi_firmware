@@ -123,6 +123,7 @@ CSRC := $(STARTUPSRC) \
         $(SWIFTNAV_ROOT)/src/decode.o \
         $(SWIFTNAV_ROOT)/src/signal.o \
         $(SWIFTNAV_ROOT)/src/l2c_capb.o \
+        $(SWIFTNAV_ROOT)/src/iono.o \
         $(SWIFTNAV_ROOT)/src/sid_set.o \
         main.c
 
