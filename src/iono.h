@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Swift Navigation Inc.
- * Contact: Roman Gezikov <rgezikov@exafore.com>
+ * Contact: Dmitry Tatarinov <dmitry.tatarinov@exafore.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
  * be be distributed together with this source. All other rights reserved.
@@ -10,12 +10,13 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#ifndef SRC_L2C_CAPB_H_
-#define SRC_L2C_CAPB_H_
+#ifndef SRC_IONO_H_
+#define SRC_IONO_H_
 
-#include "libswiftnav/common.h"
+#include <libswiftnav/common.h>
+#include <libswiftnav/ionosphere.h>
 
-void gps_l2cm_l2c_cap_store(u32 l2c_capb);
-u32 gps_l2cm_l2c_cap_read();
+void gps_iono_params_store(const ionosphere_t *params);
+u8 gps_iono_params_read(ionosphere_t *params);
 
-#endif /* SRC_L2C_CAPB_H_ */
+#endif /* SRC_IONO_H_ */

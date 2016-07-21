@@ -64,7 +64,7 @@ static const char SBP_MODULE[] = "sbp";
 static u8 sbp_buffer[264];
 static u32 sbp_buffer_length;
 
-static WORKING_AREA_CCM(wa_sbp_thread, 6084);
+static WORKING_AREA_CCM(wa_sbp_thread, 7168);
 static void sbp_thread(void *arg)
 {
   (void)arg;

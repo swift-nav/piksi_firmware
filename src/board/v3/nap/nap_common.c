@@ -47,7 +47,11 @@ void nap_setup(void)
   axi_dma_init();
   axi_dma_start(&AXIDMADriver1);
 
-  NAP->FE_PINC[0] = NAP_FE_BASEBAND_MIXER_PINC;
+  /* NAP_FE10_PINC initialization for GPS L1C/A processing */
+  NAP->FE_PINC[0] = NAP_FE_L1CA_BASEBAND_MIXER_PINC;
+
+  /* NAP_FE40_PINC initialization for GPS L2C processing */
+  NAP->FE_PINC[6] = NAP_FE_L2C_BASEBAND_MIXER_PINC;
 
   /* Enable NAP interrupt */
   chThdCreateStatic(wa_nap_exti, sizeof(wa_nap_exti), HIGHPRIO-1, nap_exti_thread, NULL);

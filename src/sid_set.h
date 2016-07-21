@@ -10,17 +10,18 @@
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "l2c_capb.h"
+#ifndef SWIFTNAV_SID_SET_H
+#define SWIFTNAV_SID_SET_H
 
-/* Initial value matches the status of GPS constellation on 2016-05-17 */
-static u32 gps_l2cm_l2c_capabilities = 0xf7814bfd;
+#include <libswiftnav/common.h>
+#include <libswiftnav/signal.h>
 
-void gps_l2cm_l2c_cap_store(u32 l2c_capb)
-{
-  gps_l2cm_l2c_capabilities = l2c_capb;
-}
+typedef struct {
+  u64 sats[CODE_COUNT];
+} gnss_sid_set_t;
 
-u32 gps_l2cm_l2c_cap_read()
-{
-  return gps_l2cm_l2c_capabilities;
-}
+void sid_set_init(gnss_sid_set_t *sid_set);
+void sid_set_add(gnss_sid_set_t *sid_set, gnss_signal_t sid);
+u32 sid_set_get_sat_count(const gnss_sid_set_t *sid_set);
+
+#endif /* SWIFTNAV_SID_SET_H */

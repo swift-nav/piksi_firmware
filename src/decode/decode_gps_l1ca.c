@@ -22,7 +22,8 @@
 #include "sbp.h"
 #include "sbp_utils.h"
 #include "signal.h"
-#include "l2c_capb.h"
+#include "iono.h"
+#include "ndb.h"
 
 typedef struct {
   nav_msg_t nav_msg;
@@ -105,22 +106,24 @@ static void decoder_gps_l1ca_process(const decoder_channel_info_t *channel_info,
   /* Decode nav data to temporary structure */
   gps_l1ca_decoded_data_t dd;
   s8 ret = process_subframe(&data->nav_msg, channel_info->sid, &dd);
+
   if (ret <= 0)
     return;
 
-
   if (dd.gps_l2c_sv_capability_upd_flag) {
-    /* Store new L2C value  */
+    /* store new L2C value into NDB */
     log_debug("L2C capabilities received: 0x%x", dd.gps_l2c_sv_capability);
-    gps_l2cm_l2c_cap_store(dd.gps_l2c_sv_capability);
+    ndb_gps_l2cm_l2c_cap_store(&dd.gps_l2c_sv_capability, NDB_DS_RECEIVER);
+  }
+
+  if (dd.iono_corr_upd_flag) {
+    /* store new iono parameters */
+    log_debug("Iono parameters received");
+    gps_iono_params_store(&dd.iono);
   }
 
   if(dd.ephemeris_upd_flag) {
-    /* Decoded a new ephemeris. */
+    /* Store new ephemeris to NDB*/
     ephemeris_new(&dd.ephemeris);
-    ephemeris_t *eph = ephemeris_get(channel_info->sid);
-    if (!eph->valid) {
-      log_info_sid(channel_info->sid, "ephemeris is invalid");
-    }
   }
 }

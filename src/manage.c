@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 Swift Navigation Inc.
+ * Copyright (C) 2011-2014,2016 Swift Navigation Inc.
  * Contact: Fergus Noble <fergus@swift-nav.com>
  *
  * This source is subject to the license found in the file 'LICENSE' which must
@@ -25,6 +25,7 @@
 #include <libswiftnav/coord_system.h>
 #include <libswiftnav/linear_algebra.h>
 #include <libswiftnav/signal.h>
+#include <libswiftnav/constants.h>
 
 #include "main.h"
 #include "board/nap/track_channel.h"
@@ -43,6 +44,7 @@
 #include "./system_monitor.h"
 #include "settings.h"
 #include "signal.h"
+#include "ndb.h"
 
 /** \defgroup manage Manage
  * Manage acquisition and tracking.
@@ -113,8 +115,6 @@ static tracking_startup_fifo_t tracking_startup_fifo;
 
 static MUTEX_DECL(tracking_startup_mutex);
 
-static almanac_t almanac[PLATFORM_SIGNAL_COUNT];
-
 static float elevation_mask = 0.0; /* degrees */
 static bool sbas_enabled = false;
 
@@ -137,6 +137,11 @@ static void almanac_callback(u16 sender_id, u8 len, u8 msg[], void* context)
 {
   (void)sender_id; (void)len; (void)context; (void)msg;
 }
+
+static bool tracking_startup_fifo_sid_present(
+                                            const tracking_startup_fifo_t *fifo,
+                                            gnss_signal_t sid);
+
 
 static sbp_msg_callbacks_node_t mask_sat_callback_node;
 static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
@@ -161,7 +166,7 @@ static void mask_sat_callback(u16 sender_id, u8 len, u8 msg[], void* context)
   }
 }
 
-static WORKING_AREA_BCKP(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
+static THD_WORKING_AREA(wa_manage_acq_thread, MANAGE_ACQ_THREAD_STACK);
 static void manage_acq_thread(void *arg)
 {
   /* TODO: This should be trigged by a semaphore from the acq ISR code, not
@@ -190,7 +195,6 @@ void manage_acq_setup()
     acq_status[i].sid = sid_from_global_index(i);
 
     track_mask[i] = false;
-    almanac[i].valid = 0;
 
     if (!sbas_enabled &&
         (sid_to_constellation(acq_status[i].sid) == CONSTELLATION_SBAS)) {
@@ -246,17 +250,16 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
     bool ready = false;
     /* Do we have a suitable ephemeris for this sat?  If so, use
        that in preference to the almanac. */
-    const ephemeris_t *e = ephemeris_get(sid);
+    union { ephemeris_t e; almanac_t a; } orbit;
+    ndb_ephemeris_read(sid, &orbit.e);
     u8 eph_valid;
     s8 ss_ret;
     double sat_pos[3], sat_vel[3], el_d;
 
-    ephemeris_lock();
-    eph_valid = ephemeris_valid(e, t);
+    eph_valid = ephemeris_valid(&orbit.e, t);
     if (eph_valid) {
-      ss_ret = calc_sat_state(e, t, sat_pos, sat_vel, &_, &_);
+      ss_ret = calc_sat_state(&orbit.e, t, sat_pos, sat_vel, &_, &_);
     }
-    ephemeris_unlock();
 
     if (eph_valid && (ss_ret == 0)) {
       wgsecef2azel(sat_pos, position_solution.pos_ecef, &_, &el_d);
@@ -277,14 +280,14 @@ static u16 manage_warm_start(gnss_signal_t sid, const gps_time_t* t,
     }
 
     if(!ready) {
-      const almanac_t *a = &almanac[sid_to_global_index(sid)];
-      if (a->valid &&
-          calc_sat_az_el_almanac(a, t, position_solution.pos_ecef,
+      ndb_almanac_read(sid, &orbit.a);
+      if (orbit.a.valid &&
+          calc_sat_az_el_almanac(&orbit.a, t, position_solution.pos_ecef,
                                  &_, &el_d) == 0) {
           el = (float)(el_d) * R2D;
           if (el < elevation_mask)
             return SCORE_BELOWMASK;
-          if (calc_sat_doppler_almanac(a, t, position_solution.pos_ecef,
+          if (calc_sat_doppler_almanac(&orbit.a, t, position_solution.pos_ecef,
                                        &dopp_hint) != 0) {
             return SCORE_COLDSTART;
           }
@@ -306,6 +309,10 @@ static acq_status_t * choose_acq_sat(void)
   gps_time_t t = get_current_time();
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
+    if (!code_requires_direct_acq(acq_status[i].sid.code)) {
+      continue;
+    }
+
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
         acq_status[i].masked)
       continue;
@@ -328,6 +335,10 @@ static acq_status_t * choose_acq_sat(void)
   u32 pick = rand() % total_score;
 
   for (u32 i=0; i<PLATFORM_SIGNAL_COUNT; i++) {
+    if (!code_requires_direct_acq(acq_status[i].sid.code)) {
+      continue;
+    }
+
     if ((acq_status[i].state != ACQ_PRN_ACQUIRING) ||
         acq_status[i].masked)
       continue;
@@ -408,6 +419,7 @@ static void manage_acq()
       .sample_count = acq_result.sample_count,
       .carrier_freq = acq_result.cf,
       .code_phase = acq_result.cp,
+      .chips_to_correlate = code_to_chip_count(acq->sid.code),
       .cn0_init = acq_result.cn0,
       .elevation = TRACKING_ELEVATION_UNKNOWN
     };
@@ -555,9 +567,14 @@ static void manage_track()
     }
 
     /* Is ephemeris or alert flag marked unhealthy?*/
-    const ephemeris_t *e = ephemeris_get(sid);
+    u8 v;
+    u8 h;
+    gps_time_t toe;
+    u32 fit_interval;
+
+    ndb_ephemeris_info(sid, &v, &h, &toe, &fit_interval);
     /* TODO: check alert flag */
-    if (e->valid && !satellite_healthy(e)) {
+    if (v && !h) {
       log_info_sid(sid, "unhealthy, dropping");
       drop_channel(i);
       acq->state = ACQ_PRN_UNHEALTHY;
@@ -627,8 +644,12 @@ s8 use_tracking_channel(u8 i)
       .wn = WN_UNKNOWN,
       .tow = 1e-3 * tracking_channel_tow_ms_get(i)
     };
-    ephemeris_t *e = ephemeris_get(tracking_channel_sid_get(i));
-    return ephemeris_valid(e, &t) && satellite_healthy(e);
+
+    u8 v, h;
+    gps_time_t toe;
+    u32 fi;
+    ndb_ephemeris_info(tracking_channel_sid_get(i), &v, &h, &toe, &fi);
+    return h && ephemeris_params_valid(v, fi, &toe, &t);
   } else return 0;
 }
 
@@ -643,21 +664,69 @@ u8 tracking_channels_ready()
   return n_ready;
 }
 
+/** Checks if tracking can be started for a given sid.
+ *
+ * \param sid Signal ID to check.
+ * \retval true sid tracking can be started.
+ * \retval false sid tracking cannot be started.
+ */
+bool tracking_startup_ready(gnss_signal_t sid)
+{
+  u16 global_index = sid_to_global_index(sid);
+  acq_status_t *acq = &acq_status[global_index];
+  return (acq->state == ACQ_PRN_ACQUIRING) && (!acq->masked);
+}
+
+/** Check if a startup request for an sid is present in a
+ *  tracking startup FIFO.
+ *
+ * \param fifo        tracking_startup_fifo_t struct to use.
+ * \param sid         gnss_signal_t to use.
+ *
+ * \return true if the sid is present, false otherwise.
+ */
+static bool tracking_startup_fifo_sid_present(
+                                            const tracking_startup_fifo_t *fifo,
+                                            gnss_signal_t sid)
+{
+  tracking_startup_fifo_index_t read_index = fifo->read_index;
+  tracking_startup_fifo_index_t write_index = fifo->write_index;
+  COMPILER_BARRIER(); /* Prevent compiler reordering */
+  while(read_index != write_index) {
+    const tracking_startup_params_t *p =
+        &fifo->elements[read_index++ & TRACKING_STARTUP_FIFO_INDEX_MASK];
+    if (sid_is_equal(p->sid, sid)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Queue a request to start up tracking and decoding for the specified sid.
  *
  * \note This function is thread-safe and non-blocking.
  *
  * \param startup_params    Struct containing startup parameters.
  *
- * \return true if the request was successfully submitted, false otherwise.
+ * \retval 0 if the request was successfully submitted
+ * \retval 1 if requested sid is already in the fifo
+ * \retval 2 otherwise
+ *
  */
-bool tracking_startup_request(const tracking_startup_params_t *startup_params)
+u8 tracking_startup_request(const tracking_startup_params_t *startup_params)
 {
-  bool result = false;
+  u8 result = 2;
   if(chMtxTryLock(&tracking_startup_mutex))
   {
-    result = tracking_startup_fifo_write(&tracking_startup_fifo,
-                                         startup_params);
+    if(!tracking_startup_fifo_sid_present(&tracking_startup_fifo,
+                                          startup_params->sid)) {
+      if(tracking_startup_fifo_write(&tracking_startup_fifo,
+                                           startup_params)) {
+        result = 0;
+      }
+    } else {
+      result = 1;
+    }
 
     chMtxUnlock(&tracking_startup_mutex);
   }
@@ -674,6 +743,11 @@ static void manage_tracking_startup(void)
   while(tracking_startup_fifo_read(&tracking_startup_fifo, &startup_params)) {
 
     acq_status_t *acq = &acq_status[sid_to_global_index(startup_params.sid)];
+
+    /* Make sure the SID is not already tracked. */
+    if (acq->state == ACQ_PRN_TRACKING) {
+      continue;
+    }
 
     /* Make sure a tracking channel and a decoder channel are available */
     u8 chan = manage_track_new_acq(startup_params.sid);
@@ -698,10 +772,12 @@ static void manage_tracking_startup(void)
                              startup_params.sample_count,
                              startup_params.code_phase,
                              startup_params.carrier_freq,
+                             startup_params.chips_to_correlate,
                              startup_params.cn0_init,
                              TRACKING_ELEVATION_UNKNOWN)) {
       log_error("tracker channel init failed");
     }
+
     /* TODO: Initialize elevation from ephemeris if we know it precisely */
 
     /* Start the decoder channel */

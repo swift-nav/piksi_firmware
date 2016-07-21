@@ -122,7 +122,14 @@ CSRC := $(STARTUPSRC) \
         $(SWIFTNAV_ROOT)/src/pps.o \
         $(SWIFTNAV_ROOT)/src/decode.o \
         $(SWIFTNAV_ROOT)/src/signal.o \
-        $(SWIFTNAV_ROOT)/src/l2c_capb.o \
+        $(SWIFTNAV_ROOT)/src/iono.o \
+        $(SWIFTNAV_ROOT)/src/sid_set.o \
+        $(SWIFTNAV_ROOT)/src/cnav_msg_storage.o \
+        $(SWIFTNAV_ROOT)/src/ndb/ndb_internal.o \
+        $(SWIFTNAV_ROOT)/src/ndb/ndb_ephemeris.o \
+        $(SWIFTNAV_ROOT)/src/ndb/ndb_almanac.o \
+        $(SWIFTNAV_ROOT)/src/ndb/ndb.o \
+        $(BOARDDIR)/ndb_fs_access.o \
         main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
@@ -159,6 +166,7 @@ INCDIR = $(STARTUPINC) $(PORTINC) $(KERNINC) \
          $(SWIFTNAV_ROOT)/libswiftnav/include \
          $(SWIFTNAV_ROOT)/src \
          $(SWIFTNAV_ROOT)/src/board \
+         $(SWIFTNAV_ROOT)/libswiftnav/libfec/include \
 
 #
 # Project, sources and paths
@@ -216,12 +224,13 @@ DLIBDIR = $(SWIFTNAV_ROOT)/libsbp/c/build/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/BLAS/SRC \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/SRC \
           $(SWIFTNAV_ROOT)/libswiftnav/build/clapack-3.2.1-CMAKE/F2CLIBS/libf2c \
+          $(SWIFTNAV_ROOT)/libswiftnav/build/libfec/src \
           $(SWIFTNAV_ROOT)/libswiftnav/build/src
 
 # List all default libraries here
 DLIBS = -lsbp-static -lswiftnav-static \
         -llapack -lcblas -lblas \
-        -lf2c -lm -lc -lnosys
+        -lf2c -lm -lc -lnosys -lfec
 
 #
 # End of default section

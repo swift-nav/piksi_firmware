@@ -26,18 +26,21 @@ MAKEFLAGS += PIKSI_HW=$(PIKSI_HW)
 
 ifeq ($(PIKSI_HW),v2)
 	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-m4
+	CMAKEFLAGS += -DMAX_CHANNELS=11
 endif
 
 ifeq ($(PIKSI_HW),v3)
 	CMAKEFLAGS += -DCMAKE_SYSTEM_PROCESSOR=cortex-a9
+	CMAKEFLAGS += -DMAX_CHANNELS=31
 endif
 
 .PHONY: all tests firmware docs hitl_setup hitl hitlv3 .FORCE
 
 all: firmware # tests
+	@printf "BUILDING For target $(PIKSI_HW)\n"
 
 firmware: libsbp/c/build/src/libsbp-static.a libswiftnav/build/src/libswiftnav-static.a
-	@printf "BUILD   src\n"; \
+	@printf "BUILD  src for target $(PIKSI_HW)\n"; \
 	$(MAKE) -r -C src $(MAKEFLAGS)
 
 tests:
@@ -49,13 +52,13 @@ tests:
 	done
 
 libsbp/c/build/src/libsbp-static.a:
-	@printf "BUILD   libsbp\n"; \
+	@printf "BUILD   libsbp for target $(PIKSI_HW)\n"; \
 	mkdir -p libsbp/c/build; cd libsbp/c/build; \
 	cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake $(CMAKEFLAGS) ../
 	$(MAKE) -C libsbp/c/build $(MAKEFLAGS)
 
 libswiftnav/build/src/libswiftnav-static.a: .FORCE
-	@printf "BUILD   libswiftnav\n"; \
+	@printf "BUILD   libswiftnav for target $(PIKSI_HW)\n"; \
 	mkdir -p libswiftnav/build; cd libswiftnav/build; \
 	cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-gcc-arm-embedded.cmake $(CMAKEFLAGS) ../
 	$(MAKE) -C libswiftnav/build $(MAKEFLAGS)

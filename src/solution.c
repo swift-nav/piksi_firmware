@@ -9,10 +9,10 @@
  * EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
  */
-
 #include <stdio.h>
 #include <string.h>
 
+#include <libswiftnav/cnav_msg.h>
 #include <libsbp/sbp.h>
 #include <libswiftnav/logging.h>
 #include <libswiftnav/pvt.h>
@@ -23,6 +23,7 @@
 #include <libswiftnav/dgnss_management.h>
 #include <libswiftnav/baseline.h>
 #include <libswiftnav/linear_algebra.h>
+#include <libswiftnav/troposphere.h>
 
 #define memory_pool_t MemoryPool
 #include <ch.h>
@@ -43,6 +44,10 @@
 #include "signal.h"
 #include "system_monitor.h"
 #include "main.h"
+#include "iono.h"
+#include "sid_set.h"
+#include "cnav_msg_storage.h"
+#include "ndb.h"
 
 /* Maximum CPU time the solution thread is allowed to use. */
 #define SOLN_THD_CPU_MAX (0.60f)
@@ -429,9 +434,12 @@ static void sol_thd_sleep(systime_t *deadline, systime_t interval)
   chSysUnlock();
 }
 
-static THD_WORKING_AREA(wa_solution_thread, 8000);
+static THD_WORKING_AREA(wa_solution_thread, 8200);
 static void solution_thread(void *arg)
 {
+  /* The flag is true when we have a fix */
+  bool soln_flag = false;
+
   (void)arg;
   chRegSetThreadName("solution");
 
@@ -453,6 +461,7 @@ static void solution_thread(void *arg)
     gps_time_t rec_time = rx2gpstime(rec_tc);
     u8 n_ready = 0;
     channel_measurement_t meas[MAX_CHANNELS];
+    cnav_msg_type_30_t cnav_30[MAX_CHANNELS];
     for (u8 i=0; i<nap_track_n_channels; i++) {
       tracking_channel_lock(i);
       if (use_tracking_channel(i)) {
@@ -462,7 +471,18 @@ static void solution_thread(void *arg)
       tracking_channel_unlock(i);
     }
 
-    if (n_ready < 4) {
+    const cnav_msg_type_30_t *p_cnav_30[MAX_CHANNELS];
+    for (u8 i=0; i<n_ready; i++) {
+      p_cnav_30[i] = cnav_msg_type30_get(meas[i].sid, &cnav_30[i]) ?
+                     &cnav_30[i] : NULL;
+    }
+
+    gnss_sid_set_t codes_in_track;
+    sid_set_init(&codes_in_track);
+    for (u8 i=0; i<n_ready; i++)
+      sid_set_add(&codes_in_track, meas[i].sid);
+
+    if (sid_set_get_sat_count(&codes_in_track) < 4) {
       /* Not enough sats, keep on looping. */
       continue;
     }
@@ -474,13 +494,15 @@ static void solution_thread(void *arg)
     static navigation_measurement_t nav_meas[MAX_CHANNELS];
     const channel_measurement_t *p_meas[n_ready];
     navigation_measurement_t *p_nav_meas[n_ready];
+    static ephemeris_t e_meas[MAX_CHANNELS];
     const ephemeris_t *p_e_meas[n_ready];
 
     /* Create arrays of pointers for use in calc_navigation_measurement */
     for (u8 i = 0; i < n_ready; i++) {
       p_meas[i] = &meas[i];
       p_nav_meas[i] = &nav_meas[i];
-      p_e_meas[i] = ephemeris_get(meas[i].sid);
+      ndb_ephemeris_read(meas[i].sid, &e_meas[i]);
+      p_e_meas[i] = &e_meas[i];
     }
 
     /* Create navigation measurements from the channel measurements */
@@ -493,15 +515,15 @@ static void solution_thread(void *arg)
      * observations after doing a PVT solution. */
     gps_time_t *p_rec_time = (time_quality == TIME_FINE) ? &rec_time : NULL;
 
-    ephemeris_lock();
     s8 nm_ret = calc_navigation_measurement(n_ready, p_meas, p_nav_meas,
                                             p_rec_time, p_e_meas);
-    ephemeris_unlock();
 
     if (nm_ret != 0) {
        log_error("calc_navigation_measurement() returned an error");
        continue;
      }
+
+    calc_isc(n_ready, p_nav_meas, p_cnav_30);
 
     static u64 rec_tc_old = 0;
     static u8 n_ready_old = 0;
@@ -517,9 +539,29 @@ static void solution_thread(void *arg)
     n_ready_old = n_ready;
     rec_tc_old = rec_tc;
 
-    if (n_ready_tdcp < 4) {
+    gnss_sid_set_t codes_tdcp;
+    sid_set_init(&codes_tdcp);
+    for (u8 i=0; i<n_ready_tdcp; i++) {
+      sid_set_add(&codes_tdcp, nav_meas_tdcp[i].sid);
+    }
+
+    if (sid_set_get_sat_count(&codes_tdcp) < 4) {
       /* Not enough sats to compute PVT */
       continue;
+    }
+
+    /* check if we have a solution, if yes calc iono and tropo correction */
+    if (soln_flag) {
+      ionosphere_t i_params;
+      ionosphere_t *p_i_params = &i_params;
+      /* get iono parameters if available */
+      if(!gps_iono_params_read(p_i_params)) {
+        p_i_params = NULL;
+      }
+      calc_iono_tropo(n_ready_tdcp, nav_meas_tdcp,
+                      position_solution.pos_ecef,
+                      position_solution.pos_llh,
+                      p_i_params);
     }
 
     dops_t dops;
@@ -536,10 +578,14 @@ static void solution_thread(void *arg)
         log_warn("PVT solver: %s (code %d)", pvt_err_msg[-pvt_ret-1], pvt_ret);
       );
 
+      soln_flag = false;
+
       /* Send just the DOPs and exit the loop */
       solution_send_sbp(0, &dops, clock_jump);
       continue;
     }
+
+    soln_flag = true;
 
     if (pvt_ret == 1)
 	  log_warn("calc_PVT: RAIM repair");
@@ -654,26 +700,26 @@ static void solution_thread(void *arg)
           memcpy(nm, &nav_meas_tdcp[i], sizeof(*nm));
         }
 
-        nm->raw_pseudorange += t_err * nm->raw_doppler * GPS_L1_LAMBDA;
+        nm->raw_pseudorange += t_err * nm->raw_doppler *
+                               code_to_lambda(nm->sid.code);
         nm->raw_carrier_phase += t_err * nm->raw_doppler;
 
         nm->tot = new_obs_time;
         nm->tot.tow -= nm->raw_pseudorange / GPS_C;
         normalize_gps_time(&nm->tot);
 
-        const ephemeris_t *e = ephemeris_get(nm->sid);
+        ephemeris_t ephe;
+        ndb_ephemeris_read(nm->sid, &ephe);
         u8 eph_valid;
         s8 ss_ret;
         double clock_err;
         double clock_rate_err;
 
-        ephemeris_lock();
-        eph_valid = ephemeris_valid(e, &nm->tot);
+        eph_valid = ephemeris_valid(&ephe, &nm->tot);
         if (eph_valid) {
-          ss_ret = calc_sat_state(e, &nm->tot, nm->sat_pos, nm->sat_vel,
+          ss_ret = calc_sat_state(&ephe, &nm->tot, nm->sat_pos, nm->sat_vel,
                                   &clock_err, &clock_rate_err);
         }
-        ephemeris_unlock();
 
         if (!eph_valid || (ss_ret != 0)) {
           continue;

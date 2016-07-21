@@ -77,7 +77,10 @@ BOARDSRC := \
         $(BOARDDIR)/nap/track_channel.o \
         $(BOARDDIR)/platform_signal.o \
         $(SWIFTNAV_ROOT)/src/track/track_gps_l1ca.o \
+        $(SWIFTNAV_ROOT)/src/track/track_gps_l2cm.o \
         $(SWIFTNAV_ROOT)/src/decode/decode_gps_l1ca.o \
+        $(SWIFTNAV_ROOT)/src/decode/decode_gps_l2c.o \
+        $(SWIFTNAV_ROOT)/src/ndb/ndb_l2c_capb.o \
 
 BOARDASM := \
         $(BOARDDIR)/cpu_init.s \
