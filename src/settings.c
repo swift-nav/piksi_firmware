@@ -279,6 +279,7 @@ static int settings_format_setting(struct setting *s, char *buf, int len)
   if (s->type->format_type != NULL)
     buflen += s->type->format_type(s->type->priv, buf + buflen, len - buflen);
 
+  buf[buflen++] = '\n';
   return buflen;
 }
 
