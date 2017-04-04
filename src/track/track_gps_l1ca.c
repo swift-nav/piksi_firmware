@@ -48,7 +48,7 @@
 #define LD_PARAMS_EXTRAOPT "0.02, 0.8, 150, 50"
 #define LD_PARAMS_DISABLE  "0.02, 1e-6, 1, 1"
 
-#define CN0_EST_LPF_CUTOFF 5
+#define CN0_EST_LPF_CUTOFF 0.1f
 
 static struct loop_params {
   float code_bw, code_zeta, code_k, carr_to_code;
@@ -61,7 +61,7 @@ static struct lock_detect_params {
   u16 lp, lo;
 } lock_detect_params;
 
-static float track_cn0_use_thres = 31.0; /* dBHz */
+static float track_cn0_use_thres = 37.0; /* dBHz */
 static float track_cn0_drop_thres = 31.0;
 
 static char loop_params_string[120] = LOOP_PARAMS_MED;
@@ -238,7 +238,53 @@ static void tracker_gps_l1ca_update(const tracker_channel_info_t *channel_info,
   corr_t* cs = data->cs;
 
   /* Update C/N0 estimate */
-  common_data->cn0 = cn0_est(&data->cn0_est, cs[1].I/data->int_ms, cs[1].Q/data->int_ms);
+  {
+    /* Pre-computed C/N0 estimator and filter parameters. The parameters are
+     * computed using equivalent of cn0_est_compute_params() function for
+     * integration periods of 1, 2, 4, 5, 10 and 20ms and cut-off frequency
+     * of 0.1 Hz.
+     */
+    static const cn0_est_params_t pre_computed[] = {
+      {30.0, 9.867412419637619e-08, -1.9995554827758293, 0.999555877472326},
+      {26.989700043360187, 3.9460883052948834e-07, -1.9991103738855744, 0.9991119523208964},
+      {23.979400086720375, 1.5777341485086013e-06, -1.9982183833843465, 0.9982246943209405},
+      {23.010299956639813, 2.464661937702948e-06, -1.9977715029112624, 0.9977813615590133},
+      {20.0, 9.847699291309865e-06, -1.9955282710473072, 0.9955676618444725},
+      {16.989700043360187, 3.9303309055419534e-05, -1.9909978864545608, 0.9911550996907825}
+    };
+
+    cn0_est_params_t params;
+    const cn0_est_params_t *pparams = NULL;
+    switch (data->int_ms) {
+    case 1:
+      pparams = &pre_computed[0];
+      break;
+    case 2:
+      pparams = &pre_computed[1];
+      break;
+    case 4:
+      pparams = &pre_computed[2];
+      break;
+    case 5:
+      pparams = &pre_computed[3];
+      break;
+    case 10:
+      pparams = &pre_computed[4];
+      break;
+    case 20:
+      pparams = &pre_computed[5];
+      break;
+    default:
+      cn0_est_compute_params(&params, 1e3f / data->int_ms, CN0_EST_LPF_CUTOFF,
+                             1e3f / data->int_ms);
+      pparams = &params;
+      break;
+    }
+    common_data->cn0 = cn0_est(&data->cn0_est,
+                               pparams,
+                               cs[1].I/data->int_ms, cs[1].Q/data->int_ms);
+  }
+
   if (common_data->cn0 > track_cn0_drop_thres)
     common_data->cn0_above_drop_thres_count = common_data->update_count;
 
