@@ -3,7 +3,7 @@ piksi_firmware
 
 [![Build status][1]][2]
 
-Firmware for the Swift Navigation Piksi GPS Receiver.
+Firmware for the Swift Navigation Piksi v2.3.1 GPS receiver.  This firmware is not compatible with Piksi Multi or Duro.
 
 Documentation available online at http://docs.swift-nav.com/piksi_firmware
 
