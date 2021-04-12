@@ -1,4 +1,4 @@
-piksi_firmware
+piksi_firmware - ARCHIVED
 ==============
 
 [![Build status][1]][2]
